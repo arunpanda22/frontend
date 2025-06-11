@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
     backendUrl.searchParams.append('region', region);
     backendUrl.searchParams.append('scopes', scopes);
     backendUrl.searchParams.append('user_id', user_id);
+    // Add redirect URL to profile selection page
+    backendUrl.searchParams.append('redirect_url', `${request.nextUrl.origin}/amazon/advertising/select-profiles`);
 
     console.log(`Calling backend API: ${backendUrl.toString()}`);
 

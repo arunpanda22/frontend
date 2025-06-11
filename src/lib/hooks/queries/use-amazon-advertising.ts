@@ -112,4 +112,44 @@ export const useConnectAmazonAdvertising = (): UseMutationResult<ConnectAmazonRe
       return await response.json();
     }
   });
+};
+
+/**
+ * Hook to select an Amazon Advertising profile
+ */
+export const useSelectAdvertisingProfile = (): UseMutationResult<any, Error, { profileId: string; region: string }> => {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ profileId, region }: { profileId: string; region: string }) => {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get the user's ID token for authentication
+      const idToken = await user.getIdToken();
+      
+      const response = await fetch('/api/amazon/advertising/profiles/select', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ profileId, region })
+      });
+      
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to select advertising profile');
+        } else {
+          throw new Error(`Server error: ${response.status}`);
+        }
+      }
+      
+      return await response.json();
+    }
+  });
 }; 
