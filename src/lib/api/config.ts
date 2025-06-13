@@ -105,28 +105,50 @@ let csrfToken: string | null = null;
 
 const getCsrfToken = async (): Promise<string> => {
   try {
+    // If we already have a token, use it
+    if (csrfToken) {
+      return csrfToken;
+    }
+
     // First try to get the CSRF token from the cookie
     const cookies = document.cookie.split(';');
     const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrftoken='));
     if (csrfCookie) {
       const token = csrfCookie.split('=')[1];
-      console.log('Found CSRF token in cookie:', token);
-      return token;
+      if (token) {
+        csrfToken = token;
+        return token;
+      }
     }
 
     // If no cookie, fetch it from the server
     console.log('No CSRF token in cookie, fetching from server...');
     const response = await axios.get(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
-      withCredentials: true
+      withCredentials: true,
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     });
+
+    // If the server sends the token directly in the response
+    if (response.data && response.data.csrfToken) {
+      const token = response.data.csrfToken;
+      if (token) {
+        csrfToken = token;
+        return token;
+      }
+    }
 
     // Check response and cookies again
     const newCookies = document.cookie.split(';');
     const newCsrfCookie = newCookies.find(cookie => cookie.trim().startsWith('csrftoken='));
     if (newCsrfCookie) {
       const token = newCsrfCookie.split('=')[1];
-      console.log('Got new CSRF token from cookie:', token);
-      return token;
+      if (token) {
+        csrfToken = token;
+        return token;
+      }
     }
 
     throw new Error('Failed to get CSRF token from cookie after fetch');
@@ -139,17 +161,19 @@ const getCsrfToken = async (): Promise<string> => {
 // Request interceptor to add CSRF token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    if (config.method !== 'get') {
+    if (config.method !== 'get' && config.method !== 'GET') {
       try {
         const token = await getCsrfToken();
         if (!config.headers) {
           config.headers = new axios.AxiosHeaders();
         }
         config.headers['X-CSRFToken'] = token;
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
         console.log('Added CSRF token to request:', token);
       } catch (error) {
         console.error('Failed to get CSRF token:', error);
-        throw error;
+        // Don't throw error here, let the request proceed
+        // The backend will handle the missing token
       }
     }
     return config;
