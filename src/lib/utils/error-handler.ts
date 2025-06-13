@@ -1,4 +1,6 @@
 import { AxiosError } from 'axios';
+import { auth } from '@/lib/firebase';
+import { authService } from '@/lib/services/auth';
 
 export interface ApiErrorResponse {
   message: string;
@@ -20,7 +22,20 @@ export function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
 }
 
 export function isAxiosError(error: unknown): error is AxiosError<ApiErrorResponse> {
-  return error instanceof AxiosError;
+  return (error as AxiosError)?.isAxiosError === true;
+}
+
+export async function handleAuthError(error: unknown): Promise<void> {
+  if (isAxiosError(error) && error.response?.status === 401) {
+    try {
+      // Try to refresh the token and verify with backend
+      await authService.verifyTokenWithBackend();
+    } catch (refreshError) {
+      // If refresh fails, sign out the user
+      await auth?.signOut();
+      window.location.href = '/login';
+    }
+  }
 }
 
 export function getErrorMessage(error: unknown): string {
@@ -41,7 +56,7 @@ export function getErrorMessage(error: unknown): string {
       case 400:
         return 'Invalid request. Please check your input.';
       case 401:
-        return 'Session expired. Please log in again.';
+        return 'Authentication failed. Please log in again.';
       case 403:
         return 'You do not have permission to perform this action.';
       case 404:

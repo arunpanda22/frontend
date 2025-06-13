@@ -70,7 +70,7 @@ export default function Dashboard() {
             <AmazonConnector />
           </div>
             
-          <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100 mt-8">
+          {/* <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100 mt-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">API Connection</h2>
             <Button 
               onClick={handleConnectivityTest}
@@ -91,7 +91,7 @@ export default function Dashboard() {
                 {connectivityError}
               </div>
             )}
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

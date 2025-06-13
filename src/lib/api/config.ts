@@ -1,18 +1,19 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, AxiosHeaders } from 'axios';
 import axiosRetry from 'axios-retry';
 import { auth } from '@/lib/firebase';
+import { handleAuthError } from '@/lib/utils/error-handler';
 
 // Environment-aware base URL determination
 const isDevelopment = process.env.NODE_ENV === 'development';
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-  (isDevelopment ? "http://localhost:8000/" : "https://django-backend-epcse2awb3cyh5e8.centralindia-01.azurewebsites.net/");
+  (isDevelopment ? "http://localhost:8000" : "https://django-backend-epcse2awb3cyh5e8.centralindia-01.azurewebsites.net");
 
 // Log API URL for debugging
 console.log(`API base URL: ${API_BASE_URL} (${isDevelopment ? 'development' : 'production'})`);
 
-// Default timeout value for consistency across the app
-export const DEFAULT_TIMEOUT = 30000;
-export const LONG_OPERATION_TIMEOUT = 300000; // Increased from 100000ms to 300000ms (5 minutes)
+// Default timeout increased for long operations
+export const DEFAULT_TIMEOUT = 300000; // 5 minutes
+export const LONG_OPERATION_TIMEOUT = 300000; // 5 minutes
 
 // Create axios instance with default config
 export const apiClient: AxiosInstance = axios.create({
@@ -22,17 +23,19 @@ export const apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken',
 });
 
 // Add retry logic
-// axiosRetry(apiClient, {
-//   retries: 3,
-//   retryDelay: axiosRetry.exponentialDelay,
-//   retryCondition: (error: AxiosError) => {
-//     return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
-//            (error.response?.status ? error.response.status >= 500 : false);
-//   }
-// });
+axiosRetry(apiClient, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error: AxiosError) => {
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+           (error.response?.status ? error.response.status >= 500 : false);
+  }
+});
 
 // Authentication interceptor
 apiClient.interceptors.request.use(
@@ -61,29 +64,76 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Redirect to login page if unauthorized
-      window.location.href = '/login';
+      await handleAuthError(error);
     }
     return Promise.reject(error);
   }
 );
 
+// Debug interceptor for development
+if (process.env.NODE_ENV === 'development') {
+  apiClient.interceptors.request.use(request => {
+    console.log('Starting Request:', {
+      method: request.method,
+      url: request.url,
+      baseURL: request.baseURL,
+      headers: request.headers
+    });
+    return request;
+  });
+
+  apiClient.interceptors.response.use(response => {
+    console.log('Response:', {
+      status: response.status,
+      data: response.data,
+      headers: response.headers
+    });
+    return response;
+  }, error => {
+    console.error('Response Error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
+    return Promise.reject(error);
+  });
+}
+
 // CSRF token management
 let csrfToken: string | null = null;
 
 const getCsrfToken = async (): Promise<string> => {
-  if (!csrfToken) {
-    const response = await apiClient.get('get_csrf/', { timeout: DEFAULT_TIMEOUT });
-    if (response.data?.csrfToken) {
-      csrfToken = response.data.csrfToken;
-    } else {
-      throw new Error('No CSRF token in response');
+  try {
+    // First try to get the CSRF token from the cookie
+    const cookies = document.cookie.split(';');
+    const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrftoken='));
+    if (csrfCookie) {
+      const token = csrfCookie.split('=')[1];
+      console.log('Found CSRF token in cookie:', token);
+      return token;
     }
+
+    // If no cookie, fetch it from the server
+    console.log('No CSRF token in cookie, fetching from server...');
+    const response = await axios.get(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
+      withCredentials: true
+    });
+
+    // Check response and cookies again
+    const newCookies = document.cookie.split(';');
+    const newCsrfCookie = newCookies.find(cookie => cookie.trim().startsWith('csrftoken='));
+    if (newCsrfCookie) {
+      const token = newCsrfCookie.split('=')[1];
+      console.log('Got new CSRF token from cookie:', token);
+      return token;
+    }
+
+    throw new Error('Failed to get CSRF token from cookie after fetch');
+  } catch (error) {
+    console.error('Error getting CSRF token:', error);
+    throw error;
   }
-  if (!csrfToken) {
-    throw new Error('Failed to get CSRF token');
-  }
-  return csrfToken;
 };
 
 // Request interceptor to add CSRF token
@@ -96,6 +146,7 @@ apiClient.interceptors.request.use(
           config.headers = new axios.AxiosHeaders();
         }
         config.headers['X-CSRFToken'] = token;
+        console.log('Added CSRF token to request:', token);
       } catch (error) {
         console.error('Failed to get CSRF token:', error);
         throw error;

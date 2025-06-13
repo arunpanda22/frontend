@@ -8,10 +8,20 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const session = searchParams.get('session');
 
+    // Get authorization header
+    const authHeader = request.headers.get('Authorization');
+
     if (!session) {
       return NextResponse.json(
         { error: 'Missing required parameter: session' },
         { status: 400 }
+      );
+    }
+
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'No auth token provided' },
+        { status: 401 }
       );
     }
 
@@ -21,7 +31,8 @@ export async function GET(request: NextRequest) {
     const response = await fetch(`${BACKEND_URL}/api/v1/amazon/advertising/profiles/data?session=${session}`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
       }
     });
 

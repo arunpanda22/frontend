@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/lib/context/AuthContext'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { ProfileSelector } from '@/components/amazon/ProfileSelector'
 import { toast } from 'sonner'
+import { apiClient } from '@/lib/api/config'
+import { ProfileSelector } from '@/components/amazon/ProfileSelector'
 
 interface Profile {
   profileId: number;
@@ -28,51 +30,65 @@ interface ProfilesResponse {
 export default function SelectAmazonProfiles() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useAuth()
   const sessionId = searchParams.get('session')
+  const [error, setError] = useState<Error | null>(null)
 
   // Redirect if no session ID
   useEffect(() => {
     if (!sessionId) {
-      router.push('/amazon/advertising/error?message=Invalid session')
+      router.push('/amazon/advertising/error?message=Invalid or missing session ID')
     }
   }, [sessionId, router])
 
-  // Fetch profiles using session ID
-  const { data: profilesData, isLoading: isLoadingProfiles, error } = useQuery<ProfilesResponse, Error>({
-    queryKey: ['amazon-profiles', sessionId],
+  // Fetch profiles query
+  const { data: profiles, isLoading: isLoadingProfiles } = useQuery({
+    queryKey: ['amazon-advertising-profiles', sessionId],
     queryFn: async () => {
-      const response = await fetch(`/api/amazon/advertising/profiles/data?session=${sessionId}`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      if (!response.ok) {
-        throw new Error('Failed to fetch profiles')
+      if (!user || !sessionId) {
+        throw new Error('Missing required parameters');
       }
-      return response.json()
+
+      const token = await user.getIdToken();
+      const response = await apiClient.get('/api/v1/amazon/advertising/profiles/data', {
+        params: { session: sessionId },
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.data || !response.data.profiles) {
+        throw new Error('No profiles found in response');
+      }
+
+      return response.data;
     },
-    enabled: !!sessionId
-  })
+    enabled: !!user && !!sessionId,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 
   // Select profile mutation
   const { mutate: selectProfile, isPending: isSelectingProfile } = useMutation({
     mutationFn: async (profileId: string) => {
-      const response = await fetch('/api/amazon/advertising/profiles/select', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          profiles: [profileId] // Send as array with single profile
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to select profile');
+      if (!user) {
+        throw new Error('User not authenticated');
       }
+
+      const token = await user.getIdToken();
+      const response = await apiClient.post('/api/v1/amazon/advertising/profiles/select', 
+        {
+          profileId: String(profileId),  // Ensure profileId is a string
+          region: 'EU'
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
       
-      return response.json();
+      return response.data;
     },
     onSuccess: () => {
       toast.success('Profile selected successfully');
@@ -80,6 +96,7 @@ export default function SelectAmazonProfiles() {
     },
     onError: (error: Error) => {
       toast.error(`Failed to select profile: ${error.message}`);
+      setError(error);
     }
   });
 
@@ -89,7 +106,9 @@ export default function SelectAmazonProfiles() {
     }
   }, [error, router])
 
-  if (!sessionId) return null
+  if (!sessionId) {
+    return null;
+  }
 
   if (isLoadingProfiles) {
     return (
@@ -111,10 +130,10 @@ export default function SelectAmazonProfiles() {
           </p>
         </div>
 
-        {profilesData?.profiles && (
+        {profiles?.profiles && (
           <div className="mt-8">
             <ProfileSelector
-              profiles={profilesData.profiles}
+              profiles={profiles.profiles}
               onProfileSelect={(profileId) => selectProfile(profileId)}
               isLoading={isSelectingProfile}
             />

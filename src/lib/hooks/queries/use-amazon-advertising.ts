@@ -1,5 +1,6 @@
 import { useQuery, useMutation, UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 import { useAuth } from '@/lib/context/AuthContext';
+import { apiClient } from '@/lib/api/config';
 
 // Get the backend URL from environment variables
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -49,26 +50,14 @@ export const useAmazonAdvertisingProfiles = (): UseQueryResult<AdvertisingProfil
       // Get the user's ID token for authentication
       const idToken = await user.getIdToken();
       
-      // Use the exact backend API path from the sample code
-      const response = await fetch(`/api/amazon/advertising/profiles`, {
+      // Direct call to Django backend
+      const response = await apiClient.get('/api/v1/amazon/advertising/profiles', {
         headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${idToken}`
         }
       });
       
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch advertising profiles');
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-      
-      return await response.json();
+      return response.data;
     },
     enabled: !!user, // Enable if user is authenticated
     retry: 2,
@@ -82,34 +71,18 @@ export const useAmazonAdvertisingProfiles = (): UseQueryResult<AdvertisingProfil
 export const useConnectAmazonAdvertising = (): UseMutationResult<ConnectAmazonResponse, Error, ConnectAmazonPayload> => {
   return useMutation({
     mutationFn: async (payload: ConnectAmazonPayload) => {
-      const { userId, region = 'EU', scopes = 'advertising::campaign_management' } = payload;
+      const { userId, region = 'EU' } = payload;
       
-      // Format scopes exactly as shown in the curl example (single scope)
-      const encodedScopes = encodeURIComponent(scopes.split(',')[0]); // Take first scope if multiple
-      
-      // Match exactly the curl command format
-      const url = `/api/amazon/advertising/auth/init?region=${region}&scopes=${encodedScopes}&user_id=${userId}`;
-      console.log(`Connecting to Amazon Advertising API: ${url}`);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
+      // Direct call to Django backend with properly encoded scope
+      const response = await apiClient.get('/api/v1/amazon/advertising/auth/init', {
+        params: {
+          region,
+          scopes: 'advertising::campaign_management',  // Use pre-encoded scope
+          user_id: userId
         }
       });
       
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to start Amazon Advertising authorization');
-        } else {
-          throw new Error(`Server error: ${response.status}`);
-        }
-      }
-      
-      return await response.json();
+      return response.data;
     }
   });
 };
@@ -129,27 +102,17 @@ export const useSelectAdvertisingProfile = (): UseMutationResult<any, Error, { p
       // Get the user's ID token for authentication
       const idToken = await user.getIdToken();
       
-      const response = await fetch('/api/amazon/advertising/profiles/select', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ profileId, region })
-      });
-      
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to select advertising profile');
-        } else {
-          throw new Error(`Server error: ${response.status}`);
+      // Direct call to Django backend
+      const response = await apiClient.post('/api/v1/amazon/advertising/profiles/select', 
+        { profileId, region },
+        {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
         }
-      }
+      );
       
-      return await response.json();
+      return response.data;
     }
   });
 }; 

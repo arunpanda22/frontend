@@ -1,13 +1,13 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { useAmazonAdvertisingProfiles } from '@/lib/hooks/queries/use-amazon-advertising'
 import { useState } from 'react'
 import { Badge } from '../ui/badge'
 import { AlertCircle } from 'lucide-react'
+import { useUserProfile } from '@/lib/hooks/queries/use-user-profile'
 
 export function AdvertisingAccounts() {
-  const { data: profiles, isLoading, error, isError, refetch } = useAmazonAdvertisingProfiles()
+  const { data: userProfile, isLoading, error, isError, refetch } = useUserProfile()
   const [isRefetching, setIsRefetching] = useState(false)
   
   const handleRefresh = async () => {
@@ -16,11 +16,13 @@ export function AdvertisingAccounts() {
     setIsRefetching(false)
   }
   
+  const connectedProfiles = userProfile?.connected_advertising_profiles || []
+  
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-md font-medium text-gray-800">Connected Accounts</h3>
-        {profiles && profiles.length > 0 && (
+        {connectedProfiles.length > 0 && (
           <Button 
             variant="ghost" 
             size="sm" 
@@ -44,17 +46,17 @@ export function AdvertisingAccounts() {
             <p className="text-sm">{error?.message || 'Please try again later'}</p>
           </div>
         </div>
-      ) : profiles && profiles.length > 0 ? (
+      ) : connectedProfiles.length > 0 ? (
         <div className="space-y-3">
-          {profiles.map((profile, index) => (
+          {connectedProfiles.map((profile, index) => (
             <div key={index} className="p-4 rounded-md bg-white border border-gray-200 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-medium text-gray-900">{profile.profileName || profile.profile_id}</h4>
-                  <p className="text-sm text-gray-500">{profile.accountId || 'Amazon Advertising'}</p>
+                  <h4 className="font-medium text-gray-900">Profile {profile.profile_id}</h4>
+                  <p className="text-sm text-gray-500">Region: {profile.region}</p>
                 </div>
-                <Badge variant={profile.status === 'enabled' ? 'success' : 'secondary'}>
-                  {profile.status || 'Connected'}
+                <Badge variant={profile.is_active ? 'success' : 'secondary'}>
+                  {profile.is_active ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
             </div>

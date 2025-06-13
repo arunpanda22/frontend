@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     console.log(`Initializing Amazon Advertising auth for user_id: ${user_id}, region: ${region}, scopes: ${scopes}`);
 
     // Construct the backend API URL with query parameters
-    // This needs to exactly match the backend's endpoint structure
     const backendUrl = new URL(`${BACKEND_URL}/api/v1/amazon/advertising/auth/init`);
     
     // Add the same query parameters
