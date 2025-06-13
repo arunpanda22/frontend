@@ -172,8 +172,6 @@ apiClient.interceptors.request.use(
         console.log('Added CSRF token to request:', token);
       } catch (error) {
         console.error('Failed to get CSRF token:', error);
-        // Don't throw error here, let the request proceed
-        // The backend will handle the missing token
       }
     }
     return config;

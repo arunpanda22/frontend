@@ -4,9 +4,18 @@ import { apiClient } from '@/lib/api/config';
 
 export interface ConnectedAdvertisingProfile {
   profile_id: string;
+  account_name: string;
+  account_type: string;
+  account_subtype: string;
+  country_code: string;
+  currency_code: string;
+  timezone: string;
+  marketplace_id: string;
   region: string;
+  valid_payment_method: boolean;
   is_active: boolean;
   created_at: string;
+  last_synced_at: string;
 }
 
 export interface UserProfile {
