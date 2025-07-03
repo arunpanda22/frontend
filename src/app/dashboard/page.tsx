@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { apiService } from '@/lib/services/api'
-import { Button } from '@/components/ui/button'
+
 import { AmazonConnector } from '@/components/amazon/AmazonConnector'
 
 export default function Dashboard() {

@@ -2,12 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { ReactNode } from 'react'
 
 interface PricingCardProps {
   title: string
   price: string
   period: string
-  features: string[]
+  features: React.ReactNode[]
   ctaText: string
   ctaLink: string
   highlighted?: boolean

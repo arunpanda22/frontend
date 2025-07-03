@@ -1,0 +1,47 @@
+[
+  {
+    "Period": "Current",
+    "Impressions": 2963514,
+    "Clicks": 19434,
+    "CTR%": 0.6557755421,
+    "Ad Cost": 198590.85,
+    "CPC": 10.2187326335,
+    "CPA": 267.28243607,
+    "Ads Sales": 346108.48,
+    "Ads Quantity": 743,
+    "Ads ASP": 465.825679677,
+    "Conversion%": 3.8231964598,
+    "ACOS%": 57.3782098607,
+    "Ads Sales %": 34.4346020649
+  },
+  {
+    "Period": "Previous",
+    "Impressions": 3032170,
+    "Clicks": 19914,
+    "CTR%": 0.6567573718,
+    "Ad Cost": 202347.28,
+    "CPC": 10.1610565431,
+    "CPA": 264.852460733,
+    "Ads Sales": 354318.28,
+    "Ads Quantity": 764,
+    "Ads ASP": 463.767382199,
+    "Conversion%": 3.8364969368,
+    "ACOS%": 57.1089021995,
+    "Ads Sales %": 34.403130366
+  },
+  {
+    "Period": "Change %",
+    "Impressions": "-2.26%",
+    "Clicks": "-2.41%",
+    "CTR%": "-0.15%",
+    "Ad Cost": "-1.86%",
+    "CPC": "+0.57%",
+    "CPA": "+0.92%",
+    "Ads Sales": "-2.32%",
+    "Ads Quantity": "-2.75%",
+    "Ads ASP": "+0.44%",
+    "Conversion%": "-0.35%",
+    "ACOS%": "+0.47%",
+    "Ads Sales %": "+0.09%"
+  }
+]

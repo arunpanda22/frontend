@@ -1,0 +1,84 @@
+{
+    "ads_performance": [
+        {
+            "Period": "Current",
+            "Impressions": "7671906",
+            "Clicks": "50616",
+            "CTR%": "0.66%",
+            "Ad Cost": "454,503.87",
+            "CPC": "8.98",
+            "CPA": "216.22",
+            "Ads Sales": "977,929.24",
+            "Ads Quantity": "2102",
+            "Ads ASP": "465.24",
+            "Conversion%": "4.15%",
+            "ACOS%": "46.48%",
+            "Ads Sales %": "34.33%"
+        },
+        {
+            "Period": "Previous",
+            "Impressions": "4626526",
+            "Clicks": "31716",
+            "CTR%": "0.69%",
+            "Ad Cost": "265,127.49",
+            "CPC": "8.36",
+            "CPA": "150.21",
+            "Ads Sales": "781,042.02",
+            "Ads Quantity": "1765",
+            "Ads ASP": "442.52",
+            "Conversion%": "5.57%",
+            "ACOS%": "33.95%",
+            "Ads Sales %": "35.6%"
+        },
+        {
+            "Period": "Change %",
+            "Impressions": "+65.82%",
+            "Clicks": "+59.59%",
+            "CTR%": "-4.35%",
+            "Ad Cost": "+71.43%",
+            "CPC": "+7.42%",
+            "CPA": "+43.95%",
+            "Ads Sales": "+25.21%",
+            "Ads Quantity": "+19.09%",
+            "Ads ASP": "+5.13%",
+            "Conversion%": "-25.49%",
+            "ACOS%": "+36.91%",
+            "Ads Sales %": "-3.57%"
+        }
+    ],
+    "sales_metrics": [
+        {
+            "Period": "Current",
+            "Total Sales": "2,848,262.46",
+            "Total Quantity": "5841",
+            "Sales ASP": "487.63",
+            "Conversion%": "5.06%",
+            "TACOS%": "15.96%",
+            "Organic Sales %": "65.67%",
+            "Organic_Sales": "1,870,333.22",
+            "Organic_Quantity": "3739"
+        },
+        {
+            "Period": "Previous",
+            "Total Sales": "2,193,682.08",
+            "Total Quantity": "4790",
+            "Sales ASP": "457.97",
+            "Conversion%": "5.43%",
+            "TACOS%": "12.09%",
+            "Organic Sales %": "64.4%",
+            "Organic_Sales": "1,412,640.06",
+            "Organic_Quantity": "3025"
+        },
+        {
+            "Period": "Change %",
+            "Total Sales": "+29.84%",
+            "Total Quantity": "+21.94%",
+            "Sales ASP": "+6.48%",
+            "Conversion%": "-6.81%",
+            "TACOS%": "+32.01%",
+            "Organic Sales %": "+1.97%",
+            "Organic_Sales": "+32.40%",
+            "Organic_Quantity": "+23.60%"
+        }
+    ]
+}
