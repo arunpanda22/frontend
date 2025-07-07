@@ -1,13 +1,14 @@
 "use client"
 import React, { useState } from "react";
 import AsinTablePage from "./PerformanceTable";
-import { FaBoxOpen, FaCubes, FaRupeeSign, FaPercent, FaLeaf } from "react-icons/fa";
+import { FaBoxOpen, FaCubes, FaRupeeSign, FaPercent, FaLeaf, FaUserFriends, FaFeather, FaShoppingCart, FaHeart, FaDollarSign, FaCoins, FaRedo, FaChartLine, FaEllipsisH, FaEye } from "react-icons/fa";
 import asinData from "../../../../public/asinperformance.json";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterProps } from "recharts";
 import OrganicSalesBarChart from "./OrganicSalesBarChart";
 import DotScatterChart from "./DotScatterChart";
 import AsinPerformanceTable from "./PerformanceTable";
 import AsinSalesTable from "./SalesTable";
+import StatCards from "./StatCards";
 
 interface AsinData {
   asin: string;
@@ -138,102 +139,152 @@ const cardGlowColors = [
   '#22C55E', // green (repeat or pick another)
 ];
 
+function TrendBadge({ value, positive }: { value: string, positive: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${positive ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>
+      {positive ? (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+      ) : (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+      )}
+      {value}
+    </span>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  trend,
+  trendPositive,
+  valueSuffix = "",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  trend?: string;
+  trendPositive?: boolean;
+  valueSuffix?: string;
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 flex flex-col justify-between w-full relative shadow-sm"
+      style={{
+        backgroundImage: "radial-gradient(circle at 80% 20%, #f3f4f6 1%, transparent 60%)"
+      }}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2 text-gray-500 font-medium text-sm sm:text-base">
+          {icon}
+          <span className="truncate">{label}</span>
+        </div>
+        <FaEllipsisH className="text-gray-300 text-lg flex-shrink-0" />
+      </div>
+      <div className="flex flex-col items-start gap-2 mt-2">
+        <span className="text-xl sm:text-2xl font-bold text-gray-900">{value}{valueSuffix}</span>
+        {trend && typeof trendPositive === "boolean" && (
+          <TrendBadge value={trend} positive={trendPositive} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ASINPerformance() {
   const stats = getSummaryStats(asinData as AsinData[]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   return (
-    <div className="min-h-screen w-full p-6 flex flex-col gap-6" style={{
-      background: "linear-gradient(135deg, #e0e7ef 0%, #f6fafd 100%)"
-    }}>
-      {/* --- Page Heading --- */}
-      <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-2 text-center tracking-tight">ASIN Performance</h1>
-      {/* --- Stat Cards Section --- */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-        {/* Total ASINs */}
-        <div
-          className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] transition-transform transition-shadow duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)]"
-        >
-          <FaBoxOpen className="text-blue-500 text-3xl mb-2" />
-          <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.totalAsins.toLocaleString()}</div>
-          <div className="text-[#64748b] font-medium mt-1">Total ASIN's</div>
-        </div>
-        {/* Total Quantity */}
-        <div
-          className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] transition-transform transition-shadow duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)]"
-        >
-          <FaCubes className="text-blue-500 text-3xl mb-2" />
-          <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.totalQuantity.toLocaleString()}</div>
-          <div className="text-[#64748b] font-medium mt-1">Total Quantity</div>
-        </div>
-        {/* Total Sales */}
-        <div
-          className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] transition-transform transition-shadow duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)]"
-        >
-          <FaRupeeSign className="text-blue-500 text-3xl mb-2" />
-          <div className="text-3xl font-extrabold text-[#1a2b3c]">₹{stats.totalSales.toLocaleString()}</div>
-          <div className="text-[#64748b] font-medium mt-1">Total Sales</div>
-        </div>
-        {/* Avg. BuyBox */}
-        <div
-          className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] transition-transform transition-shadow duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)]"
-        >
-          <FaPercent className="text-blue-500 text-3xl mb-2" />
-          <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.avgBuyBox.toFixed(2)}%</div>
-          <div className="text-[#64748b] font-medium mt-1">Avg. BuyBox</div>
-        </div>
-        {/* Total Organic Sales */}
-        <div
-          className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] transition-transform transition-shadow duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)]"
-        >
-          <FaLeaf className="text-green-500 text-3xl mb-2" />
-          <div className="text-3xl font-extrabold text-[#1a2b3c]">₹{stats.totalOrganicSales.toLocaleString()}</div>
-          <div className="text-[#64748b] font-medium mt-1">Total Organic Sales</div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#f5f6fa] w-full px-1 py-4 sm:py-8">
+      <div className="w-full flex flex-col gap-4 sm:gap-6 md:gap-8">
 
-      {/* --- Charts Section --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        {/* Dot Scatter Chart */}
-        <div className="lg:col-span-2 rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-8 flex flex-col justify-center items-center min-h-[520px]">
-          <div className="text-2xl font-bold text-[#1a2b3c] mb-2 text-center">Total Sales vs TACOS</div>
-          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg w-full h-full p-2 transition-transform transition-shadow duration-200 hover:scale-[1.015] hover:shadow-xl">
-            <DotScatterChart />
-          </div>
-          {/* Color legend */}
-          <div className="flex gap-4 mt-4">
-            {dotColors.map((color, idx) => (
-              <div key={color} className="flex items-center gap-2">
-                <span style={{ background: color, borderRadius: '50%', width: 18, height: 18, display: 'inline-block', border: '2px solid #e5e7eb' }}></span>
-                <span className="text-[#64748b] text-sm font-medium">Color {idx + 1}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Organic Sales Bar Chart */}
-        <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-8 w-full h-full flex  justify-center min-h-[520px]">
-          <OrganicSalesBarChart height={440} />
-        </div>
-      </div>
-
-      {/* --- Table Section --- */}
-      <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px]  flex flex-col gap-8">
-        {/* Performance Table Card */}
+          {/* --- Page Heading --- */}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-2 text-center tracking-tight px-2">ASIN Performance</h1>
         
-          <h2 className="text-2xl font-bold text-blue-700 pt-3 flex items-center  justify-center">
-            ASIN Performance Table
-          </h2>
-          
-          <AsinPerformanceTable />
-       
-        {/* Sales Table Card */}
-       
-          <h2 className="text-2xl font-bold text-blue-700 pt-3 flex items-center  justify-center">
-             ASIN Sales Table
-          </h2>
+        {/* Stat Cards Grid - Responsive */}
+        <StatCards
+          stats={[
+            {
+              label: "TOTAL ASINS",
+              percentChange: 0.0, // Example, replace with real change if available
+              isPositive: true,
+              icon: <FaBoxOpen />,
+              value: stats.totalAsins,
+              color: "green",
+            },
+            {
+              label: "TOTAL QUANTITY",
+              percentChange: 0.0, // Example, replace with real change if available
+              isPositive: true,
+              icon: <FaCubes />,
+              value: stats.totalQuantity,
+              color: "blue",
+            },
+            {
+              label: "TOTAL SALES",
+              percentChange: 0.0, // Example, replace with real change if available
+              isPositive: true,
+              icon: <FaRupeeSign />,
+              value: stats.totalSales,
+              color: "orange",
+            },
+            {
+              label: "AVG. BUYBOX",
+              percentChange: 0.0, // Example, replace with real change if available
+              isPositive: true,
+              icon: <FaPercent />,
+              value: stats.avgBuyBox.toFixed(2) + "%",
+              color: "purple",
+            },
+          ]}
+        />
+      
+        {/* --- Charts Section --- */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start w-full">
+          {/* Dot Scatter Chart */}
+          <div className="xl:col-span-2 rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-4 sm:p-6 md:p-8 flex flex-col justify-center items-center min-h-[400px] sm:min-h-[520px] w-full">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#1a2b3c] mb-2 text-center">Total Sales vs TACOS</div>
+            <div className="rounded-2xl  w-full h-full p-2 transition-transform transition-shadow duration-200 ">
+              <DotScatterChart />
+            </div>
+            {/* Color legend */}
+            <div className="flex flex-wrap gap-2 sm:gap-4 mt-4 justify-center">
+              {dotColors.map((color, idx) => (
+                <div key={color} className="flex items-center gap-1 sm:gap-2">
+                  <span style={{ background: color, borderRadius: '50%', width: 16, height: 16, display: 'inline-block', border: '2px solid #e5e7eb' }}></span>
+                  <span className="text-[#64748b] text-xs sm:text-sm font-medium">Color {idx + 1}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Organic Sales Bar Chart */}
+          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-4 sm:p-6 md:p-8 w-full h-full flex justify-center min-h-[400px] sm:min-h-[520px]">
+            <OrganicSalesBarChart height={440} />
+          </div>
+        </div>
+
+        {/* --- Table Section --- */}
+        <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">
+          {/* Performance Table Card */}
+          <div className="w-full overflow-x-auto">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pt-3 flex items-center justify-center px-2">
+              ASIN Performance Table
+            </h2>
+            <div className="w-full overflow-x-auto">
+              <AsinPerformanceTable />
+            </div>
+          </div>
          
-          <AsinSalesTable />
+          {/* Sales Table Card */}
+          <div className="w-full overflow-x-auto">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pt-3 flex items-center justify-center px-2">
+               ASIN Sales Table
+            </h2>
+            <div className="w-full overflow-x-auto">
+              <AsinSalesTable />
+            </div>
+          </div>
         </div>
       </div>
-   
+    </div>
   );
 }

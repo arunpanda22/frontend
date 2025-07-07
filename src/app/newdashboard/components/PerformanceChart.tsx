@@ -1,189 +1,569 @@
-"use client";
+import React, { useState, useMemo, useEffect } from 'react';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart } from 'react-chartjs-2';
+import type { ChartData, ChartDataset } from 'chart.js';
+import { DateRangePicker } from 'react-date-range';
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import { addDays, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
-import React, { useState, useEffect } from 'react';
-import { ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronDown, Info } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-// Helper to format large numbers
-const formatNumber = (num: number) => new Intl.NumberFormat('en-IN', { maximumSignificantDigits: 3 }).format(num);
-const formatCurrency = (num: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(num);
-const formatPercent = (num: number) => `${(num * 100).toFixed(2)}%`;
-
-interface PerformanceData {
-  date: string;
-  impressions: number;
-  spend: number;
-  clicks: number;
-  sales: number;
-}
-
-interface StatCardProps {
-  title: string;
-  value: string;
-  color: string;
-  options: { key: string; label: string }[];
-  onSelect: (key: string) => void;
-  currentValue: string;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, color, options, onSelect, currentValue }) => (
-  <DropdownMenu>
-    <div className="flex flex-col">
-      <DropdownMenuTrigger asChild>
-        <div className="flex items-center gap-2 text-gray-500 text-sm cursor-pointer">
-          <span>{title}</span>
-          <ChevronDown className="w-4 h-4" />
-          <Info className="w-4 h-4" />
-        </div>
-      </DropdownMenuTrigger>
-      <div className="flex items-center gap-2">
-        <span className="w-4 h-4 rounded-sm" style={{ backgroundColor: color }}></span>
-        <span className="text-2xl font-bold text-gray-800">{value}</span>
-      </div>
-    </div>
-    <DropdownMenuContent>
-      {options.map((option) => (
-        <DropdownMenuCheckboxItem
-          key={option.key}
-          checked={currentValue === option.key}
-          onSelect={(event) => {
-            event.preventDefault();
-            onSelect(option.key);
-          }}
-        >
-          {option.label}
-        </DropdownMenuCheckboxItem>
-      ))}
-    </DropdownMenuContent>
-  </DropdownMenu>
+// Register Chart.js components we're using
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend
 );
 
-const ALL_METRICS: { [key: string]: { title: string; format: (val: number) => string; color: string } } = {
-  clicks: { title: 'Clicks', format: formatNumber, color: '#6d28d9' },
-  spend: { title: 'Spend', format: formatCurrency, color: '#0d9488' },
-  impressions: { title: 'Impressions', format: formatNumber, color: '#db2777' },
-  sales: { title: 'Sales', format: formatCurrency, color: '#2563eb' },
-  ctr: { title: 'CTR', format: formatPercent, color: '#6d28d9' },
-  cpc: { title: 'CPC', format: formatCurrency, color: '#0d9488' },
-  acos: { title: 'ACOS', format: formatPercent, color: '#2563eb' },
-};
-
-const CARD_OPTIONS = [
-  [{ key: 'clicks', label: 'Clicks' }, { key: 'ctr', label: 'CTR' }],
-  [{ key: 'spend', label: 'Spend' }, { key: 'cpc', label: 'CPC' }],
-  [{ key: 'impressions', label: 'Impressions' }],
-  [{ key: 'sales', label: 'Sales' }, { key: 'acos', label: 'ACOS' }],
+const DATASET_OPTIONS = [
+  { label: 'Daily', value: 'dailysails' },
+  { label: 'Weekly', value: 'weeklysails' },
+  { label: 'Monthly', value: 'monthlysails' },
 ];
 
-export default function PerformanceChart() {
-  const [data, setData] = useState<PerformanceData[]>([]);
-  const [totals, setTotals] = useState({ clicks: 0, spend: 0, impressions: 0, sales: 0, ctr: 0, cpc: 0, acos: 0 });
+const KPI_OPTIONS = [
+    { id: 'impressions', title: 'Impressions', keys: ['impressions', 'Total Sessions'], format: 'number', color: '#E06CB7' },
+    { id: 'clicks', title: 'Clicks', keys: ['clicks'], format: 'number', color: '#633CEB' },
+    { id: 'cost', title: 'Cost', keys: ['cost'], format: 'currency', color: '#00B2A9' },
+    { id: 'sales', title: 'Sales', keys: ['sales14d', 'Total Sales'], format: 'currency', color: '#4285F4' },
+    { id: 'purchases', title: 'Purchases', keys: ['purchases14d', 'Total Quantity'], format: 'number', color: '#FFA500' },
+    { id: 'ctr', title: 'CTR %', keys: ['CTR%'], format: 'percent', color: '#4CAF50' },
+    { id: 'cpc', title: 'CPC', keys: ['CPC'], format: 'currency', color: '#F44336' },
+    { id: 'asp', title: 'ASP', keys: ['Ads ASP', 'Sales ASP'], format: 'currency', color: '#FFC107' },
+    { id: 'conversion', title: 'Conversion %', keys: ['Conversion%'], format: 'percent', color: '#3F51B5' },
+    { id: 'acos', title: 'ACOS %', keys: ['ACOS%', 'TACOS%'], format: 'percent', color: '#673AB7' },
+    { id: 'cpa', title: 'CPA', keys: ['CPA'], format: 'currency', color: '#03A9F4' },
+    { id: 'adSales', title: 'Ad Sales %', keys: ['Ads Sales %'], format: 'percent', color: '#CDDC39' },
+    { id: 'organicSales', title: 'Organic Sales %', keys: ['Organic Sales %'], format: 'percent', color: '#00BCD4' }
+] as const;
+
+type KPIKey = typeof KPI_OPTIONS[number]['id'];
+
+// Group metrics by category for the filter UI
+const KPI_GROUPS = [
+  {
+    label: 'Advertising',
+    ids: ['impressions', 'clicks', 'cost', 'sales', 'ctr', 'cpc', 'acos', 'cpa', 'adSales', 'conversion'],
+  },
+  {
+    label: 'Pricing',
+    ids: ['asp'],
+  },
+  {
+    label: 'Inventory',
+    ids: ['purchases'],
+  },
+  {
+    label: 'Retail',
+    ids: ['organicSales'],
+  },
+];
+
+const DEFAULT_METRICS: KPIKey[] = ['impressions', 'clicks', 'acos', 'ctr'];
+
+// --- Main Component ---
+const PerformanceChart = () => {
+  // For each card, track selected KPI
+  const [cardKpis, setCardKpis] = useState<KPIKey[]>(DEFAULT_METRICS);
+  const [cardDropdownOpen, setCardDropdownOpen] = useState([false, false, false, false]);
+  const cardDropdownRefs = [React.useRef<HTMLDivElement>(null), React.useRef<HTMLDivElement>(null), React.useRef<HTMLDivElement>(null), React.useRef<HTMLDivElement>(null)];
+
+  // Dropdown state
+  const [granularity, setGranularity] = useState<'dailysails' | 'weeklysails' | 'monthlysails'>('monthlysails');
+  const [dataUrl, setDataUrl] = useState('/dataset/monthlysails.json');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Multi-metric filter state
+  const [metricsDropdownOpen, setMetricsDropdownOpen] = useState(false);
+  const metricsDropdownRef = React.useRef<HTMLDivElement>(null);
+  const [selectedMetrics, setSelectedMetrics] = useState<KPIKey[]>(DEFAULT_METRICS);
+
+  // State for chart data
+  const [dataset, setDataset] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cardMetricKeys, setCardMetricKeys] = useState(['clicks', 'spend', 'impressions', 'sales']);
+
+  // Date range state for react-date-range
+  const [dateRange, setDateRange] = useState({
+    startDate: null as Date | null,
+    endDate: null as Date | null,
+    key: 'selection',
+  });
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [quick, setQuick] = useState<'lastWeek' | 'lastMonth' | 'lastYear' | 'custom' | null>(null);
+  // For filtering
+  const startDate = dateRange.startDate;
+  const endDate = dateRange.endDate;
+
+  // Compute the metrics to show in the cards: first four from selectedMetrics, fallback to cardKpis if less than four
+  const cardMetrics: KPIKey[] = useMemo(() => {
+    if (selectedMetrics.length >= 4) return selectedMetrics.slice(0, 4) as KPIKey[];
+    // Fill with cardKpis if not enough selected
+    const filled = [...selectedMetrics];
+    for (let i = 0; filled.length < 4 && i < cardKpis.length; i++) {
+      if (!filled.includes(cardKpis[i])) filled.push(cardKpis[i]);
+    }
+    return filled.slice(0, 4) as KPIKey[];
+  }, [selectedMetrics, cardKpis]);
+
+  // Close all dropdowns on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setDropdownOpen(false);
+      if (metricsDropdownRef.current && !metricsDropdownRef.current.contains(event.target as Node)) setMetricsDropdownOpen(false);
+      setCardDropdownOpen((openArr) => openArr.map((open, idx) => {
+        if (open && cardDropdownRefs[idx].current && !cardDropdownRefs[idx].current.contains(event.target as Node)) {
+          return false;
+        }
+        return open;
+      }));
+    }
+    if (dropdownOpen || metricsDropdownOpen || cardDropdownOpen.some(Boolean)) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen, metricsDropdownOpen, cardDropdownOpen]);
+
+  useEffect(() => {
+    let url = '';
+    if (granularity === 'dailysails') url = '/dataset/dailysails.json';
+    else if (granularity === 'weeklysails') url = '/dataset/weeklysails.json';
+    else url = '/dataset/monthlysails.json';
+    setDataUrl(url);
+  }, [granularity]);
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const response = await fetch('/performance_data.json');
-        const chartData: PerformanceData[] = await response.json();
-        setData(chartData);
-
-        const newTotals = chartData.reduce((acc, item) => ({
-          clicks: acc.clicks + item.clicks,
-          spend: acc.spend + item.spend,
-          impressions: acc.impressions + item.impressions,
-          sales: acc.sales + item.sales,
-        }), { clicks: 0, spend: 0, impressions: 0, sales: 0 });
-
-        const derivedTotals = {
-          ...newTotals,
-          ctr: newTotals.impressions ? newTotals.clicks / newTotals.impressions : 0,
-          cpc: newTotals.clicks ? newTotals.spend / newTotals.clicks : 0,
-          acos: newTotals.sales ? newTotals.spend / newTotals.sales : 0,
-        };
-        setTotals(derivedTotals);
-
-      } catch (error) {
-        console.error("Failed to fetch performance data:", error);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(true);
+      const res = await fetch(dataUrl);
+      const data = await res.json();
+      setDataset(data);
+      setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [dataUrl]);
 
-  const handleMetricChange = (cardIndex: number, metricKey: string) => {
-    const newKeys = [...cardMetricKeys];
-    newKeys[cardIndex] = metricKey;
-    setCardMetricKeys(newKeys);
+  // Parse and prepare chart data
+  const chartData = useMemo(() => {
+    const safeParse = (val: any, format: 'number' | 'currency' | 'percent') => {
+      const str = (val ?? '0').toString().replace(/,/g, '').replace('%', '');
+      if (str.toLowerCase() === 'nan' || str === '') return 0;
+      return format === 'percent' ? parseFloat(str) : Number(str);
+    };
+
+    const initialData = KPI_OPTIONS.reduce((acc, kpi) => ({ ...acc, [kpi.id]: [] }), {} as Record<KPIKey, number[]>);
+    const initialTotals = KPI_OPTIONS.reduce((acc, kpi) => ({ ...acc, [kpi.id]: 0 }), {} as Record<KPIKey, number>);
+    if (!dataset.length) return { labels: [], data: initialData, totals: initialTotals };
+
+    // Filter dataset by date range if selected
+    let filtered = dataset;
+    if (startDate && endDate) {
+      const start = new Date(startDate.setHours(0,0,0,0));
+      const end = new Date(endDate.setHours(23,59,59,999));
+      filtered = dataset.filter((d) => {
+        // Try to parse d.time_group as a date
+        const date = new Date(d.time_group);
+        if (isNaN(date.getTime())) return true; // If can't parse, include by default
+        return date >= start && date <= end;
+      });
+    }
+
+    const data: Record<KPIKey, number[]> = { ...initialData };
+    const totals: Record<KPIKey, number> = { ...initialTotals };
+    const labels = filtered.map((d) => d.time_group);
+
+    for (const kpi of KPI_OPTIONS) {
+      const keyToUse = kpi.keys.find(key => filtered[0]?.[key] !== undefined);
+      if (keyToUse) {
+        const dataArray = filtered.map(item => safeParse(item[keyToUse], kpi.format));
+        data[kpi.id] = dataArray;
+        if (['percent', 'currency'].includes(kpi.format) && !['cost', 'sales'].includes(kpi.id)) {
+          totals[kpi.id] = dataArray[dataArray.length - 1] ?? 0;
+        } else {
+          totals[kpi.id] = dataArray.reduce((sum, val) => sum + val, 0);
+        }
+      }
+    }
+
+    return { labels, data, totals };
+  }, [dataset, granularity, startDate, endDate]);
+
+  // --- Dynamic Y-axes for each metric ---
+  const dynamicAxes = useMemo(() => {
+    const axes: any = { x: { grid: { display: false } } };
+    // Decide axis positions: first two left, next two right
+    const leftIds = selectedMetrics.slice(0, 2);
+    const rightIds = selectedMetrics.slice(2, 4);
+    selectedMetrics.forEach((id, idx) => {
+      const kpi = KPI_OPTIONS.find(k => k.id === id);
+      if (!kpi) return;
+      const axisId = `y_${id}`;
+      const arr = chartData.data[id] || [];
+      const min = Math.min(...arr, 0);
+      let max = Math.max(...arr, 1);
+      if (kpi.format === 'percent') {
+        // Always start at 0, pad max
+        max = Math.max(max, 10);
+      }
+      let position: 'left' | 'right' = 'right';
+      if (leftIds.includes(id)) position = 'left';
+      if (rightIds.includes(id)) position = 'right';
+      axes[axisId] = {
+        type: 'linear',
+        display: true,
+        position,
+        grid: { drawOnChartArea: false },
+        min,
+        max,
+        ticks: {
+          color: kpi.color,
+          callback(this: any, value: string | number) {
+            if (kpi.format === 'currency') return `₹${(Number(value) / 1000).toFixed(1)}K`;
+            if (kpi.format === 'percent') return `${value}%`;
+            if (id === 'impressions') return `${(Number(value) / 1000).toFixed(0)}K`;
+            return value;
+          },
+        },
+        offset: kpi.format === 'percent',
+        title: { display: true, text: kpi.title, color: kpi.color },
+      };
+    });
+    return axes;
+  }, [selectedMetrics, chartData]);
+
+  // --- Datasets with individual yAxisID ---
+  const chartConfigData: ChartData<'bar' | 'line', number[], string> = useMemo(() => {
+    if (!chartData.labels.length) return { labels: [], datasets: [] };
+    const datasets: ChartDataset<'bar' | 'line', number[]>[] = [];
+    selectedMetrics.forEach((id) => {
+      const kpi = KPI_OPTIONS.find(k => k.id === id);
+      if (!kpi) return;
+      const axisId = `y_${id}`;
+      if (id === 'impressions') {
+        datasets.push({
+          type: 'bar',
+          label: kpi.title,
+          data: chartData.data[id],
+          backgroundColor: kpi.color + '99',
+          yAxisID: axisId,
+          order: 2,
+        });
+      } else {
+        datasets.push({
+          type: 'line',
+          label: kpi.title,
+          data: chartData.data[id],
+          borderColor: kpi.color,
+          backgroundColor: kpi.color,
+          tension: 0.3,
+          yAxisID: axisId,
+          order: 1,
+        });
+      }
+    });
+    return { labels: chartData.labels, datasets };
+  }, [chartData, selectedMetrics]);
+
+  // Compute which axes are needed and their min/max based on selected metrics
+  const axisStats = useMemo(() => {
+    const stats = {
+      y1: { min: Infinity, max: -Infinity, show: false }, // Impressions (bar)
+      y2: { min: Infinity, max: -Infinity, show: false }, // Currency
+      y3: { min: Infinity, max: -Infinity, show: false }, // Number
+      y4: { min: Infinity, max: -Infinity, show: false }, // Percent
+    };
+    selectedMetrics.forEach((id) => {
+      const kpi = KPI_OPTIONS.find(k => k.id === id);
+      if (!kpi) return;
+      const arr = chartData.data[id] || [];
+      if (!arr.length) return;
+      let axis: keyof typeof stats = 'y3';
+      if (id === 'impressions') axis = 'y1';
+      else if (kpi.format === 'currency') axis = 'y2';
+      else if (kpi.format === 'percent') axis = 'y4';
+      else axis = 'y3';
+      stats[axis].show = true;
+      const min = Math.min(...arr);
+      const max = Math.max(...arr);
+      if (min < stats[axis].min) stats[axis].min = min;
+      if (max > stats[axis].max) stats[axis].max = max;
+    });
+    // If no data, set min/max to 0/1 to avoid Chart.js errors
+    Object.keys(stats).forEach(axis => {
+      if (axis === 'y4') {
+        // Always set min to 0 for percent axis
+        stats.y4.min = 0;
+        if (stats.y4.max < 10) stats.y4.max = 10;
+      }
+      if (!stats[axis as keyof typeof stats].show) {
+        stats[axis as keyof typeof stats].min = 0;
+        stats[axis as keyof typeof stats].max = 1;
+      }
+    });
+    return stats;
+  }, [selectedMetrics, chartData]);
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: { legend: { display: false } },
+    scales: dynamicAxes,
   };
 
-  const tickFormatter = (value: number) => {
-    if (value >= 1000) return `${value / 1000}K`;
-    return value.toString();
+  // Modified KPICard to accept dropdown for title
+  type KPICardProps = {
+    id: KPIKey;
+    value: number;
+    dropdown: React.ReactNode;
   };
 
-  const currencyTickFormatter = (value: number) => `₹${tickFormatter(value)}`;
-
-  if (loading) return <div className="w-full h-96 flex items-center justify-center"><p>Loading Chart...</p></div>;
+  const KPICard = ({ id, value, dropdown }: KPICardProps) => {
+    const kpiInfo = KPI_OPTIONS.find(k => k.id === id)!;
+    return (
+      <div 
+        className={`
+          p-4 bg-white rounded-lg shadow-sm border border-slate-200
+          flex flex-col justify-between
+          transition-all duration-300 ease-in-out
+        `}
+      >
+        <div className="flex flex-col">
+          <div className="flex items-center mb-2">{dropdown}</div>
+          <span className="text-2xl font-bold text-slate-800">
+            {kpiInfo.format === 'currency' ? '₹' : ''}
+            {value.toLocaleString('en-IN', { maximumFractionDigits: kpiInfo.format === 'percent' ? 2 : 0 })}
+            {kpiInfo.format === 'percent' ? '%' : ''}
+          </span>
+        </div>
+        <div className="mt-4 h-1 w-full rounded-full" style={{ backgroundColor: kpiInfo.color }}></div>
+      </div>
+    );
+  };
+  
+  if (loading) return <div className="w-full h-[400px] flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="w-full p-4 bg-white rounded-lg shadow">
-      {/* Header with Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        {cardMetricKeys.map((key, index) => {
-          const metric = ALL_METRICS[key];
-          const value = totals[key as keyof typeof totals];
-          return (
-            <StatCard
-              key={index}
-              title={metric.title}
-              value={metric.format(value)}
-              color={metric.color}
-              options={CARD_OPTIONS[index]}
-              onSelect={(newKey) => handleMetricChange(index, newKey)}
-              currentValue={key}
-            />
-          );
-        })}
+    <div className="font-sans bg-slate-100 p-6 rounded-xl shadow-lg w-full mx-auto my-8">
+      {/* Top bar: granularity dropdown and metrics filter */}
+      <div className="mb-4 flex justify-between items-center">
+        {/* Metrics Filter Dropdown */}
+        <div className="relative" ref={metricsDropdownRef}>
+          <button
+            className="border border-slate-300 rounded px-4 py-2 text-slate-700 bg-white shadow-sm flex items-center gap-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[120px] font-semibold"
+            onClick={() => setMetricsDropdownOpen(open => !open)}
+            type="button"
+          >
+            Metrics
+            <svg className={`w-4 h-4 ml-1 transition-transform ${metricsDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          {metricsDropdownOpen && (
+            <div className="absolute left-0 mt-2 w-[600px] bg-white border border-slate-300 rounded-xl shadow-2xl z-30 p-0 flex flex-col">
+              {/* Title and divider */}
+              <div className="px-5 pt-4 pb-2 border-b border-slate-200 sticky top-0 bg-white z-10">
+                <span className="font-bold text-base text-slate-700">Select Metrics</span>
+              </div>
+              <div className="flex flex-row gap-6 px-5 py-4">
+                {KPI_GROUPS.map(group => (
+                  <div key={group.label} className="flex flex-col min-w-[120px]">
+                    <span className="font-semibold text-xs text-slate-500 mb-2">{group.label}</span>
+                    {group.ids.map(id => {
+                      const kpi = KPI_OPTIONS.find(k => k.id === id);
+                      if (!kpi) return null;
+                      const checked = selectedMetrics.includes(id as KPIKey);
+                      const disabled = !checked && selectedMetrics.length >= 4;
+                      return (
+                        <label
+                          key={id}
+                          className={`flex items-center gap-2 mb-1 cursor-pointer text-[15px] px-1 py-1 rounded transition-all ${checked ? 'bg-blue-50 font-semibold' : disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100'}`}
+                          style={{ userSelect: 'none' }}
+                          title={disabled ? 'You can select up to 4 metrics only' : ''}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              if (disabled) return;
+                              setSelectedMetrics(metrics =>
+                                metrics.includes(id as KPIKey)
+                                  ? metrics.filter(m => m !== id)
+                                  : metrics.length < 4
+                                    ? [...metrics, id as KPIKey]
+                                    : metrics
+                              );
+                            }}
+                            className="w-4 h-4 accent-blue-500"
+                            disabled={disabled}
+                          />
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: kpi.color }}></span>
+                            <span style={{ color: kpi.color }}>{kpi.title}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Granularity Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            className="border border-slate-300 rounded px-4 py-2 text-slate-700 bg-white shadow-sm flex items-center gap-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[120px]"
+            onClick={() => setDropdownOpen((open) => !open)}
+            type="button"
+          >
+            {DATASET_OPTIONS.find(opt => opt.value === granularity)?.label}
+            <svg className={`w-4 h-4 ml-1 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          {dropdownOpen && (
+            <div className="absolute right-0 mt-2 w-36 bg-white border border-slate-200 rounded shadow-lg z-10">
+              {DATASET_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  className={`w-full text-left px-4 py-2 hover:bg-slate-100 ${granularity === opt.value ? 'bg-slate-100 font-semibold' : ''}`}
+                  onClick={() => { setGranularity(opt.value as 'dailysails' | 'weeklysails' | 'monthlysails'); setDropdownOpen(false); }}
+                  type="button"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Date Range Picker with quick selects */}
+        <div className="ml-4 relative">
+          <button
+            className="border border-slate-300 rounded px-4 py-2 text-slate-700 bg-white shadow-sm flex items-center gap-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]"
+            onClick={() => setPickerOpen((open) => !open)}
+            type="button"
+          >
+            {startDate && endDate
+              ? `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
+              : 'Select date range'}
+            <svg className={`w-4 h-4 ml-1 transition-transform ${pickerOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </button>
+          {pickerOpen && (
+            <div className="absolute right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 flex flex-row p-4" style={{ minWidth: 420 }}>
+              {/* Quick selects */}
+              <div className="flex flex-col pr-4 gap-2">
+                <button className={`text-left px-3 py-2 rounded ${quick === 'lastWeek' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => {
+                  setQuick('lastWeek');
+                  setDateRange({
+                    startDate: subDays(new Date(), 7),
+                    endDate: new Date(),
+                    key: 'selection',
+                  });
+                }}>Last Week</button>
+                <button className={`text-left px-3 py-2 rounded ${quick === 'lastMonth' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => {
+                  setQuick('lastMonth');
+                  setDateRange({
+                    startDate: startOfMonth(subDays(new Date(), 30)),
+                    endDate: new Date(),
+                    key: 'selection',
+                  });
+                }}>Last Month</button>
+                <button className={`text-left px-3 py-2 rounded ${quick === 'lastYear' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => {
+                  setQuick('lastYear');
+                  setDateRange({
+                    startDate: startOfYear(subDays(new Date(), 365)),
+                    endDate: new Date(),
+                    key: 'selection',
+                  });
+                }}>Last Year</button>
+                <button className={`text-left px-3 py-2 rounded ${quick === 'custom' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => setQuick('custom')}>Custom</button>
+                <button className="mt-4 bg-slate-900 text-white px-3 py-2 rounded font-semibold hover:bg-slate-800 transition" onClick={() => setPickerOpen(false)}>Apply</button>
+              </div>
+              {/* Calendar */}
+              <div className="pl-4">
+                <DateRangePicker
+                  onChange={(item: DateRangeChange) => {
+                    setDateRange(item.selection);
+                    setQuick('custom');
+                  }}
+                  moveRangeOnFirstSelection={false}
+                  ranges={[dateRange]}
+                  showSelectionPreview={true}
+                  months={1}
+                  direction="horizontal"
+                  rangeColors={["#2563eb"]}
+                  editableDateInputs={true}
+                  maxDate={new Date()}
+                  staticRanges={[]}
+                  inputRanges={[]}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* Chart */}
-      <div style={{ width: '100%', height: 350 }}>
-        <ResponsiveContainer>
-          <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-            <YAxis yAxisId="spend" orientation="left" stroke="#0d9488" tick={{ fontSize: 12 }} tickFormatter={currencyTickFormatter} />
-            <YAxis yAxisId="impressions" orientation="left" stroke="#db2777" tick={{ fontSize: 12 }} tickFormatter={tickFormatter} className="ml-10" />
-            <YAxis yAxisId="sales" orientation="right" stroke="#2563eb" tick={{ fontSize: 12 }} tickFormatter={currencyTickFormatter} />
-            <YAxis yAxisId="clicks" orientation="right" stroke="#6d28d9" tick={{ fontSize: 12 }} tickFormatter={tickFormatter} />
-            
-            <Tooltip
-              formatter={(value, name) => {
-                const names = {
-                  'spend': formatCurrency(value as number),
-                  'impressions': formatNumber(value as number),
-                  'sales': formatCurrency(value as number),
-                  'clicks': formatNumber(value as number),
-                };
-                const stringName = String(name);
-                return [names[stringName as keyof typeof names], stringName.charAt(0).toUpperCase() + stringName.slice(1)];
-              }}
-            />
-
-            <Bar dataKey="impressions" yAxisId="impressions" fill="#f9a8d4" barSize={20} />
-            <Line type="monotone" dataKey="spend" yAxisId="spend" stroke="#0d9488" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="sales" yAxisId="sales" stroke="#2563eb" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="clicks" yAxisId="clicks" stroke="#6d28d9" strokeWidth={2} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
+      {/* KPI Cards Grid with independent dropdowns */}
+      {selectedMetrics.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-6">
+          {cardMetrics.map((kpi, idx) => {
+            const opt = KPI_OPTIONS.find(o => o.id === kpi)!;
+            return (
+              <KPICard
+                key={idx}
+                id={opt.id}
+                value={chartData.totals[opt.id]}
+                dropdown={
+                  <div className="relative" ref={cardDropdownRefs[idx]}>
+                    <button
+                      className="text-sm text-slate-500 flex items-center gap-1 focus:outline-none"
+                      onClick={() => setCardDropdownOpen(openArr => openArr.map((open, i) => i === idx ? !open : false))}
+                      type="button"
+                    >
+                      {opt.title} ▼
+                    </button>
+                    {cardDropdownOpen[idx] && (
+                      <div className="absolute left-0 mt-1 w-32 bg-white border border-slate-200 rounded shadow-lg z-20">
+                        {KPI_OPTIONS.map(option => (
+                          <button
+                            key={option.id}
+                            className={`w-full text-left px-4 py-2 hover:bg-slate-100 ${kpi === option.id ? 'bg-slate-100 font-semibold' : ''}`}
+                            onClick={() => {
+                              // When a card dropdown is used, update cardKpis and also update selectedMetrics if not present
+                              setCardKpis(arr => arr.map((val, i) => i === idx ? option.id : val));
+                              if (!selectedMetrics.includes(option.id as KPIKey)) {
+                                setSelectedMetrics(metrics => {
+                                  const newMetrics = [...metrics];
+                                  newMetrics[idx] = option.id as KPIKey;
+                                  return newMetrics;
+                                });
+                              }
+                              setCardDropdownOpen(openArr => openArr.map((open, i) => i === idx ? false : open));
+                            }}
+                            type="button"
+                          >
+                            {option.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+      {/* Chart Container */}
+      <div className="bg-white p-5 rounded-lg border border-slate-200 h-[400px] w-full">
+        <Chart type='bar' data={chartConfigData} options={chartOptions} style={{ width: '100%' }} />
       </div>
     </div>
   );
-} 
+};
+
+export default PerformanceChart;

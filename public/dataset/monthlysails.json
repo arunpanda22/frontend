@@ -1,0 +1,62 @@
+[
+    {
+      "time_group": "Jan - 25",
+      "Total Sales": "4,95,347.04",
+      "Total Quantity": "1,181",
+      "Conversion%": "0.04465967177831585%",
+      "Total Sessions": "2,35,98,378",
+      "Sales ASP": "419.43",
+      "TACOS%": "20.16%",
+      "Organic Sales %": "44.91%"
+    },
+    {
+      "time_group": "Feb - 25",
+      "Total Sales": "6,83,246.90",
+      "Total Quantity": "1,486",
+      "Conversion%": "0.05770161290322581%",
+      "Total Sessions": "2,73,81,450",
+      "Sales ASP": "459.79",
+      "TACOS%": "6.86%",
+      "Organic Sales %": "80.61%"
+    },
+    {
+      "time_group": "Mar - 25",
+      "Total Sales": "10,44,566.89",
+      "Total Quantity": "2,184",
+      "Conversion%": "0.059240521222460804%",
+      "Total Sessions": "5,24,05,605",
+      "Sales ASP": "478.28",
+      "TACOS%": "11.48%",
+      "Organic Sales %": "63.87%"
+    },
+    {
+      "time_group": "Apr - 25",
+      "Total Sales": "8,94,095.95",
+      "Total Quantity": "1,868",
+      "Conversion%": "0.05106053054217201%",
+      "Total Sessions": "5,00,53,848",
+      "Sales ASP": "478.64",
+      "TACOS%": "13.02%",
+      "Organic Sales %": "65.99%"
+    },
+    {
+      "time_group": "May - 25",
+      "Total Sales": "10,05,118.28",
+      "Total Quantity": "2,065",
+      "Conversion%": "0.05004217036828788%",
+      "Total Sessions": "5,94,04,555",
+      "Sales ASP": "486.74",
+      "TACOS%": "19.74%",
+      "Organic Sales %": "65.69%"
+    },
+    {
+      "time_group": "Jun - 25",
+      "Total Sales": "8,20,812.67",
+      "Total Quantity": "1,648",
+      "Conversion%": "0.050206281607665694%",
+      "Total Sessions": "3,63,70,520",
+      "Sales ASP": "498.07",
+      "TACOS%": "15.2%",
+      "Organic Sales %": "65.39%"
+    }
+  ]

@@ -1,56 +1,67 @@
 import React from "react";
-import { FaBoxOpen, FaCubes, FaRupeeSign, FaPercent } from "react-icons/fa";
 
-interface StatCardsProps {
-  totalAsins: number | string;
-  totalQuantity: number | string;
-  totalSales: number | string;
-  avgBuyBox: number | string;
+interface StatCard {
+  label: string;
+  percentChange: number;
+  isPositive: boolean;
+  icon: React.ReactNode;
+  value: string | number;
+  color: string; // e.g. 'green', 'blue', etc.
 }
 
-const stats = [
-  {
-    label: "Total ASINs",
-    icon: <FaBoxOpen className="text-blue-500 text-2xl mb-1" />,
-    key: "totalAsins",
-  },
-  {
-    label: "Total Quantity",
-    icon: <FaCubes className="text-blue-500 text-2xl mb-1" />,
-    key: "totalQuantity",
-  },
-  {
-    label: "Total Sales",
-    icon: <FaRupeeSign className="text-blue-500 text-2xl mb-1" />,
-    key: "totalSales",
-  },
-  {
-    label: "Avg. BuyBox",
-    icon: <FaPercent className="text-blue-500 text-2xl mb-1" />,
-    key: "avgBuyBox",
-  },
-];
+interface StatCardsProps {
+  stats: StatCard[];
+}
 
-export default function StatCards({
-  totalAsins,
-  totalQuantity,
-  totalSales,
-  avgBuyBox,
-}: StatCardsProps) {
-  const values = { totalAsins, totalQuantity, totalSales, avgBuyBox };
-
+export default function StatCards({ stats }: StatCardsProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-      {stats.map((stat) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      {stats.map((stat, idx) => (
         <div
-          key={stat.key}
-          className="rounded-2xl bg-white/70 backdrop-blur-md shadow-xl shadow-blue-100 border border-blue-100 flex flex-col items-center justify-center p-6 min-w-[150px]"
+          key={stat.label}
+          className="relative rounded-xl border border-gray-200 bg-white shadow-sm flex flex-col justify-between p-6 min-w-[180px] h-[200px] overflow-hidden group transition hover:shadow-md"
         >
-          {stat.icon}
-          <div className="text-2xl font-extrabold text-[#1a2b3c]">
-            {values[stat.key as keyof typeof values]}
+          {/* Radial SVG background */}
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
+            viewBox="0 0 300 300"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <g>
+              {[...Array(36)].map((_, i) => (
+                <line
+                  key={i}
+                  x1="150"
+                  y1="150"
+                  x2={150 + 140 * Math.cos((i * 10 * Math.PI) / 180)}
+                  y2={150 + 140 * Math.sin((i * 10 * Math.PI) / 180)}
+                  stroke="#22c55e"
+                  strokeWidth="0.7"
+                />
+              ))}
+            </g>
+          </svg>
+          {/* Label */}
+          <div className="text-xs font-semibold text-gray-500 mb-2 tracking-wide uppercase z-10">
+            {stat.label}
           </div>
-          <div className="text-[#64748b] font-medium mt-1">{stat.label}</div>
+          {/* Center: Percent Change */}
+          <div className="flex flex-col items-center justify-center flex-1 z-10">
+            <span className={`text-3xl font-bold flex items-center gap-1 ${stat.isPositive ? 'text-green-500' : stat.color === 'blue' ? 'text-blue-500' : 'text-red-500'}`}>
+              {stat.isPositive ? (
+                <svg className="w-6 h-6 inline-block" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" /></svg>
+              ) : (
+                <svg className="w-6 h-6 inline-block" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0 0l-6-6m6 6l6-6" /></svg>
+              )}
+              {stat.percentChange > 0 ? '+' : ''}{stat.percentChange}%
+            </span>
+          </div>
+          {/* Bottom: Icon and Value */}
+          <div className="absolute left-4 bottom-4 flex items-center gap-2 text-base font-semibold z-10">
+            <span className={`text-xl ${stat.color === 'green' ? 'text-green-500' : stat.color === 'blue' ? 'text-blue-500' : 'text-gray-400'}`}>{stat.icon}</span>
+            <span className={`font-medium ${stat.color === 'green' ? 'text-green-600' : stat.color === 'blue' ? 'text-blue-600' : 'text-gray-600'}`}>{stat.value}</span>
+          </div>
         </div>
       ))}
     </div>

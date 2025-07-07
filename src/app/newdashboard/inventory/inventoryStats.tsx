@@ -1,90 +1,107 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react'
+import { Boxes, TrendingUp, Droplet } from 'lucide-react'
 
-export default function InventoryStats() {
+const statCardsConfig = [
+  {
+    label: 'Total Inventory',
+    icon: <Boxes className="text-blue-400 w-7 h-7" />,
+    color: 'text-blue-400',
+    borderColor: 'border-blue-200',
+    leftLabel: 'Total ASIN',
+    rightLabel: 'Total Quantity',
+    key: 'total',
+  },
+  {
+    label: 'Excess Inventory',
+    icon: <TrendingUp className="text-purple-400 w-7 h-7" />,
+    color: 'text-purple-400',
+    borderColor: 'border-purple-200',
+    leftLabel: 'Total ASIN',
+    rightLabel: 'Total Quantity',
+    key: 'excess',
+  },
+  {
+    label: 'Liquidation',
+    icon: <Droplet className="text-red-400 w-7 h-7" />,
+    color: 'text-red-400',
+    borderColor: 'border-red-200',
+    leftLabel: 'Total ASIN',
+    rightLabel: 'Total Quantity',
+    key: 'liquidation',
+  },
+]
+
+const InventoryStats = () => {
   const [stats, setStats] = useState({
-    totalInventory: 0,
-    totalReorder: 0,
-    excessInventory: 0,
-    liquidationInventory: 0,
-  });
-  const [loading, setLoading] = useState(true);
+    total: { totalASIN: 0, totalQuantity: 0 },
+    excess: { totalASIN: 0, totalQuantity: 0 },
+    liquidation: { totalASIN: 0, totalQuantity: 0 },
+  })
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        // Fetch inventory health
-        const res1 = await fetch("/dataset/ inventory_health_30d_avg.json");
-        const data1 = await res1.json();
-        const totalInventory = data1.reduce(
-          (sum: number, item: { reserved_quantity?: number; fulfillable_quantity?: number }) =>
-            sum + (item.reserved_quantity || 0) + (item.fulfillable_quantity || 0),
-          0
-        );
-        const totalReorder = data1.reduce(
-          (sum: number, item: { reorder_quantity?: number }) => sum + (item.reorder_quantity || 0),
-          0
-        );
-        // Fetch excess inventory
-        const res2 = await fetch("/dataset/ ASIN_Liquidation_Report_Liquidation_excess.json");
-        const data2 = await res2.json();
-        const excessInventory = data2.reduce(
-          (sum: number, item: { INV_90_365?: number }) => sum + (item.INV_90_365 || 0),
-          0
-        );
-        // Fetch liquidation inventory
-        const res3 = await fetch("/dataset/ ASIN_Liquidation_Report_Liquidation.json");
-        const data3 = await res3.json();
-        const liquidationInventory = data3.reduce(
-          (sum: number, item: { INV_90_365?: number }) => sum + (item.INV_90_365 || 0),
-          0
-        );
-        setStats({
-          totalInventory,
-          totalReorder,
-          excessInventory,
-          liquidationInventory,
-        });
-      } catch (e) {
-        setStats({
-          totalInventory: 0,
-          totalReorder: 0,
-          excessInventory: 0,
-          liquidationInventory: 0,
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return <div>Loading stats...</div>;
-  }
+    Promise.all([
+      fetch('/dataset/ASIN_Liquidation_Report_Liquidation.json').then(res => res.json()),
+      fetch('/dataset/ASIN_Liquidation_Report_Liquidation_excess.json').then(res => res.json()),
+    ]).then(([liquidation, excess]) => {
+      // Total Inventory: both datasets combined
+      const totalCombined = [...liquidation, ...excess]
+      const totalASINSet = new Set<string>()
+      let totalQuantity = 0
+      totalCombined.forEach((item: any) => {
+        if (item.asin) totalASINSet.add(item.asin)
+        totalQuantity += item.FBA_Inv || 0
+      })
+      // Excess Inventory: only excess
+      const excessASINSet = new Set<string>()
+      let excessQuantity = 0
+      excess.forEach((item: any) => {
+        if (item.asin) excessASINSet.add(item.asin)
+        excessQuantity += item.FBA_Inv || 0
+      })
+      // Liquidation: only liquidation
+      const liquidationASINSet = new Set<string>()
+      let liquidationQuantity = 0
+      liquidation.forEach((item: any) => {
+        if (item.asin) liquidationASINSet.add(item.asin)
+        liquidationQuantity += item.FBA_Inv || 0
+      })
+      setStats({
+        total: { totalASIN: totalASINSet.size, totalQuantity },
+        excess: { totalASIN: excessASINSet.size, totalQuantity: excessQuantity },
+        liquidation: { totalASIN: liquidationASINSet.size, totalQuantity: liquidationQuantity },
+      })
+    })
+  }, [])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-      <div className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] shadow-lg transition duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)] hover:ring-2 hover:ring-blue-200">
-        <span className="text-green-600 text-3xl mb-2">📊</span>
-        <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.totalInventory.toLocaleString()}</div>
-        <div className="text-[#64748b] font-medium mt-1">Total Inventory</div>
-      </div>
-      <div className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] shadow-lg transition duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)] hover:ring-2 hover:ring-blue-200">
-        <span className="text-red-500 text-3xl mb-2">🔄</span>
-        <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.totalReorder.toLocaleString()}</div>
-        <div className="text-[#64748b] font-medium mt-1">Total Reorder Qty</div>
-      </div>
-      <div className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] shadow-lg transition duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)] hover:ring-2 hover:ring-blue-200">
-        <span className="text-blue-500 text-3xl mb-2">📦</span>
-        <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.excessInventory.toLocaleString()}</div>
-        <div className="text-[#64748b] font-medium mt-1">Excess Inventory (INV 90-365)</div>
-      </div>
-      <div className="rounded-2xl bg-white/80 flex flex-col items-center justify-center p-8 min-w-[180px] shadow-lg transition duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)] hover:ring-2 hover:ring-blue-200">
-        <span className="text-purple-500 text-3xl mb-2">💧</span>
-        <div className="text-3xl font-extrabold text-[#1a2b3c]">{stats.liquidationInventory.toLocaleString()}</div>
-        <div className="text-[#64748b] font-medium mt-1">Liquidation Inventory (INV 90-365)</div>
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+      {statCardsConfig.map((card, idx) => (
+        <div
+          key={idx}
+          className={`bg-gray-50 border ${card.borderColor} rounded-lg p-4 flex flex-col shadow-sm`}
+        >
+          <div className="flex flex-col items-center bg-gray-100 rounded-md py-2 mb-4">
+            <div className="flex items-center gap-2">
+              {card.icon}
+              <span className="font-semibold text-gray-700 text-lg">{card.label}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex flex-col items-center flex-1">
+              <span className="text-2xl font-bold text-gray-900">{stats[card.key as keyof typeof stats].totalASIN.toLocaleString()}</span>
+              <span className="text-gray-500 text-sm mt-1">{card.leftLabel}</span>
+            </div>
+            <div className="border-l h-8 mx-4" />
+            <div className="flex flex-col items-center flex-1">
+              <span className="text-2xl font-bold text-gray-900">{stats[card.key as keyof typeof stats].totalQuantity.toLocaleString()}</span>
+              <span className="text-gray-500 text-sm mt-1">{card.rightLabel}</span>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
-  );
+  )
 }
+
+export default InventoryStats
+

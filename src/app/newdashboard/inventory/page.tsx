@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -21,6 +21,10 @@ import {
   Tooltip as ChartTooltip,
   Legend,
 } from "chart.js";
+import LineColumnAreaChart from "./linenadbarchart";
+import { Widgets } from "@mui/icons-material";
+import Cards from "./cards";
+import AdsRevenueApp from "./cards";
 
 // Register Chart.js components
 ChartJS.register(
@@ -161,6 +165,9 @@ function TopAsinInventoryBarChart() {
 }
 
 export default function CampaignPerformanceLayout() {
+  const chartRef = useRef(null);
+  const adsChartRef = useRef(null);
+
   return (
     <div className="min-h-screen w-full p-6 bg-[#f6fafd] flex flex-col gap-6 font-sans">
       {/* --- Page Heading --- */}
@@ -172,14 +179,13 @@ export default function CampaignPerformanceLayout() {
       <div className="flex gap-4">
         {/* Left: Bar Chart, 40% width */}
         <div className="rounded-2xl bg-white/80 h-[50vh] shadow-lg flex items-center justify-center p-2 w-full transition duration-200 hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)] hover:ring-2 hover:ring-blue-200">
-          <TopAsinInventoryBarChart />
+          <LineColumnAreaChart chartColors={""} chartDarkColors={""} chartId={chartRef} />
         </div>
         
       </div>
 
       {/* --- Section 2: Large card, next to a card with two cylinders inside --- */}
       
-
      
 
       {/* --- Section 4: Large card, next to a card with two stacked rectangles --- */}
