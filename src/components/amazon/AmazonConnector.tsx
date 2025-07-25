@@ -5,12 +5,14 @@ import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { useConnectAmazonAdvertising } from '@/lib/hooks/queries/use-amazon-advertising'
 import { AdvertisingAccounts } from './AdvertisingAccounts'
+import { RegionDialog } from './RegionDialog'
 import { AlertTriangle, ArrowRight, ShoppingCart } from 'lucide-react'
 import { Icons } from '../icons'
 
 export function AmazonConnector() {
   const { user } = useAuth()
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false)
   
   const { 
     mutate: connectAmazonAdvertising, 
@@ -39,9 +41,8 @@ export function AmazonConnector() {
     )
   }
 
-  // This will be implemented in the future
   const handleConnectAmazonSeller = () => {
-    alert('Amazon Seller connection will be available soon!')
+    setIsRegionDialogOpen(true)
   }
 
   return (
@@ -89,31 +90,32 @@ export function AmazonConnector() {
           </div>
         </div>
         
-        {/* Amazon Seller Connection - Coming Soon */}
-        <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100 opacity-80">
+        {/* Amazon Seller Connection */}
+        <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100">
           <div className="flex items-start gap-4">
             <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-orange-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-medium text-gray-800 mb-2">Amazon Seller (Coming Soon)</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Amazon Seller</h3>
               <p className="text-gray-600 mb-4">Connect your Amazon Seller account to manage inventory, sales, and customer data.</p>
               
               <Button 
                 onClick={handleConnectAmazonSeller}
-                variant="outline"
-                className="w-full sm:w-auto relative border-orange-200 text-orange-700"
-                disabled
+                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white"
               >
-                <span>Connect Amazon Seller</span>
-                <span className="absolute -top-2 -right-2 text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">
-                  Soon
-                </span>
+                Connect Amazon Seller
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
         </div>
       </div>
+
+      <RegionDialog 
+        isOpen={isRegionDialogOpen}
+        onOpenChange={setIsRegionDialogOpen}
+      />
     </div>
   )
 } 
