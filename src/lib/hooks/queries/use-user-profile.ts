@@ -18,6 +18,15 @@ export interface ConnectedAdvertisingProfile {
   last_synced_at: string;
 }
 
+export interface ConnectedSellerAccount {
+  seller_id: string;
+  marketplace_id: string;
+  region: string;
+  is_active: boolean;
+  created_at: string;
+  last_refreshed_at: string;
+}
+
 export interface UserProfile {
   id: number;
   email: string;
@@ -28,6 +37,7 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
   connected_advertising_profiles: ConnectedAdvertisingProfile[];
+  connected_seller_accounts: ConnectedSellerAccount[];
 }
 
 export const useUserProfile = (): UseQueryResult<UserProfile, Error> => {

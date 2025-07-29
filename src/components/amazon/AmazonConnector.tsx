@@ -8,6 +8,7 @@ import { AdvertisingAccounts } from './AdvertisingAccounts'
 import { RegionDialog } from './RegionDialog'
 import { AlertTriangle, ArrowRight, ShoppingCart } from 'lucide-react'
 import { Icons } from '../icons'
+import { SellerAccounts } from './SellerAccounts'
 
 export function AmazonConnector() {
   const { user } = useAuth()
@@ -107,6 +108,10 @@ export function AmazonConnector() {
                 Connect Amazon Seller
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
+              
+              <div className="mt-6">
+                <SellerAccounts />
+              </div>
             </div>
           </div>
         </div>
