@@ -40,7 +40,7 @@ export default function AmazonAuthSuccess() {
               {sellerId && (
                 <div className="flex items-center mb-2">
                   <User className="w-4 h-4 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Seller ID:</span>
+                  <span className="text-sm text-gray-600">Marketplace ID:</span>
                   <span className="text-sm font-mono text-gray-900 ml-2">{sellerId}</span>
                 </div>
               )}
@@ -56,12 +56,12 @@ export default function AmazonAuthSuccess() {
           )}
           
           <div className="space-y-3">
-            <button
+            {/* <button
               onClick={() => window.location.href = '/amazon'}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
             >
               Go to Amazon Dashboard
-            </button>
+            </button> */}
             
             <button
               onClick={() => window.location.href = '/dashboard'}
