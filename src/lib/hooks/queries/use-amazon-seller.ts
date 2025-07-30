@@ -6,6 +6,7 @@ export type Region = 'NA' | 'EU' | 'FE';
 type ConnectSellerPayload = {
   userId: string;
   region: Region;
+  marketplaceId: string;
 };
 
 type ConnectSellerResponse = {
@@ -19,13 +20,14 @@ type ConnectSellerResponse = {
 export const useConnectAmazonSeller = (): UseMutationResult<ConnectSellerResponse, Error, ConnectSellerPayload> => {
   return useMutation({
     mutationFn: async (payload: ConnectSellerPayload) => {
-      const { userId, region } = payload;
+      const { userId, region, marketplaceId } = payload;
       
       // Direct call to Django backend
       const response = await apiClient.get('/api/v1/amazon/auth/init', {
         params: {
           user_id: userId,
-          region
+          region,
+          marketplace_id: marketplaceId
         }
       });
       
