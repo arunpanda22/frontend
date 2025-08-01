@@ -10,65 +10,47 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Globe2, ArrowLeft, Store } from 'lucide-react';
-import { MARKETPLACE_IDS, MARKETPLACE_NAMES, type MarketplaceCode } from '@/lib/constants/amazon-marketplaces';
+import { Input } from "@/components/ui/input";
+import { Globe2, Search, AlertTriangle } from 'lucide-react';
+import { 
+  MARKETPLACE_IDS, 
+  AVAILABLE_COUNTRIES, 
+  COUNTRY_TO_MARKETPLACE, 
+  COUNTRY_TO_REGION,
+  MARKETPLACE_NAMES
+} from '@/lib/constants/amazon-marketplaces';
 
 interface RegionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const marketplaceRegions: { id: Region; name: string; description: string; countries: string[] }[] = [
-  {
-    id: 'NA',
-    name: 'North America',
-    description: 'North and South American marketplaces',
-    countries: ['United States', 'Canada', 'Mexico', 'Brazil']
-  },
-  {
-    id: 'EU',
-    name: 'Europe',
-    description: 'European, Middle Eastern, and Indian marketplaces',
-    countries: [
-      'United Kingdom', 'Germany', 'France', 'Italy', 'Spain', 'Netherlands',
-      'Sweden', 'Poland', 'Egypt', 'Turkey', 'Saudi Arabia', 'United Arab Emirates',
-      'India'
-    ]
-  },
-  {
-    id: 'FE',
-    name: 'Far East',
-    description: 'Asia-Pacific marketplaces',
-    countries: ['Japan', 'Australia', 'Singapore']
-  }
-];
-
 export function RegionDialog({ isOpen, onOpenChange }: RegionDialogProps) {
-  const [selectedRegion, setSelectedRegion] = useState<Region>('EU');
-  const [selectedMarketplace, setSelectedMarketplace] = useState<MarketplaceCode | null>(null);
-  const [step, setStep] = useState<'region' | 'marketplace'>('region');
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const { user } = useAuth();
   const { mutateAsync, isPending } = useConnectAmazonSeller();
 
-  const handleRegionSelect = (region: Region) => {
-    setSelectedRegion(region);
-    setSelectedMarketplace(null);
-    setStep('marketplace');
-  };
+  const filteredCountries = AVAILABLE_COUNTRIES.filter(country =>
+    country.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const handleBack = () => {
-    setStep('region');
-    setSelectedMarketplace(null);
+  const handleCountrySelect = (country: string) => {
+    setSelectedCountry(country);
   };
 
   const handleConnect = async () => {
-    if (!user || !selectedMarketplace) return;
+    if (!user || !selectedCountry) return;
+
+    const marketplaceCode = COUNTRY_TO_MARKETPLACE[selectedCountry];
+    const region = COUNTRY_TO_REGION[selectedCountry];
+    const marketplaceId = (MARKETPLACE_IDS as any)[region][marketplaceCode];
 
     try {
       const response = await mutateAsync({
         userId: user.uid,
-        region: selectedRegion,
-        marketplaceId: MARKETPLACE_IDS[selectedRegion][selectedMarketplace]
+        region,
+        marketplaceId
       });
 
       // Redirect to Amazon authorization URL
@@ -80,142 +62,104 @@ export function RegionDialog({ isOpen, onOpenChange }: RegionDialogProps) {
 
   const handleDialogClose = (open: boolean) => {
     if (!open) {
-      setStep('region');
-      setSelectedMarketplace(null);
+      setSelectedCountry('');
+      setSearchTerm('');
     }
     onOpenChange(open);
   };
 
-  const availableMarketplaces = (() => {
-    if (!selectedRegion) return [];
-    
-    // Get all marketplace codes for the selected region
-    const marketplaces = Object.keys(MARKETPLACE_IDS[selectedRegion]) as MarketplaceCode[];
-    
-    // Sort by marketplace name
-    return [...marketplaces].sort((a, b) => {
-      const nameA = MARKETPLACE_NAMES[a as keyof typeof MARKETPLACE_NAMES] || '';
-      const nameB = MARKETPLACE_NAMES[b as keyof typeof MARKETPLACE_NAMES] || '';
-      return nameA.localeCompare(nameB);
-    });
-  })();
-
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-[425px] overflow-hidden">
-        <style jsx global>{`
-          .region-dialog-scroll::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-          }
-          .region-dialog-scroll::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          .region-dialog-scroll::-webkit-scrollbar-thumb {
-            background-color: #4b5563;
-            border-radius: 3px;
-          }
-          .region-dialog-scroll::-webkit-scrollbar-thumb:hover {
-            background-color: #6b7280;
-          }
-        `}</style>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>
-            {step === 'region' ? 'Select Your Region' : 'Select Marketplace'}
-          </DialogTitle>
+          <DialogTitle>Select Your Country</DialogTitle>
           <DialogDescription>
-            {step === 'region' 
-              ? 'Choose the region where your Amazon Seller account is registered.'
-              : `Select the specific marketplace in ${marketplaceRegions.find(r => r.id === selectedRegion)?.name}.`
-            }
+            Choose the country where your Amazon Seller account is registered.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4 max-h-[50vh] overflow-y-auto pr-2 region-dialog-scroll">
-          {step === 'region' ? (
-            // Region Selection
-            marketplaceRegions.map((region) => (
+        <div className="space-y-4 py-4">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="Search countries..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 border-gray-300 focus:border-yellow-500 focus:ring-yellow-500"
+            />
+          </div>
+
+          {/* Country List */}
+          <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 country-list" style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#6b7280 transparent'
+            }}>
+            <style>
+              {`
+                .country-list::-webkit-scrollbar {
+                  width: 6px;
+                }
+                .country-list::-webkit-scrollbar-track {
+                  background: transparent;
+                }
+                .country-list::-webkit-scrollbar-thumb {
+                  background: #6b7280;
+                  border-radius: 3px;
+                }
+                .country-list::-webkit-scrollbar-thumb:hover {
+                  background: #4b5563;
+                }
+              `}
+            </style>
+            {filteredCountries.map((country) => (
               <button
-                key={region.id}
-                className="flex items-start gap-4 rounded-lg border p-4 hover:border-yellow-400 hover:bg-yellow-50/10 transition-colors border-gray-700 bg-gray-800"
-                onClick={() => handleRegionSelect(region.id)}
-              >
-                <Globe2 className="h-5 w-5 mt-0.5 flex-shrink-0 text-gray-200" />
-                <div className="text-left flex-1">
-                  <h4 className="font-medium text-gray-100">{region.name}</h4>
-                  <p className="text-sm text-gray-400 mb-2">{region.description}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {region.countries.map((country) => (
-                      <span
-                        key={country}
-                        className="inline-flex items-center px-2 py-1 rounded-md bg-gray-700 text-xs text-gray-200"
-                      >
-                        {country}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </button>
-            ))
-          ) : (
-            // Marketplace Selection
-            availableMarketplaces.map((marketplaceCode) => (
-              <button
-                key={marketplaceCode}
-                className={`flex items-start gap-4 rounded-lg border p-4 hover:border-yellow-400 hover:bg-yellow-50/10 transition-colors ${
-                  selectedMarketplace === marketplaceCode
-                    ? 'border-yellow-400 bg-yellow-50/20'
-                    : 'border-gray-700 bg-gray-800'
+                key={country}
+                className={`w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                  selectedCountry === country
+                    ? 'border-yellow-500 bg-yellow-50 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-yellow-300 hover:bg-yellow-50/50'
                 }`}
-                onClick={() => setSelectedMarketplace(marketplaceCode)}
+                onClick={() => handleCountrySelect(country)}
               >
-                <Store className="h-5 w-5 mt-0.5 flex-shrink-0 text-gray-200" />
-                <div className="text-left flex-1">
-                  <h4 className="font-medium text-gray-100">{MARKETPLACE_NAMES[marketplaceCode]}</h4>
-                  <p className="text-sm text-gray-400">Marketplace ID: {MARKETPLACE_IDS[selectedRegion][marketplaceCode]}</p>
-                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-700 text-xs text-gray-200 mt-2">
-                    {marketplaceCode}
-                  </span>
-                </div>
+                <Globe2 className={`h-4 w-4 flex-shrink-0 ${selectedCountry === country ? 'text-yellow-600' : 'text-gray-500'}`} />
+                <span className={`font-medium ${selectedCountry === country ? 'text-yellow-700' : 'text-gray-900'}`}>
+                  {country}
+                </span>
               </button>
-            ))
-          )}
+            ))}
+            
+            {filteredCountries.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No countries found matching "{searchTerm}"
+              </div>
+            )}
+          </div>
         </div>
         
-        <DialogFooter className="gap-2 sm:gap-0">
-          {step === 'marketplace' && (
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              className="border-gray-600 text-gray-200 hover:bg-gray-700 hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          )}
+        <DialogFooter className="gap-2">
           <Button
             variant="outline"
             onClick={() => handleDialogClose(false)}
-            className="border-gray-600 text-gray-200 hover:bg-gray-700 hover:text-white"
+            className="border-gray-400 text-gray-200 hover:bg-gray-100 hover:text-gray-900"
           >
             Cancel
           </Button>
-          {step === 'marketplace' && (
-            <Button
-              onClick={handleConnect}
-              disabled={isPending || !selectedMarketplace}
-              className="bg-amazon hover:bg-amazon/90 text-white"
-            >
-              {isPending ? (
-                <>
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-opacity-50 border-t-transparent rounded-full mr-2" />
-                  Connecting...
-                </>
-              ) : (
-                'Connect'
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={handleConnect}
+            disabled={isPending || !selectedCountry}
+            className="bg-amazon hover:bg-amazon/90 text-white shadow-sm disabled:opacity-50"
+          >
+            {isPending ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-opacity-50 border-t-transparent rounded-full mr-2" />
+                Connecting...
+              </>
+            ) : (
+              'Connect to Amazon'
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

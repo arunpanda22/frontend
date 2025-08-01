@@ -28,7 +28,10 @@ export const MARKETPLACE_IDS = {
 } as const;
 
 export type Region = keyof typeof MARKETPLACE_IDS;
-export type MarketplaceCode = keyof typeof MARKETPLACE_IDS[Region];
+export type MarketplaceCode = 
+  | keyof typeof MARKETPLACE_IDS['NA']
+  | keyof typeof MARKETPLACE_IDS['EU']
+  | keyof typeof MARKETPLACE_IDS['FE'];
 
 export const MARKETPLACE_NAMES = {
   'CA': 'Canada',
@@ -52,3 +55,54 @@ export const MARKETPLACE_NAMES = {
   'AU': 'Australia',
   'JP': 'Japan'
 } as const;
+
+// Country to marketplace code mapping for simplified dialog
+export const COUNTRY_TO_MARKETPLACE: Record<string, MarketplaceCode> = {
+  'Canada': 'CA',
+  'United States': 'US',
+  'Mexico': 'MX',
+  'Brazil': 'BR',
+  'Spain': 'ES',
+  'United Kingdom': 'GB',
+  'France': 'FR',
+  'Netherlands': 'NL',
+  'Germany': 'DE',
+  'Italy': 'IT',
+  'Sweden': 'SE',
+  'Poland': 'PL',
+  'Egypt': 'EG',
+  'Turkey': 'TR',
+  'Saudi Arabia': 'SA',
+  'United Arab Emirates': 'AE',
+  'India': 'IN',
+  'Singapore': 'SG',
+  'Australia': 'AU',
+  'Japan': 'JP'
+};
+
+// Country to region mapping
+export const COUNTRY_TO_REGION: Record<string, Region> = {
+  'Canada': 'NA',
+  'United States': 'NA',
+  'Mexico': 'NA',
+  'Brazil': 'NA',
+  'Spain': 'EU',
+  'United Kingdom': 'EU',
+  'France': 'EU',
+  'Netherlands': 'EU',
+  'Germany': 'EU',
+  'Italy': 'EU',
+  'Sweden': 'EU',
+  'Poland': 'EU',
+  'Egypt': 'EU',
+  'Turkey': 'EU',
+  'Saudi Arabia': 'EU',
+  'United Arab Emirates': 'EU',
+  'India': 'EU',
+  'Singapore': 'FE',
+  'Australia': 'FE',
+  'Japan': 'FE'
+};
+
+// Get all available countries sorted alphabetically
+export const AVAILABLE_COUNTRIES = Object.keys(COUNTRY_TO_MARKETPLACE).sort();
