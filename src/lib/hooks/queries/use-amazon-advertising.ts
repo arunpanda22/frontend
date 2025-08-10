@@ -47,15 +47,8 @@ export const useAmazonAdvertisingProfiles = (): UseQueryResult<AdvertisingProfil
         throw new Error('User not authenticated');
       }
 
-      // Get the user's ID token for authentication
-      const idToken = await user.getIdToken();
-      
-      // Direct call to Django backend
-      const response = await apiClient.get('/api/v1/amazon/advertising/profiles', {
-        headers: {
-          'Authorization': `Bearer ${idToken}`
-        }
-      });
+      // Token will be added automatically by axios interceptor
+      const response = await apiClient.get('/api/v1/amazon/advertising/profiles');
       
       return response.data;
     },
@@ -99,17 +92,9 @@ export const useSelectAdvertisingProfile = (): UseMutationResult<any, Error, { p
         throw new Error('User not authenticated');
       }
 
-      // Get the user's ID token for authentication
-      const idToken = await user.getIdToken();
-      
-      // Direct call to Django backend
+      // Token will be added automatically by axios interceptor
       const response = await apiClient.post('/api/v1/amazon/advertising/profiles/select', 
-        { profileId, region },
-        {
-          headers: {
-            'Authorization': `Bearer ${idToken}`
-          }
-        }
+        { profileId, region }
       );
       
       return response.data;

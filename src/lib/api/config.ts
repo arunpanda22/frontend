@@ -37,20 +37,82 @@ axiosRetry(apiClient, {
   }
 });
 
+// Enhanced token cache to avoid excessive Firebase requests
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+let tokenPromise: Promise<string> | null = null;
+let lastTokenFetch: number = 0;
+const MIN_TOKEN_INTERVAL = 2000; // Minimum 2 seconds between token fetches
+
 // Authentication interceptor
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
       const currentUser = auth?.currentUser;
       if (currentUser) {
-        const token = await currentUser.getIdToken();
+        const now = Date.now();
+        
+        // Use cached token if valid and not expired
+        if (cachedToken && now < tokenExpiry - 15 * 60 * 1000) { // 15-minute buffer
+          if (!config.headers) {
+            config.headers = new AxiosHeaders();
+          }
+          config.headers.set('Authorization', `Bearer ${cachedToken}`);
+          return config;
+        }
+        
+        // Prevent excessive token requests by enforcing minimum interval
+        if (now - lastTokenFetch < MIN_TOKEN_INTERVAL && tokenPromise) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('⏳ Waiting for existing token request...');
+          }
+          cachedToken = await tokenPromise;
+        } else if (!cachedToken || now >= tokenExpiry - 15 * 60 * 1000) {
+          // Only fetch new token if cache is truly expired or missing
+          if (!tokenPromise || now - lastTokenFetch >= MIN_TOKEN_INTERVAL) {
+            lastTokenFetch = now;
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔄 Fetching fresh Firebase token (cache expired)');
+            }
+            
+            tokenPromise = currentUser.getIdToken(true).then(token => {  // Force refresh
+              cachedToken = token;
+              // Firebase tokens are valid for 1 hour, set expiry with 15-minute buffer
+              tokenExpiry = now + 45 * 60 * 1000; // 45 minutes from now
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ Fresh Firebase token cached');
+              }
+              return token;
+            }).catch(error => {
+              // Clear cache and promise on error
+              cachedToken = null;
+              tokenExpiry = 0;
+              if (process.env.NODE_ENV === 'development') {
+                console.error('❌ Token fetch failed:', error);
+              }
+              throw error;
+            }).finally(() => {
+              // Clear promise after completion (success or failure)
+              setTimeout(() => { tokenPromise = null; }, 1000);
+            });
+          }
+          
+          if (tokenPromise) {
+            cachedToken = await tokenPromise;
+          }
+        }
+        
         if (!config.headers) {
           config.headers = new AxiosHeaders();
         }
-        config.headers.set('Authorization', `Bearer ${token}`);
+        config.headers.set('Authorization', `Bearer ${cachedToken}`);
       }
     } catch (error) {
       console.error('Error getting auth token:', error);
+      // Clear all cache on error
+      cachedToken = null;
+      tokenExpiry = 0;
+      tokenPromise = null;
     }
     return config;
   },
@@ -63,40 +125,37 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    // In dev, log a compact error; avoid double noisy logs in production
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Response Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+    }
     if (error.response?.status === 401) {
+      // Clear all cached token data on 401 to force refresh
+      cachedToken = null;
+      tokenExpiry = 0;
+      tokenPromise = null;
+      lastTokenFetch = 0; // Reset rate limiting
       await handleAuthError(error);
     }
     return Promise.reject(error);
   }
 );
 
-// Debug interceptor for development
+// Debug interceptor for development (request only, response handled by main interceptor)
 if (process.env.NODE_ENV === 'development') {
   apiClient.interceptors.request.use(request => {
-    console.log('Starting Request:', {
-      method: request.method,
-      url: request.url,
-      baseURL: request.baseURL,
-      headers: request.headers
-    });
+    // Only log non-auth requests to reduce noise
+    if (!request.url?.includes('verify-token') && !request.url?.includes('auth')) {
+      console.log('🌐 API Request:', {
+        method: request.method?.toUpperCase(),
+        url: request.url,
+      });
+    }
     return request;
-  });
-
-  apiClient.interceptors.response.use(response => {
-    console.log('Response:', {
-      status: response.status,
-      data: response.data,
-      headers: response.headers
-    });
-    return response;
-  }, error => {
-    console.error('Response Error:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      headers: error.response?.headers
-    });
-    return Promise.reject(error);
   });
 }
 

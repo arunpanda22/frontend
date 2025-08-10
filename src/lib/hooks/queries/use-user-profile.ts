@@ -50,12 +50,8 @@ export const useUserProfile = (): UseQueryResult<UserProfile, Error> => {
         throw new Error('User not authenticated');
       }
 
-      const idToken = await user.getIdToken();
-      const response = await apiClient.get('/api/v1/auth/profile/', {
-        headers: {
-          'Authorization': `Bearer ${idToken}`
-        }
-      });
+      // Token will be added automatically by axios interceptor
+      const response = await apiClient.get('/api/v1/auth/profile/');
       
       return response.data;
     },

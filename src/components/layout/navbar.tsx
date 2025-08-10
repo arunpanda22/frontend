@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/ui/button'
+import ProfileDropdown from '@/components/layout/profile-dropdown'
 
 export function Navbar() {
   const pathname = usePathname()
@@ -148,13 +149,7 @@ export function Navbar() {
           <div className="hidden md:block">
             <div className="ml-4 flex items-center md:ml-6">
               {user ? (
-                <Button 
-                  variant="ghost" 
-                  className="ml-2 text-gray-300 hover:bg-gray-700 hover:text-white"
-                  onClick={() => signOut()}
-                >
-                  Sign Out
-                </Button>
+                <ProfileDropdown />
               ) : (
                 <Link href="/login">
                   <Button className="bg-yellow-400 text-black hover:bg-yellow-300">Sign In</Button>
