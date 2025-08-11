@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminDashboardService } from '@/lib/api/services/admin-dashboard.service'
-import type { ReportFilters, AdminUser, Role, Permission, Agency } from '@/lib/api/services/admin-dashboard.service'
+import type { ReportFilters, AdminUser, Role, Permission, Agency, StaffEmail, UserWithStaffEmails, StaffEmailStats } from '@/lib/api/services/admin-dashboard.service'
 
 // Query keys for consistent caching
 export const adminQueryKeys = {
@@ -21,6 +21,10 @@ export const adminQueryKeys = {
   agencyDetails: (id: number) => ['admin', 'agencies', id] as const,
   dashboardStats: ['admin', 'dashboard-stats'] as const,
   reportStatusSummary: ['admin', 'report-status-summary'] as const,
+  staffEmails: ['admin', 'staff-emails'] as const,
+  staffEmailsByUser: (userEmail: string) => ['admin', 'staff-emails', 'by-user', userEmail] as const,
+  usersWithStaffEmails: ['admin', 'users-with-staff-emails'] as const,
+  staffEmailStats: ['admin', 'staff-email-stats'] as const,
 }
 
 // Reports
@@ -187,6 +191,55 @@ export function useAdminDashboardStats() {
   })
 }
 
+// Staff Email Management
+export function useStaffEmails(params?: {
+  user_email?: string;
+  staff_email?: string;
+  is_active?: boolean;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  return useQuery({
+    queryKey: [...adminQueryKeys.staffEmails, params],
+    queryFn: () => adminDashboardService.listStaffEmails(params),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  })
+}
+
+export function useStaffEmailsByUser(userEmail: string) {
+  return useQuery({
+    queryKey: adminQueryKeys.staffEmailsByUser(userEmail),
+    queryFn: () => adminDashboardService.getStaffEmailsByUser(userEmail),
+    enabled: !!userEmail,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  })
+}
+
+export function useUsersWithStaffEmails(params?: {
+  has_staff_emails?: boolean;
+  is_active?: boolean;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  return useQuery({
+    queryKey: [...adminQueryKeys.usersWithStaffEmails, params],
+    queryFn: () => adminDashboardService.getUsersWithStaffEmails(params),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  })
+}
+
+export function useStaffEmailStats() {
+  return useQuery({
+    queryKey: adminQueryKeys.staffEmailStats,
+    queryFn: () => adminDashboardService.getStaffEmailStats(),
+    staleTime: 30 * 1000, // 30 seconds
+    retry: false, // Don't retry on failure to reduce console errors
+    refetchOnWindowFocus: false, // Don't refetch on focus to reduce API calls
+  })
+}
+
 // Utility hook for manual refresh
 export function useAdminQueryRefresh() {
   const queryClient = useQueryClient()
@@ -231,6 +284,18 @@ export function useAdminQueryRefresh() {
     refreshStatusSummary: async () => {
       await queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportStatusSummary })
       return queryClient.refetchQueries({ queryKey: adminQueryKeys.reportStatusSummary })
+    },
+    refreshStaffEmails: async () => {
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.staffEmails })
+      return queryClient.refetchQueries({ queryKey: adminQueryKeys.staffEmails })
+    },
+    refreshUsersWithStaffEmails: async () => {
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.usersWithStaffEmails })
+      return queryClient.refetchQueries({ queryKey: adminQueryKeys.usersWithStaffEmails })
+    },
+    refreshStaffEmailStats: async () => {
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.staffEmailStats })
+      return queryClient.refetchQueries({ queryKey: adminQueryKeys.staffEmailStats })
     },
     refreshAll: async () => {
       await queryClient.invalidateQueries({ queryKey: ['admin'] })

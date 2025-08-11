@@ -93,6 +93,40 @@ export interface ReportListItem {
   created_by_email?: string
 }
 
+export interface StaffEmail {
+  id: number
+  user: number
+  user_email: string
+  email: string
+  description: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  created_by: number
+  created_by_email: string
+}
+
+export interface UserWithStaffEmails {
+  id: number
+  email: string
+  username: string
+  first_name: string
+  last_name: string
+  is_active: boolean
+  staff_emails: StaffEmail[]
+  active_staff_emails: StaffEmail[]
+  staff_email_count: number
+}
+
+export interface StaffEmailStats {
+  total_users: number
+  users_with_staff_emails: number
+  total_staff_emails: number
+  active_staff_emails: number
+  inactive_staff_emails: number
+  users_without_staff_emails: number
+}
+
 export interface PaginatedResponse<T> {
   count: number
   next: string | null
@@ -336,6 +370,107 @@ export const adminDashboardService = {
 
   async getUserHierarchy() {
     const res = await apiClient.get('/api/v1/rbac-admin/user-hierarchy/')
+    return res.data
+  },
+
+  // Staff Email Management
+  async listStaffEmails(params?: {
+    user_email?: string;
+    staff_email?: string;
+    is_active?: boolean;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }) {
+    const res = await apiClient.get<PaginatedResponse<StaffEmail>>('/api/v1/rbac-admin/staff-emails/', { params })
+    return res.data
+  },
+
+  async createStaffEmail(data: {
+    user: number;
+    email: string;
+    description?: string;
+    is_active?: boolean;
+  }) {
+    const res = await apiClient.post<StaffEmail>('/api/v1/rbac-admin/staff-emails/', data)
+    return res.data
+  },
+
+  async createStaffEmailByEmail(data: {
+    user_email: string;
+    email: string;
+    description?: string;
+    is_active?: boolean;
+  }) {
+    const res = await apiClient.post<StaffEmail>('/api/v1/rbac-admin/staff-emails/create_by_email/', data)
+    return res.data
+  },
+
+  async bulkCreateStaffEmails(data: {
+    user_email: string;
+    staff_emails: Array<{
+      email: string;
+      description?: string;
+    }>;
+  }) {
+    const res = await apiClient.post('/api/v1/rbac-admin/staff-emails/bulk_create/', data)
+    return res.data
+  },
+
+  async getStaffEmailsByUser(userEmail: string) {
+    const res = await apiClient.get<PaginatedResponse<StaffEmail>>(`/api/v1/rbac-admin/staff-emails/by_user/`, {
+      params: { user_email: userEmail }
+    })
+    return res.data
+  },
+
+  async updateStaffEmail(id: number, data: Partial<{
+    email: string;
+    description: string;
+    is_active: boolean;
+  }>) {
+    const res = await apiClient.patch<StaffEmail>(`/api/v1/rbac-admin/staff-emails/${id}/`, data)
+    return res.data
+  },
+
+  async toggleStaffEmailActive(id: number) {
+    const res = await apiClient.post(`/api/v1/rbac-admin/staff-emails/${id}/toggle_active/`)
+    return res.data
+  },
+
+  async deleteStaffEmail(id: number) {
+    await apiClient.delete(`/api/v1/rbac-admin/staff-emails/${id}/`)
+  },
+
+  async bulkDeleteStaffEmails(ids: number[]) {
+    const res = await apiClient.delete('/api/v1/rbac-admin/staff-emails/bulk_delete/', {
+      data: { ids }
+    })
+    return res.data
+  },
+
+  async getUsersWithStaffEmails(params?: {
+    has_staff_emails?: boolean;
+    is_active?: boolean;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }) {
+    const res = await apiClient.get<PaginatedResponse<UserWithStaffEmails>>('/api/v1/rbac-admin/staff-emails/users/', { params })
+    return res.data
+  },
+
+  async getStaffEmailStats() {
+    const res = await apiClient.get<StaffEmailStats>('/api/v1/rbac-admin/staff-emails/stats/')
+    return res.data
+  },
+
+  async sendTestStaffAlert(data: {
+    user_email: string;
+    subject: string;
+    message: string;
+  }) {
+    const res = await apiClient.post('/api/v1/rbac-admin/staff-emails/send-test-alert/', data)
     return res.data
   },
 }

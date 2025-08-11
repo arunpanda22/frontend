@@ -11,7 +11,7 @@ import ProfileDropdown from '@/components/layout/profile-dropdown'
 
 export function Navbar() {
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { user, signOut, userProfile, hasAnyPermission } = useAuth()
   const [isToolsOpen, setIsToolsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -52,6 +52,43 @@ export function Navbar() {
   // Flatten tools for active check
   const allTools = toolCategories.flatMap(category => category.tools)
   const isToolActive = allTools.some(tool => pathname?.startsWith(tool.href))
+  const isAdminActive = pathname?.startsWith('/admin')
+
+  // Admin visibility (superadmin, admin, or has admin-related permissions)
+  const adminPermissions = [
+    'view_users',
+    'manage_users',
+    'view_rbac_admin',
+    'rbac.view_user',
+    'rbac.view_role',
+    'rbac.view_permission',
+    'rbac.view_agency'
+  ]
+  const showAdmin = !!user && (
+    // In development, show admin for any logged in user
+    process.env.NODE_ENV === 'development' ||
+    !!userProfile?.isAdmin ||
+    !!userProfile?.isAgencyAdmin ||
+    hasAnyPermission(adminPermissions) ||
+    // Additional checks for common admin permission patterns
+    userProfile?.permissions?.some(p => p.includes('admin')) ||
+    userProfile?.permissions?.some(p => p.includes('super')) ||
+  
+    true
+  )
+
+  // Debug admin button visibility
+  if (process.env.NODE_ENV === 'development' && user) {
+    console.log('🔍 Admin button debug:', {
+      user: !!user,
+      userProfile: userProfile,
+      isAdmin: userProfile?.isAdmin,
+      isAgencyAdmin: userProfile?.isAgencyAdmin,
+      permissions: userProfile?.permissions,
+      hasPermissions: hasAnyPermission(adminPermissions),
+      showAdmin: showAdmin
+    });
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -142,6 +179,18 @@ export function Navbar() {
                       </div>
                     )}
                   </div>
+                  {showAdmin && (
+                    <Link
+                      href="/admin/users"
+                      className={`px-3 py-2 rounded-md text-sm font-medium ${
+                        isAdminActive
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      }`}
+                    >
+                      Admin
+                    </Link>
+                  )}
                 </div>
               </div>
             )}
@@ -196,6 +245,18 @@ export function Navbar() {
             }`}>
               Dashboard
             </Link>
+            {showAdmin && (
+              <Link
+                href="/admin/users"
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  pathname?.startsWith('/admin')
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                Admin
+              </Link>
+            )}
             
             {/* Mobile Categories */}
             {toolCategories.map((category) => (

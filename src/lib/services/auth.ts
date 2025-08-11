@@ -18,8 +18,7 @@ export const authService = {
     if (!auth) throw new Error('Firebase auth not initialized');
     try {
       const result = await signInWithPopup(auth, googleProvider)
-      // After successful sign in, verify token with Django
-      await authService.verifyTokenWithBackend()
+      // AuthContext will handle token verification automatically when auth state changes
       return result.user
     } catch (error) {
       throw error
@@ -42,8 +41,7 @@ export const authService = {
     if (!auth) throw new Error('Firebase auth not initialized');
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password)
-      // After successful sign up, verify token with Django
-      await authService.verifyTokenWithBackend()
+      // AuthContext will handle token verification automatically when auth state changes
       return result.user
     } catch (error) {
       throw error
@@ -55,8 +53,7 @@ export const authService = {
     if (!auth) throw new Error('Firebase auth not initialized');
     try {
       const result = await signInWithEmailAndPassword(auth, email, password)
-      // After successful sign in, verify token with Django
-      await authService.verifyTokenWithBackend()
+      // AuthContext will handle token verification automatically when auth state changes
       return result.user
     } catch (error) {
       throw error

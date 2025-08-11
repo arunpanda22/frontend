@@ -62,6 +62,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const nav = [
     { href: '/admin/reports', label: 'Reports' },
     { href: '/admin/users', label: 'Users' },
+    { href: '/admin/staff-emails', label: 'Staff Emails' },
   ]
 
   return (
