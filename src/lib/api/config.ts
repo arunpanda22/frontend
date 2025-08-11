@@ -125,13 +125,23 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    // In dev, log a compact error; avoid double noisy logs in production
+    // In dev, log a compact error; avoid double noisy logs in production.
+    // Suppress expected 400s from verify-token during initial auth bootstrap.
     if (process.env.NODE_ENV === 'development') {
-      console.error('Response Error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
+      const url = error.config?.url || '';
+      const status = error.response?.status;
+      const isVerifyToken = url.includes('/api/v1/auth/verify-token/');
+      const isExpectedBootstrap = isVerifyToken && status === 400;
+      if (!isExpectedBootstrap) {
+        console.error('Response Error:', {
+          message: error.message,
+          response: error.response?.data,
+          status,
+          url,
+        });
+      } else {
+        console.warn('Auth bootstrap (expected) verify-token 400 suppressed');
+      }
     }
     if (error.response?.status === 401) {
       // Clear all cached token data on 401 to force refresh

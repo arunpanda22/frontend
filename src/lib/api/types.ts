@@ -163,3 +163,67 @@ export interface SpAdsResponse {
   file?: FileInfo;
   file_id?: string;
 } 
+
+
+// ASIN Analysis types
+export interface ASINAnalysisPayload {
+  asin: string;
+}
+
+export interface ASINAnalysisFile {
+  filename: string;
+  url: string;
+  file_id: string;
+}
+
+export interface ASINAnalysisResponse {
+  asin: string;
+  text_analysis: string;
+  image_analysis: string;
+  download_file?: ASINAnalysisFile;
+  analysis_summary: {
+    text_length: number;
+    image_length: number;
+    generated_at?: string;
+  };
+  warning?: string;
+}
+
+
+// ASIN Images Analysis Types
+export interface ASINImagesPayload {
+  asins: string[];
+}
+
+export interface ASINImagesFile {
+  filename: string;
+  url: string;
+  file_id: string;
+}
+
+export interface ASINVariants {
+  MAIN: string;
+  [key: string]: string; // PT01, PT02, etc.
+}
+
+export interface ASINAnalysisResult {
+  success: boolean;
+  error: string | null;
+  variants: ASINVariants;
+  total_variants: number;
+}
+
+export interface ASINImagesResponse {
+  asins: string[];
+  total_asins: number;
+  successful_asins: number;
+  failed_asins: number;
+  analysis_results: {
+    [asin: string]: ASINAnalysisResult;
+  };
+  download_file: ASINImagesFile;
+  summary: {
+    total_variants: number;
+    generated_at: string | null;
+  };
+}

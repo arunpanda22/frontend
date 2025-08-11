@@ -27,6 +27,8 @@ export function Navbar() {
     {
       name: "Catalog",
       tools: [
+        { name: 'ASIN Analyzer', href: '/asin_analyzer', description: 'Analyze product text and images for an ASIN' },
+        { name: 'ASIN Image Analyzer', href: '/asin_image_analyzer', description: 'Analyze and group ASIN images and variants' },
         { name: 'SQP Analysis', href: '/sqp', description: 'Analyze search query performance data' },
         { name: 'Cerebro Analysis', href: '/cerebro', description: 'Advanced keyword research and analysis' },
       ]
