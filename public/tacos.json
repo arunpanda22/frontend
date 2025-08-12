@@ -1,0 +1,62 @@
+[
+    {
+        "time_group":"2025-01",
+        "Total Sales":495347.04,
+        "Total Quantity":1181,
+        "Conversion%":0.0446596718,
+        "Total Sessions":23598378,
+        "Sales ASP":419.4301778154,
+        "TACOS%":0.2015780088,
+        "Organic Sales %":0.4491480761
+    },
+    {
+        "time_group":"2025-02",
+        "Total Sales":683246.9,
+        "Total Quantity":1486,
+        "Conversion%":0.0577016129,
+        "Total Sessions":27381450,
+        "Sales ASP":459.7893001346,
+        "TACOS%":0.0686298613,
+        "Organic Sales %":0.8060984543
+    },
+    {
+        "time_group":"2025-03",
+        "Total Sales":1044566.89,
+        "Total Quantity":2184,
+        "Conversion%":0.0592405212,
+        "Total Sessions":52405605,
+        "Sales ASP":478.2815430403,
+        "TACOS%":0.1148221346,
+        "Organic Sales %":0.6387154776
+    },
+    {
+        "time_group":"2025-04",
+        "Total Sales":894095.95,
+        "Total Quantity":1868,
+        "Conversion%":0.0510605305,
+        "Total Sessions":50053848,
+        "Sales ASP":478.6380888651,
+        "TACOS%":0.1301200839,
+        "Organic Sales %":0.6599342386
+    },
+    {
+        "time_group":"2025-05",
+        "Total Sales":1005118.28,
+        "Total Quantity":2065,
+        "Conversion%":0.0500421704,
+        "Total Sessions":59404555,
+        "Sales ASP":486.7400871671,
+        "TACOS%":0.1973332233,
+        "Organic Sales %":0.6569198204
+    },
+    {
+        "time_group":"2025-06",
+        "Total Sales":358684.2,
+        "Total Quantity":724,
+        "Conversion%":0.051975052,
+        "Total Sessions":6438315,
+        "Sales ASP":495.4201657459,
+        "TACOS%":0.1651789513,
+        "Organic Sales %":0.663867547
+    }
+]

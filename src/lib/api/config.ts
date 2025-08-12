@@ -44,6 +44,14 @@ let tokenPromise: Promise<string> | null = null;
 let lastTokenFetch: number = 0;
 const MIN_TOKEN_INTERVAL = 2000; // Minimum 2 seconds between token fetches
 
+// Expose a helper to clear the token cache (useful on explicit logout)
+export function clearAuthTokenCache() {
+  cachedToken = null;
+  tokenExpiry = 0;
+  tokenPromise = null;
+  lastTokenFetch = 0;
+}
+
 // Authentication interceptor
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -145,10 +153,7 @@ apiClient.interceptors.response.use(
     }
     if (error.response?.status === 401) {
       // Clear all cached token data on 401 to force refresh
-      cachedToken = null;
-      tokenExpiry = 0;
-      tokenPromise = null;
-      lastTokenFetch = 0; // Reset rate limiting
+      clearAuthTokenCache();
       await handleAuthError(error);
     }
     return Promise.reject(error);

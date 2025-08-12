@@ -14,6 +14,8 @@ export function Navbar() {
   const { user, signOut, userProfile, hasAnyPermission } = useAuth()
   const [isToolsOpen, setIsToolsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false)
+  const dashboardDropdownRef = useRef<HTMLDivElement>(null)
 
   // Define tools for dropdown with categories for better organization
   const toolCategories = [
@@ -47,6 +49,14 @@ export function Navbar() {
       ]
     },
     // Future categories can be added here
+  ]
+
+  // Seller Dashboard links (separate from Tools menu)
+  const dashboardTools = [
+    { name: 'Main Dashboard', href: '/newdashboard', description: 'Overview dashboard' },
+    { name: 'ASIN Performance', href: '/newdashboard/asinperformance', description: 'Analyze ASIN performance metrics' },
+    { name: 'Campaign Performance', href: '/newdashboard/campain/campainperformance', description: 'Track and analyze campaign data' },
+    { name: 'Inventory', href: '/newdashboard/inventory', description: 'Monitor inventory levels and trends' },
   ]
   
   // Flatten tools for active check
@@ -96,6 +106,9 @@ export function Navbar() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsToolsOpen(false)
       }
+      if (dashboardDropdownRef.current && !dashboardDropdownRef.current.contains(event.target as Node)) {
+        setIsDashboardOpen(false)
+      }
     }
     
     document.addEventListener('mousedown', handleClickOutside)
@@ -127,13 +140,40 @@ export function Navbar() {
             {user && (
               <div className="hidden md:block ml-10">
                 <div className="flex items-center space-x-4">
-                  <Link href="/dashboard" className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    pathname === '/dashboard' 
-                      ? 'bg-gray-800 text-white' 
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`}>
-                    Dashboard
-                  </Link>
+                  <div className="relative" ref={dashboardDropdownRef}>
+                    <button
+                      onClick={() => setIsDashboardOpen(!isDashboardOpen)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium flex items-center ${
+                        pathname?.startsWith('/newdashboard')
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      }`}
+                    >
+                      Dashboard
+                      <ChevronDownIcon 
+                        className={`ml-1 h-4 w-4 transition-transform ${isDashboardOpen ? 'rotate-180' : ''}`} 
+                      />
+                    </button>
+                    {isDashboardOpen && (
+                      <div className="absolute dropdown-menu mt-2 w-80 bg-gray-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none">
+                        <div>
+                          {dashboardTools.map((tool) => (
+                            <Link
+                              key={tool.href}
+                              href={tool.href}
+                              className={`block px-4 py-3 hover:bg-gray-700 transition-colors ${
+                                pathname === tool.href ? 'bg-gray-700/60 border-l-2 border-yellow-400' : ''
+                              }`}
+                              onClick={() => setIsDashboardOpen(false)}
+                            >
+                              <div className="font-medium text-white">{tool.name}</div>
+                              <div className="text-xs text-gray-400 mt-1">{tool.description}</div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
                   {/* Tools Dropdown */}
                   <div className="relative" ref={dropdownRef}>
@@ -238,13 +278,22 @@ export function Navbar() {
       {user && isToolsOpen && (
         <div className="md:hidden z-50 relative" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link href="/dashboard" className={`block px-3 py-2 rounded-md text-base font-medium ${
-              pathname === '/dashboard' 
-                ? 'bg-gray-800 text-white' 
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            }`}>
-              Dashboard
-            </Link>
+            <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Seller Dashboard
+            </div>
+            {dashboardTools.map((tool) => (
+              <Link
+                key={tool.href}
+                href={tool.href}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  pathname?.startsWith(tool.href)
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                {tool.name}
+              </Link>
+            ))}
             {showAdmin && (
               <Link
                 href="/admin/users"

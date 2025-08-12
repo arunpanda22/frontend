@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { apiClient } from '@/lib/api/config'
+import { apiClient, clearAuthTokenCache } from '@/lib/api/config'
+import { useRouter } from 'next/navigation'
 
 // Agency and managed user interfaces
 export interface Agency {
@@ -69,13 +70,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   const [authInitialized, setAuthInitialized] = useState(false)
+  const router = useRouter()
 
   // Sign out function
   const signOut = async () => {
     try {
       if (auth) {
         await firebaseSignOut(auth);
+        // Clear any cached auth state in API client
+        clearAuthTokenCache();
+        // Proactively clear local auth state
+        setUser(null);
         setUserProfile(null);
+        // Redirect to login immediately
+        try {
+          router.replace('/login');
+        } catch {
+          // Fallback if router not available
+          if (typeof window !== 'undefined') window.location.href = '/login';
+        }
       }
     } catch (error) {
       console.error('Sign out error:', error);

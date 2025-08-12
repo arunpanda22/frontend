@@ -1,0 +1,29 @@
+[
+    {
+        "Period":"Current",
+        "Total Sales":1005118.28,
+        "Total Quantity":2065,
+        "Sales ASP":486.7400871671,
+        "Conversion%":5.0042170368,
+        "TACOS%":19.7579582375,
+        "Organic Sales %":65.5653979351
+    },
+    {
+        "Period":"Previous",
+        "Total Sales":1029901.28,
+        "Total Quantity":2114,
+        "Sales ASP":487.1813055818,
+        "Conversion%":4.9990041824,
+        "TACOS%":19.6472500743,
+        "Organic Sales %":65.596869634
+    },
+    {
+        "Period":"Change %",
+        "Total Sales":"-2.41%",
+        "Total Quantity":"-2.32%",
+        "Sales ASP":"-0.09%",
+        "Conversion%":"+0.10%",
+        "TACOS%":"+0.56%",
+        "Organic Sales %":"-0.05%"
+    }
+]

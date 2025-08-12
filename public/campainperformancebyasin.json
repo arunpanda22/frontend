@@ -1,0 +1,50 @@
+[
+    {
+        "Period":"Avg_60d",
+        "Sessions":110.97,
+        "Orders":5.11,
+        "Sales":2818.56,
+        "Conversion %":4.61,
+        "TACOS %":0.61
+    },
+    {
+        "Period":"Avg_30d",
+        "Sessions":126.67,
+        "Orders":5.87,
+        "Sales":3254.63,
+        "Conversion %":4.64,
+        "TACOS %":0.68
+    },
+    {
+        "Period":"Avg_14d",
+        "Sessions":149.29,
+        "Orders":7.84,
+        "Sales":4312.15,
+        "Conversion %":5.25,
+        "TACOS %":0.55
+    },
+    {
+        "Period":"Avg_7d",
+        "Sessions":182.4,
+        "Orders":9.82,
+        "Sales":5321.72,
+        "Conversion %":5.39,
+        "TACOS %":0.58
+    },
+    {
+        "Period":"14 June",
+        "Sessions":437.47,
+        "Orders":21.33,
+        "Sales":11419.07,
+        "Conversion %":4.88,
+        "TACOS %":0.53
+    },
+    {
+        "Period":"Trend",
+        "Sessions":"+212.4% \u2191",
+        "Orders":"+207.6% \u2191",
+        "Sales":"+200.6% \u2191",
+        "Conversion %":"0.0% \u2192",
+        "TACOS %":"-15.0% \u2193"
+    }
+]

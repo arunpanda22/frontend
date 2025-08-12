@@ -1,6 +1,8 @@
 import { AxiosError } from 'axios';
 import { auth } from '@/lib/firebase';
 import { authService } from '@/lib/services/auth';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { clearAuthTokenCache } from '@/lib/api/config';
 
 export interface ApiErrorResponse {
   message: string;
@@ -32,8 +34,17 @@ export async function handleAuthError(error: unknown): Promise<void> {
       await authService.verifyTokenWithBackend();
     } catch (refreshError) {
       // If refresh fails, sign out the user
-      await auth?.signOut();
-      window.location.href = '/login';
+      try {
+        if (auth) {
+          await firebaseSignOut(auth);
+        }
+      } finally {
+        clearAuthTokenCache();
+        // Force navigation as this can be called outside React tree
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
     }
   }
 }
