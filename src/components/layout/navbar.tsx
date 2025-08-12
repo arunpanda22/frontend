@@ -57,6 +57,7 @@ export function Navbar() {
     { name: 'ASIN Performance', href: '/newdashboard/asinperformance', description: 'Analyze ASIN performance metrics' },
     { name: 'Campaign Performance', href: '/newdashboard/campain/campainperformance', description: 'Track and analyze campaign data' },
     { name: 'Inventory', href: '/newdashboard/inventory', description: 'Monitor inventory levels and trends' },
+    { name: 'Search Query Performance', href: '/newdashboard/searchqueryperformance', description: 'Analyze search query performance data' },
   ]
   
   // Flatten tools for active check
