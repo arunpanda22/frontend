@@ -193,7 +193,7 @@ export function ProfileSelector({ profiles, onProfileSelect, isLoading }: Profil
 
       {/* Commented out Skip button
       <Button
-        onClick={() => router.push('/dashboard')}
+        onClick={() => router.push('/newdashboard')}
         variant="outline"
         className="w-full mt-2"
       >

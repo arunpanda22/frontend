@@ -38,7 +38,7 @@ export default function Login() {
       setIsLoading(true)
       setError('')
       await authService.signInWithEmail(formData.email, formData.password)
-      router.push('/dashboard')
+      router.push('/newdashboard')
     } catch (error) {
       if (error instanceof FirebaseError) {
         setError(error.message)
@@ -62,7 +62,7 @@ export default function Login() {
       setIsLoading(true)
       setError('')
       await authService.signInWithGoogle()
-      router.push('/dashboard')
+      router.push('/newdashboard')
     } catch (error) {
       if (error instanceof FirebaseError) {
         setError(getErrorMessage(error))

@@ -24,11 +24,11 @@ export default function AmazonAdvertisingError() {
   }, [searchParams])
 
   const handleReturnToDashboard = () => {
-    router.push('/dashboard')
+    router.push('/newdashboard')
   }
 
   const handleTryAgain = () => {
-    router.push('/dashboard')
+    router.push('/newdashboard')
   }
 
   return (

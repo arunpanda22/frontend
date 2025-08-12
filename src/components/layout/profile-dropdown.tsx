@@ -99,7 +99,7 @@ export default function ProfileDropdown() {
           <div className="py-1">
             <button
               role="menuitem"
-              onClick={() => navigateAndClose('/dashboard')}
+              onClick={() => navigateAndClose('/newdashboard')}
               className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
             >
               Profile
@@ -114,7 +114,7 @@ export default function ProfileDropdown() {
                     onClick={async () => {
                       await resetToAdminUser()
                       setOpen(false)
-                      if (pathname !== '/dashboard') router.push('/dashboard')
+                      if (pathname !== '/newdashboard') router.push('/newdashboard')
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-blue-300 hover:bg-gray-800 hover:text-blue-200"
                   >
@@ -136,7 +136,7 @@ export default function ProfileDropdown() {
                           onClick={async () => {
                             await switchToManagedUser(String(u.id))
                             setOpen(false)
-                            if (pathname !== '/dashboard') router.push('/dashboard')
+                            if (pathname !== '/newdashboard') router.push('/newdashboard')
                           }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-800 flex items-center gap-2"
                         >

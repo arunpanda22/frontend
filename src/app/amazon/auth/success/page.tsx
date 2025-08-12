@@ -64,7 +64,7 @@ export default function AmazonAuthSuccess() {
             </button> */}
             
             <button
-              onClick={() => window.location.href = '/dashboard'}
+              onClick={() => window.location.href = '/newdashboard'}
               className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
             >
               Return to Main Dashboard

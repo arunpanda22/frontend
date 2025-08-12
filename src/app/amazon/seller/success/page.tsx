@@ -24,7 +24,7 @@ export default function AmazonSellerSuccess() {
         </div>
 
         <Button 
-          onClick={() => router.push('/dashboard')}
+          onClick={() => router.push('/newdashboard')}
           className="w-full bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600"
         >
           Go to Dashboard

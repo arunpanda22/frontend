@@ -244,9 +244,9 @@ export function Navbar() {
               {user && (
                 <div className="hidden md:block ml-10">
                   <Link
-                    href="/dashboard"
+                    href="/newdashboard"
                     className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                      pathname === "/dashboard"
+                      pathname === "/newdashboard"
                         ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25"
                         : "text-gray-200 hover:bg-white/10 hover:text-white hover:shadow-md"
                     }`}
@@ -326,11 +326,11 @@ export function Navbar() {
                 <div className={`space-y-1 ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
                   {/* Dashboard Link */}
                   <Link
-                    href="/dashboard"
+                    href="/newdashboard"
                     className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative ${
                       isSidebarOpen ? 'px-4 py-3' : 'px-3 py-3 justify-center'
                     } ${
-                      pathname === "/dashboard"
+                      pathname === "/newdashboard"
                         ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25"
                         : "text-gray-300 hover:bg-white/10 hover:text-white"
                     }`}
@@ -483,9 +483,9 @@ export function Navbar() {
               <div className="px-4 space-y-1">
                 {/* Dashboard Link */}
                 <Link
-                  href="/dashboard"
+                  href="/newdashboard"
                   className={`flex items-center px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
-                    pathname === "/dashboard"
+                    pathname === "/newdashboard"
                       ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg"
                       : "text-gray-300 hover:bg-white/10 hover:text-white"
                   }`}
