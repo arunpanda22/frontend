@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 
 import dynamic from 'next/dynamic'
-
+import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard'
 
 import { ApexOptions } from 'apexcharts'
 
@@ -23,35 +23,73 @@ const LineColumnAreaChart = ({
   chartDarkColors,
   chartId,
 }: MixedChartsProps) => {
-  // State to hold chart data
-  const [series, setSeries] = useState<any[]>([])
-  const [labels, setLabels] = useState<string[]>([])
+  // Fetch real inventory health data
+  const { data: inventoryHealthData, isLoading, error } = useInventoryHealth({
+    sales_days: 30,
+    reorder_cover_days: 60,
+    supply_chain_lead_time: 60
+  });
 
-  useEffect(() => {
-    // Fetch and process the JSON data
-    fetch('/dataset/%20inventory_health_30d_avg.json')
-      .then((res) => res.json())
-      .then((data) => {
-        // Sort by reserved_quantity descending and take top 10
-        const sorted = [...data]
-          .sort((a, b) => b.reserved_quantity - a.reserved_quantity)
-          .slice(0, 10)
+  // Process real API data for chart
+  const { series, labels } = useMemo(() => {
+    if (!inventoryHealthData?.inventory_health) {
+      return {
+        series: [],
+        labels: []
+      };
+    }
 
-        setLabels(sorted.map((item) => item.asin))
-        setSeries([
-          {
-            name: 'Reserved Quantity',
-            type: 'column',
-            data: sorted.map((item) => item.reserved_quantity),
-          },
-          {
-            name: 'Inventory Cover',
-            type: 'line',
-            data: sorted.map((item) => item["Inventory Cover"]),
-          },
-        ])
-      })
-  }, [])
+    // Sort by fulfillable_quantity descending and take top 10
+    const sorted = [...inventoryHealthData.inventory_health]
+      .sort((a: any, b: any) => (b.fulfillable_quantity || 0) - (a.fulfillable_quantity || 0))
+      .slice(0, 10);
+
+    const chartLabels = sorted.map((item: any) => item.asin);
+    const chartSeries = [
+      {
+        name: 'Fulfillable Quantity',
+        type: 'column',
+        data: sorted.map((item: any) => item.fulfillable_quantity || 0),
+      },
+      {
+        name: 'Inventory Cover',
+        type: 'line',
+        data: sorted.map((item: any) => item['Inventory Cover'] || 0),
+      },
+    ];
+
+    return {
+      series: chartSeries,
+      labels: chartLabels
+    };
+  }, [inventoryHealthData]);
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div className="w-full h-[300px] flex items-center justify-center">
+        <div className="text-gray-500">Loading chart...</div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <div className="w-full h-[300px] flex items-center justify-center">
+        <div className="text-red-500">Failed to load inventory data: {error.message}</div>
+      </div>
+    );
+  }
+
+  // Handle no data
+  if (!series.length || !labels.length) {
+    return (
+      <div className="w-full h-[300px] flex items-center justify-center">
+        <div className="text-gray-500">No inventory data available</div>
+      </div>
+    );
+  }
 
   const options: ApexOptions = {
     chart: {
@@ -77,7 +115,7 @@ const LineColumnAreaChart = ({
     yaxis: [
       {
         title: {
-          text: 'Reserved Quantity',
+          text: 'Fulfillable Quantity',
         },
         min: 0,
       },
@@ -118,7 +156,7 @@ const LineColumnAreaChart = ({
         series={series}
         type="line"
         data-chart-colors="[bg-primary-500, bg-green-500, bg-yellow-500]"
-        chartId={chartId}
+        id={chartId}
         height="100%"
         width="100%"
       />

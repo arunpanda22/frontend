@@ -10,6 +10,8 @@ import {
 } from 'material-react-table'
 import { Box, Typography, Button, Grid, Card, CardContent, Chip } from '@mui/material'
 import { ViewList, ViewModule } from '@mui/icons-material'
+import { useCampaignSummaryWithParams } from '@/lib/hooks/queries/use-dashboard'
+import type { CampaignSummaryItem } from '@/lib/api/services/dashboard.service'
 
 interface CampaignSummary {
   "Campaign Name": string;
@@ -24,37 +26,34 @@ interface CampaignSummary {
 }
 
 export default function CampainAdsSummery() {
-  const [campaignData, setCampaignData] = useState<CampaignSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Fetch real campaign data from API
+  const dateParams = useMemo(() => ({
+    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    period: '30d',
+    focus_level: 'all' as const
+  }), []);
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const res = await fetch('/dataset/Campaign_summers.json');
-        const raw = await res.json();
-        // Defensive: ensure all fields are present and strings
-        const mapped = (raw as any[]).map(item => ({
-          "Campaign Name": item["Campaign Name"] ?? '',
-          Impressions: item.Impressions ?? '',
-          Clicks: item.Clicks ?? '',
-          "CTR%": item["CTR%"] ?? '',
-          "Ad Cost": item["Ad Cost"] ?? '',
-          "Cost/Click": item["Cost/Click"] ?? '',
-          "Units Sold": item["Units Sold"] ?? '',
-          Sales: item.Sales ?? '',
-          "ACOS%": item["ACOS%"] ?? '',
-        }));
-        setCampaignData(mapped);
-      } catch (e) {
-        setCampaignData([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
+  const { data: apiCampaignData, isLoading: loading, error } = useCampaignSummaryWithParams(dateParams);
 
+  // Transform API data to match table format
+  const campaignData = useMemo(() => {
+    if (!apiCampaignData) return [];
+    
+    return apiCampaignData.map((campaign: CampaignSummaryItem) => ({
+      "Campaign Name": campaign.campaign_name || '',
+      Impressions: campaign.impressions?.toLocaleString() || '0',
+      Clicks: campaign.clicks?.toLocaleString() || '0',
+      "CTR%": campaign.ctr_percent ? `${campaign.ctr_percent.toFixed(2)}%` : '0%',
+      "Ad Cost": campaign.ad_cost ? `$${campaign.ad_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0',
+      "Cost/Click": campaign.cost_per_click ? `$${campaign.cost_per_click.toFixed(2)}` : '$0',
+      "Units Sold": campaign.purchases?.toLocaleString() || '0',
+      Sales: campaign.sales ? `$${campaign.sales.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0',
+      "ACOS%": campaign.acos_percent ? `${campaign.acos_percent.toFixed(2)}%` : '0%',
+    }));
+  }, [apiCampaignData]);
+
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const columns = useMemo<MRT_ColumnDef<CampaignSummary>[]>(() => [
     {
       accessorKey: 'Campaign Name',
@@ -129,8 +128,28 @@ export default function CampainAdsSummery() {
     },
   ], []);
 
+  // Handle loading and error states AFTER all hooks
   if (loading) {
-    return <div className="w-full flex justify-center items-center min-h-[200px] text-lg text-blue-700">Loading campaign data...</div>;
+    return (
+      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary">
+          Loading campaign data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="error">
+          Failed to load campaign data
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error?.message || 'Unknown error occurred'}
+        </Typography>
+      </Box>
+    );
   }
 
   return (

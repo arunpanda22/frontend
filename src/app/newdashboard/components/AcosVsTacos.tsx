@@ -10,7 +10,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { useWeeklyData } from "@/lib/hooks/queries/use-dashboard";
 
 interface ChartData {
   name: string;
@@ -29,62 +30,63 @@ export default function AcosVsTacosChart({
   tacosColor = "#FFB800",
   height = 320,
 }: AcosVsTacosChartProps) {
-  const [data, setData] = useState<ChartData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Fetch weekly data for ACOS and TACOS
+  const { data: weeklyData, isLoading, error } = useWeeklyData({
+    focus_level: 'all',
+    aggregation: 'monthly'
+  });
 
-  useEffect(() => {
-    const fetchData = async () => {
+  // Transform API data to chart format
+  const data: ChartData[] = React.useMemo(() => {
+    if (!weeklyData) return [];
+
+    // Handle both possible response structures
+    const dataArray = Array.isArray(weeklyData) ? weeklyData : weeklyData.weekly_data;
+    
+    if (!dataArray || !Array.isArray(dataArray)) {
+      console.log('No valid data array found in AcosVsTacos:', weeklyData);
+      return [];
+    }
+
+    const formatMonth = (dateString: string) => {
+      // Handle the format "Aug - 25" or "Jul - 25"
+      if (dateString.includes(' - ')) {
+        const [month, year] = dateString.split(' - ');
+        return `${month} '${year}`;
+      }
+      
+      // Fallback for other date formats
       try {
-        const [acosResponse, tacosResponse] = await Promise.all([
-          fetch("/acos.json"),
-          fetch("/tacos.json"),
-        ]);
-
-        if (!acosResponse.ok || !tacosResponse.ok) {
-          throw new Error("Failed to fetch ACOS or TACOS data");
+        const [year, month] = dateString.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1);
+        if (isNaN(date.getTime())) {
+          // If date parsing fails, return the original string
+          return dateString;
         }
-
-        const acosData = await acosResponse.json();
-        const tacosData = await tacosResponse.json();
-
-        const tacosMap = new Map(
-          tacosData.map((d: any) => [d.time_group, d["TACOS%"]])
-        );
-
-        const formatMonth = (dateString: string) => {
-          const [year, month] = dateString.split('-');
-          const date = new Date(parseInt(year), parseInt(month) - 1);
-          return date.toLocaleString('default', { month: 'short' }) + " '" + year.substring(2);
-        };
-        
-        const chartData = acosData
-          .map((d: any) => {
-            const tacosValue = tacosMap.get(d.time_group);
-            if (typeof tacosValue === 'number') {
-              return {
-                name: formatMonth(d.time_group),
-                ACOS: parseFloat(d["ACOS%"]) * 100,
-                TACOS: tacosValue * 100,
-              };
-            }
-            return null;
-          })
-          .filter(Boolean) as ChartData[];
-
-        setData(chartData);
+        return date.toLocaleString('default', { month: 'short' }) + " '" + year.substring(2);
       } catch (error) {
-        console.error("Failed to fetch chart data:", error);
-        setError("Failed to load chart data.");
-      } finally {
-        setLoading(false);
+        // If any error occurs, return the original string
+        return dateString;
       }
     };
 
-    fetchData();
-  }, []);
+    return dataArray
+      .map((d: any) => {
+        const acosValue = parseFloat(d["ACOS%"] || "0");
+        const tacosValue = parseFloat(d["TACOS%"] || "0");
+        
+        if (isNaN(acosValue) || isNaN(tacosValue)) return null;
+        
+        return {
+          name: formatMonth(d.time_group),
+          ACOS: acosValue,
+          TACOS: tacosValue,
+        };
+      })
+      .filter(Boolean) as ChartData[];
+  }, [weeklyData]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={`w-full flex items-center justify-center`} style={{ height }}>
         <p>Loading...</p>
@@ -95,7 +97,15 @@ export default function AcosVsTacosChart({
   if (error) {
     return (
       <div className={`w-full flex items-center justify-center`} style={{ height }}>
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-500">Failed to load chart data</p>
+      </div>
+    );
+  }
+
+  if (!data.length) {
+    return (
+      <div className={`w-full flex items-center justify-center`} style={{ height }}>
+        <p className="text-gray-500">No data available</p>
       </div>
     );
   }

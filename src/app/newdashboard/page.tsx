@@ -16,23 +16,19 @@ export default function DashboardLayout() {
         <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-1 row-span-1 transition-all duration-300 hover:shadow-2xl hover:scale-105 animate-fadein">
           <RevenueCard />
         </div>
-        {/* Top Middle: RevenueCard2 */}
+        {/* Top Middle: QuantityCard */}
         <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-1 row-span-1 transition-all duration-300 hover:shadow-2xl hover:scale-105 animate-fadein delay-100">
           <QuantityCard />
         </div>
-        {/* Top Middle: RevenueCard2 */}
-        <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-1 row-span-1 transition-all duration-300 hover:shadow-2xl hover:scale-105 animate-fadein delay-100">
-          <RevenueCard />
-        </div>
-        {/* Top Right: Large Card with ACOS vs TACOS Chart */}
-        <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-2 lg:col-span-2 row-span-1 transition-all duration-300 hover:shadow-2xl hover:scale-105 animate-fadein delay-200">
+        {/* Top Right: ACOS vs TACOS Chart */}
+        <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-2 lg:col-span-3 row-span-1 transition-all duration-300 hover:shadow-2xl hover:scale-105 animate-fadein delay-200">
           <AcosVsTacosChart />
         </div>
         {/* Middle Wide Box: Advanced Funnel */}
         <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-2 lg:col-span-5 row-span-1 transition-all duration-300  animate-fadein delay-300">
           <AdvancedFunnel />
         </div>
-        {/* Bottom: Single Large Card with big ACOS vs TACOS Chart */}
+        {/* Bottom: Single Large Card with Performance Chart */}
         <div className="rounded-2xl flex items-center justify-center bg-white shadow-lg col-span-1 md:col-span-2 lg:col-span-5 row-span-1 px-2 md:px-8 py-4 md:py-8 transition-all duration-300  animate-fadein delay-400">
           <PerformanceChart />
         </div>

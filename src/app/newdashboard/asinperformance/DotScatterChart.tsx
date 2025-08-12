@@ -1,23 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import asinDataRaw from "../../../../public/dataset/ASIN_Performance_2025-03-30_to_2025-06-301.json";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterProps } from "recharts";
-
-// Helper to parse percent strings and numbers
-function parseNumber(val: any) {
-  if (typeof val === 'number') return val;
-  if (typeof val === 'string') {
-    const n = parseFloat(val.replace(/%/g, '').replace(/,/g, ''));
-    return isNaN(n) ? 0 : n;
-  }
-  return 0;
-}
-
-const asinData = (asinDataRaw as any[]).map(item => ({
-  ...item,
-  "Total Sales": parseNumber(item["Total Sales"]),
-  "TACOS": parseNumber(item["TACOS"]),
-}));
+import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard';
 
 const dotColors = [
   "#FACC15", // Yellow
@@ -31,6 +15,57 @@ const dotColors = [
 export default function DotScatterChart() {
   const [focusLevel, setFocusLevel] = useState<string>("High Focus");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // Fetch ASIN performance data from API - use stable date values
+  const dateParams = React.useMemo(() => ({
+    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    period: '30d',
+    focus_level: 'all' as const
+  }), []);
+
+  const { asinSummary, targetingAnalysis, isLoading, isError, error } = useAsinPerformanceData(dateParams);
+
+  // Transform API data for the chart - use targeting analysis since ASIN summary has zero sales
+  const asinData = React.useMemo(() => {
+    // Use ASIN summary if it has real data, otherwise fall back to targeting analysis
+    if (asinSummary?.data?.data) {
+      const extractedData = asinSummary.data.data.map((item: any) => {
+        const actualItem = item.json || item;
+        return {
+          asin: actualItem.asin,
+          product_name: actualItem.product_name,
+          "Total Sales": actualItem.total_sales,
+          "TACOS": actualItem.tacos_percent,
+          "Focus Level": actualItem.focus_category || "High Focus",
+        };
+      });
+      
+      if (extractedData.some((item: any) => item["Total Sales"] > 0)) {
+        return extractedData;
+      }
+    }
+    
+    // Fallback to targeting analysis data
+    if (!targetingAnalysis?.data) return [];
+    
+    const transformedData: any[] = [];
+    Object.entries(targetingAnalysis.data).forEach(([groupName, groupData]: [string, any]) => {
+      if (groupData.items && Array.isArray(groupData.items)) {
+        groupData.items.forEach((item: any) => {
+          transformedData.push({
+            asin: `${groupName}-${item.targeting_type}`,
+            product_name: `${groupName} - ${item.targeting_type}`,
+            "Total Sales": item.sales || 0,
+            "TACOS": item.acos_percent || 0, // Use ACOS as proxy for TACOS
+            "Focus Level": "High Focus",
+          });
+        });
+      }
+    });
+    
+    return transformedData;
+  }, [asinSummary, targetingAnalysis]);
 
   const filteredData = asinData.filter(item => item["Focus Level"] === focusLevel);
 
@@ -46,6 +81,28 @@ export default function DotScatterChart() {
     name: item.product_name,
     color: dotColors[idx % dotColors.length],
   }));
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div style={{ width: "100%", height: 540, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div>Loading ASIN scatter chart data...</div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (isError || !asinData || asinData.length === 0) {
+    return (
+      <div style={{ width: "100%", height: 540, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: 'red' }}>
+          Failed to load ASIN scatter chart data
+          <br />
+          <small>{error?.message || 'No data available'}</small>
+        </div>
+      </div>
+    );
+  }
 
   interface CustomDotProps extends Partial<ScatterProps> {
     cx?: number;

@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 
 // Mock chart data, as the API doesn't provide time series for the mini chart
 const chartData = [
@@ -23,38 +24,36 @@ const ChangeText = ({ value }: { value: string }) => {
 };
 
 const RevenueCard = () => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Calculate date range for last 30 days
+  const endDate = new Date().toISOString().split('T')[0];
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  // Previous period (30 days before that)
+  const prevEndDate = startDate;
+  const prevStartDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/add_sales.json');
-        const jsonData = await response.json();
-        
-        const salesMetrics = {
-          current: jsonData.sales_metrics.find((d: any) => d.Period === 'Current'),
-          previous: jsonData.sales_metrics.find((d: any) => d.Period === 'Previous'),
-          change: jsonData.sales_metrics.find((d: any) => d.Period === 'Change %'),
-        };
+  // Current period data
+  const { data: currentData, isLoading: currentLoading, error: currentError } = useAdsSalesData({
+    start_date: startDate,
+    end_date: endDate,
+    focus_level: 'all'
+  });
 
-        const adsPerformance = {
-          current: jsonData.ads_performance.find((d: any) => d.Period === 'Current'),
-          previous: jsonData.ads_performance.find((d: any) => d.Period === 'Previous'),
-          change: jsonData.ads_performance.find((d: any) => d.Period === 'Change %'),
-        };
+  // Previous period data
+  const { data: previousData, isLoading: previousLoading, error: previousError } = useAdsSalesData({
+    start_date: prevStartDate,
+    end_date: prevEndDate,
+    focus_level: 'all'
+  });
 
-        setData({ salesMetrics, adsPerformance });
-      } catch (error) {
-        console.error("Failed to fetch revenue data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  // Debug logging
+  console.log('RevenueCard - Current data:', currentData);
+  console.log('RevenueCard - Previous data:', previousData);
 
-  if (loading || !data) {
+  const isLoading = currentLoading || previousLoading;
+  const error = currentError || previousError;
+
+  if (isLoading) {
     return (
       <div className="bg-white shadow-md rounded-lg p-6 w-[300px] max-w-md mx-auto animate-pulse">
         <div className="h-2 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -63,11 +62,42 @@ const RevenueCard = () => {
       </div>
     );
   }
-  
-  const { salesMetrics, adsPerformance } = data;
-  
-  const adSalesPercent = parsePercent(adsPerformance.current['Ads Sales %']);
-  const organicSalesPercent = parsePercent(salesMetrics.current['Organic Sales %']);
+
+  if (error || !currentData || !previousData) {
+    return (
+      <div className="bg-white shadow-md rounded-lg p-6 w-[300px] max-w-md mx-auto">
+        <div className="text-red-500 text-center">
+          <p>Failed to load revenue data</p>
+          <p className="text-sm text-gray-500">{error?.message || 'Unknown error'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate metrics from API data
+  const currentPeriod = currentData.current_period;
+  const previousPeriod = previousData.previous_period;
+
+  const currentTotalSales = currentPeriod?.Sales || 0;
+  const previousTotalSales = previousPeriod?.Sales || 0;
+  const salesChange = previousTotalSales > 0 
+    ? ((currentTotalSales - previousTotalSales) / previousTotalSales) * 100 
+    : 0;
+
+  const currentAdSales = currentPeriod?.Spend || 0; // Using Spend as proxy for ad sales
+  const previousAdSales = previousPeriod?.Spend || 0;
+  const adSalesChange = previousAdSales > 0 
+    ? ((currentAdSales - previousAdSales) / previousAdSales) * 100 
+    : 0;
+
+  const currentOrganicSales = currentTotalSales - currentAdSales;
+  const previousOrganicSales = previousTotalSales - previousAdSales;
+  const organicSalesChange = previousOrganicSales > 0 
+    ? ((currentOrganicSales - previousOrganicSales) / previousOrganicSales) * 100 
+    : 0;
+
+  const adSalesPercent = currentTotalSales > 0 ? (currentAdSales / currentTotalSales) * 100 : 0;
+  const organicSalesPercent = currentTotalSales > 0 ? (currentOrganicSales / currentTotalSales) * 100 : 0;
 
   return (
     <div className="bg-white shadow-md rounded-lg p-8 w-full max-w-sm mx-auto">
@@ -78,9 +108,9 @@ const RevenueCard = () => {
             <div className="w-2 h-6 bg-yellow-400 rounded" />
             <p className="text-sm text-gray-500">Total Revenue</p>
           </div>
-          <h2 className="text-2xl font-bold">{formatToK(parseNumber(salesMetrics.current['Total Sales']))}</h2>
-          <p className="text-gray-500 text-sm">{formatToK(parseNumber(salesMetrics.previous['Total Sales']))}</p>
-          <ChangeText value={salesMetrics.change['Total Sales']} />
+          <h2 className="text-2xl font-bold">{formatToK(currentTotalSales)}</h2>
+          <p className="text-gray-500 text-sm">{formatToK(previousTotalSales)}</p>
+          <ChangeText value={`${salesChange > 0 ? '+' : ''}${salesChange.toFixed(1)}%`} />
         </div>
 
         {/* Chart */}
@@ -113,18 +143,18 @@ const RevenueCard = () => {
       <div className="flex justify-between mt-6">
         <div className="text-left">
           <p className="text-sm text-gray-600">Ad Revenue</p>
-          <h3 className="text-xl font-bold">{formatToK(parseNumber(adsPerformance.current['Ads Sales']))}</h3>
-          <p className="text-gray-500 text-sm">{formatToK(parseNumber(adsPerformance.previous['Ads Sales']))}</p>
-          <ChangeText value={adsPerformance.change['Ads Sales']} />
+          <h3 className="text-xl font-bold">{formatToK(currentAdSales)}</h3>
+          <p className="text-gray-500 text-sm">{formatToK(previousAdSales)}</p>
+          <ChangeText value={`${adSalesChange > 0 ? '+' : ''}${adSalesChange.toFixed(1)}%`} />
         </div>
 
         <div className="border-l mx-4" />
 
         <div className="text-left">
           <p className="text-sm text-gray-600">Organic Revenue</p>
-          <h3 className="text-xl font-bold">{formatToK(parseNumber(salesMetrics.current['Organic_Sales']))}</h3>
-          <p className="text-gray-500 text-sm">{formatToK(parseNumber(salesMetrics.previous['Organic_Sales']))}</p>
-          <ChangeText value={salesMetrics.change['Organic_Sales']} />
+          <h3 className="text-xl font-bold">{formatToK(currentOrganicSales)}</h3>
+          <p className="text-gray-500 text-sm">{formatToK(previousOrganicSales)}</p>
+          <ChangeText value={`${organicSalesChange > 0 ? '+' : ''}${organicSalesChange.toFixed(1)}%`} />
         </div>
       </div>
     </div>

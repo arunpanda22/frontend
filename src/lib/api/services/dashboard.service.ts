@@ -122,29 +122,41 @@ export interface WeeklyDataResponse {
 }
 
 export interface PeriodData {
-  start_date: string
-  end_date: string
-  total_sales: number
-  total_ad_cost: number
-  total_impressions: number
-  total_clicks: number
-  ctr_percent: number
-  acos_percent: number
-  sessions: number
-  orders: number
+  Impressions: number
+  Clicks: number
+  CTR: number
+  CPC: number
+  Spend: number
+  Sales: number
+  ACOS: number
+  Orders: number
+  CVR: number
+  'Total Sales': number
+  'Total Orders': number
+  Sessions: number
+  'Total Order Items': number
+}
+
+export interface ChangesData {
+  Impressions: number
+  Clicks: number
+  CTR: number
+  CPC: number
+  Spend: number
+  Sales: number
+  ACOS: number
+  Orders: number
+  CVR: number
+  'Total Sales': number
+  'Total Orders': number
+  Sessions: number
+  'Total Order Items': number
 }
 
 export interface AdsSalesResponse {
   current_period: PeriodData
   previous_period: PeriodData
-  comparison: {
-    sales_change_percent: number
-    ad_cost_change_percent: number
-    impressions_change_percent: number
-    clicks_change_percent: number
-    ctr_change_percent: number
-    acos_change_percent: number
-  }
+  changes: ChangesData
 }
 
 export interface AsinSummaryItem {
@@ -259,6 +271,27 @@ export const dashboardService = {
     return res.data
   },
 
+  // Campaign Summary with full params
+  async getCampaignSummaryWithParams(options: {
+    start_date: string
+    end_date: string
+    period?: string
+    focus_level?: 'high' | 'medium' | 'low' | 'all'
+  }) {
+    const res = await apiClient.get('/api/v1/dashboard-api/campaign-summary/', {
+      params: options
+    })
+    console.log('📊 Campaign Summary API Response:', res.data)
+    
+    // Handle wrapped response structure - extract from 'json' if present
+    let processedData = res.data;
+    if (res.data?.json) {
+      processedData = Array.isArray(res.data.json) ? res.data.json : [res.data.json];
+    }
+    
+    return processedData
+  },
+
   // Targeting Analysis
   async getTargetingAnalysis(period?: string) {
     const res = await apiClient.get<TargetingAnalysisItem[]>('/api/v1/dashboard-api/targeting-analysis/', {
@@ -280,9 +313,11 @@ export const dashboardService = {
     focus_level?: 'high' | 'medium' | 'low' | 'all'
     aggregation?: 'weekly' | 'monthly'
   }) {
+    console.log('Fetching weekly data with options:', options);
     const res = await apiClient.get<WeeklyDataResponse>('/api/v1/dashboard-api/weekly/', {
       params: options
     })
+    console.log('Weekly data response received:', res.data);
     return res.data
   },
 
@@ -292,10 +327,19 @@ export const dashboardService = {
     end_date: string
     focus_level?: 'high' | 'medium' | 'low' | 'all'
   }) {
-    const res = await apiClient.get<AdsSalesResponse>('/api/v1/dashboard-api/ads-sales/', {
+    console.log('Fetching ads-sales data with options:', options);
+    const res = await apiClient.get('/api/v1/dashboard-api/ads-sales/', {
       params: options
     })
-    return res.data
+    console.log('Ads-sales data response received:', res.data);
+    
+    // Handle wrapped response structure - extract from 'json' if present
+    let processedData = res.data;
+    if (res.data?.json) {
+      processedData = res.data.json;
+    }
+    
+    return processedData
   },
 
   // ASIN Summary
@@ -304,9 +348,15 @@ export const dashboardService = {
     end_date: string
     focus_level?: 'high' | 'medium' | 'low' | 'all'
   }) {
-    const res = await apiClient.get<AsinSummaryItem[]>('/api/v1/dashboard-api/asin-summary/', {
+    const res = await apiClient.get<{ data: AsinSummaryItem[] }>('/api/v1/dashboard-api/asin-summary/', {
       params: options
     })
+    // Only log if there's an issue or very few results
+    if (!res.data || (res.data?.data && res.data.data.length === 0)) {
+      console.log('⚠️ ASIN Summary: No data returned');
+    } else if (res.data?.data && res.data.data.every(item => item.total_sales === 0)) {
+      console.log('⚠️ ASIN Summary: All items have zero sales');
+    }
     return res.data
   },
 

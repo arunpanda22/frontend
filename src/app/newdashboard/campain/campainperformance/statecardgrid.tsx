@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { FaUserFriends, FaFeather, FaShoppingCart, FaHeart, FaDollarSign, FaCoins, FaRedo, FaChartLine, FaEllipsisH, FaPercent } from "react-icons/fa";
+import { useCampaignSummaryWithParams, useAdsSalesData } from '@/lib/hooks/queries/use-dashboard';
+import type { CampaignSummaryItem } from '@/lib/api/services/dashboard.service';
 
 function TrendBadge({ value, positive }: { value: string; positive: boolean }) {
   return (
@@ -33,29 +35,113 @@ function StatCard({ icon, label, value, trend, trendPositive }: { icon: any; lab
 }
 
 export default function StatCardGrid() {
-  const [cards, setCards] = useState<any[]>([]);
+  // Calculate date range for last 30 days
+  const dateParams = useMemo(() => ({
+    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    period: '30d',
+    focus_level: 'all' as const
+  }), []);
 
-  useEffect(() => {
-    fetch('/add_sales.json')
-      .then(res => res.json())
-      .then(data => {
-        const ads = data.ads_performance.find((d: any) => d.Period === 'Current') || {};
-        const sales = data.sales_metrics.find((d: any) => d.Period === 'Current') || {};
-        setCards([
-          { icon: <FaFeather />, label: 'Impressions', value: Number(ads.Impressions || 0).toLocaleString() },
-          { icon: <FaUserFriends />, label: 'Clicks', value: Number(ads.Clicks || 0).toLocaleString() },
-          { icon: <FaDollarSign />, label: 'Ad Cost', value: `$${ads["Ad Cost"] || 0}` },
-          { icon: <FaCoins />, label: 'Ads Sales', value: `$${ads["Ads Sales"] || 0}` },
-          { icon: <FaShoppingCart />, label: 'Ads Quantity', value: Number(ads["Ads Quantity"] || 0).toLocaleString() },
-          { icon: <FaPercent />, label: 'ACOS%', value: ads["ACOS%"] || '0%' },
-          { icon: <FaPercent />, label: 'CTR%', value: ads["CTR%"] || '0%' },
-          { icon: <FaDollarSign />, label: 'Total Sales', value: `$${sales["Total Sales"] || 0}` },
-         
-        ]);
-      });
-  }, []);
+  // Fetch real campaign and ads data
+  const { data: campaignData, isLoading: campaignLoading, error: campaignError } = useCampaignSummaryWithParams(dateParams);
+  const { data: adsSalesData, isLoading: adsLoading, error: adsError } = useAdsSalesData(dateParams);
 
-  if (!cards.length) return <div className="w-full text-center py-8">Loading...</div>;
+  // Calculate aggregated stats from campaign data
+  const cards = useMemo(() => {
+    if (!campaignData || !adsSalesData) return [];
+
+    // Aggregate campaign data
+    const totalImpressions = campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.impressions || 0), 0);
+    const totalClicks = campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.clicks || 0), 0);
+    const totalAdCost = campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.ad_cost || 0), 0);
+    const totalSales = campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.sales || 0), 0);
+    const totalPurchases = campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.purchases || 0), 0);
+    
+    // Calculate averages
+    const avgCTR = campaignData.length > 0 ? 
+      campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.ctr_percent || 0), 0) / campaignData.length : 0;
+    const avgACOS = campaignData.length > 0 ? 
+      campaignData.reduce((sum: number, campaign: CampaignSummaryItem) => sum + (campaign.acos_percent || 0), 0) / campaignData.length : 0;
+
+    // Use ads sales data for additional metrics
+    const currentPeriod = adsSalesData.current_period || {};
+    
+    return [
+      { 
+        icon: <FaFeather />, 
+        label: 'Impressions', 
+        value: totalImpressions.toLocaleString(),
+        trend: adsSalesData.changes?.Impressions ? `${adsSalesData.changes.Impressions > 0 ? '+' : ''}${adsSalesData.changes.Impressions.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.Impressions > 0
+      },
+      { 
+        icon: <FaUserFriends />, 
+        label: 'Clicks', 
+        value: totalClicks.toLocaleString(),
+        trend: adsSalesData.changes?.Clicks ? `${adsSalesData.changes.Clicks > 0 ? '+' : ''}${adsSalesData.changes.Clicks.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.Clicks > 0
+      },
+      { 
+        icon: <FaDollarSign />, 
+        label: 'Ad Cost', 
+        value: `$${totalAdCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+        trend: adsSalesData.changes?.Spend ? `${adsSalesData.changes.Spend > 0 ? '+' : ''}${adsSalesData.changes.Spend.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.Spend < 0 // Lower cost is better
+      },
+      { 
+        icon: <FaCoins />, 
+        label: 'Campaign Sales', 
+        value: `$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+        trend: adsSalesData.changes?.Sales ? `${adsSalesData.changes.Sales > 0 ? '+' : ''}${adsSalesData.changes.Sales.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.Sales > 0
+      },
+      { 
+        icon: <FaShoppingCart />, 
+        label: 'Orders', 
+        value: totalPurchases.toLocaleString(),
+        trend: adsSalesData.changes?.Orders ? `${adsSalesData.changes.Orders > 0 ? '+' : ''}${adsSalesData.changes.Orders.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.Orders > 0
+      },
+      { 
+        icon: <FaPercent />, 
+        label: 'Avg ACOS', 
+        value: `${avgACOS.toFixed(2)}%`,
+        trend: adsSalesData.changes?.ACOS ? `${adsSalesData.changes.ACOS > 0 ? '+' : ''}${adsSalesData.changes.ACOS.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.ACOS < 0 // Lower ACOS is better
+      },
+      { 
+        icon: <FaPercent />, 
+        label: 'Avg CTR', 
+        value: `${avgCTR.toFixed(2)}%`,
+        trend: adsSalesData.changes?.CTR ? `${adsSalesData.changes.CTR > 0 ? '+' : ''}${adsSalesData.changes.CTR.toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.CTR > 0
+      },
+      { 
+        icon: <FaDollarSign />, 
+        label: 'Total Sales', 
+        value: `$${(currentPeriod.Sales || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+        trend: adsSalesData.changes?.['Total Sales'] ? `${adsSalesData.changes['Total Sales'] > 0 ? '+' : ''}${adsSalesData.changes['Total Sales'].toFixed(1)}%` : undefined,
+        trendPositive: adsSalesData.changes?.['Total Sales'] > 0
+      }
+    ];
+  }, [campaignData, adsSalesData]);
+
+  // Handle loading state
+  if (campaignLoading || adsLoading) {
+    return <div className="w-full text-center py-8">Loading campaign data...</div>;
+  }
+
+  // Handle error state
+  if (campaignError || adsError) {
+    return (
+      <div className="w-full text-center py-8 text-red-600">
+        Error loading campaign data: {campaignError?.message || adsError?.message}
+      </div>
+    );
+  }
+
+  if (!cards.length) return <div className="w-full text-center py-8">No campaign data available</div>;
 
   return (
     <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 w-full">

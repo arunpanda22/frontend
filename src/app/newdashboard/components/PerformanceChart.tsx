@@ -28,19 +28,19 @@ const DATASET_OPTIONS = [
 ];
 
 const KPI_OPTIONS = [
-    { id: 'impressions', title: 'Impressions', keys: ['Total Impressions'], format: 'number', color: '#E06CB7' },
-    { id: 'clicks', title: 'Clicks', keys: ['Total Clicks'], format: 'number', color: '#633CEB' },
-    { id: 'cost', title: 'Cost', keys: ['Total Ad Cost'], format: 'currency', color: '#00B2A9' },
-    { id: 'sales', title: 'Sales', keys: ['Total Sales'], format: 'currency', color: '#4285F4' },
-    { id: 'purchases', title: 'Purchases', keys: ['Total Quantity'], format: 'number', color: '#FFA500' },
+    { id: 'impressions', title: 'Impressions', keys: ['impressions'], format: 'number', color: '#E06CB7' },
+    { id: 'clicks', title: 'Clicks', keys: ['clicks'], format: 'number', color: '#633CEB' },
+    { id: 'cost', title: 'Cost', keys: ['cost'], format: 'currency', color: '#00B2A9' },
+    { id: 'sales', title: 'Sales', keys: ['sales_30d'], format: 'currency', color: '#4285F4' },
+    { id: 'purchases', title: 'Purchases', keys: ['purchases_30d'], format: 'number', color: '#FFA500' },
     { id: 'ctr', title: 'CTR %', keys: ['CTR%'], format: 'percent', color: '#4CAF50' },
     { id: 'cpc', title: 'CPC', keys: ['CPC'], format: 'currency', color: '#F44336' },
-    { id: 'asp', title: 'ASP', keys: ['Total Sales'], format: 'currency', color: '#FFC107' }, // Will be calculated
-    { id: 'conversion', title: 'Conversion %', keys: ['Conversion%'], format: 'percent', color: '#3F51B5' },
+    { id: 'asp', title: 'ASP', keys: ['Sales ASP'], format: 'currency', color: '#FFC107' },
+    { id: 'conversion', title: 'Conversion %', keys: ['CVR%'], format: 'percent', color: '#3F51B5' },
     { id: 'acos', title: 'ACOS %', keys: ['ACOS%'], format: 'percent', color: '#673AB7' },
-    { id: 'cpa', title: 'CPA', keys: ['Total Ad Cost'], format: 'currency', color: '#03A9F4' }, // Will be calculated
-    { id: 'adSales', title: 'Ad Sales', keys: ['Total Ad Sales'], format: 'currency', color: '#CDDC39' },
-    { id: 'sessions', title: 'Sessions', keys: ['Sessions'], format: 'number', color: '#00BCD4' }
+    { id: 'cpa', title: 'CPA', keys: ['CPA'], format: 'currency', color: '#03A9F4' },
+    { id: 'totalSales', title: 'Total Sales', keys: ['Total Sales'], format: 'currency', color: '#CDDC39' },
+    { id: 'totalQuantity', title: 'Total Quantity', keys: ['Total Quantity'], format: 'number', color: '#00BCD4' }
 ] as const;
 
 type KPIKey = typeof KPI_OPTIONS[number]['id'];
@@ -49,7 +49,7 @@ type KPIKey = typeof KPI_OPTIONS[number]['id'];
 const KPI_GROUPS = [
   {
     label: 'Advertising',
-    ids: ['impressions', 'clicks', 'cost', 'sales', 'ctr', 'cpc', 'acos', 'cpa', 'adSales', 'conversion'],
+    ids: ['impressions', 'clicks', 'cost', 'sales', 'ctr', 'cpc', 'acos', 'cpa', 'conversion'],
   },
   {
     label: 'Pricing',
@@ -57,11 +57,11 @@ const KPI_GROUPS = [
   },
   {
     label: 'Inventory',
-    ids: ['purchases'],
+    ids: ['purchases', 'totalQuantity'],
   },
   {
-    label: 'Retail',
-    ids: ['organicSales'],
+    label: 'Sales',
+    ids: ['totalSales'],
   },
 ];
 
@@ -137,21 +137,43 @@ const PerformanceChart = () => {
 
   // Transform API data to match the expected format
   const dataset = useMemo(() => {
-    if (!weeklyApiData?.weekly_data) return [];
-    return weeklyApiData.weekly_data;
+    if (!weeklyApiData) {
+      console.log('No weekly data available:', weeklyApiData);
+      return [];
+    }
+    
+    // Handle both possible response structures
+    const dataArray = Array.isArray(weeklyApiData) ? weeklyApiData : weeklyApiData.weekly_data;
+    
+    if (!dataArray || !Array.isArray(dataArray)) {
+      console.log('No valid data array found:', weeklyApiData);
+      return [];
+    }
+    
+    console.log('Weekly data received:', dataArray);
+    console.log('Weekly data length:', dataArray.length);
+    console.log('First item keys:', Object.keys(dataArray[0] || {}));
+    return dataArray;
   }, [weeklyApiData]);
 
   // Parse and prepare chart data
   const chartData = useMemo(() => {
     const safeParse = (val: any, format: 'number' | 'currency' | 'percent') => {
-      const str = (val ?? '0').toString().replace(/,/g, '').replace('%', '');
+      if (val === undefined || val === null) return 0;
+      const str = val.toString().replace(/,/g, '').replace('%', '');
       if (str.toLowerCase() === 'nan' || str === '') return 0;
       return format === 'percent' ? parseFloat(str) : Number(str);
     };
 
     const initialData = KPI_OPTIONS.reduce((acc, kpi) => ({ ...acc, [kpi.id]: [] }), {} as Record<KPIKey, number[]>);
     const initialTotals = KPI_OPTIONS.reduce((acc, kpi) => ({ ...acc, [kpi.id]: 0 }), {} as Record<KPIKey, number>);
-    if (!dataset.length) return { labels: [], data: initialData, totals: initialTotals };
+    
+    if (!dataset.length) {
+      console.log('No dataset available for chart');
+      return { labels: [], data: initialData, totals: initialTotals };
+    }
+
+    console.log('Processing dataset with', dataset.length, 'items');
 
     // Filter dataset by date range if selected
     let filtered = dataset;
@@ -164,25 +186,42 @@ const PerformanceChart = () => {
         if (isNaN(date.getTime())) return true; // If can't parse, include by default
         return date >= start && date <= end;
       });
+      console.log('Filtered dataset to', filtered.length, 'items');
     }
 
     const data: Record<KPIKey, number[]> = { ...initialData };
     const totals: Record<KPIKey, number> = { ...initialTotals };
     const labels = filtered.map((d) => d.time_group);
 
+    // Log the first item to see available keys
+    if (filtered.length > 0) {
+      console.log('Sample data item:', filtered[0]);
+      console.log('Available keys in first item:', Object.keys(filtered[0]));
+    }
+
     for (const kpi of KPI_OPTIONS) {
       const keyToUse = kpi.keys.find(key => filtered[0]?.[key] !== undefined);
+      console.log(`Looking for key for ${kpi.id}:`, kpi.keys, 'Found:', keyToUse);
       if (keyToUse) {
         const dataArray = filtered.map(item => safeParse(item[keyToUse], kpi.format));
         data[kpi.id] = dataArray;
-        if (['percent', 'currency'].includes(kpi.format) && !['cost', 'sales'].includes(kpi.id)) {
+        
+        // Calculate totals based on format type
+        if (kpi.format === 'percent') {
+          // For percentages, use the latest value
           totals[kpi.id] = dataArray[dataArray.length - 1] ?? 0;
         } else {
+          // For numbers and currency, sum all values
           totals[kpi.id] = dataArray.reduce((sum, val) => sum + val, 0);
         }
+        
+        console.log(`Processed ${kpi.id}:`, dataArray.length, 'values, total:', totals[kpi.id]);
+      } else {
+        console.log(`No key found for ${kpi.id}, available keys:`, Object.keys(filtered[0] || {}));
       }
     }
 
+    console.log('Final chart data:', { labels, data, totals });
     return { labels, data, totals };
   }, [dataset, granularity, startDate, endDate]);
 
@@ -219,7 +258,8 @@ const PerformanceChart = () => {
             if (kpi.format === 'currency') return `₹${(Number(value) / 1000).toFixed(1)}K`;
             if (kpi.format === 'percent') return `${value}%`;
             if (id === 'impressions') return `${(Number(value) / 1000).toFixed(0)}K`;
-            return value;
+            if (id === 'clicks') return `${Number(value).toLocaleString()}`;
+            return Number(value).toLocaleString();
           },
         },
         offset: kpi.format === 'percent',
@@ -232,16 +272,29 @@ const PerformanceChart = () => {
   // --- Datasets with individual yAxisID ---
   const chartConfigData: ChartData<'bar' | 'line', number[], string> = useMemo(() => {
     if (!chartData.labels.length) return { labels: [], datasets: [] };
+    
+    console.log('Creating chart config data...');
+    console.log('Selected metrics:', selectedMetrics);
+    console.log('Chart data labels:', chartData.labels);
+    
     const datasets: ChartDataset<'bar' | 'line', number[]>[] = [];
     selectedMetrics.forEach((id) => {
       const kpi = KPI_OPTIONS.find(k => k.id === id);
-      if (!kpi) return;
+      if (!kpi) {
+        console.log(`KPI not found for id: ${id}`);
+        return;
+      }
+      
       const axisId = `y_${id}`;
+      const dataArray = chartData.data[id];
+      
+      console.log(`Processing ${id}:`, { dataArray, kpi });
+      
       if (id === 'impressions') {
         datasets.push({
           type: 'bar',
           label: kpi.title,
-          data: chartData.data[id],
+          data: dataArray,
           backgroundColor: kpi.color + '99',
           yAxisID: axisId,
           order: 2,
@@ -250,7 +303,7 @@ const PerformanceChart = () => {
         datasets.push({
           type: 'line',
           label: kpi.title,
-          data: chartData.data[id],
+          data: dataArray,
           borderColor: kpi.color,
           backgroundColor: kpi.color,
           tension: 0.3,
@@ -259,6 +312,8 @@ const PerformanceChart = () => {
         });
       }
     });
+    
+    console.log('Final chart config:', { labels: chartData.labels, datasets });
     return { labels: chartData.labels, datasets };
   }, [chartData, selectedMetrics]);
 
@@ -309,6 +364,9 @@ const PerformanceChart = () => {
     scales: dynamicAxes,
   };
 
+  console.log('Chart options:', chartOptions);
+  console.log('Dynamic axes:', dynamicAxes);
+
   // Modified KPICard to accept dropdown for title
   type KPICardProps = {
     id: KPIKey;
@@ -349,13 +407,45 @@ const PerformanceChart = () => {
       <div className="w-full h-[400px] flex flex-col items-center justify-center text-red-600">
         <p className="text-lg font-semibold mb-2">Failed to load chart data</p>
         <p className="text-sm text-gray-500">{error?.message || 'Unknown error occurred'}</p>
+        <p className="text-xs text-gray-400 mt-2">Check browser console for more details</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
-  if (!dataset?.length) {
-    return <div className="w-full h-[400px] flex items-center justify-center text-gray-500">No data available</div>;
+  if (!weeklyApiData) {
+    return (
+      <div className="w-full h-[400px] flex flex-col items-center justify-center text-gray-500">
+        <p>No API data received</p>
+        <p className="text-sm text-gray-400">Please check your backend connection</p>
+      </div>
+    );
   }
+
+  console.log('Before dataset check - weeklyApiData:', weeklyApiData);
+  console.log('Before dataset check - dataset:', dataset);
+  console.log('Before dataset check - dataset length:', dataset?.length);
+
+  if (!dataset?.length) {
+    return (
+      <div className="w-full h-[400px] flex flex-col items-center justify-center text-gray-500">
+        <p>No data available</p>
+        <p className="text-sm text-gray-400">No weekly data found in the response</p>
+        <p className="text-xs text-gray-400 mt-2">Response structure: {JSON.stringify(weeklyApiData, null, 2).substring(0, 200)}...</p>
+      </div>
+    );
+  }
+
+  // Temporary debug: Check if chartData is being processed correctly
+  console.log('Chart data check - chartData:', chartData);
+  console.log('Chart data check - chartData.labels:', chartData.labels);
+  console.log('Chart data check - chartData.data:', chartData.data);
+  console.log('Chart data check - selectedMetrics:', selectedMetrics);
 
   return (
     <div className="font-sans bg-slate-100 p-6 rounded-xl shadow-lg w-full mx-auto my-8">
@@ -565,7 +655,25 @@ const PerformanceChart = () => {
       )}
       {/* Chart Container */}
       <div className="bg-white p-5 rounded-lg border border-slate-200 h-[400px] w-full">
-        <Chart type='bar' data={chartConfigData} options={chartOptions} style={{ width: '100%' }} />
+        {chartData.labels.length > 0 && chartData.data && Object.keys(chartData.data).some(key => (chartData.data as any)[key].length > 0) ? (
+          <>
+            <Chart type='bar' data={chartConfigData} options={chartOptions} style={{ width: '100%' }} />
+            {/* Debug info */}
+            {/* <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
+              <p>Chart rendered with {chartConfigData.datasets.length} datasets</p>
+              <p>Labels: {chartConfigData.labels?.join(', ') || 'No labels'}</p>
+              <p>Selected metrics: {selectedMetrics.join(', ')}</p>
+            </div> */}
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+            <p>Chart data processing issue</p>
+            <p className="text-sm text-gray-400 mt-2">Available data:</p>
+            <pre className="text-xs mt-2 bg-gray-100 p-2 rounded max-h-32 overflow-auto">
+              {JSON.stringify({ labels: chartData.labels, dataKeys: Object.keys(chartData.data), selectedMetrics }, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

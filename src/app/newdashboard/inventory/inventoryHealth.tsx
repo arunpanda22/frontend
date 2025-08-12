@@ -38,16 +38,16 @@ export default function InventoryHealthTable() {
   const inventoryData: InventoryData[] = useMemo(() => {
     if (!data?.inventory_health) return []
     
-    return data.inventory_health.map((item: InventoryHealthItem) => ({
+    return data.inventory_health.map((item: any) => ({
       asin: item.asin,
-      'Product Name': item.product_name,
-      'Focus category': item.focus_category,
-      reserved_quantity: item.unsellable_quantity, // Map unsellable to reserved for backwards compatibility
-      fulfillable_quantity: item.sellable_quantity,
-      'Sales/Day': item.sales_per_day,
-      'Inventory Cover': item.inventory_cover,
+      'Product Name': item['Product Name'],
+      'Focus category': item['Focus category'],
+      reserved_quantity: item.reserved_quantity,
+      fulfillable_quantity: item.fulfillable_quantity,
+      'Sales/Day': item['Sales/Day'],
+      'Inventory Cover': item['Inventory Cover'],
       reorder_quantity: item.reorder_quantity,
-      OOS_Alert: item.oos_alert ? 'Yes' : 'No',
+      OOS_Alert: item.OOS_Alert,
     }))
   }, [data])
 

@@ -1,7 +1,8 @@
 "use client"
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard';
 
 import InventoryHealth from "./inventoryHealth";
 import ASinLiqudation from "./asinliqudation";
@@ -39,37 +40,37 @@ ChartJS.register(
 );
 
 function TopAsinInventoryBarChart() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use real inventory health API instead of static JSON
+  const { data: inventoryHealthData, isLoading: loading, error } = useInventoryHealth({
+    sales_days: 30,
+    reorder_cover_days: 60,
+    supply_chain_lead_time: 60
+  });
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const res = await fetch('/dataset/%20inventory_health_30d_avg.json');
-        const raw = await res.json();
-        const processed = raw.map((item: any) => ({
-          asin: item.asin,
-          totalInventory: (item.reserved_quantity || 0) + (item.fulfillable_quantity || 0),
-          inventoryCover: item['Sales/Day'] && item['Sales/Day'] > 0
-            ? ((item.reserved_quantity || 0) + (item.fulfillable_quantity || 0)) / item['Sales/Day']
-            : 0,
-        }));
-        const top10 = processed
-          .sort((a: any, b: any) => b.totalInventory - a.totalInventory)
-          .slice(0, 10);
-        setData(top10);
-      } catch {
-        setData([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
+  // Process real API data
+  const data = useMemo(() => {
+    if (!inventoryHealthData?.inventory_health) return [];
+
+    const processed = inventoryHealthData.inventory_health.map((item: any) => ({
+      asin: item.asin,
+      totalInventory: (item.reserved_quantity || 0) + (item.fulfillable_quantity || 0),
+      inventoryCover: item['Sales/Day'] && item['Sales/Day'] > 0
+        ? ((item.reserved_quantity || 0) + (item.fulfillable_quantity || 0)) / item['Sales/Day']
+        : 0,
+    }));
+
+    // Get top 10 by total inventory
+    return processed
+      .sort((a: any, b: any) => b.totalInventory - a.totalInventory)
+      .slice(0, 10);
+  }, [inventoryHealthData]);
 
   if (loading) {
     return <div className="w-full h-64 flex items-center justify-center text-blue-700 text-lg">Loading chart...</div>;
+  }
+
+  if (error) {
+    return <div className="w-full h-64 flex items-center justify-center text-red-600 text-lg">Failed to load inventory data: {error.message}</div>;
   }
 
   if (!data.length) {

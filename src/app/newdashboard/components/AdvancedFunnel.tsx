@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 
 // Define the structure of a metric
 interface MetricData {
@@ -25,6 +26,11 @@ const Metric: React.FC<MetricData> = ({ title, value, change, changeUp }) => (
 
 // Helper function to format numbers and determine change direction
 const formatMetric = (current: number, previous: number, isCurrency = false) => {
+  // Handle undefined or null values
+  if (current === undefined || current === null || previous === undefined || previous === null) {
+    return { value: 'N/A', change: 'N/A', changeUp: true };
+  }
+  
   if (previous === 0) {
     return { value: (isCurrency ? '$' : '') + current.toFixed(2), change: 'N/A', changeUp: true };
   }
@@ -33,6 +39,7 @@ const formatMetric = (current: number, previous: number, isCurrency = false) => 
   const prefix = isCurrency ? '$' : '';
   
   const formatValue = (val: number) => {
+    if (val === undefined || val === null) return 'N/A';
     if (val >= 1_000_000) return `${prefix}${(val / 1_000_000).toFixed(1)}M`;
     if (val >= 1_000) return `${prefix}${(val / 1_000).toFixed(1)}K`;
     return `${prefix}${val.toFixed(2)}`;
@@ -46,58 +53,78 @@ const formatMetric = (current: number, previous: number, isCurrency = false) => 
 };
 
 export default function AdvancedFunnel() {
-  const [metrics, setMetrics] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Calculate date range for last 30 days
+  const endDate = new Date().toISOString().split('T')[0];
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  // Previous period (30 days before that)
+  const prevEndDate = startDate;
+  const prevStartDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/add_and_sale_ads.json');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        
-        if (!data || data.length === 0) {
-          throw new Error("No data found in JSON file.");
-        }
+  // Current period data
+  const { data: currentData, isLoading: currentLoading, error: currentError } = useAdsSalesData({
+    start_date: startDate,
+    end_date: endDate,
+    focus_level: 'all'
+  });
 
-        const current = data.find((d: any) => d.Period === 'Current');
-        const previous = data.find((d: any) => d.Period === 'Previous');
+  // Previous period data
+  const { data: previousData, isLoading: previousLoading, error: previousError } = useAdsSalesData({
+    start_date: prevStartDate,
+    end_date: prevEndDate,
+    focus_level: 'all'
+  });
 
-        if (!current || !previous) {
-          throw new Error("Could not find 'Current' or 'Previous' period data in JSON file.");
-        }
-        
-        // Calculate missing values
-        current['Avg. CPM'] = (current['Ad Cost'] / current.Impressions) * 1000;
-        previous['Avg. CPM'] = (previous['Ad Cost'] / previous.Impressions) * 1000;
+  const isLoading = currentLoading || previousLoading;
+  const error = currentError || previousError;
 
-        const formattedMetrics = {
-          impressions: { title: 'Impressions', ...formatMetric(current.Impressions, previous.Impressions) },
-          avgCPM: { title: 'Avg. CPM', ...formatMetric(current['Avg. CPM'], previous['Avg. CPM'], true) },
-          clicks: { title: 'Clicks', ...formatMetric(current.Clicks, previous.Clicks) },
-          ctr: { title: 'CTR', value: `${current['CTR%'].toFixed(2)}%`, change: `vs ${previous['CTR%'].toFixed(2)}%`, changeUp: current['CTR%'] >= previous['CTR%'] },
-          avgCPC: { title: 'Avg. CPC', ...formatMetric(current.CPC, previous.CPC, true) },
-          conversions: { title: 'Conversions', ...formatMetric(current['Ads Quantity'], previous['Ads Quantity']) },
-          convRate: { title: 'Conv. rate', value: `${current['Conversion%'].toFixed(2)}%`, change: `vs ${previous['Conversion%'].toFixed(2)}%`, changeUp: current['Conversion%'] >= previous['Conversion%'] },
-          adsSales: { title: 'Ads Sales', ...formatMetric(current['Ads Sales'], previous['Ads Sales'], true) },
-        };
+  // Calculate metrics from API data
+  const metrics = React.useMemo(() => {
+    if (!currentData || !previousData) return null;
 
-        setMetrics(formattedMetrics);
-      } catch (e: any) {
-        setError(e.message);
-        console.error("Failed to fetch or process campaign data:", e);
-      } finally {
-        setLoading(false);
-      }
+    const current = currentData.current_period || {};
+    const previous = previousData.previous_period || {};
+
+    // Calculate CPM (Cost Per Mille)
+    const currentImpressions = current.Impressions || 0;
+    const currentAdCost = current.Spend || 0;
+    const currentCPM = currentImpressions > 0 ? (currentAdCost / currentImpressions) * 1000 : 0;
+    
+    const previousImpressions = previous.Impressions || 0;
+    const previousAdCost = previous.Spend || 0;
+    const previousCPM = previousImpressions > 0 ? (previousAdCost / previousImpressions) * 1000 : 0;
+
+    // Calculate CTR (Click Through Rate)
+    const currentClicks = current.Clicks || 0;
+    const currentCTR = currentImpressions > 0 ? (currentClicks / currentImpressions) * 100 : 0;
+    
+    const previousClicks = previous.Clicks || 0;
+    const previousCTR = previousImpressions > 0 ? (previousClicks / previousImpressions) * 100 : 0;
+
+    // Calculate CPC (Cost Per Click)
+    const currentCPC = currentClicks > 0 ? currentAdCost / currentClicks : 0;
+    const previousCPC = previousClicks > 0 ? previousAdCost / previousClicks : 0;
+
+    // Calculate Conversion Rate
+    const currentOrders = current.Orders || 0;
+    const currentConvRate = currentClicks > 0 ? (currentOrders / currentClicks) * 100 : 0;
+    
+    const previousOrders = previous.Orders || 0;
+    const previousConvRate = previousClicks > 0 ? (previousOrders / previousClicks) * 100 : 0;
+
+    return {
+      impressions: { title: 'Impressions', ...formatMetric(currentImpressions, previousImpressions) },
+      avgCPM: { title: 'Avg. CPM', ...formatMetric(currentCPM, previousCPM, true) },
+      clicks: { title: 'Clicks', ...formatMetric(currentClicks, previousClicks) },
+      ctr: { title: 'CTR', value: `${currentCTR.toFixed(2)}%`, change: `vs ${previousCTR.toFixed(2)}%`, changeUp: currentCTR >= previousCTR },
+      avgCPC: { title: 'Avg. CPC', ...formatMetric(currentCPC, previousCPC, true) },
+      conversions: { title: 'Conversions', ...formatMetric(currentOrders, previousOrders) },
+      convRate: { title: 'Conv. rate', value: `${currentConvRate.toFixed(2)}%`, change: `vs ${previousConvRate.toFixed(2)}%`, changeUp: currentConvRate >= previousConvRate },
+      adsSales: { title: 'Ads Sales', ...formatMetric(currentAdCost, previousAdCost, true) },
     };
+  }, [currentData, previousData]);
 
-    fetchData();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="w-full p-4 flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900"></div>
@@ -105,8 +132,8 @@ export default function AdvancedFunnel() {
     );
   }
   
-  if (error) {
-    return <div className="text-red-500 w-full text-center p-4">Error: {error}</div>;
+  if (error || !metrics) {
+    return <div className="text-red-500 w-full text-center p-4">Error: {error?.message || 'Failed to load data'}</div>;
   }
 
   return (

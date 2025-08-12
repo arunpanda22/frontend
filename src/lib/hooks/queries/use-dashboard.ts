@@ -74,6 +74,22 @@ export function useCampaignSummary(period?: string) {
   })
 }
 
+// Campaign Summary with params Hook
+export function useCampaignSummaryWithParams(options: {
+  start_date: string
+  end_date: string
+  period?: string
+  focus_level?: 'high' | 'medium' | 'low' | 'all'
+}, enabled = true) {
+  return useQuery({
+    queryKey: ['dashboard', 'campaign-summary-params', options],
+    queryFn: () => dashboardService.getCampaignSummaryWithParams(options),
+    enabled: enabled && !!options.start_date && !!options.end_date,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  })
+}
+
 // Targeting Analysis Hook
 export function useTargetingAnalysis(period?: string) {
   return useQuery({

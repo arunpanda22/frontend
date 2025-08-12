@@ -7,9 +7,9 @@ import {
   type MRT_ColumnDef,
 } from 'material-react-table'
 import { Box, Typography } from '@mui/material'
-import rawAsinData from '../../../../public/dataset/Asin_Sales_performance_trend.json'
+import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard'
 
-// Define the type for the new ASIN trend data
+// Define the type for the ASIN trend data
 interface AsinTrendData {
   ASIN: string;
   'Product Name': string;
@@ -48,35 +48,112 @@ const metrics = [
 ];
 
 export default function AsinSalesTrendTable() {
-  const asinData = rawAsinData as AsinTrendData[];
+  // Fetch ASIN performance data from API - use stable date values
+  const dateParams = useMemo(() => ({
+    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    period: '30d',
+    focus_level: 'all' as const
+  }), []);
 
-  // Prepare data for the table with proper null handling
-  const tableData = useMemo(() => {
-    if (!asinData || !Array.isArray(asinData)) return [];
+  const { targetingAnalysis, isLoading, isError, error } = useAsinPerformanceData(dateParams);
+
+  // Transform API data to match existing interface
+  const asinData: AsinTrendData[] = useMemo(() => {
+    if (!targetingAnalysis?.data) return [];
     
-    return asinData.map(item => {
-      const row: any = {
-        ASIN: item.ASIN || '',
-        'Product Name': item['Product Name'] || '',
-      };
-      
-      // Add period data with fallbacks
-      periods.forEach(period => {
-        metrics.forEach(metric => {
-          const key = `${metric.key}_${period.key}`;
-          row[key] = item[key] ?? null; // Use null instead of undefined
-        });
+    // Handle the targeting analysis structure - flatten the nested groups
+    const flattenedData: any[] = [];
+    
+    // Check if data is the expected targeting analysis structure
+    if (typeof targetingAnalysis.data === 'object' && !Array.isArray(targetingAnalysis.data)) {
+      Object.entries(targetingAnalysis.data).forEach(([groupName, groupData]: [string, any]) => {
+        if (groupData.items && Array.isArray(groupData.items)) {
+          groupData.items.forEach((item: any) => {
+            flattenedData.push({
+              asin: item.targeting_type || 'N/A',
+              product_name: `${groupName} - ${item.targeting_type}`,
+              total_sales: item.sales || 0,
+              total_units: item.units_sold || 0,
+              sales_trend: []
+            });
+          });
+        }
       });
-      
-      // Add trend data with fallbacks
-      metrics.forEach(metric => {
-        const trendKey = `${metric.key}_Trend`;
-        row[trendKey] = item[trendKey] || '-';
-      });
-      
-      return row;
-    });
-  }, [asinData]);
+    } else if (Array.isArray(targetingAnalysis.data)) {
+      // If it's already an array, use it directly
+      flattenedData.push(...targetingAnalysis.data);
+    }
+    
+    return flattenedData.map(item => ({
+      ASIN: item.asin,
+      'Product Name': item.product_name,
+      // Use available data from sales_trend or fallback to total values
+      'Sales_14 days': item.total_sales || 0,
+      'Sales_26 June': item.total_sales || 0,
+      'Sales_30 days': item.total_sales || 0,
+      'Sales_60 days': item.total_sales || 0,
+      'Sales_7 days': item.total_sales || 0,
+      'Orders_14 days': item.total_units || 0,
+      'Orders_26 June': item.total_units || 0,
+      'Orders_30 days': item.total_units || 0,
+      'Orders_60 days': item.total_units || 0,
+      'Orders_7 days': item.total_units || 0,
+      'Cost_14 days': 0, // Not available in current API structure
+      'Cost_26 June': 0,
+      'Cost_30 days': 0,
+      'Cost_60 days': 0,
+      'Cost_7 days': 0,
+      'Conversion %_14 days': 0, // Not available in current API structure
+      'Conversion %_26 June': 0,
+      'Conversion %_30 days': 0,
+      'Conversion %_60 days': 0,
+      'Conversion %_7 days': 0,
+      'Sessions_14 days': 0, // Not available in current API structure
+      'Sessions_26 June': 0,
+      'Sessions_30 days': 0,
+      'Sessions_60 days': 0,
+      'Sessions_7 days': 0,
+      'TACOS %_14 days': 0, // Not available in current API structure
+      'TACOS %_26 June': 0,
+      'TACOS %_30 days': 0,
+      'TACOS %_60 days': 0,
+      'TACOS %_7 days': 0,
+      // Add trend indicators based on sales_trend
+      'Sales_Trend': item.sales_trend?.length > 0 ? 
+        (item.sales_trend[item.sales_trend.length - 1]?.trend_direction === 'up' ? '↑' : '↓') : '→',
+      'Orders_Trend': '→',
+      'Cost_Trend': '→',
+      'Conversion %_Trend': '→',
+      'Sessions_Trend': '→',
+      'TACOS %_Trend': '→',
+    }));
+  }, [targetingAnalysis]);
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary">
+          Loading targeting analysis data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Handle error state
+  if (isError || !asinData || asinData.length === 0) {
+    return (
+      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="error">
+          Failed to load targeting analysis data
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error?.message || 'No data available'}
+        </Typography>
+      </Box>
+    );
+  }
 
   const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
     {
@@ -147,7 +224,7 @@ export default function AsinSalesTrendTable() {
 
   const table = useMaterialReactTable({
     columns,
-    data: tableData,
+    data: asinData,
     enableColumnFilterModes: true,
     enableColumnFilters: true,
     enableGlobalFilter: true,
@@ -234,17 +311,6 @@ export default function AsinSalesTrendTable() {
       },
     },
   });
-
-  // Add error boundary for the table
-  if (!tableData || tableData.length === 0) {
-    return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          No data available to display
-        </Typography>
-      </Box>
-    );
-  }
 
   return (
     <Box sx={{ width: '100%' }}>

@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 
 // Mock chart data, as the API doesn't provide time series for the mini chart
 const chartData = [
@@ -22,38 +23,32 @@ const ChangeText = ({ value }: { value: string }) => {
 };
 
 const QuantityCard = () => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Calculate date range for last 30 days
+  const endDate = new Date().toISOString().split('T')[0];
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  // Previous period (30 days before that)
+  const prevEndDate = startDate;
+  const prevStartDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/add_sales.json');
-        const jsonData = await response.json();
-        
-        const salesMetrics = {
-          current: jsonData.sales_metrics.find((d: any) => d.Period === 'Current'),
-          previous: jsonData.sales_metrics.find((d: any) => d.Period === 'Previous'),
-          change: jsonData.sales_metrics.find((d: any) => d.Period === 'Change %'),
-        };
+  // Current period data
+  const { data: currentData, isLoading: currentLoading, error: currentError } = useAdsSalesData({
+    start_date: startDate,
+    end_date: endDate,
+    focus_level: 'all'
+  });
 
-        const adsPerformance = {
-          current: jsonData.ads_performance.find((d: any) => d.Period === 'Current'),
-          previous: jsonData.ads_performance.find((d: any) => d.Period === 'Previous'),
-          change: jsonData.ads_performance.find((d: any) => d.Period === 'Change %'),
-        };
-        
-        setData({ salesMetrics, adsPerformance });
-      } catch (error) {
-        console.error("Failed to fetch quantity data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  // Previous period data
+  const { data: previousData, isLoading: previousLoading, error: previousError } = useAdsSalesData({
+    start_date: prevStartDate,
+    end_date: prevEndDate,
+    focus_level: 'all'
+  });
 
-  if (loading || !data) {
+  const isLoading = currentLoading || previousLoading;
+  const error = currentError || previousError;
+
+  if (isLoading) {
     return (
       <div className="bg-white shadow-md rounded-lg p-6 w-[300px] max-w-md mx-auto animate-pulse">
         <div className="h-2 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -63,14 +58,42 @@ const QuantityCard = () => {
     );
   }
 
-  const { salesMetrics, adsPerformance } = data;
+  if (error || !currentData || !previousData) {
+    return (
+      <div className="bg-white shadow-md rounded-lg p-6 w-[300px] max-w-md mx-auto">
+        <div className="text-red-500 text-center">
+          <p>Failed to load quantity data</p>
+          <p className="text-sm text-gray-500">{error?.message || 'Unknown error'}</p>
+        </div>
+      </div>
+    );
+  }
 
-  const totalQuantity = parseNumber(salesMetrics.current['Total Quantity']);
-  const adQuantity = parseNumber(adsPerformance.current['Ads Quantity']);
-  const organicQuantity = parseNumber(salesMetrics.current['Organic_Quantity']);
+  // Calculate metrics from API data
+  const currentPeriod = currentData.current_period;
+  const previousPeriod = previousData.previous_period;
 
-  const adQuantityPercent = totalQuantity > 0 ? (adQuantity / totalQuantity) * 100 : 0;
-  const organicQuantityPercent = totalQuantity > 0 ? (organicQuantity / totalQuantity) * 100 : 0;
+  // Using orders as proxy for quantity since the API doesn't provide direct quantity data
+  const currentTotalQuantity = currentPeriod?.Orders || 0;
+  const previousTotalQuantity = previousPeriod?.Orders || 0;
+  const quantityChange = previousTotalQuantity > 0 
+    ? ((currentTotalQuantity - previousTotalQuantity) / previousTotalQuantity) * 100 
+    : 0;
+
+  // Estimate ad vs organic quantity based on ad cost vs total sales ratio
+  const currentAdCost = currentPeriod?.Spend || 0;
+  const currentTotalSales = currentPeriod?.Sales || 1; // Avoid division by zero
+  const adCostRatio = currentTotalSales > 0 ? currentAdCost / currentTotalSales : 0;
+  const currentAdQuantity = Math.round(currentTotalQuantity * adCostRatio);
+  const currentOrganicQuantity = currentTotalQuantity - currentAdQuantity;
+
+  const previousAdCost = previousPeriod?.Spend || 0;
+  const previousTotalSales = previousPeriod?.Sales || 1; // Avoid division by zero
+  const previousAdQuantity = Math.round(previousTotalQuantity * (previousAdCost / previousTotalSales));
+  const previousOrganicQuantity = previousTotalQuantity - previousAdQuantity;
+
+  const adQuantityPercent = currentTotalQuantity > 0 ? (currentAdQuantity / currentTotalQuantity) * 100 : 0;
+  const organicQuantityPercent = currentTotalQuantity > 0 ? (currentOrganicQuantity / currentTotalQuantity) * 100 : 0;
 
   return (
     <div className="bg-white shadow-md rounded-lg p-8 w-full max-w-sm mx-auto">
@@ -81,9 +104,9 @@ const QuantityCard = () => {
             <div className="w-2 h-6 bg-blue-600 rounded" />
             <p className="text-sm text-gray-500">Total Quantity</p>
           </div>
-          <h2 className="text-2xl font-bold">{formatNumber(totalQuantity)}</h2>
-          <p className="text-gray-500 text-sm">{formatNumber(parseNumber(salesMetrics.previous['Total Quantity']))}</p>
-          <ChangeText value={salesMetrics.change['Total Quantity']} />
+          <h2 className="text-2xl font-bold">{formatNumber(currentTotalQuantity)}</h2>
+          <p className="text-gray-500 text-sm">{formatNumber(previousTotalQuantity)}</p>
+          <ChangeText value={`${quantityChange > 0 ? '+' : ''}${quantityChange.toFixed(1)}%`} />
         </div>
 
         {/* Chart */}
@@ -116,18 +139,18 @@ const QuantityCard = () => {
       <div className="flex justify-between mt-6">
         <div className="text-left">
           <p className="text-sm text-gray-600">Ad Quantity</p>
-          <h3 className="text-xl font-bold">{formatNumber(adQuantity)}</h3>
-          <p className="text-gray-500 text-sm">{formatNumber(parseNumber(adsPerformance.previous['Ads Quantity']))}</p>
-          <ChangeText value={adsPerformance.change['Ads Quantity']} />
+          <h3 className="text-xl font-bold">{formatNumber(currentAdQuantity)}</h3>
+          <p className="text-gray-500 text-sm">{formatNumber(previousAdQuantity)}</p>
+          <ChangeText value={`${adCostRatio > 0 ? '+' : ''}${(adCostRatio * 100).toFixed(1)}%`} />
         </div>
 
         <div className="border-l mx-4" />
 
         <div className="text-left">
           <p className="text-sm text-gray-600">Organic Quantity</p>
-          <h3 className="text-xl font-bold">{formatNumber(organicQuantity)}</h3>
-          <p className="text-gray-500 text-sm">{formatNumber(parseNumber(salesMetrics.previous['Organic_Quantity']))}</p>
-          <ChangeText value={salesMetrics.change['Organic_Quantity']} />
+          <h3 className="text-xl font-bold">{formatNumber(currentOrganicQuantity)}</h3>
+          <p className="text-gray-500 text-sm">{formatNumber(previousOrganicQuantity)}</p>
+          <ChangeText value={`${(1 - adCostRatio) > 0 ? '+' : ''}${((1 - adCostRatio) * 100).toFixed(1)}%`} />
         </div>
       </div>
     </div>
