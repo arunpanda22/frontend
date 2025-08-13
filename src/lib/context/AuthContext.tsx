@@ -437,9 +437,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 
                 if (response.data && response.data.user) {
                   const userData = response.data.user;
+                  const userContext = response.data.user_context; // Get the separate user_context
                   
                   if (process.env.NODE_ENV === 'development') {
                     console.log('🔄 Backend user data received:', userData);
+                    console.log('🔄 Backend user context received:', userContext);
                   }
                   
                   // Transform backend response to our UserProfile format
@@ -452,7 +454,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     last_name: userData.last_name || '',
                     created_at: userData.created_at || '',
                     updated_at: userData.updated_at || '',
-                    rbac_context: userData.rbac_context || {
+                    rbac_context: userContext || userData.rbac_context || {
                       role_id: 0,
                       role_name: 'user' as const,
                       agency_id: 0,
@@ -466,13 +468,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     managedUsers: userData.managed_users || [],
                     currentManagedUser: userData.current_managed_user || null,
                     permissions: userData.permissions || [],
-                    isAdmin: userData.is_admin || false,
-                    isAgencyAdmin: userData.is_agency_admin || false
+                    // Set legacy admin flags based on RBAC context
+                    isAdmin: userContext?.role_name === 'admin' || userContext?.role_name === 'superadmin' || userData.is_admin || false,
+                    isAgencyAdmin: userContext?.role_name === 'agency' || userContext?.role_name === 'admin' || userContext?.role_name === 'superadmin' || userData.is_agency_admin || false
                   };
                   
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('✅ UserProfile created:', userProfile);
-                  }
+                  // Debug logging for both development and production
+                  console.log('✅ UserProfile created:', {
+                    id: userProfile.id,
+                    email: userProfile.email,
+                    role: userProfile.rbac_context?.role_name,
+                    isAdmin: userProfile.isAdmin,
+                    isAgencyAdmin: userProfile.isAgencyAdmin,
+                    rbacContext: userProfile.rbac_context
+                  });
                   
                   setUserProfile(userProfile);
                 }

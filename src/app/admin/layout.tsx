@@ -29,40 +29,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // Check if user has admin permissions based on RBAC role
   const allowAccess = useMemo(() => {
-    // Always allow access in development mode
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔐 Admin access check (DEV MODE - allowing all):', {
-        userProfile,
-        role: userProfile?.rbac_context?.role_name,
-        isAdmin: isAdmin(),
-        user: userProfile ? 'Logged in' : 'Not logged in'
-      });
-      return true; // Allow all access in development
-    }
+    // DISABLED: Development mode bypass for testing
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('🔐 Admin access check (DEV MODE - allowing all):', {
+    //     userProfile,
+    //     role: userProfile?.rbac_context?.role_name,
+    //     isAdmin: isAdmin(),
+    //     user: userProfile ? 'Logged in' : 'Not logged in'
+    //   });
+    //   return true; // Allow all access in development
+    // }
     
-    // Temporary: Allow access in production for debugging (remove this after fixing the issue)
-    if (process.env.NODE_ENV === 'production' && userProfile?.email) {
-      console.log('🔐 Admin access check (PRODUCTION DEBUG MODE):', {
-        userProfile,
-        role: userProfile?.rbac_context?.role_name,
-        email: userProfile.email,
-        note: 'Temporarily allowing access for debugging'
-      });
-      return true; // Temporary allow for debugging
-    }
-    
-    // Emergency bypass: If you're logged in with an email, allow access temporarily
-    // TODO: Remove this after fixing the authentication issue
-    if (process.env.NODE_ENV === 'production' && userProfile?.email && 
-        (userProfile.email.includes('admin') || userProfile.email.includes('superuser') || 
-         userProfile.email.includes('arpit') || userProfile.email.includes('super'))) {
-      console.log('🚨 EMERGENCY ADMIN ACCESS GRANTED:', {
-        email: userProfile.email,
-        reason: 'Emergency bypass for admin users',
-        warning: 'This is temporary - fix the auth issue!'
-      });
-      return true;
-    }
+    console.log('🔐 Admin access check (TESTING MODE):', {
+      userProfile,
+      role: userProfile?.rbac_context?.role_name,
+      isAdmin: isAdmin(),
+      user: userProfile ? 'Logged in' : 'Not logged in',
+      environment: process.env.NODE_ENV
+    });
     
     // If still loading, don't deny access yet
     if (loading) {
