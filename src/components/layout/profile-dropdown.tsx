@@ -3,32 +3,44 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/context/AuthContext'
-import { usePermissions } from '@/lib/hooks/usePermissions'
-import { apiClient } from '@/lib/api/config'
+import { useAvailableUsersForImpersonation } from '@/lib/hooks/queries/use-impersonation'
 
 export default function ProfileDropdown() {
-  const { user, signOut } = useAuth()
+  const { 
+    user, 
+    userProfile,
+    signOut, 
+    startImpersonation, 
+    endImpersonation, 
+    isImpersonating 
+  } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Check if user has impersonation permissions
+  const hasImpersonationPermission = userProfile && (
+    userProfile.isAdmin || 
+    userProfile.isAgencyAdmin || 
+    ['admin', 'superadmin', 'agency'].includes(userProfile.rbac_context?.role_name || '')
+  )
+  
+    // Use React Query for available users
   const { 
-    isAgencyAdmin,
-    isActingAsManagedUser,
-    switchToManagedUser,
-    resetToAdminUser
-  } = usePermissions()
+    data: availableUsers = [], 
+    isLoading: loadingUsers, 
+    error: usersError 
+  } = useAvailableUsersForImpersonation(open && !!hasImpersonationPermission)
 
-  type AvailableUser = {
-    id: number
-    email: string
-    username?: string
-    first_name?: string
-    last_name?: string
-    role?: string
-  }
-  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([])
-  const [loadingUsers, setLoadingUsers] = useState(false)
+  // Debug logging for dropdown state
+  console.log('🔍 Profile dropdown state:', {
+    open,
+    hasImpersonationPermission,
+    availableUsersCount: availableUsers.length,
+    loadingUsers,
+    usersError: usersError?.message
+  })
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -40,27 +52,21 @@ export default function ProfileDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Load switchable users when menu opens (only for agency admins)
-  useEffect(() => {
-    const loadUsers = async () => {
-      if (!open) return
-      if (!isAgencyAdmin()) return
-      setLoadingUsers(true)
-      try {
-        const res = await apiClient.get('/api/v1/auth/switch-to-user/')
-        setAvailableUsers(res.data || [])
-      } catch (e) {
-        setAvailableUsers([])
-      } finally {
-        setLoadingUsers(false)
-      }
-    }
-    loadUsers()
-  }, [open, isAgencyAdmin])
+     if (!user) return null
 
-  if (!user) return null
+   // Debug logging for user profile
+   console.log('🔍 Profile dropdown user data:', {
+     user: user?.email,
+     userProfile: userProfile ? {
+       id: userProfile.id,
+       email: userProfile.email,
+       role: userProfile.rbac_context?.role_name,
+       isAdmin: userProfile.isAdmin,
+       isAgencyAdmin: userProfile.isAgencyAdmin
+     } : null
+   })
 
-  const displayName = user.displayName || user.email || 'User'
+   const displayName = user.displayName || user.email || 'User'
   const initials = (displayName || '?')
     .split(' ')
     .map(part => part[0])
@@ -90,88 +96,127 @@ export default function ProfileDropdown() {
         </svg>
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          aria-orientation="vertical"
-          className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-gray-900 border border-gray-700 shadow-lg focus:outline-none z-50"
-        >
-          <div className="py-1">
-            <button
-              role="menuitem"
-              onClick={() => navigateAndClose('/newdashboard')}
-              className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
-            >
-              Profile
-            </button>
+             {open && (
+                   <div
+            role="menu"
+            aria-orientation="vertical"
+            className="absolute right-0 mt-2 w-80 origin-top-right rounded-lg bg-white border border-gray-200 shadow-xl focus:outline-none z-50"
+          >
+           <div className="py-2">
+             <button
+               role="menuitem"
+               onClick={() => navigateAndClose('/dashboard')}
+               className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+             >
+               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                 <span className="text-sm font-semibold text-blue-600">👤</span>
+               </div>
+               <span className="font-medium">Profile</span>
+             </button>
 
-            {/* Quick account switcher */}
-            {isAgencyAdmin() && (
-              <div className="py-1">
-                {isActingAsManagedUser() ? (
-                  <button
-                    role="menuitem"
-                    onClick={async () => {
-                      await resetToAdminUser()
-                      setOpen(false)
-                      if (pathname !== '/newdashboard') router.push('/newdashboard')
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-blue-300 hover:bg-gray-800 hover:text-blue-200"
-                  >
-                    End Impersonation
-                  </button>
-                ) : (
-                  <>
-                    <div className="px-4 pt-2 pb-1 text-xs uppercase tracking-wider text-gray-400">Switch account</div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {loadingUsers && (
-                        <div className="px-4 py-2 text-sm text-gray-400">Loading...</div>
-                      )}
-                      {!loadingUsers && availableUsers.length === 0 && (
-                        <div className="px-4 py-2 text-sm text-gray-400">No switchable users</div>
-                      )}
-                      {availableUsers.map(u => (
-                        <button
-                          key={u.id}
-                          onClick={async () => {
-                            await switchToManagedUser(String(u.id))
-                            setOpen(false)
-                            if (pathname !== '/newdashboard') router.push('/newdashboard')
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-800 flex items-center gap-2"
-                        >
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-700 text-gray-200 text-xs">
-                            {(u.first_name?.[0] || u.email?.[0] || '?').toUpperCase()}
-                          </span>
-                          <span className="flex-1 truncate">{u.first_name} {u.last_name} ({u.email})</span>
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      role="menuitem"
-                      onClick={() => navigateAndClose('/user-switching')}
-                      className="w-full text-left px-4 py-2 text-xs text-gray-400 hover:bg-gray-800"
-                    >
-                      Manage accounts
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-            <div className="my-1 border-t border-gray-700" />
-            <button
-              role="menuitem"
-              onClick={async () => {
-                setOpen(false)
-                await signOut()
-              }}
-              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800 hover:text-red-300"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      )}
+             {/* Quick account switcher */}
+             {hasImpersonationPermission && (
+               <div className="py-2">
+                 {isImpersonating() ? (
+                   <button
+                     role="menuitem"
+                     onClick={async () => {
+                       await endImpersonation()
+                       setOpen(false)
+                       window.location.reload()
+                     }}
+                     className="w-full text-left px-4 py-3 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-3"
+                   >
+                     <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                       <span className="text-sm font-semibold text-orange-600">🔄</span>
+                     </div>
+                     <span className="font-medium">End Impersonation</span>
+                   </button>
+                 ) : (
+                   <>
+                                           <div className="px-4 pt-2 pb-1 text-xs uppercase tracking-wider text-gray-500 font-semibold flex items-center justify-between">
+                        <span>Switch Account</span>
+                        {loadingUsers && (
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400"></div>
+                        )}
+                      </div>
+                     <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                       {loadingUsers && (
+                         <div className="px-4 py-3 text-sm text-gray-500 flex items-center gap-3">
+                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                           </div>
+                           <span>Loading users...</span>
+                         </div>
+                       )}
+                       {!loadingUsers && availableUsers.length === 0 && (
+                         <div className="px-4 py-3 text-sm text-gray-500 flex items-center gap-3">
+                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                             <span className="text-sm font-semibold text-gray-400">👥</span>
+                           </div>
+                           <span>No users available</span>
+                         </div>
+                       )}
+                                               {availableUsers.map(u => (
+                          <button
+                            key={u.id}
+                            onClick={async () => {
+                              await startImpersonation(u.id)
+                              setOpen(false)
+                              window.location.reload()
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                          >
+                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center border border-gray-200 flex-shrink-0">
+                              <span className="text-sm font-semibold text-gray-600">
+                                {(u.first_name?.[0] || u.email?.[0] || 'U').toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900 truncate">
+                                {u.first_name} {u.last_name}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {u.email} • {u.role}
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-400 flex-shrink-0">→</div>
+                          </button>
+                        ))}
+                     </div>
+                     <div className="border-t border-gray-100 mt-2 pt-2">
+                       <button
+                         role="menuitem"
+                         onClick={() => navigateAndClose('/user-switching')}
+                         className="w-full text-left px-4 py-2 text-xs text-gray-500 hover:bg-gray-50 flex items-center gap-3"
+                       >
+                         <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                           <span className="text-xs font-semibold text-gray-400">⚙️</span>
+                         </div>
+                         <span>User Switching</span>
+                       </button>
+                     </div>
+                   </>
+                 )}
+               </div>
+             )}
+             <div className="border-t border-gray-100 my-2" />
+             <button
+               role="menuitem"
+               onClick={async () => {
+                 setOpen(false)
+                 await signOut()
+               }}
+               className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+             >
+               <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                 <span className="text-sm font-semibold text-red-600">🚪</span>
+               </div>
+               <span className="font-medium">Sign out</span>
+             </button>
+           </div>
+         </div>
+       )}
     </div>
   )
 }

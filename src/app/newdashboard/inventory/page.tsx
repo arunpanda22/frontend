@@ -21,6 +21,7 @@ import {
   Title,
   Tooltip as ChartTooltip,
   Legend,
+  LineController,
 } from "chart.js";
 import LineColumnAreaChart from "./linenadbarchart";
 import { Widgets } from "@mui/icons-material";
@@ -36,7 +37,8 @@ ChartJS.register(
   PointElement,
   Title,
   ChartTooltip,
-  Legend
+  Legend,
+  LineController
 );
 
 function TopAsinInventoryBarChart() {

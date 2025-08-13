@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, LineController } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import type { ChartData, ChartDataset } from 'chart.js';
 import { DateRangePicker } from 'react-date-range';
@@ -18,7 +18,8 @@ ChartJS.register(
   PointElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  LineController
 );
 
 const DATASET_OPTIONS = [

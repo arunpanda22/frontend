@@ -50,6 +50,14 @@ export interface UserProfile {
   permissions?: string[]
   isAdmin?: boolean
   isAgencyAdmin?: boolean
+  // Impersonation fields
+  isImpersonating?: boolean
+  originalUser?: {
+    id: number
+    email: string
+    role: string
+    agency: string
+  }
 }
 
 interface AuthContextType {
@@ -61,6 +69,9 @@ interface AuthContextType {
   switchAgency: (agencyId: string) => Promise<void>
   switchManagedUser: (userId: string) => Promise<void>
   endImpersonation: () => Promise<void>
+  // New impersonation functions
+  startImpersonation: (userId: number) => Promise<void>
+  getAvailableUsersForImpersonation: () => Promise<any[]>
   hasPermission: (permission: string) => boolean
   hasAnyPermission: (permissions: string[]) => boolean
   hasAllPermissions: (permissions: string[]) => boolean
@@ -85,6 +96,9 @@ const AuthContext = createContext<AuthContextType>({
   switchAgency: async () => {},
   switchManagedUser: async () => {},
   endImpersonation: async () => {},
+  // New impersonation function defaults
+  startImpersonation: async () => {},
+  getAvailableUsersForImpersonation: async () => [],
   hasPermission: () => false,
   hasAnyPermission: () => false,
   hasAllPermissions: () => false,
@@ -574,6 +588,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         switchAgency,
         switchManagedUser,
         endImpersonation,
+        // New impersonation functions
+        startImpersonation: async (userId: number) => {
+          try {
+            const { impersonationService } = await import('@/lib/api/services/impersonation.service');
+            const response = await impersonationService.startImpersonation(userId);
+            
+            // Store the new tokens
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('accessToken', response.access);
+              localStorage.setItem('refreshToken', response.refresh);
+            }
+            
+            // Update user profile with impersonation data
+            setUserProfile(prev => prev ? {
+              ...prev,
+              id: response.user.id,
+              email: response.user.email,
+              username: response.user.username,
+              first_name: response.user.first_name,
+              last_name: response.user.last_name,
+              isImpersonating: true,
+              originalUser: prev.originalUser || {
+                id: prev.id,
+                email: prev.email,
+                role: prev.rbac_context?.role_name || 'unknown',
+                agency: prev.rbac_context?.agency_name || 'unknown'
+              }
+            } : null);
+            
+            // Invalidate profile cache to refresh data
+            invalidateProfileCache();
+            
+            console.log('✅ Impersonation started:', response.message);
+          } catch (error) {
+            console.error('❌ Impersonation failed:', error);
+            throw error;
+          }
+        },
+        getAvailableUsersForImpersonation: async () => {
+          try {
+            const { impersonationService } = await import('@/lib/api/services/impersonation.service');
+            return await impersonationService.getAvailableUsers();
+          } catch (error) {
+            console.error('❌ Failed to get available users:', error);
+            return [];
+          }
+        },
         hasPermission,
         hasAnyPermission,
         hasAllPermissions,
