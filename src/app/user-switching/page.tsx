@@ -248,7 +248,7 @@ export default function UserSwitchingPage() {
                       disabled={impersonating}
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                      className="border-blue-500 text-white-600 hover:bg-blue-50 hover:border-blue-600 hover:text-black"
                     >
                       {impersonating ? (
                         <>
