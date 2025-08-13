@@ -27,6 +27,13 @@ export interface ConnectedSellerAccount {
   last_refreshed_at: string;
 }
 
+export interface RBACContext {
+  role_id: number;
+  role_name: 'superadmin' | 'admin' | 'agency' | 'user';
+  agency_id: number;
+  agency_name: string;
+}
+
 export interface UserProfile {
   id: number;
   email: string;
@@ -36,10 +43,20 @@ export interface UserProfile {
   last_name: string;
   created_at: string;
   updated_at: string;
+  rbac_context: RBACContext;
   connected_advertising_profiles: ConnectedAdvertisingProfile[];
   connected_seller_accounts: ConnectedSellerAccount[];
 }
 
+/**
+ * Hook to fetch user profile with RBAC context
+ * 
+ * Caching Strategy:
+ * - Profile data is cached for 5 minutes since roles/permissions don't change frequently
+ * - Cache is kept in memory for 10 minutes before garbage collection
+ * - No automatic refetch on window focus or component mount to reduce API calls
+ * - Use invalidateProfileCache() from AuthContext to manually refresh when needed
+ */
 export const useUserProfile = (): UseQueryResult<UserProfile, Error> => {
   const { user } = useAuth();
 
@@ -58,5 +75,10 @@ export const useUserProfile = (): UseQueryResult<UserProfile, Error> => {
     enabled: !!user,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Cache profile data for 5 minutes since roles/permissions don't change often
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    refetchOnMount: false, // Don't refetch on component mount if data is fresh
   });
 }; 

@@ -7,16 +7,16 @@ import { useAuth } from '@/lib/context/AuthContext'
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { userProfile, hasPermission } = useAuth()
+  const { userProfile, isAdmin } = useAuth()
 
-  // Check if user has admin permissions or is superuser
+  // Check if user has admin permissions based on RBAC role
   const allowAccess = useMemo(() => {
     // Always allow access in development mode
     if (process.env.NODE_ENV === 'development') {
       console.log('🔐 Admin access check (DEV MODE - allowing all):', {
         userProfile,
-        permissions: userProfile?.permissions,
-        isAdmin: userProfile?.isAdmin,
+        role: userProfile?.rbac_context?.role_name,
+        isAdmin: isAdmin(),
         user: userProfile ? 'Logged in' : 'Not logged in'
       });
       return true; // Allow all access in development
@@ -24,31 +24,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     
     if (!userProfile) return false;
     
-    // Allow admins/superadmins automatically
-    if (userProfile.isAdmin) return true;
-    
-    // Check for admin-related permissions
-    const adminPermissions = [
-      'view_users',
-      'manage_users', 
-      'view_rbac_admin',
-      'rbac.view_user',
-      'rbac.view_role',
-      'rbac.view_permission',
-      'rbac.view_agency'
-    ];
-    
-    const hasAdminAccess = adminPermissions.some(perm => hasPermission(perm));
+    // Check if user has admin or superadmin role
+    const hasAdminAccess = isAdmin();
     
     console.log('🔐 Admin access check (PRODUCTION):', {
       userProfile,
-      permissions: userProfile.permissions,
+      role: userProfile.rbac_context?.role_name,
       hasAdminAccess,
-      isAdmin: userProfile.isAdmin
+      isAdmin: hasAdminAccess
     });
     
     return hasAdminAccess;
-  }, [userProfile, hasPermission])
+  }, [userProfile, isAdmin])
 
   if (!allowAccess) {
     return (

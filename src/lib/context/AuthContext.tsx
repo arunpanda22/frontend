@@ -5,6 +5,7 @@ import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/a
 import { auth } from '@/lib/firebase'
 import { apiClient, clearAuthTokenCache } from '@/lib/api/config'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Agency and managed user interfaces
 export interface Agency {
@@ -20,18 +21,35 @@ export interface ManagedUser {
   permissions: string[]
 }
 
+// RBAC context from backend API
+export interface RBACContext {
+  role_id: number
+  role_name: 'superadmin' | 'admin' | 'agency' | 'user'
+  agency_id: number
+  agency_name: string
+}
+
 // User profile with RBAC data
 export interface UserProfile {
-  uid: string
+  id: number
   email: string
-  displayName: string | null
-  agencies: Agency[]
-  currentAgency: Agency | null
-  managedUsers: ManagedUser[]
-  currentManagedUser: ManagedUser | null
-  permissions: string[]
-  isAdmin: boolean
-  isAgencyAdmin: boolean
+  firebase_uid: string
+  username: string
+  first_name: string
+  last_name: string
+  created_at: string
+  updated_at: string
+  rbac_context: RBACContext
+  // Legacy fields for compatibility - will be deprecated
+  uid?: string
+  displayName?: string | null
+  agencies?: Agency[]
+  currentAgency?: Agency | null
+  managedUsers?: ManagedUser[]
+  currentManagedUser?: ManagedUser | null
+  permissions?: string[]
+  isAdmin?: boolean
+  isAgencyAdmin?: boolean
 }
 
 interface AuthContextType {
@@ -47,6 +65,15 @@ interface AuthContextType {
   hasAnyPermission: (permissions: string[]) => boolean
   hasAllPermissions: (permissions: string[]) => boolean
   isImpersonating: () => boolean
+  // New role-based functions
+  getUserRole: () => 'superadmin' | 'admin' | 'agency' | 'user' | null
+  isRole: (role: 'superadmin' | 'admin' | 'agency' | 'user') => boolean
+  hasRoleOrHigher: (role: 'superadmin' | 'admin' | 'agency' | 'user') => boolean
+  isAdmin: () => boolean
+  isAgencyAdmin: () => boolean
+  isSuperAdmin: () => boolean
+  // Cache management
+  invalidateProfileCache: () => void
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -61,7 +88,16 @@ const AuthContext = createContext<AuthContextType>({
   hasPermission: () => false,
   hasAnyPermission: () => false,
   hasAllPermissions: () => false,
-  isImpersonating: () => false
+  isImpersonating: () => false,
+  // New role-based function defaults
+  getUserRole: () => null,
+  isRole: () => false,
+  hasRoleOrHigher: () => false,
+  isAdmin: () => false,
+  isAgencyAdmin: () => false,
+  isSuperAdmin: () => false,
+  // Cache management
+  invalidateProfileCache: () => {}
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -71,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<Error | null>(null)
   const [authInitialized, setAuthInitialized] = useState(false)
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   // Sign out function
   const signOut = async () => {
@@ -111,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!prevProfile) return null;
           
           // Find the selected agency
-          const selectedAgency = prevProfile.agencies.find(a => a.id === agencyId) || null;
+          const selectedAgency = prevProfile.agencies?.find(a => a.id === agencyId) || null;
           
           // Get managed users for this agency if the user is an agency admin
           const managedUsers = response.data.user.managed_users || [];
@@ -236,6 +273,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('impersonationActive') === 'true';
   };
+
+  // Role hierarchy: superadmin > admin > agency > user
+  const roleHierarchy = {
+    'superadmin': 4,
+    'admin': 3,
+    'agency': 2,
+    'user': 1
+  };
+
+  // Get current user role
+  const getUserRole = (): 'superadmin' | 'admin' | 'agency' | 'user' | null => {
+    return userProfile?.rbac_context?.role_name || null;
+  };
+
+  // Check if user has specific role
+  const isRole = (role: 'superadmin' | 'admin' | 'agency' | 'user'): boolean => {
+    const currentRole = getUserRole();
+    return currentRole === role;
+  };
+
+  // Check if user has role or higher (based on hierarchy)
+  const hasRoleOrHigher = (role: 'superadmin' | 'admin' | 'agency' | 'user'): boolean => {
+    const currentRole = getUserRole();
+    if (!currentRole) return false;
+    
+    return roleHierarchy[currentRole] >= roleHierarchy[role];
+  };
+
+  // Check if user is admin (admin or superadmin)
+  const isAdmin = (): boolean => {
+    return hasRoleOrHigher('admin');
+  };
+
+  // Check if user is agency admin (agency role or higher)
+  const isAgencyAdmin = (): boolean => {
+    return hasRoleOrHigher('agency');
+  };
+
+  // Check if user is superadmin
+  const isSuperAdmin = (): boolean => {
+    return isRole('superadmin');
+  };
+
+  // Invalidate profile cache when needed (e.g., after role changes)
+  // This can be called manually when user roles/permissions are updated
+  // Example usage: invalidateProfileCache() after admin changes user roles
+  const invalidateProfileCache = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+  };
   
   // Permission check helpers
   const hasPermission = (permission: string): boolean => {
@@ -250,7 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Otherwise check the user's own permissions
-    return userProfile.permissions.includes(permission);
+    return userProfile.permissions?.includes(permission) || false;
   };
   
   const hasAnyPermission = (permissions: string[]): boolean => {
@@ -265,7 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Otherwise check the user's own permissions
-    return permissions.some(p => userProfile.permissions.includes(p));
+    return permissions.some(p => userProfile.permissions?.includes(p) || false);
   };
   
   const hasAllPermissions = (permissions: string[]): boolean => {
@@ -280,7 +366,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Otherwise check the user's own permissions
-    return permissions.every(p => userProfile.permissions.includes(p));
+    return permissions.every(p => userProfile.permissions?.includes(p) || false);
   };
 
   useEffect(() => {
@@ -358,8 +444,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   
                   // Transform backend response to our UserProfile format
                   const userProfile: UserProfile = {
+                    id: userData.id || 0,
+                    email: userData.email || firebaseUser.email || '',
+                    firebase_uid: firebaseUser.uid,
+                    username: userData.username || '',
+                    first_name: userData.first_name || '',
+                    last_name: userData.last_name || '',
+                    created_at: userData.created_at || '',
+                    updated_at: userData.updated_at || '',
+                    rbac_context: userData.rbac_context || {
+                      role_id: 0,
+                      role_name: 'user' as const,
+                      agency_id: 0,
+                      agency_name: ''
+                    },
+                    // Legacy fields for compatibility
                     uid: firebaseUser.uid,
-                    email: firebaseUser.email || '',
                     displayName: firebaseUser.displayName,
                     agencies: userData.agencies || [],
                     currentAgency: userData.current_agency || null,
@@ -468,7 +568,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasPermission,
         hasAnyPermission,
         hasAllPermissions,
-        isImpersonating
+        isImpersonating,
+        // New role-based functions
+        getUserRole,
+        isRole,
+        hasRoleOrHigher,
+        isAdmin,
+        isAgencyAdmin,
+        isSuperAdmin,
+        // Cache management
+        invalidateProfileCache
       }}
     >
       {children}

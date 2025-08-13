@@ -17,16 +17,25 @@ import {
 export default function AdminUserManagePage() {
   const params = useParams<{ id: string }>()
   const userId = useMemo(() => Number(params?.id), [params])
-  const { userProfile } = useAuth()
+  const { userProfile, isAdmin } = useAuth()
 
   // Debug current user permissions
   if (process.env.NODE_ENV === 'development') {
     console.log('🔐 Current user permissions for admin access:', {
       userProfile,
-      permissions: userProfile?.permissions,
-      isAdmin: userProfile?.isAdmin
+      role: userProfile?.rbac_context?.role_name,
+      isAdmin: isAdmin()
     });
   }
+  
+  // // Debug selected user assignment access
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.log('👤 Selected user assignment access:', {
+  //     selectedUserHasAssignmentAccess,
+  //     user,
+  //     userRoles
+  //   });
+  // }
 
   // Only fetch user details first, then fetch other data conditionally
   const userQuery = useAdminUserDetails(userId.toString())
@@ -44,6 +53,16 @@ export default function AdminUserManagePage() {
   const user = userQuery.data
   const userRoles = useMemo(() => userRolesQuery.data?.roles || [], [userRolesQuery.data])
   const userPermissions = useMemo(() => userPermissionsQuery.data?.permission_overrides || [], [userPermissionsQuery.data])
+  
+  // Check if the selected user has admin or agency role to show assignments tab
+  const selectedUserHasAssignmentAccess = useMemo(() => {
+    if (!user || !userRoles.length) return false;
+    
+    // Check if any of the user's roles is admin, superadmin, or agency
+    return userRoles.some((role: any) => 
+      ['admin', 'superadmin', 'agency'].includes(role.role_name?.toLowerCase())
+    );
+  }, [user, userRoles]);
   const availableRoles = useMemo(() => {
     const roles = rolesQuery.data?.results || [];
     if (process.env.NODE_ENV === 'development') {
@@ -72,7 +91,7 @@ export default function AdminUserManagePage() {
   }, [agenciesQuery.data, agenciesQuery.isLoading, agenciesQuery.error])
 
   const [status, setStatus] = useState<{ saving: boolean; message?: string; error?: string }>({ saving: false })
-  const [activeTab, setActiveTab] = useState<'roles' | 'permissions'>('roles')
+  const [activeTab, setActiveTab] = useState<'roles' | 'permissions' | 'assignments'>('roles')
 
   // Role assignment form - default to 'user' role
   const [newRole, setNewRole] = useState({ role_id: '', agency_id: '', is_primary: false })
@@ -156,19 +175,58 @@ export default function AdminUserManagePage() {
     return role && !['admin', 'superadmin'].includes(role.name.toLowerCase());
   }, [newRole.role_id, availableRoles])
   
-  // Load available assignments
+  // Load available assignments and users
   React.useEffect(() => {
-    const loadAvailableAssignments = async () => {
+    const loadAssignmentData = async () => {
       try {
+        // Get the available assignments for user hierarchy management
         const assignments = await adminDashboardService.getAvailableAssignments();
-        setAvailableAssignments(assignments);
+        
+        // Get all users for assignment (excluding the current user being managed)
+        const allUsers = await adminDashboardService.listUsers({ page: 1 });
+        
+        // Handle different response structures safely
+        const usersArray = Array.isArray(allUsers) ? allUsers : allUsers?.results || [];
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 Raw Users Response:', allUsers);
+          console.log('👥 Users Array:', usersArray);
+        }
+        
+        // Filter out the current user and only show users with 'user' role
+        const assignableUsers = usersArray.filter((u: any) => 
+          u.id !== userId && 
+          u.roles?.some((role: any) => role.role_name?.toLowerCase() === 'user')
+        );
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 Raw Available Assignments:', assignments);
+          console.log('👥 Assignable Users:', assignableUsers);
+          console.log('🔍 Filtering Details:', {
+            totalUsers: usersArray.length,
+            currentUserId: userId,
+            usersWithUserRole: usersArray.filter((u: any) => 
+              u.roles?.some((role: any) => role.role_name?.toLowerCase() === 'user')
+            ).length,
+            finalAssignableCount: assignableUsers.length
+          });
+        }
+        
+        // Store the assignments and users for user management
+        setAvailableAssignments({
+          ...assignments,
+          assignable_users: assignableUsers
+        });
       } catch (error) {
-        console.error('Failed to load available assignments:', error);
+        console.error('Failed to load assignment data:', error);
       }
     };
     
-    loadAvailableAssignments();
-  }, [])
+    // Only load assignments if we're on the assignments tab or if the selected user has admin/agency role
+    if (activeTab === 'assignments' || selectedUserHasAssignmentAccess) {
+      loadAssignmentData();
+    }
+  }, [activeTab, selectedUserHasAssignmentAccess, userId])
 
   const handleQuickAssignment = async () => {
     if (!quickAssignment.action) return
@@ -176,18 +234,19 @@ export default function AdminUserManagePage() {
     setStatus({ saving: true })
     try {
       const params: any = {}
+      const action = quickAssignment.action
       
-      if (quickAssignment.action === 'assign_to_admin' && quickAssignment.target_admin_id) {
+      if (action === 'assign_to_admin' && quickAssignment.target_admin_id) {
         params.target_admin_id = parseInt(quickAssignment.target_admin_id)
-      } else if (quickAssignment.action === 'assign_to_agency' && quickAssignment.target_agency_id) {
+      } else if (action === 'assign_to_agency' && quickAssignment.target_agency_id) {
         params.target_agency_id = parseInt(quickAssignment.target_agency_id)
-      } else if (quickAssignment.action === 'change_role' && quickAssignment.new_role) {
+      } else if (action === 'change_role' && quickAssignment.new_role) {
         params.new_role = quickAssignment.new_role
       }
       
-      await adminDashboardService.assignUserToRole(userId, quickAssignment.action as any, params)
+      await adminDashboardService.assignUserToRole(userId, action as any, params)
       
-      // Reset form
+      // Reset the form
       setQuickAssignment({
         action: '',
         target_admin_id: '',
@@ -195,11 +254,37 @@ export default function AdminUserManagePage() {
         new_role: ''
       })
       
+      // Refresh user data
       refreshUserRoles(userId.toString())
       refreshUserDetails(userId.toString())
-      setStatus({ saving: false, message: 'User assignment updated successfully' })
+      
+      // Reload assignment data to refresh the user list
+      const loadAssignmentData = async () => {
+        try {
+          const assignments = await adminDashboardService.getAvailableAssignments();
+          const allUsers = await adminDashboardService.listUsers({ page: 1 });
+          
+          // Handle different response structures safely
+          const usersArray = Array.isArray(allUsers) ? allUsers : allUsers?.results || [];
+          
+          const assignableUsers = usersArray.filter((u: any) => 
+            u.id !== userId && 
+            u.roles?.some((role: any) => role.role_name?.toLowerCase() === 'user')
+          );
+          setAvailableAssignments({
+            ...assignments,
+            assignable_users: assignableUsers
+          });
+        } catch (error) {
+          console.error('Failed to refresh assignment data:', error);
+        }
+      };
+      loadAssignmentData();
+      
+      // Show success message
+      setStatus({ saving: false, message: 'User successfully assigned' })
     } catch (e: any) {
-      setStatus({ saving: false, error: e?.message || 'Failed to update user assignment' })
+      setStatus({ saving: false, error: e?.message || 'Failed to assign user' })
     }
   }
 
@@ -407,6 +492,19 @@ export default function AdminUserManagePage() {
           >
             Permission Overrides ({userPermissions.length})
           </button>
+          {/* Show Assignments tab if the selected user has admin or agency role */}
+          {selectedUserHasAssignmentAccess && (
+            <button
+              onClick={() => setActiveTab('assignments')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'assignments'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              User Assignments
+            </button>
+          )}
         </nav>
       </div>
 
@@ -696,6 +794,135 @@ export default function AdminUserManagePage() {
         </div>
       )}
 
+      {/* Assignments Tab */}
+      {activeTab === 'assignments' && (
+        <div className="space-y-6">
+          {/* User Assignment Tab */}
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Assign Users to {user?.first_name || user?.email}</h3>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    // Refresh assignments data
+                    if (activeTab === 'assignments' || selectedUserHasAssignmentAccess) {
+                      const loadAssignmentData = async () => {
+                        try {
+                          const assignments = await adminDashboardService.getAvailableAssignments();
+                          const allUsers = await adminDashboardService.listUsers({ page: 1 });
+                          
+                          // Handle different response structures safely
+                          const usersArray = Array.isArray(allUsers) ? allUsers : allUsers?.results || [];
+                          
+                          const assignableUsers = usersArray.filter((u: any) => 
+                            u.id !== userId && 
+                            u.roles?.some((role: any) => role.role_name?.toLowerCase() === 'user')
+                          );
+                          setAvailableAssignments({
+                            ...assignments,
+                            assignable_users: assignableUsers
+                          });
+                        } catch (error) {
+                          console.error('Failed to refresh assignment data:', error);
+                        }
+                      };
+                      loadAssignmentData();
+                    }
+                  }}
+                  className="text-xs flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200"
+                >
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+                <span className="text-xs text-gray-500">User Management</span>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Introduction and Explanation */}
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                <h4 className="text-sm font-semibold text-blue-800 mb-2">About User Assignments</h4>
+                <p className="text-sm text-blue-700 mb-2">
+                  Assign normal users to {user?.first_name || user?.email} for management and impersonation purposes. 
+                  {userRoles.some((role: any) => role.role_name?.toLowerCase() === 'admin') && ' As an admin, you can manage and impersonate assigned users.'}
+                  {userRoles.some((role: any) => role.role_name?.toLowerCase() === 'agency') && ' As an agency user, you can manage users within your agency.'}
+                </p>
+              </div>
+              
+              {/* List of Assignable Users */}
+              <div className="bg-white border border-gray-200 rounded-md p-4">
+                <h4 className="text-md font-medium text-gray-900 mb-3">👥 Available Users to Assign</h4>
+                
+                {availableAssignments?.assignable_users?.length > 0 ? (
+                  <div className="space-y-3">
+                    {availableAssignments.assignable_users.map((assignableUser: any) => (
+                      <div key={assignableUser.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-md hover:bg-gray-50">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-medium text-blue-600">
+                                {(assignableUser.first_name?.[0] || assignableUser.email?.[0] || 'U').toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {assignableUser.first_name} {assignableUser.last_name}
+                              </p>
+                              <p className="text-xs text-gray-500">{assignableUser.email}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Assign this user to the current user being managed
+                            setQuickAssignment({
+                              action: 'assign_to_admin',
+                              target_admin_id: userId.toString(),
+                              target_agency_id: '',
+                              new_role: ''
+                            });
+                            handleQuickAssignment();
+                          }}
+                          disabled={status.saving}
+                          className="ml-4 px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {status.saving ? 'Assigning...' : 'Assign'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 mb-2">
+                      <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-gray-500">No users available for assignment</p>
+                    <p className="text-xs text-gray-400 mt-1">All users are either already assigned or have admin/agency roles</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Current User's Role Information */}
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Current User's Role</h4>
+                <div className="flex flex-wrap gap-2">
+                  {userRoles.map((role: any, index: number) => (
+                    <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {role.role_name} @ {role.agency_name}
+                      {role.is_primary && ' (Primary)'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Permissions Tab */}
       {activeTab === 'permissions' && (
         <div className="space-y-6">

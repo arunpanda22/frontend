@@ -17,7 +17,7 @@ import { useSidebar } from "@/components/layout/layout-wrapper";
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
@@ -242,7 +242,7 @@ export function Navbar() {
 
               {/* Dashboard Link - Desktop */}
               {user && (
-                <div className="hidden md:block ml-10">
+                <div className="hidden md:flex items-center space-x-6 ml-10">
                   <Link
                     href="/newdashboard"
                     className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
@@ -253,6 +253,20 @@ export function Navbar() {
                   >
                     Dashboard
                   </Link>
+                  
+                  {/* Admin Panel Link - Only show for admin and superadmin */}
+                  {isAdmin() && (
+                    <Link
+                      href="/admin"
+                      className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                        pathname?.startsWith("/admin")
+                          ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/25"
+                          : "text-gray-200 hover:bg-white/10 hover:text-white hover:shadow-md"
+                      }`}
+                    >
+                      Admin Panel
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
@@ -344,6 +358,29 @@ export function Navbar() {
                     </div>
                     {isSidebarOpen && <span className="ml-3 whitespace-nowrap">Dashboard</span>}
                   </Link>
+
+                  {/* Admin Panel Link - Sidebar */}
+                  {isAdmin() && (
+                    <Link
+                      href="/admin"
+                      className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative ${
+                        isSidebarOpen ? 'px-4 py-3' : 'px-3 py-3 justify-center'
+                      } ${
+                        pathname?.startsWith("/admin")
+                          ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/25"
+                          : "text-gray-300 hover:bg-white/10 hover:text-white"
+                      }`}
+                      title={!isSidebarOpen ? "Admin Panel" : ""}
+                      onClick={() => !isSidebarOpen && setIsSidebarOpen(true)}
+                    >
+                      <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      {isSidebarOpen && <span className="ml-3 whitespace-nowrap">Admin Panel</span>}
+                    </Link>
+                  )}
 
                   {/* Tool Categories */}
                   {toolCategories.map((category, index) => (
@@ -498,6 +535,26 @@ export function Navbar() {
                   </div>
                   Dashboard
                 </Link>
+
+                {/* Admin Panel Link - Mobile */}
+                {isAdmin() && (
+                  <Link
+                    href="/admin"
+                    className={`flex items-center px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
+                      pathname?.startsWith("/admin")
+                        ? "bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg"
+                        : "text-gray-300 hover:bg-white/10 hover:text-white"
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="flex items-center justify-center w-5 h-5 mr-3 flex-shrink-0">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    Admin Panel
+                  </Link>
+                )}
 
                 {/* Mobile Categories */}
                 {toolCategories.map((category) => (
