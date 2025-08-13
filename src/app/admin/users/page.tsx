@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
   const loading = usersQuery.isLoading
   const error = usersQuery.isError ? 'Failed to load users. Check console for details.' : null
 
-  const totalPages = Math.max(1, Math.ceil(data.count / 20)) // Assuming 20 per page
+  const totalPages = Math.max(1, Math.ceil(data.count / 20)) 
   const canPrev = page > 1
   const canNext = page < totalPages
 
