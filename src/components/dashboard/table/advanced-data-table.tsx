@@ -238,7 +238,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   const currentSort = sorts.find((s) => s.field === column.field)
   const hasFilter = filters[column.field]
 
-  const operators = {
+  const operators: Record<string, { value: string; label: string }[]> = {
     text: [
       { value: "contains", label: "Contains" },
       { value: "equals", label: "Equals" },
@@ -256,6 +256,9 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
       { value: "equals", label: "Equals" },
       { value: "after", label: "After" },
       { value: "before", label: "Before" },
+    ],
+    boolean: [
+      { value: "equals", label: "Equals" },
     ],
   }
 
@@ -995,7 +998,8 @@ export function AdvancedDataTable({
                             <div className="h-11 px-4 flex items-center">
                               {!isEmpty && (
                                 <CellRenderer
-                                  value={row[column.field]}
+                                  // value={row[column.field]}
+                                  value={(row as TableData)[column.field as keyof TableData]}
                                   column={column}
                                   isEditing={editingCell?.row === rowIndex && editingCell?.field === column.field}
                                   editValue={editValue}

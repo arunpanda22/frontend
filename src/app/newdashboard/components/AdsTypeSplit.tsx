@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAdsSalesData } from '@/lib/hooks/queries/use-dashboard';
 import { useDateRange } from '@/lib/context/DateRangeContext';
+import { AdsTypeContribution } from '@/lib/api/services/dashboard.service';
 
 const AdsSplitBubbleChart = () => {
   const { dateRange } = useDateRange();
@@ -35,7 +36,7 @@ const AdsSplitBubbleChart = () => {
     let sponsoredDisplay = 0;
 
     // Map the source codes to percentages
-    adsData.forEach(item => {
+    adsData.forEach((item: AdsTypeContribution) => {
       const percentage = parseFloat(item.sales_contribution_pct.toFixed(1));
       
       switch (item.source) {
@@ -73,7 +74,7 @@ const AdsSplitBubbleChart = () => {
   const { sponsoredProducts, sponsoredBrands, sponsoredDisplay } = getAdsTypeData();
 
   // Calculate bubble sizes based on percentages
-  const getTransformStyle = (percentage) => {
+  const getTransformStyle = (percentage: number) => {
     if (percentage === 0) return { display: 'none' };
     
     // Scale the bubbles based on percentage

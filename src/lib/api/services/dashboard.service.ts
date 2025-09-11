@@ -517,24 +517,25 @@ export const dashboardService = {
   },
 
   // Ads Sales Data
+  // Ads Sales Data
   async getAdsSalesData(options: {
     start_date: string
     end_date: string
     focus_level?: 'high' | 'medium' | 'low' | 'all'
-  }) {
+  }): Promise<AdsSalesResponse> {
     console.log('Fetching ads-sales data with options:', options);
-    const res = await apiClient.get('/api/v1/dashboard-api/ads-sales/', {
-      params: options
-    })
+    const res = await apiClient.get<AdsSalesResponse | { json: AdsSalesResponse }>(
+      '/api/v1/dashboard-api/ads-sales/',
+      { params: options }
+    );
     console.log('Ads-sales data response received:', res.data);
     
     // Handle wrapped response structure - extract from 'json' if present
-    let processedData = res.data;
-    if (res.data?.json) {
-      processedData = res.data.json;
+    if ('json' in res.data) {
+      return res.data.json;
     }
     
-    return processedData
+    return res.data;
   },
 
   // ASIN Summary

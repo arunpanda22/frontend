@@ -11,6 +11,11 @@ const ReactApexChart = dynamic(() => import('react-apexcharts'), {
   ssr: false,
 });
 
+interface ChartData {
+  labels: string[];
+  series: number[];
+}
+
 const InventoryAging = () => {
   const { data, isLoading, error } = useAsinLiquidation();
   const chartId = useRef(null);
@@ -19,7 +24,7 @@ const InventoryAging = () => {
   const customColors = ['#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#6B7280'];
 
   // Transform API data to chart format
-  const getChartData = () => {
+  const getChartData = (): ChartData => {
     if (!data?.inventory_aging_summary) {
       return {
         labels: [],
@@ -45,8 +50,8 @@ const InventoryAging = () => {
       summary.above_365_days || 0
     ];
 
-    // Filter out zero values
-    const filteredData = labels.reduce((acc, label, index) => {
+    // Filter out zero values with proper typing
+    const filteredData: ChartData = labels.reduce((acc: ChartData, label, index) => {
       if (series[index] > 0) {
         acc.labels.push(label);
         acc.series.push(series[index]);
@@ -86,9 +91,8 @@ const InventoryAging = () => {
       horizontalAlign: 'center',
       fontSize: '12px',
       markers: {
-        width: 8,
-        height: 8,
-        radius: 2
+        size: 8,
+        // radius: 2
       },
       itemMargin: {
         // horizontal: 5,
