@@ -1,4 +1,4 @@
-Qsc!@#$123name: Build and Deploy
+name: Build and Deploy
 
 on:
   push:
