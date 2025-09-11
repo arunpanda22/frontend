@@ -1,250 +1,282 @@
 "use client"
 
-import { useMemo } from 'react'
-import {
-  MaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_ColumnFiltersState,
-  type MRT_PaginationState,
-  type MRT_SortingState,
-} from 'material-react-table'
-import { Box, Typography, Button, Grid, Card, CardContent, Chip, Alert } from '@mui/material'
-import { ViewList, ViewModule } from '@mui/icons-material'
+import { useMemo, useState } from 'react'
+import { Typography, Alert } from '@mui/material'
 import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard'
 import type { InventoryHealthItem } from '@/lib/api/services/dashboard.service'
+import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
 
-// Map API response to table format
-type InventoryData = {
-  asin: string
-  'Product Name': string
-  'Focus category': string
-  reserved_quantity: number
-  fulfillable_quantity: number
-  'Sales/Day': number
-  'Inventory Cover': number
-  reorder_quantity: number
-  OOS_Alert: string
+interface InventoryHealthTableProps {
+  salesDays?: number;
+  reorderCoverDays?: number;
+  supplyChainLeadTime?: number;
 }
 
-export default function InventoryHealthTable() {
-  // Use API data instead of static JSON
+// Helper functions for formatting
+function formatNumber(val: any): string {
+  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '0';
+  const num = Number(val);
+  return num.toLocaleString();
+}
+
+function formatDecimal(val: any, digits = 2): string {
+  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '0';
+  const num = Number(val);
+  return num.toFixed(digits);
+}
+
+export default function InventoryHealthTable({ 
+  salesDays = 30,
+  reorderCoverDays = 45,
+  supplyChainLeadTime = 15 
+}: InventoryHealthTableProps) {
+  
+  // Use API data with configurable parameters
   const { data, isLoading, isError, error } = useInventoryHealth({
-    sales_days: 30,
-    reorder_cover_days: 60,
-    supply_chain_lead_time: 60
-  })
+    sales_days: salesDays,
+    reorder_cover_days: reorderCoverDays,
+    supply_chain_lead_time: supplyChainLeadTime
+  });
 
-  // Transform API data to match table format
-  const inventoryData: InventoryData[] = useMemo(() => {
-    if (!data?.inventory_health) return []
+  // Define columns for the AdvancedDataTable
+  const tableColumns: ColumnDefinition[] = useMemo(() => [
+    {
+      field: 'asin',
+      headerName: 'ASIN',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100,
+      pinned: 'left'
+    },
+    {
+      field: 'product_name',
+      headerName: 'Product Name',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 280,
+      minWidth: 200
+    },
+    {
+      field: 'focus_category',
+      headerName: 'Focus Category',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 150,
+      minWidth: 120
+    },
+    {
+      field: 'reserved_quantity',
+      headerName: 'Reserved Qty',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 130,
+      minWidth: 110
+    },
+    {
+      field: 'fulfillable_quantity',
+      headerName: 'Fulfillable Qty',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'sales_per_day',
+      headerName: 'Sales/Day',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100
+    },
+    {
+      field: 'inventory_cover',
+      headerName: 'Inventory Cover (Days)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 160,
+      minWidth: 140
+    },
+    {
+      field: 'reorder_quantity',
+      headerName: 'Reorder Qty',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 130,
+      minWidth: 110
+    },
+    {
+      field: 'oos_alert',
+      headerName: 'OOS Alert',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100
+    }
+  ], []);
+
+  const [columns, setColumns] = useState<ColumnDefinition[]>(tableColumns);
+
+  // Transform API data to match AdvancedDataTable format
+  const transformedData: TableData[] = useMemo(() => {
+    if (!data?.inventory_health || !Array.isArray(data.inventory_health)) {
+      console.log('No valid inventory health data found');
+      return [];
+    }
     
-    return data.inventory_health.map((item: any) => ({
-      asin: item.asin,
-      'Product Name': item['Product Name'],
-      'Focus category': item['Focus category'],
-      reserved_quantity: item.reserved_quantity,
-      fulfillable_quantity: item.fulfillable_quantity,
-      'Sales/Day': item['Sales/Day'],
-      'Inventory Cover': item['Inventory Cover'],
-      reorder_quantity: item.reorder_quantity,
-      OOS_Alert: item.OOS_Alert,
-    }))
-  }, [data])
+    console.log('Processing inventory health items:', data.inventory_health.length);
+    
+    return data.inventory_health.map((item: InventoryHealthItem) => {
+      return {
+        asin: item.asin || '',
+        product_name: item['Product Name'] || '',
+        image_url: item['image_url'] || '',
+        focus_category: item['Focus category'] || '',
+        reserved_quantity: formatNumber(item.reserved_quantity),
+        fulfillable_quantity: formatNumber(item.fulfillable_quantity),
+        sales_per_day: formatDecimal(item['Sales/Day']),
+        inventory_cover: formatDecimal(item['Inventory Cover']),
+        reorder_quantity: formatNumber(item.reorder_quantity),
+        oos_alert: item.OOS_Alert || '',
+        // Store raw values for proper sorting/filtering
+        _raw_reserved_quantity: item.reserved_quantity || 0,
+        _raw_fulfillable_quantity: item.fulfillable_quantity || 0,
+        _raw_sales_per_day: item['Sales/Day'] || 0,
+        _raw_inventory_cover: item['Inventory Cover'] || 0,
+        _raw_reorder_quantity: item.reorder_quantity || 0,
+      };
+    });
+  }, [data]);
 
-  const columns = useMemo<MRT_ColumnDef<InventoryData>[]>(() => [
-    {
-      accessorKey: 'asin',
-      header: 'ASIN',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      columnFilterModeOptions: [
-        'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-    },
-    {
-      accessorKey: 'Product Name',
-      header: 'Product Name',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      columnFilterModeOptions: [
-        'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-    },
-    {
-      accessorKey: 'Focus category',
-      header: 'Focus Category',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      columnFilterModeOptions: [
-        'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-    },
-    {
-      accessorKey: 'reserved_quantity',
-      header: 'Reserved Qty',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'between',
-      columnFilterModeOptions: [
-        'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      filterVariant: 'range',
-      muiFilterTextFieldProps: {
-        type: 'number',
-      },
-    },
-    {
-      accessorKey: 'fulfillable_quantity',
-      header: 'Fulfillable Qty',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'between',
-      columnFilterModeOptions: [
-        'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      filterVariant: 'range',
-      muiFilterTextFieldProps: {
-        type: 'number',
-      },
-    },
-    {
-      accessorKey: 'Sales/Day',
-      header: 'Sales/Day',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'between',
-      columnFilterModeOptions: [
-        'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      filterVariant: 'range',
-      muiFilterTextFieldProps: {
-        type: 'number',
-      },
-    },
-    {
-      accessorKey: 'Inventory Cover',
-      header: 'Inventory Cover',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'between',
-      columnFilterModeOptions: [
-        'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      filterVariant: 'range',
-      muiFilterTextFieldProps: {
-        type: 'number',
-      },
-    },
-    {
-      accessorKey: 'reorder_quantity',
-      header: 'Reorder Qty',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'between',
-      columnFilterModeOptions: [
-        'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      filterVariant: 'range',
-      muiFilterTextFieldProps: {
-        type: 'number',
-      },
-    },
-    {
-      accessorKey: 'OOS_Alert',
-      header: 'OOS Alert',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      columnFilterModeOptions: [
-        'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-    },
-  ], [])
+  // Debug log for transformed data
+  console.log('Transformed inventory data:', transformedData);
 
-  // Handle loading and error states
+  // Handle loading state
   if (isLoading) {
-    return <div className="w-full flex justify-center items-center min-h-[200px] text-lg text-blue-700">Loading inventory data...</div>;
+    return (
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Inventory Health Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <Typography variant="h6" color="text.secondary" className="ml-3">
+            Loading inventory data...
+          </Typography>
+        </div>
+      </div>
+    );
   }
 
+  // Handle error state
   if (isError) {
     return (
-      <Box sx={{ width: '100%', p: 2 }}>
-        <Alert severity="error">
-          Failed to load inventory data: {error?.message || 'Unknown error'}
-        </Alert>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Inventory Health Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="error">
+              Failed to load inventory data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {error?.message || 'Unknown error occurred'}
+            </Typography>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle empty data state
+  if (!transformedData || transformedData.length === 0) {
+    return (
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Inventory Health Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="text.secondary">
+              No inventory data available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              No inventory health data found for the specified parameters
+            </Typography>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <MaterialReactTable
-        columns={columns}
-        data={inventoryData}
-        enableColumnFilters
-        enableGlobalFilter
-        enableSorting
-        enablePagination
-        enableRowSelection
-        enableColumnResizing
-        enableColumnPinning
-        enableDensityToggle
-        enableFullScreenToggle
-        enableColumnDragging
-        enableStickyHeader
-        enableStickyFooter
-        enableColumnFilterModes={true}
-        muiTableContainerProps={{
-          sx: {
-            maxHeight: 'calc(100vh - 200px)',
-            width: '100%',
-            overflowX: 'auto',
-          },
-        }}
-        muiTableHeadCellProps={(column) => ({
-          sx: {
-            backgroundColor: 'primary.main',
-            color: column?.column?.id === 'asin' ? 'black' : 'primary.contrastText',
-            fontWeight: 'bold',
-          },
-        })}
-        muiTableBodyCellProps={{
-          sx: {
-            borderBottom: '1px solid rgba(224, 224, 224, 1)',
-          },
-        }}
-        muiTableProps={{
-          sx: {
-            tableLayout: 'auto',
-            width: '100%',
-            minWidth: 900,
-          },
-        }}
-        initialState={{
-          density: 'compact',
-          pagination: { pageSize: 15, pageIndex: 0 },
-          sorting: [{ id: 'reorder_quantity', desc: true }],
-          columnPinning: {
-            left: ['mrt-row-select', 'asin',],
-            right: [],
-          },
-        }}
-        displayColumnDefOptions={{
-          'mrt-row-select': {
-            size: 50,
-            enablePinning: true,
-          },
-        }}
-        muiTablePaperProps={{
-          elevation: 3,
-          sx: {
-            borderRadius: 2,
-          },
-        }}
-      />
-    </Box>
-  )
+    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      {/* Header - matches ASIN Performance styling */}
+      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Inventory Health Table
+          </h6>
+          
+          {/* Summary info */}
+          <div className="text-right">
+            <div className="text-sm font-medium text-slate-700">
+              {transformedData.length} products • {salesDays} day sales analysis
+            </div>
+            <div className="text-xs text-slate-500">
+              Lead time: {supplyChainLeadTime} days • Cover: {reorderCoverDays} days
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Table Content */}
+      <div className="p-4 md:p-6 flex-1 min-h-0">
+        <AdvancedDataTable
+          data={transformedData}
+          columns={columns}
+          onDataChange={(newData) => {
+            // Handle data changes if needed for inventory health
+            console.log('Inventory data changed:', newData);
+          }}
+          onColumnsChange={setColumns}
+          className="w-full h-full"
+          showCheckboxColumn={false}
+        />
+        
+        {/* Footer info */}
+        <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <Typography variant="body2" color="text.secondary">
+            Inventory health analysis based on {salesDays}-day sales velocity. Reorder quantities calculated for {reorderCoverDays}-day coverage 
+            with {supplyChainLeadTime}-day supply chain lead time. Use filters to identify products requiring immediate attention.
+          </Typography>
+        </div>
+      </div>
+    </div>
+  );
 }

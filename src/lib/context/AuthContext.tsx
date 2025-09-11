@@ -407,7 +407,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
             setError(new Error('Auth initialization timed out'))
           }
-        }, 5000) // Reduced to 5 seconds
+        }, 7000) // Reduced to 5 seconds
 
         // Set up auth state listener
         unsubscribe = onAuthStateChanged(

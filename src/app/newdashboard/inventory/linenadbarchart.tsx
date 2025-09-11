@@ -1,13 +1,10 @@
 'use client'
 
 import React, { useEffect, useState, useMemo } from 'react'
-
 import dynamic from 'next/dynamic'
 import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard'
-
 import { ApexOptions } from 'apexcharts'
 
-// Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import('react-apexcharts'), {
   ssr: false,
 })
@@ -23,14 +20,12 @@ const LineColumnAreaChart = ({
   chartDarkColors,
   chartId,
 }: MixedChartsProps) => {
-  // Fetch real inventory health data
   const { data: inventoryHealthData, isLoading, error } = useInventoryHealth({
     sales_days: 30,
     reorder_cover_days: 60,
     supply_chain_lead_time: 60
   });
 
-  // Process real API data for chart
   const { series, labels } = useMemo(() => {
     if (!inventoryHealthData?.inventory_health) {
       return {
@@ -39,7 +34,6 @@ const LineColumnAreaChart = ({
       };
     }
 
-    // Sort by fulfillable_quantity descending and take top 10
     const sorted = [...inventoryHealthData.inventory_health]
       .sort((a: any, b: any) => (b.fulfillable_quantity || 0) - (a.fulfillable_quantity || 0))
       .slice(0, 10);
@@ -64,67 +58,137 @@ const LineColumnAreaChart = ({
     };
   }, [inventoryHealthData]);
 
-  // Handle loading state
   if (isLoading) {
     return (
-      <div className="w-full h-[300px] flex items-center justify-center">
-        <div className="text-gray-500">Loading chart...</div>
+      <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
+        <div className="p-6 border-b border-gray-100 flex-shrink-0">
+          <div className="h-6 bg-gray-200 rounded w-48"></div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-gray-500">Loading chart...</div>
+        </div>
       </div>
     );
   }
 
-  // Handle error state
   if (error) {
     return (
-      <div className="w-full h-[300px] flex items-center justify-center">
-        <div className="text-red-500">Failed to load inventory data: {error.message}</div>
+      <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
+        <div className="p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Inventory Overview
+          </h6>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-600 font-medium">Failed to load inventory data</p>
+            <p className="text-sm text-gray-500 mt-1">{error.message}</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Handle no data
   if (!series.length || !labels.length) {
     return (
-      <div className="w-full h-[300px] flex items-center justify-center">
-        <div className="text-gray-500">No inventory data available</div>
+      <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
+        <div className="p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Inventory Overview
+          </h6>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 font-medium">No inventory data available</p>
+            <p className="text-sm text-gray-500 mt-1">Check back later for updates</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   const options: ApexOptions = {
     chart: {
-      height: 300,
+      height: '100%',
       type: 'line',
       stacked: false,
+      toolbar: {
+        show: false
+      },
+      background: 'transparent',
+      parentHeightOffset: 0,
     },
     stroke: {
-      width: [2, 4],
+      width: [0, 4],
       curve: 'smooth',
     },
     plotOptions: {
       bar: {
         columnWidth: '50%',
+        borderRadius: 8,
+        borderRadiusApplication: 'end',
       },
     },
     labels: labels,
     xaxis: {
       categories: labels,
       type: 'category',
-      title: { text: 'ASIN' },
+      title: { 
+        text: 'ASIN',
+        style: {
+          fontSize: '12px',
+          fontWeight: 600,
+          color: '#6B7280'
+        }
+      },
+      axisBorder: {
+        show: false
+      },
+      axisTicks: {
+        show: false
+      },
+      labels: {
+        style: {
+          fontSize: '11px',
+          colors: '#6B7280'
+        }
+      }
     },
     yaxis: [
       {
         title: {
           text: 'Fulfillable Quantity',
+          style: {
+            fontSize: '12px',
+            fontWeight: 600,
+            color: '#6B7280'
+          }
         },
         min: 0,
+        labels: {
+          style: {
+            fontSize: '11px',
+            colors: '#6B7280'
+          }
+        }
       },
       {
         opposite: true,
         title: {
           text: 'Inventory Cover',
+          style: {
+            fontSize: '12px',
+            fontWeight: 600,
+            color: '#6B7280'
+          }
         },
         min: 0,
+        labels: {
+          style: {
+            fontSize: '11px',
+            colors: '#6B7280'
+          }
+        }
       },
     ],
     tooltip: {
@@ -140,27 +204,48 @@ const LineColumnAreaChart = ({
       },
     },
     grid: {
+      show: false,
       padding: {
-        top: 0,
-        right: 0,
-        bottom: 0,
+        top: 10,
+        right: 15,
+        bottom: 10,
+        left: 10
       },
     },
+    colors: ['#3B82F6', '#10B981'],
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right',
+      fontSize: '12px',
+      fontWeight: 500,
+      labels: {
+        colors: '#6B7280'
+      }
+    }
   }
 
   return (
-    <React.Fragment>
-      <ReactApexChart
-        className="w-full h-full"
-        options={options}
-        series={series}
-        type="line"
-        data-chart-colors="[bg-primary-500, bg-green-500, bg-yellow-500]"
-        id={chartId}
-        height="100%"
-        width="100%"
-      />
-    </React.Fragment>
+       <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
+      {/* Header with consistent padding */}
+      <div className="p-6 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          Inventory Overview
+        </h6>
+      </div>
+      
+      {/* Chart container - takes remaining space */}
+      <div className="flex-1 p-6 min-h-0">
+        <div className="w-full h-full">
+          <ReactApexChart
+            options={options}
+            series={series}
+            type="line"
+            height="100%"
+            width="100%"
+          />
+        </div>
+      </div>
+    </div>
   )
 }
 

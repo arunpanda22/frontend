@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
               users.map(u => (
                 <tr key={u.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm truncate">
-                    {u.first_name || ''} {u.last_name || ''}
+                    {u.display_name || ''} 
                     {u.is_superuser && <span className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Super Admin</span>}
                   </td>
                   <td className="px-4 py-3 text-sm truncate">{u.email}</td>

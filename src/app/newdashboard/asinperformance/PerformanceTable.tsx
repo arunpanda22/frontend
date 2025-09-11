@@ -1,42 +1,12 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import {
-  MaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_ColumnFiltersState,
-  type MRT_PaginationState,
-  type MRT_SortingState,
-} from 'material-react-table'
-import { Box, Typography, Button, Grid, Card, CardContent, Chip } from '@mui/material'
-import { ViewList, ViewModule } from '@mui/icons-material'
+import { Box, Typography } from '@mui/material'
 import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard'
+import { AdvancedDataTable, type ColumnDefinition, type TableData  } from '@/components/dashboard/table/advanced-data-table'
 
-// Define the type for ASIN data
-interface AsinData {
-  asin: string
-  product_name: string
-  'Total Quantity': number
-  'Total Sales': number
-  'Sales ASP': number
-  BuyBox: number
-  'Organic Sales': number
-  Conversion: number
-  ACOS: number | null
-  TACOS: number | null
-  'Replacement Rate': number | null
-  'Return Rate': number | null
-}
 
 export default function AsinPerformanceTable() {
-  const [columnFilters, setColumnFilters] = useState<MRT_ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = useState('')
-  const [sorting, setSorting] = useState<MRT_SortingState>([])
-  const [pagination, setPagination] = useState<MRT_PaginationState>({
-    pageIndex: 0,
-    pageSize: 20,
-  })
-
   // Fetch ASIN performance data from API - use stable date values
   const dateParams = useMemo(() => ({
     start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -45,409 +15,275 @@ export default function AsinPerformanceTable() {
     focus_level: 'all' as const
   }), []);
 
-  const { asinSummary, targetingAnalysis, isLoading, isError, error } = useAsinPerformanceData(dateParams);
+  const { asinSummary, isLoading, isError, error } = useAsinPerformanceData(dateParams);
 
-  // Transform API data to match existing interface - use targeting analysis since ASIN summary has zero sales
-  const asinData: AsinData[] = useMemo(() => {
-    // Use ASIN summary if it has real data, otherwise fall back to targeting analysis
-    if (asinSummary?.data?.data) {
-      const extractedData = asinSummary.data.data.map((item: any) => {
-        const actualItem = item.json || item;
-        return {
-          asin: actualItem.asin,
-          product_name: actualItem.product_name,
-          'Total Quantity': actualItem.total_units,
-          'Total Sales': actualItem.total_sales,
-          'Sales ASP': actualItem.total_sales / Math.max(actualItem.total_units, 1),
-          BuyBox: actualItem.buy_box_percentage,
-          'Organic Sales': actualItem.total_sales - (actualItem.total_ad_sales || 0),
-          Conversion: actualItem.conversion_rate,
-          ACOS: actualItem.acos_percent,
-          TACOS: actualItem.tacos_percent,
-          'Replacement Rate': actualItem.replacement_rate,
-          'Return Rate': actualItem.return_rate,
-        };
-      });
-      
-      if (extractedData.some((item: any) => item['Total Sales'] > 0)) {
-        return extractedData;
-      }
+  // State for managing table columns
+  const initialColumns: ColumnDefinition[] = useMemo(() => [
+    {
+      field: 'asin',
+      headerName: 'ASIN',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100,
+      pinned: 'left'
+    },
+    {
+      field: 'product_name',
+      headerName: 'Name',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 300,
+      minWidth: 200
+    },
+    {
+      field: 'total_quantity',
+      headerName: 'Total Quantity',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'total_sales',
+      headerName: 'Total Sales (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 150,
+      minWidth: 130
+    },
+    {
+      field: 'sales_asp',
+      headerName: 'Sales ASP (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'buybox',
+      headerName: 'Buy Box %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100
+    },
+    {
+      field: 'organic_sales',
+      headerName: 'Organic Sales (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 160,
+      minWidth: 140
+    },
+    {
+      field: 'conversion',
+      headerName: 'Conversion %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 130,
+      minWidth: 110
+    },
+    {
+      field: 'acos',
+      headerName: 'ACOS %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 110,
+      minWidth: 90
+    },
+    {
+      field: 'tacos',
+      headerName: 'TACOS %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 110,
+      minWidth: 90
+    },
+    {
+      field: 'replacement_rate',
+      headerName: 'Replacement Rate %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 160,
+      minWidth: 140
+    },
+    {
+      field: 'return_rate',
+      headerName: 'Return Rate %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    }
+  ], []);
+
+  const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(initialColumns);
+
+  // Transform API data - updated to match new service structure
+  const asinData: TableData[] = useMemo(() => {
+    console.log('Raw asinSummary data:', asinSummary); // Debug log
+    
+    const rawData = asinSummary?.data?.asin_summary;
+    
+    if (!rawData || !Array.isArray(rawData)) {
+      console.log('No valid asin_summary data found');
+      return [];
     }
     
-    // Fallback to targeting analysis data
-    if (!targetingAnalysis?.data) return [];
+    console.log('Processing asin_summary items:', rawData.length);
     
-    const transformedData: AsinData[] = [];
-    Object.entries(targetingAnalysis.data).forEach(([groupName, groupData]: [string, any]) => {
-      if (groupData.items && Array.isArray(groupData.items)) {
-        groupData.items.forEach((item: any) => {
-          transformedData.push({
-            asin: `${groupName}-${item.targeting_type}`,
-            product_name: `${groupName} - ${item.targeting_type}`,
-            'Total Quantity': item.units_sold || 0,
-            'Total Sales': item.sales || 0,
-            'Sales ASP': item.sales && item.units_sold ? item.sales / item.units_sold : 0,
-            BuyBox: 100, // Default since not available in targeting data
-            'Organic Sales': 0, // Assume zero organic sales for ad targeting data
-            Conversion: item.conversion_rate_percent || 0,
-            ACOS: item.acos_percent || 0,
-            TACOS: item.acos_percent || 0, // Use ACOS as proxy
-            'Replacement Rate': 0, // Not available in targeting data
-            'Return Rate': 0, // Not available in targeting data
-          });
-        });
-      }
+    return rawData.map((item: any) => {
+      // Handle nested json property if it exists, otherwise use item directly
+      const actualItem = item.json || item;
+      
+      return {
+        asin: actualItem.asin || '',
+        product_name: actualItem.product_name || '',
+        image_url: actualItem.image_url || '',
+        total_quantity: actualItem.total_units || 0,
+        total_sales: actualItem.total_sales || 0,
+        sales_asp: actualItem.asp || 0,
+        buybox: actualItem.buy_box_percentage || 0,
+        organic_sales: ((actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0)).toFixed(2),
+        conversion: actualItem.conversion_rate || 0,
+        acos: actualItem.acos_percent !== undefined ? actualItem.acos_percent : null,
+        tacos: actualItem.tacos_percent !== undefined ? actualItem.tacos_percent : null,
+        replacement_rate: actualItem.replacement_rate !== undefined ? actualItem.replacement_rate : null,
+        return_rate: actualItem.return_rate !== undefined ? actualItem.return_rate : null,
+      };
     });
-    
-    return transformedData;
-  }, [asinSummary, targetingAnalysis]);
+  }, [asinSummary]);
+
+  // Get summary stats from the new API structure
+  const summaryStats = useMemo(() => {
+    return asinSummary?.data?.summary_stats || {};
+  }, [asinSummary]);
+
+  // Debug log for transformed data
+  console.log('Transformed asinData:', asinData);
+  console.log('Summary stats:', summaryStats);
 
   // Handle loading state
   if (isLoading) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          Loading ASIN performance data...
-        </Typography>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Performance Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <Typography variant="h6" color="text.secondary" className="ml-3">
+            Loading ASIN performance data...
+          </Typography>
+        </div>
+      </div>
     );
   }
 
   // Handle error state
-  if (isError || !asinData || asinData.length === 0) {
+  if (isError) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="error">
-          Failed to load ASIN performance data
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {error?.message || 'No data available'}
-        </Typography>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Performance Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="error">
+              Failed to load ASIN performance data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {error?.message || 'An error occurred while fetching data'}
+            </Typography>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  const columns = useMemo<MRT_ColumnDef<AsinData>[]>(
-    () => [
-      {
-        accessorKey: 'asin',
-        header: 'ASIN',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'fuzzy',
-        columnFilterModeOptions: [
-          'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography sx={{ color: 'black', fontWeight: 'medium' }}>
-            {cell.getValue<string>()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'product_name',
-        header: 'Product Name',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'fuzzy',
-        columnFilterModeOptions: [
-          'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Box sx={{ maxWidth: 280 }}>
-            <Typography variant="body2" sx={{ 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis', 
-              whiteSpace: 'nowrap',
-              fontSize: '0.875rem'
-            }}>
-              {cell.getValue<string>()}
+  // Handle empty data state
+  if (!asinData || asinData.length === 0) {
+    return (
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Performance Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="text.secondary">
+              No ASIN performance data available
             </Typography>
-          </Box>
-        ),
-      },
-      {
-        accessorKey: 'Total Quantity',
-        header: 'Total Quantity',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'Total Sales',
-        header: 'Total Sales',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            ₹{cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'Sales ASP',
-        header: 'Sales ASP',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2">
-            ₹{cell.getValue<number>().toFixed(2)}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'BuyBox',
-        header: 'Buy Box %',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ 
-            color: cell.getValue<number>() >= 90 ? 'success.main' : 
-                   cell.getValue<number>() >= 70 ? 'warning.main' : 'error.main'
-          }}>
-            {cell.getValue<number>().toFixed(2)}%
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'Organic Sales',
-        header: 'Organic Sales',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            ₹{cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'Conversion',
-        header: 'Conversion Rate',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2">
-            {(cell.getValue<number>() * 100).toFixed(2)}%
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'ACOS',
-        header: 'ACOS',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => {
-          const value = cell.getValue<number | null>()
-          if (value === null) return <Typography variant="body2" color="text.secondary">-</Typography>
-          return (
-            <Typography variant="body2" sx={{ 
-              color: value <= 0.3 ? 'success.main' : 
-                     value <= 0.5 ? 'warning.main' : 'error.main'
-            }}>
-              {(value * 100).toFixed(2)}%
+            <Typography variant="body2" color="text.secondary">
+              No data found for the selected date range
             </Typography>
-          )
-        },
-      },
-      {
-        accessorKey: 'TACOS',
-        header: 'TACOS',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => {
-          const value = cell.getValue<number | null>()
-          if (value === null) return <Typography variant="body2" color="text.secondary">-</Typography>
-          return (
-            <Typography variant="body2" sx={{ 
-              color: value <= 0.1 ? 'success.main' : 
-                     value <= 0.2 ? 'warning.main' : 'error.main'
-            }}>
-              {(value * 100).toFixed(2)}%
-            </Typography>
-          )
-        },
-      },
-      {
-        accessorKey: 'Replacement Rate',
-        header: 'Replacement Rate',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => {
-          const value = cell.getValue<number | null>()
-          if (value === null) return <Typography variant="body2" color="text.secondary">-</Typography>
-          return (
-            <Typography variant="body2" sx={{ 
-              color: value <= 0.05 ? 'success.main' : 
-                     value <= 0.1 ? 'warning.main' : 'error.main'
-            }}>
-              {(value * 100).toFixed(2)}%
-            </Typography>
-          )
-        },
-      },
-      {
-        accessorKey: 'Return Rate',
-        header: 'Return Rate',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => {
-          const value = cell.getValue<number | null>()
-          if (value === null) return <Typography variant="body2" color="text.secondary">-</Typography>
-          return (
-            <Typography variant="body2" sx={{ 
-              color: value <= 0.05 ? 'success.main' : 
-                     value <= 0.1 ? 'warning.main' : 'error.main'
-            }}>
-              {(value * 100).toFixed(2)}%
-            </Typography>
-          )
-        },
-      },
-    ],
-    []
-  )
+            {/* Debug info in development */}
+            {process.env.NODE_ENV === 'development' && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="caption" component="pre">
+                  Debug: {JSON.stringify(asinSummary, null, 2)}
+                </Typography>
+              </Box>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Box sx={{ height: '100vh', width: '100%',  }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-       
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-         
-        </Box>
-      </Box>
-      <MaterialReactTable
-        columns={columns}
-        data={asinData}
-        enableColumnFilters
-        enableGlobalFilter
-        enableSorting
-        enablePagination
-        enableRowSelection
-        enableColumnResizing
-        enableColumnPinning
-        enableDensityToggle
-        enableFullScreenToggle
-        enableColumnDragging
-        enableStickyHeader
-        enableStickyFooter
-        enableColumnFilterModes={true}
-        muiTableContainerProps={{
-          sx: {
-            maxHeight: 'calc(100vh - 200px)',
-            width: '100%',
-            overflowX: 'auto',
-          },
-        }}
-        muiTableHeadCellProps={(column) => ({
-          sx: {
-            backgroundColor: 'primary.main',
-            color: column?.column?.id === 'asin' ? 'black' : 'primary.contrastText',
-            fontWeight: 'bold',
-          },
-        })}
-        muiTableBodyCellProps={{
-          sx: {
-            borderBottom: '1px solid rgba(224, 224, 224, 1)',
-          },
-        }}
-        muiTableProps={{
-          sx: {
-            tableLayout: 'auto',
-            width: '100%',
-            minWidth: 900,
-          },
-        }}
-        state={{
-          columnFilters,
-          globalFilter,
-          sorting,
-          pagination,
-        }}
-        onColumnFiltersChange={setColumnFilters}
-        onGlobalFilterChange={setGlobalFilter}
-        onSortingChange={setSorting}
-        onPaginationChange={setPagination}
-        initialState={{
-          density: 'compact',
-          pagination: { pageSize: 20, pageIndex: 0 },
-          sorting: [{ id: 'Total Sales', desc: true }],
-          columnPinning: {
-            left: ['mrt-row-select', 'asin'],
-            right: [],
-          },
-        }}
-        displayColumnDefOptions={{
-          'mrt-row-select': {
-            size: 50,
-            enablePinning: true,
-          },
-        }}
-        muiTablePaperProps={{
-          elevation: 3,
-          sx: {
-            borderRadius: 2,
-          },
-        }}
-        renderTopToolbarCustomActions={({ table }) => (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              {table.getFilteredSelectedRowModel().rows.length} of{' '}
-              {table.getFilteredRowModel().rows.length} row(s) selected
-            </Typography>
-          </Box>
-        )}
-        renderBottomToolbarCustomActions={({ table }) => (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Total: {table.getFilteredRowModel().rows.length} products
-            </Typography>
-          </Box>
-        )}
-      />
-    </Box>
-  )
+    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      {/* Header with same style as Inventory Aging */}
+      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          ASIN Performance Table
+        </h6>
+      </div>
+      
+      {/* Table Content */}
+      <div className="p-4 md:p-6 flex-1 min-h-0">
+        <AdvancedDataTable
+          data={asinData}
+          columns={tableColumns}
+          onDataChange={(newData) => {
+            // Handle data changes if needed
+            console.log('Data changed:', newData);
+          }}
+          onColumnsChange={setTableColumns}
+          showCheckboxColumn={false}
+          className="w-full h-full"
+        />
+      </div>
+    </div>
+  );
 }

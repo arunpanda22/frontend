@@ -1,232 +1,142 @@
-"use client";
-import React, { useState } from "react";
-import { Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels";
+import React from "react";
+import RankedItemsCard from "@/components/dashboard/ui/RankedItemsCard";
+import { OrganicSalesItem } from "@/lib/api/services/dashboard.service";
 import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartDataLabels
-);
+interface OrganicSalesCardProps {
+  maxItems?: number;
+  className?: string;
+  // Optional date range props - if not provided, defaults to last 30 days
+  startDate?: string;
+  endDate?: string;
+  period?: string;
+  focusLevel?: string;
+}
 
-const METRICS = [
-  {
-    key: "organic",
-    label: "Share of Organic Sales (%)",
-    color: "#2563EB", // blue
-    getValue: (item: any) => {
-      const totalSales = item.total_sales || 0;
-      const adSales = item.total_ad_sales || 0;
-      const organicSales = totalSales - adSales;
-      // For targeting data, assume some organic split based on targeting type
-      if (totalSales > 0 && adSales === totalSales) {
-        // Different organic percentages based on item type for realism
-        const itemName = item.product_name || '';
-        if (itemName.includes('EXACT')) return 25; // Exact match = higher organic
-        if (itemName.includes('BROAD')) return 15; // Broad match = lower organic
-        if (itemName.includes('Auto')) return 20; // Auto = medium organic
-        return 30; // Default organic percentage
-      }
-      return totalSales > 0 ? (organicSales / totalSales) * 100 : 0;
-    },
-  },
-  {
-    key: "return",
-    label: "Return Rate (%)",
-    color: "#FFD600", // yellow
-    getValue: (item: any) => (item.return_rate || 0) * 100,
-  },
-  {
-    key: "replacement",
-    label: "Replacement Rate (%)",
-    color: "#E3144D", // red
-    getValue: (item: any) => (item.replacement_rate || 0) * 100,
-  },
-];
+const OrganicSalesCard: React.FC<OrganicSalesCardProps> = ({
+  maxItems = 10,
+  className = "",
+  startDate,
+  endDate,
+  period = '30d',
+  focusLevel = 'all'
+}) => {
+  // Set up default date range (last 30 days) if not provided
+  const defaultStartDate = React.useMemo(() => 
+    startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  , [startDate]);
+  
+  const defaultEndDate = React.useMemo(() => 
+    endDate || new Date().toISOString().split('T')[0]
+  , [endDate]);
 
-export default function OrganicSalesBarChart({ height = 440 }: { height?: number }) {
-  const [metricIndex, setMetricIndex] = useState(0);
-  const metric = METRICS[metricIndex];
+  // Fetch organic sales data directly in this component
+  const { 
+    organicSalesData,
+    isLoading, 
+    isError, 
+    error 
+  } = useAsinPerformanceData({
+    start_date: defaultStartDate,
+    end_date: defaultEndDate,
+    period,
 
-  // Fetch ASIN performance data from API - use stable date values
-  const dateParams = React.useMemo(() => ({
-    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
-    period: '30d',
-    focus_level: 'all' as const
-  }), []);
+  });
 
-  const { asinSummary, targetingAnalysis, isLoading, isError, error } = useAsinPerformanceData(dateParams);
-
-  // Transform API data for the chart - use targeting analysis since ASIN summary has zero sales
-  const asinData = React.useMemo(() => {
-    // Use ASIN summary if it has real data, otherwise fall back to targeting analysis
-    if (asinSummary?.data?.data) {
-      const extractedData = asinSummary.data.data.map((item: any) => {
-        const actualItem = item.json || item;
-        return {
-          asin: actualItem.asin,
-          product_name: actualItem.product_name,
-          total_sales: actualItem.total_sales,
-          total_ad_sales: actualItem.total_ad_sales,
-          return_rate: actualItem.return_rate,
-          replacement_rate: actualItem.replacement_rate,
-        };
-      });
-      
-      if (extractedData.some((item: any) => item.total_sales > 0)) {
-        return extractedData;
-      }
+  // Debug logging
+  React.useEffect(() => {
+    if (organicSalesData?.data) {
+      console.log('🌿 OrganicSalesCard - Organic Sales Data Available:', organicSalesData.data.organic_sales_data?.length, 'items');
     }
-    
-    // Fallback to targeting analysis data
-    if (!targetingAnalysis?.data) return [];
-    
-    const transformedData: any[] = [];
-    Object.entries(targetingAnalysis.data).forEach(([groupName, groupData]: [string, any]) => {
-      if (groupData.items && Array.isArray(groupData.items)) {
-        groupData.items.forEach((item: any) => {
-          transformedData.push({
-            asin: `${groupName}-${item.targeting_type}`,
-            product_name: `${groupName} - ${item.targeting_type}`,
-            total_sales: item.sales || 0,
-            total_ad_sales: item.sales || 0, // Assume all sales are ad sales in targeting data
-            return_rate: 0, // Not available in targeting data
-            replacement_rate: 0, // Not available in targeting data
-          });
-        });
-      }
-    });
-    
-    return transformedData;
-  }, [asinSummary, targetingAnalysis]);
+    if (isError) {
+      console.error('❌ OrganicSalesCard - API Error:', error);
+    }
+  }, [organicSalesData, isError, error]);
 
-  // Sort and get top 10 by absolute Total Sales
-  const dataSorted = [...asinData]
-    .sort((a: any, b: any) => (b.total_sales || 0) - (a.total_sales || 0))
-    .slice(0, 10)
-    .map((item: any) => ({
-      asin: item.asin,
-      value: metric.getValue(item),
-    }));
+  // Transform organic sales data for RankedItemsCard
+  const rankedItems = React.useMemo(() => {
+    if (!organicSalesData?.data?.organic_sales_data) {
+      return [];
+    }
+    return organicSalesData.data.organic_sales_data
+      .sort((a, b) => b.total_sales - a.total_sales) // Sort by percentage descending
+      .map((item: OrganicSalesItem, index) => ({
+        id: item.asin,
+        name: item.product_name, 
+        percentage: Math.round(item.organic_sales_percentage * 100) / 100, 
+        // value: `₹${item.organic_sales.toLocaleString()}`, 
+        color: getColorByPerformance(item.organic_sales_percentage, index),
+      }));
+  }, [organicSalesData?.data?.organic_sales_data]);
 
-  // Handle loading state
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div>Loading organic sales chart data...</div>
-      </div>
-    );
+  // Helper function to assign colors based on performance
+  function getColorByPerformance(percentage: number, index: number): string {
+    // Modern vibrant color palette
+    const colorPalette = [
+      "bg-gradient-to-r from-emerald-400 to-emerald-600", // Emerald
+      "bg-gradient-to-r from-blue-400 to-blue-600",       // Blue
+      "bg-gradient-to-r from-purple-400 to-purple-600",   // Purple
+      "bg-gradient-to-r from-orange-400 to-orange-600",   // Orange
+      "bg-gradient-to-r from-pink-400 to-pink-600",       // Pink
+      "bg-gradient-to-r from-cyan-400 to-cyan-600",       // Cyan
+      "bg-gradient-to-r from-indigo-400 to-indigo-600",   // Indigo
+      "bg-gradient-to-r from-teal-400 to-teal-600",       // Teal
+      "bg-gradient-to-r from-rose-400 to-rose-600",       // Rose
+      "bg-gradient-to-r from-amber-400 to-amber-600",     // Amber
+    ];
+    
+    // Use index to cycle through colors for visual variety
+    return colorPalette[index % colorPalette.length];
   }
 
-  // Handle error state
-  if (isError || !asinData || asinData.length === 0) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div style={{ color: 'red', textAlign: 'center' }}>
-          Failed to load organic sales chart data
-          <br />
-          <small>{error?.message || 'No data available'}</small>
-        </div>
-      </div>
-    );
-  }
-
-  const barData = {
-    labels: dataSorted.map((item: any) => item.asin),
-    datasets: [
-      {
-        label: metric.label,
-        data: dataSorted.map((item: any) => item.value),
-        backgroundColor: metric.color,
-        borderRadius: 12,
-        barThickness: 22,
-        barPercentage: 1,
-        categoryPercentage: 1,
-      },
-    ],
-  };
-
-  const barOptions = {
-    indexAxis: "y" as const,
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      title: {
-        display: true,
-        text: metric.label,
-        color: "#222",
-        font: { size: 22 },
-      },
-      datalabels: {
-        anchor: "end" as const,
-        align: "end" as const,
-        color: "#222",
-        font: { weight: 'bold' as const, size: 14 },
-        formatter: (value: number) => value.toFixed(2) + " %",
-        clamp: true,
-      },
-      tooltip: {
-        callbacks: {
-          label: function(ctx: any) {
-            const asin = ctx.label;
-            const asinObj = asinData.find((item: any) => item.asin === asin);
-            const totalSales = asinObj ? asinObj.total_sales : "N/A";
-            let organicSales = "N/A";
-            if (asinObj) {
-              // Calculate actual organic sales amount
-              const organicSalesAmount = asinObj.total_sales - (asinObj.total_ad_sales || 0);
-              organicSales = organicSalesAmount.toLocaleString(undefined, {maximumFractionDigits: 2});
-            }
-            const metricValue = ctx.parsed.x.toFixed(2) + " %";
-            return [
-              `${ctx.dataset.label}: ${metricValue}`,
-              `Organic Sales: ${organicSales}`,
-              `Total Sales: ${totalSales.toLocaleString()}`
-            ];
-          }
-        }
-      },
-    },
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { display: false },
-        border: { display: false },
-      },
-      y: {
-        grid: { display: false },
-        ticks: { color: "#222", font: { size: 14 } },
-        border: { display: false },
-        barPercentage: 1,
-        categoryPercentage: 1,
-      },
-    },
-  };
-
-  // On click, cycle to next metric
-  const handleClick = () => {
-    setMetricIndex((prev) => (prev + 1) % METRICS.length);
-  };
+  // Format summary stats for display
+  const summaryInfo = React.useMemo(() => {
+    if (!organicSalesData?.data?.summary) return null;
+    const summary = organicSalesData.data.summary;
+    return {
+      totalAsins: summary.total_asins_analyzed,
+      avgPercentage: Math.round(summary.avg_organic_percentage * 100) / 100,
+      periodStart: new Date(summary.period_start).toLocaleDateString(),
+      periodEnd: new Date(summary.period_end).toLocaleDateString(),
+    };
+  }, [organicSalesData?.data?.summary]);
 
   return (
-    <div className="w-full h-full cursor-pointer" onClick={handleClick} title="Click to cycle metric">
-      <Bar data={barData} options={{ ...barOptions, maintainAspectRatio: false }} height={height} />
+    <div className={`flex flex-col gap-4 ${className}`}>
+      {/* Main Ranked Items Card */}
+      <RankedItemsCard
+        title="Top 10 Organic Sales Performance"
+        items={rankedItems}
+        showValues={true}
+        maxItems={maxItems}
+        isLoading={isLoading}
+        emptyMessage="No organic sales data available"
+        className="h-full"
+      />
+      
+      {/* Error state */}
+      {isError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="text-red-800 text-sm">
+            <strong>Error:</strong> Failed to load organic sales data
+            {error?.message && (
+              <div className="mt-1 text-xs text-red-600">
+                {error.message}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Optional: Display summary info if available */}
+      {summaryInfo && (
+        <div className="text-xs text-gray-500 mt-2">
+          <div>Period: {summaryInfo.periodStart} - {summaryInfo.periodEnd}</div>
+          <div>ASINs Analyzed: {summaryInfo.totalAsins} | Avg Organic %: {summaryInfo.avgPercentage}%</div>
+        </div>
+      )}
     </div>
   );
-} 
+};
+
+export default OrganicSalesCard;

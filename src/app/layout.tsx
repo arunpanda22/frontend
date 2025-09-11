@@ -1,12 +1,16 @@
 // Path: src/app/layout.tsx
 // Purpose: Root layout that wraps all pages
 // TODO: Add production metadata
+// Path: src/app/layout.tsx
+// Purpose: Root layout that wraps all pages
+// TODO: Add production metadata
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Navbar } from '@/components/layout/navbar'
+import { Navbar } from '@/components/layout/new-navbar'
 import Footer from '@/components/layout/footer'
 import { Providers } from '@/lib/providers/providers'
+import { LayoutWrapper } from '@/components/layout/layout-wrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,7 +31,9 @@ export default function RootLayout({
           <div className="min-h-screen flex flex-col">
             <Navbar />
             <main className="flex-grow">
-              {children}
+              <LayoutWrapper>
+                {children}
+              </LayoutWrapper>
             </main>
             <Footer />
           </div>

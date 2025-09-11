@@ -1,16 +1,9 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import {
-  MaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_ColumnFiltersState,
-  type MRT_PaginationState,
-  type MRT_SortingState,
-} from 'material-react-table'
-import { Box, Typography, Button, Grid, Card, CardContent, Chip, Alert } from '@mui/material'
-import { ViewList, ViewModule } from '@mui/icons-material'
+import { Typography } from '@mui/material'
 import { useAsinLiquidation } from '@/lib/hooks/queries/use-dashboard'
+import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
 
 interface LiquidationData {
   asin: string;
@@ -21,11 +14,11 @@ interface LiquidationData {
   product_name: string;
 }
 
-export default function ASinLiqudation() {
+export default function ASinLiquidation() {
   // Fetch liquidation data from API
   const { data, isLoading, isError, error } = useAsinLiquidation(30);
 
-  const liquidationData = useMemo(() => {
+  const liquidationData: TableData[] = useMemo(() => {
     if (!data?.liquidation) return [];
     return data.liquidation.map(item => ({
       asin: item.asin,
@@ -37,108 +30,146 @@ export default function ASinLiqudation() {
     }));
   }, [data])
 
-  const columns = useMemo<MRT_ColumnDef<LiquidationData>[]>(() => [
-    { accessorKey: 'asin', header: 'ASIN', enableSorting: true, enableColumnFilter: true, filterFn: 'fuzzy' },
-    { accessorKey: 'FBA_Inv', header: 'FBA Inv', enableSorting: true, enableColumnFilter: true, filterFn: 'between', filterVariant: 'range', muiFilterTextFieldProps: { type: 'number' } },
-    { accessorKey: 'Price', header: 'Price', enableSorting: true, enableColumnFilter: true, filterFn: 'between', filterVariant: 'range', muiFilterTextFieldProps: { type: 'number' } },
-    { accessorKey: 'LT_Storage_Fee', header: 'LT Storage Fee', enableSorting: true, enableColumnFilter: true, filterFn: 'between', filterVariant: 'range', muiFilterTextFieldProps: { type: 'number' } },
-    { accessorKey: '>5_months', header: '>5 Months', enableSorting: true, enableColumnFilter: true, filterFn: 'between', filterVariant: 'range', muiFilterTextFieldProps: { type: 'number' } },
-    { accessorKey: 'product_name', header: 'Product Name', enableSorting: true, enableColumnFilter: true, filterFn: 'fuzzy' },
-  ], [])
+  // Define columns for the advanced data table
+  const initialColumns: ColumnDefinition[] = useMemo(() => [
+    {
+      field: 'asin',
+      headerName: 'ASIN',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100,
+      pinned: 'left'
+    },
+    {
+      field: 'product_name',
+      headerName: 'Product Name',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 250,
+      minWidth: 180
+    },
+    {
+      field: 'FBA_Inv',
+      headerName: 'FBA Inventory',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'Price',
+      headerName: 'Price (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100
+    },
+    {
+      field: 'LT_Storage_Fee',
+      headerName: 'LT Storage Fee (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 160,
+      minWidth: 140
+    },
+    {
+      field: '>5_months',
+      headerName: '>5 Months',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 130,
+      minWidth: 110
+    }
+  ], []);
 
-  // Handle loading and error states
+  const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(initialColumns);
+
+  // Handle loading state
   if (isLoading) {
     return (
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-        <Typography variant="h6" color="primary">Loading liquidation data...</Typography>
-      </Box>
+      <div className="h-full flex flex-col">
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <Typography variant="h6" color="text.secondary" className="ml-3">
+            Loading liquidation data...
+          </Typography>
+        </div>
+      </div>
     );
   }
 
+  // Handle error state
   if (isError) {
     return (
-      <Box sx={{ width: '100%', p: 2 }}>
-        <Alert severity="error">
-          Failed to load liquidation data: {error?.message || 'Unknown error'}
-        </Alert>
-      </Box>
+      <div className="h-full flex flex-col">
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="error">
+              Failed to load liquidation data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {error?.message || 'An error occurred while fetching data'}
+            </Typography>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  if (!liquidationData?.length) {
+  // Handle empty data state
+  if (!liquidationData || liquidationData.length === 0) {
     return (
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-        <Typography variant="body1" color="textSecondary">No liquidation data available</Typography>
-      </Box>
+      <div className="h-full flex flex-col">
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="text.secondary">
+              No liquidation data available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              No liquidation data found for the selected period
+            </Typography>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <MaterialReactTable
-        columns={columns}
-        data={liquidationData}
-        enableColumnFilters
-        enableGlobalFilter
-        enableSorting
-        enablePagination
-        enableRowSelection
-        enableColumnResizing
-        enableColumnPinning
-        enableDensityToggle
-        enableFullScreenToggle
-        enableColumnDragging
-        enableStickyHeader
-        enableStickyFooter
-        enableColumnFilterModes={true}
-        muiTableContainerProps={{
-          sx: {
-            maxHeight: 'calc(100vh - 200px)',
-            width: '100%',
-            overflowX: 'auto',
-          },
-        }}
-        muiTableHeadCellProps={(column) => ({
-          sx: {
-            backgroundColor: 'primary.main',
-            color: column?.column?.id === 'asin' ? 'black' : 'primary.contrastText',
-            fontWeight: 'bold',
-          },
-        })}
-        muiTableBodyCellProps={{
-          sx: {
-            borderBottom: '1px solid rgba(224, 224, 224, 1)',
-          },
-        }}
-        muiTableProps={{
-          sx: {
-            tableLayout: 'auto',
-            width: '100%',
-            minWidth: 900,
-          },
-        }}
-        initialState={{
-          density: 'compact',
-          pagination: { pageSize: 5, pageIndex: 0 },
-          sorting: [{ id: 'FBA_Inv', desc: true }],
-          columnPinning: {
-            left: ['mrt-row-select', 'asin'],
-            right: [],
-          },
-        }}
-        displayColumnDefOptions={{
-          'mrt-row-select': {
-            size: 50,
-            enablePinning: true,
-          },
-        }}
-        muiTablePaperProps={{
-          elevation: 3,
-          sx: {
-            borderRadius: 2,
-          },
-        }}
-      />
-    </Box>
-  )
+    <div className="h-full flex flex-col">
+      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          ASIN Liquidation
+        </h6>
+      </div>
+ 
+      {/* Table Content */}
+      <div className="p-4 md:p-6 flex-1 min-h-0">
+        <AdvancedDataTable
+          data={liquidationData}
+          columns={tableColumns}
+          onDataChange={(newData) => {
+            // Handle data changes if needed
+            console.log('Liquidation data changed:', newData);
+          }}
+          onColumnsChange={setTableColumns}
+          className="w-full h-full"
+          showCheckboxColumn={false}
+          rowsPerPage={5}
+        />
+      </div>
+    </div>
+  );
 }

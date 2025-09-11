@@ -222,6 +222,11 @@ export const adminDashboardService = {
     return res.data
   },
 
+  async rerunReport(reportId: string, reportSource: 'ads' | 'fba') {
+    const res = await apiClient.post(`/api/v1/rbac-admin/reports/${reportId}/${reportSource}/rerun/`)
+    return res.data
+  },
+
   async getReportDetails(reportId: string, reportSource: 'ads' | 'fba') {
     const res = await apiClient.get(`/api/v1/rbac-admin/reports/${reportId}/${reportSource}/`)
     return res.data

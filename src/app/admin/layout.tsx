@@ -149,7 +149,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto py-8">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <aside className="md:col-span-1">
           <div className="bg-white border border-gray-200 rounded-md p-2">

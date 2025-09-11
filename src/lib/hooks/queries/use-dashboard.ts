@@ -9,24 +9,34 @@ import type {
   CampaignSummaryItem,
   TargetingAnalysisItem,
   SalesTrendAsinItem,
+  SalesTrendResponse,
   WeeklyDataResponse,
   AdsSalesResponse,
   AsinSummaryItem,
-  AdsTrendItem
+  AdsTrendItem,
+  AsinSummaryResponse,
+  CampaignMetricsResponse,
+  OrganicSalesResponse
 } from '@/lib/api/services/dashboard.service'
 
 // Query keys for consistent caching
 export const dashboardQueryKeys = {
   placement: (startDate: string, endDate: string) => ['dashboard', 'placement', startDate, endDate] as const,
   inventoryHealth: (options?: any) => ['dashboard', 'inventory-health', options] as const,
+  inventoryStats: (options?: any) => ['dashboard', 'inventory-stats', options] as const,
   asinLiquidation: (daysWindow?: number) => ['dashboard', 'asin-liquidation', daysWindow] as const,
   campaignSummary: (period?: string) => ['dashboard', 'campaign-summary', period] as const,
+  campaignMetrics: (options: any) => ['dashboard', 'campaign-metrics', options] as const,
   targetingAnalysis: (period?: string) => ['dashboard', 'targeting-analysis', period] as const,
   salesTrendAsin: (period?: string) => ['dashboard', 'sales-trend-asin', period] as const,
+  salesTrendAsinLegacy: (period?: string) => ['dashboard', 'sales-trend-asin-legacy', period] as const,
   weeklyData: (options?: any) => ['dashboard', 'weekly-data', options] as const,
   adsSalesData: (options: any) => ['dashboard', 'ads-sales-data', options] as const,
   asinSummary: (options: any) => ['dashboard', 'asin-summary', options] as const,
   adsTrend: (days?: number) => ['dashboard', 'ads-trend', days] as const,
+  organicSales: (options: any) => ['dashboard', 'organic-sales', options] as const,
+  returnReplacementRates: (options: any) => ['dashboard', 'return-replacement-rates', options] as const,
+  salesContribution: (startDate: string, endDate: string) => ['dashboard', 'sales-contribution', startDate, endDate] as const,
 }
 
 // Placement Data Hook
@@ -37,6 +47,22 @@ export function usePlacementData(startDate: string, endDate: string, enabled = t
     enabled: enabled && !!startDate && !!endDate,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+  })
+}
+
+// NEW: Inventory Stats Hook (consolidated)
+export function useInventoryStats(options?: {
+  sales_days?: number
+  reorder_cover_days?: number
+  supply_chain_lead_time?: number
+  use_cache?: boolean
+}) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.inventoryStats(options),
+    queryFn: () => dashboardService.getInventoryStats(options),
+    staleTime: 10 * 60 * 1000, // 10 minutes - inventory changes less frequently
+    gcTime: 60 * 60 * 1000, // 1 hour
+    refetchOnWindowFocus: false, // Avoid unnecessary refetches
   })
 }
 
@@ -100,15 +126,27 @@ export function useTargetingAnalysis(period?: string) {
   })
 }
 
-// Sales Trend ASIN Hook
-export function useSalesTrendAsin(period?: string) {
-  return useQuery({
+// UPDATED: Sales Trend ASIN Hook - Now returns pivot table data
+export function useSalesTrendAsin(period?: string, enabled = true) {
+  return useQuery<SalesTrendResponse>({
     queryKey: dashboardQueryKeys.salesTrendAsin(period),
     queryFn: () => dashboardService.getSalesTrendAsin(period),
+    enabled: enabled,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
   })
 }
+
+// LEGACY: Sales Trend ASIN Hook (for backward compatibility)
+// export function useSalesTrendAsinLegacy(period?: string, enabled = true) {
+//   return useQuery<SalesTrendAsinItem[]>({
+//     queryKey: dashboardQueryKeys.salesTrendAsinLegacy(period),
+//     queryFn: () => dashboardService.getSalesTrendAsinLegacy(period),
+//     enabled: enabled,
+//     staleTime: 10 * 60 * 1000, // 10 minutes
+//     gcTime: 60 * 60 * 1000, // 1 hour
+//   })
+// }
 
 // Weekly Data Hook
 export function useWeeklyData(options?: {
@@ -144,7 +182,7 @@ export function useAsinSummary(options: {
   end_date: string
   focus_level?: 'high' | 'medium' | 'low' | 'all'
 }, enabled = true) {
-  return useQuery({
+  return useQuery<AsinSummaryResponse>({
     queryKey: dashboardQueryKeys.asinSummary(options),
     queryFn: () => dashboardService.getAsinSummary(options),
     enabled: enabled && !!options.start_date && !!options.end_date,
@@ -160,6 +198,64 @@ export function useAdsTrend(days?: number) {
     queryFn: () => dashboardService.getAdsTrend(days),
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
+  })
+}
+
+// Campaign Metrics Hook
+export function useCampaignMetrics(options: {
+  start_date: string
+  end_date: string
+  focus_level?: 'high' | 'medium' | 'low' | 'all'
+}, enabled = true) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.campaignMetrics(options),
+    queryFn: () => dashboardService.getCampaignMetrics(options),
+    enabled: enabled && !!options.start_date && !!options.end_date,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  })
+}
+
+// Organic Sales Data Hook
+export function useOrganicSalesData(options: {
+  start_date: string
+  end_date: string
+  limit?: number
+}, enabled = true) {
+  return useQuery<OrganicSalesResponse>({
+    queryKey: dashboardQueryKeys.organicSales(options),
+    queryFn: () => dashboardService.getOrganicSalesData(options),
+    enabled: enabled && !!options.start_date && !!options.end_date,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  })
+}
+
+// Return Replacement hook
+export function useReturnReplacementRates(options: {
+  start_date: string
+  end_date: string
+  focus_asins?: string[]
+}, enabled = true) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.returnReplacementRates(options),
+    queryFn: () => dashboardService.getReturnReplacementRates(options),
+    enabled: enabled && !!options.start_date && !!options.end_date,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  })
+}
+
+export function useSalesContributionByCategory(options: {
+  start_date: string
+  end_date: string
+}, enabled = true) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.salesContribution(options.start_date, options.end_date),
+    queryFn: () => dashboardService.getSalesContributionByCategory(options),
+    enabled: enabled && !!options.start_date && !!options.end_date,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   })
 }
 
@@ -208,6 +304,18 @@ export function useDashboardQueryRefresh() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.adsTrend(days) })
       return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.adsTrend(days) })
     },
+    refreshCampaignMetrics: async (options: any) => {
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.campaignMetrics(options) })
+      return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.campaignMetrics(options) })
+    },
+    refreshOrganicSalesData: async (options: any) => {
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.organicSales(options) })
+      return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.organicSales(options) })
+    },
+    refreshSalesContribution: async (startDate: string, endDate: string) => {
+    await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.salesContribution(startDate, endDate) })
+    return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.salesContribution(startDate, endDate) })
+  },
     refreshAll: async () => {
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       return queryClient.refetchQueries({ queryKey: ['dashboard'] })
@@ -242,17 +350,20 @@ export function useMainDashboardData(options?: {
     focus_level: defaultOptions.focus_level
   })
 
+   const asinLiquidation = useAsinLiquidation(30)
+
   return {
     campaignSummary,
     weeklyData,
     adsSalesData,
-    isLoading: campaignSummary.isLoading || weeklyData.isLoading || adsSalesData.isLoading,
-    isError: campaignSummary.isError || weeklyData.isError || adsSalesData.isError,
-    error: campaignSummary.error || weeklyData.error || adsSalesData.error,
+    asinLiquidation,
+    isLoading: campaignSummary.isLoading || weeklyData.isLoading || adsSalesData.isLoading || asinLiquidation.isLoading,
+    isError: campaignSummary.isError || weeklyData.isError || adsSalesData.isError || asinLiquidation.isError,
+    error: campaignSummary.error || weeklyData.error || adsSalesData.error || asinLiquidation.error,
   }
 }
 
-// ASIN Performance Data
+// UPDATED: ASIN Performance Data - Now uses new pivot table structure
 export function useAsinPerformanceData(options?: {
   start_date?: string
   end_date?: string
@@ -266,21 +377,30 @@ export function useAsinPerformanceData(options?: {
     focus_level: options?.focus_level || 'all' as const,
   }
 
-  const asinSummary = useAsinSummary({
+  const asinSummary = useAsinSummary({  
     start_date: defaultOptions.start_date,
     end_date: defaultOptions.end_date,
     focus_level: defaultOptions.focus_level
   })
+
+  const organicSalesData = useOrganicSalesData({
+    start_date: defaultOptions.start_date,
+    end_date: defaultOptions.end_date,
+    limit: 10 
+  })
+  
+  // Use the NEW pivot table API
   const salesTrendAsin = useSalesTrendAsin(defaultOptions.period)
   const targetingAnalysis = useTargetingAnalysis(defaultOptions.period)
 
   return {
-    asinSummary,
-    salesTrendAsin,
+    asinSummary, // This returns AsinSummaryResponse structure
+    salesTrendAsin, // This now returns SalesTrendResponse with pivot table data
     targetingAnalysis,
-    isLoading: asinSummary.isLoading || salesTrendAsin.isLoading || targetingAnalysis.isLoading,
-    isError: asinSummary.isError || salesTrendAsin.isError || targetingAnalysis.isError,
-    error: asinSummary.error || salesTrendAsin.error || targetingAnalysis.error,
+    organicSalesData,
+    isLoading: asinSummary.isLoading || salesTrendAsin.isLoading || targetingAnalysis.isLoading || organicSalesData.isLoading,
+    isError: asinSummary.isError || salesTrendAsin.isError || targetingAnalysis.isError || organicSalesData.isError,
+    error: asinSummary.error || salesTrendAsin.error || targetingAnalysis.error || organicSalesData.error,
   }
 }
 
@@ -329,7 +449,7 @@ export function useInventoryPerformanceData(options?: {
   })
   const asinLiquidation = useAsinLiquidation(defaultOptions.liquidation_days_window)
 
-  return {
+  return {  
     inventoryHealth,
     asinLiquidation,
     isLoading: inventoryHealth.isLoading || asinLiquidation.isLoading,

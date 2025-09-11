@@ -3,14 +3,16 @@
 import { useMemo, useState } from 'react'
 import { ReportFilters, ReportListItem } from '@/lib/api/services/admin-dashboard.service'
 import { useAdminReports, useAdminReportStatusSummary, useAdminQueryRefresh } from '@/lib/hooks/queries/use-admin'
+import { adminDashboardService } from '@/lib/api/services/admin-dashboard.service'
 import Link from 'next/link'
 
 export default function AdminReportsPage() {
   const [filters, setFilters] = useState<ReportFilters>({ page: 1, page_size: 20 })
+  const [rerunningReports, setRerunningReports] = useState<Set<string>>(new Set())
   
   const reportsQuery = useAdminReports(filters)
   const statusSummaryQuery = useAdminReportStatusSummary()
-  const { refreshReports } = useAdminQueryRefresh()
+  const { refreshReports, refreshStatusSummary } = useAdminQueryRefresh()
 
   const data = useMemo(() => reportsQuery.data || { count: 0, results: [] }, [reportsQuery.data])
   const loading = reportsQuery.isLoading
@@ -22,6 +24,33 @@ export default function AdminReportsPage() {
     setFilters(prev => ({ ...prev, ...newFilters, page: 1 })) // Reset to page 1 when filters change
   }
 
+  // Handle report rerun
+  const handleRerunReport = async (report: ReportListItem) => {
+    if (rerunningReports.has(report.id)) return // Already rerunning
+    
+    try {
+      setRerunningReports(prev => new Set([...prev, report.id]))
+      
+      await adminDashboardService.rerunReport(report.id, report.report_source)
+      
+      // Show success message (you might want to use a toast notification here)
+      alert(`Report rerun initiated successfully for ${report.report_type_name}`)
+      
+      // Refresh the reports list and status summary
+      await Promise.all([refreshReports(), refreshStatusSummary()])
+      
+    } catch (error: any) {
+      console.error('Failed to rerun report:', error)
+      const errorMessage = error.response?.data?.error || 'Failed to rerun report'
+      alert(`Error: ${errorMessage}`)
+    } finally {
+      setRerunningReports(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(report.id)
+        return newSet
+      })
+    }
+  }
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(data.count / (filters.page_size || 20))), [data.count, filters.page_size])
   const canPrev = (filters.page || 1) > 1
@@ -127,7 +156,7 @@ export default function AdminReportsPage() {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-32">Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-48">Created</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-48">Completed</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">Action</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-32">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
@@ -143,25 +172,60 @@ export default function AdminReportsPage() {
             ) : data.results.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">No reports found</td></tr>
             ) : (
-              data.results.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{r.report_source.toUpperCase()}</td>
-                  <td className="px-4 py-3 text-sm truncate">{r.report_type_name}</td>
-                  <td className="px-4 py-3 text-sm truncate">{r.tenant_name}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      r.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                      r.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>{r.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{new Date(r.created_at).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm">{r.completed_at ? new Date(r.completed_at).toLocaleString() : '-'}</td>
-                  <td className="px-4 py-3 text-sm text-right">
-                    <Link href={`/admin/reports/${r.report_source}/${r.id}`} className="text-indigo-600 hover:underline">Details</Link>
-                  </td>
-                </tr>
-              ))
+              data.results.map((r) => {
+                const isRerunning = rerunningReports.has(r.id)
+                const canRerun = r.status === 'FAILED'
+                return (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm">{r.report_source.toUpperCase()}</td>
+                    <td className="px-4 py-3 text-sm truncate" title={r.report_type_name}>{r.report_type_name}</td>
+                    <td className="px-4 py-3 text-sm truncate" title={r.tenant_name}>{r.tenant_name}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        r.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                        r.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                        r.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                        r.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>{r.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">{new Date(r.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm">{r.completed_at ? new Date(r.completed_at).toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-sm text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {canRerun && (
+                          <button
+                            onClick={() => handleRerunReport(r)}
+                            disabled={isRerunning}
+                            className={`text-xs px-2 py-1 rounded border ${
+                              isRerunning 
+                                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                : 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
+                            }`}
+                            title={`Rerun failed ${r.report_source.toUpperCase()} report`}
+                          >
+                            {isRerunning ? (
+                              <span className="flex items-center gap-1">
+                                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                Rerunning
+                              </span>
+                            ) : (
+                              'Rerun'
+                            )}
+                          </button>
+                        )}
+                        <Link 
+                          href={`/admin/reports/${r.report_source}/${r.id}`} 
+                          className="text-indigo-600 hover:underline text-xs"
+                        >
+                          Details
+                        </Link>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
           </table>
@@ -186,4 +250,3 @@ export default function AdminReportsPage() {
     </div>
   )
 }
-

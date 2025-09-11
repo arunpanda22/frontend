@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api/config'
 
-// Dashboard API Types based on the provided documentation
+
 export interface PlacementData {
   targeting: string
   impressions: number
@@ -17,18 +17,27 @@ export interface PlacementData {
 
 export interface InventoryHealthItem {
   asin: string
-  product_name: string
-  focus_category: string
-  sellable_quantity: number
-  unsellable_quantity: number
-  sales_per_day: number
-  inventory_cover: number
+  'Product Name': string         
+  'Focus category': string         
+  reserved_quantity: number       
+  fulfillable_quantity: number     
+  'Sales/Day': number             
+  'Inventory Cover': number       
   reorder_quantity: number
-  oos_alert: boolean
+  OOS_Alert: string       
+  image_url: string       
+}
+
+export interface InventoryReplenishmentItem{
+  asin: string
+  reorder_quantity: number
+  product_name: string
+  image_url: string
 }
 
 export interface InventoryHealthResponse {
   inventory_health: InventoryHealthItem[]
+  inventory_replenishment: InventoryReplenishmentItem[]
   metadata: {
     sales_days: number
     reorder_cover_days: number
@@ -53,9 +62,25 @@ export interface AsinLiquidationItem {
   DaysCover: number
 }
 
+export interface InventoryAgingSummary {
+  _0_90_days: number
+  _91_180_days: number
+  _181_330_days: number
+  _331_365_days: number
+  above_365_days: number
+}
+
+export interface InventoryHealthSummary {
+  '0_90_days': number
+  above_90: number
+  stranded: number
+}
+
 export interface AsinLiquidationResponse {
   excess_inventory: AsinLiquidationItem[]
   liquidation: AsinLiquidationItem[]
+  inventory_aging_summary: InventoryAgingSummary
+  inventory_health: InventoryHealthSummary
 }
 
 export interface CampaignSummaryItem {
@@ -121,6 +146,30 @@ export interface WeeklyDataResponse {
   weekly_data: WeeklyDataItem[]
 }
 
+export interface TopAsinByRevenue {
+  asin: string
+  product_name: string
+  image_url: string
+  revenue: number
+}
+
+export interface SalesTrendPivotData {
+  ASIN: string;
+  'Product Name': string;
+  // Dynamic columns based on periods and metrics
+  [key: string]: string | number;
+}
+
+export interface SalesTrendResponse {
+  pivoted_data: SalesTrendPivotData[];
+  summary: {
+    total_asins: number;
+    periods_analyzed: number;
+    date_range?: string;
+    error?: string;
+  };
+}
+
 export interface PeriodData {
   Impressions: number
   Clicks: number
@@ -135,6 +184,9 @@ export interface PeriodData {
   'Total Orders': number
   Sessions: number
   'Total Order Items': number
+  AOV: number
+  TACOS: number
+  CPM: number
 }
 
 export interface ChangesData {
@@ -151,17 +203,47 @@ export interface ChangesData {
   'Total Orders': number
   Sessions: number
   'Total Order Items': number
+  AOV: number
+  TACOS: number
+  CPM: number
+}
+
+export interface AdsTypeContribution {
+  source: string
+  total_sales: number
+  sales_contribution_pct: number
+}
+
+export interface CategoryAnalysis {
+  product_type: string
+  sales_amount: number
+  percentage: number
 }
 
 export interface AdsSalesResponse {
   current_period: PeriodData
   previous_period: PeriodData
   changes: ChangesData
+  ads_type_contribution: AdsTypeContribution[]
+  category_analysis: CategoryAnalysis[]
+  top_5_asins_by_revenue: TopAsinByRevenue[]
+}
+
+export interface AsinSummaryResponse {
+  asin_summary: AsinSummaryItem[]
+  summary_stats: {
+    total_sales: number
+    total_quantity: number
+    "Buy Box %": number
+    replacement_rate: number
+    "Return Rate": number
+  }
 }
 
 export interface AsinSummaryItem {
   asin: string
   product_name: string
+  image_url: string
   focus_category: string
   total_sales: number
   total_units: number
@@ -171,66 +253,157 @@ export interface AsinSummaryItem {
   clicks: number
   ctr_percent: number
   acos_percent: number
-  tacos_percent: number          // ✅ NEW - TACOS percentage
-  buy_box_percentage: number     // ✅ NEW - BuyBox percentage  
-  replacement_rate: number       // ✅ NEW - Product replacement rate
-  return_rate: number            // ✅ NEW - Product return rate
+  tacos_percent: number          
+  buy_box_percentage: number     
+  replacement_rate: number       
+  return_rate: number           
   sessions: number
   conversion_rate: number
   inventory_quantity: number
   days_of_supply: number
+  asp : number
 }
 
 export interface AdsTrendItem {
   Campaign: string
-  ACOS_7_days: string
-  ACOS_14_days: string
-  ACOS_30_days: string
-  ACOS_60_days: string
-  ACOS_current: string
-  ACOS_Trend: string
-  CTR_7_days: string
-  CTR_14_days: string
-  CTR_30_days: string
-  CTR_60_days: string
-  CTR_current: string
-  CTR_Trend: string
-  Clicks_7_days: string
-  Clicks_14_days: string
-  Clicks_30_days: string
-  Clicks_60_days: string
-  Clicks_current: string
-  Clicks_Trend: string
-  Conversion_7_days: string
-  Conversion_14_days: string
-  Conversion_30_days: string
-  Conversion_60_days: string
-  Conversion_current: string
-  Conversion_Trend: string
-  Impressions_7_days: string
-  Impressions_14_days: string
-  Impressions_30_days: string
-  Impressions_60_days: string
-  Impressions_current: string
-  Impressions_Trend: string
-  Orders_7_days: string
-  Orders_14_days: string
-  Orders_30_days: string
-  Orders_60_days: string
-  Orders_current: string
-  Orders_Trend: string
-  Sales_7_days: string
-  Sales_14_days: string
-  Sales_30_days: string
-  Sales_60_days: string
-  Sales_current: string
-  Sales_Trend: string
-  Spend_7_days: string
-  Spend_14_days: string
-  Spend_30_days: string
-  Spend_60_days: string
-  Spend_current: string
-  Spend_Trend: string
+  [key: string]: string | number;
+}
+
+export interface InventoryStatsResponse {
+  stats: {
+    total: {
+      total_asin: number
+      total_quantity: number
+    }
+    excess: {
+      total_asin: number
+      total_quantity: number
+    }
+    liquidation: {
+      total_asin: number
+      total_quantity: number
+    }
+    stranded: {
+      total_asin: number
+      total_quantity: number
+    }
+  }
+  metadata: {
+    sales_days: number
+    reorder_cover_days: number
+    supply_chain_lead_time: number
+    calculated_at: string
+  }
+}
+
+export interface CampaignMetricsData {
+  Impressions: number;
+  Clicks: number;
+  CTR: number;
+  CPC: number;
+  'Ad Costs': number;
+  Orders: number;
+  CVR: number;
+  'Ads Sales': number;
+  ACOS: number;
+  'Ads Sales %': number;
+}
+
+export interface CampaignMetricsChanges {
+  Impressions: number;
+  Clicks: number;
+  CTR: number;
+  CPC: number;
+  'Ad Costs': number;
+  Orders: number;
+  CVR: number;
+  'Ads Sales': number;
+  ACOS: number;
+  'Ads Sales %': number;
+}
+
+export interface CampaignMetricsResponse {
+  current_period: CampaignMetricsData;
+  previous_period: CampaignMetricsData;
+  changes: CampaignMetricsChanges;
+}
+
+export interface OrganicSalesItem {
+  asin: string
+  product_name: string
+  image_url: string
+  total_sales: number
+  ads_sales: number
+  organic_sales: number
+  organic_sales_percentage: number
+}
+
+export interface OrganicSalesSummary {
+  total_asins_analyzed: number
+  avg_organic_percentage: number
+  period_start: string
+  period_end: string
+}
+
+export interface OrganicSalesResponse {
+  organic_sales_data: OrganicSalesItem[]
+  summary: OrganicSalesSummary
+}
+
+export interface SalesContributionItem {
+  category: string
+  sales: number
+  sales_contribution_pct: number
+}
+
+export interface SalesContributionResponse {
+  sales_contribution_by_category: SalesContributionItem[]
+  total_sales: number
+  period: {
+    start_date: string
+    end_date: string
+  }
+}
+
+export interface ReturnReplacementMetrics {
+  total_returns: number
+  return_rate: number
+  total_replacements: number
+  replacement_rate: number
+}
+
+export interface ReturnReplacementResponse {
+  period: {
+    start_date: string
+    end_date: string
+  }
+  focus_asins: string[] | null
+  metrics: ReturnReplacementMetrics
+}
+
+export interface CurrencyInfo {
+  symbol: string
+  name: string
+  position: 'before' | 'after'
+}
+
+export interface MarketplaceCurrency {
+  currency_code: string
+  currency_info: CurrencyInfo
+}
+
+export interface UserMarketplaceCurrencies {
+  [marketplaceId: string]: MarketplaceCurrency
+}
+
+export interface CurrencyContextType {
+  currencies: UserMarketplaceCurrencies
+  primaryCurrency: MarketplaceCurrency | null
+  isLoading: boolean
+  error: string | null
+  formatCurrency: (value: number, marketplaceId?: string) => string
+  getCurrencySymbol: (marketplaceId?: string) => string
+  refreshCurrencies: () => Promise<void>
 }
 
 // Dashboard Service
@@ -239,6 +412,18 @@ export const dashboardService = {
   async getPlacementData(startDate: string, endDate: string) {
     const res = await apiClient.get<{ data: PlacementData[] }>('/api/v1/dashboard-api/placement/', {
       params: { start_date: startDate, end_date: endDate }
+    })
+    return res.data
+  },
+
+  async getInventoryStats(options?: {
+    sales_days?: number
+    reorder_cover_days?: number
+    supply_chain_lead_time?: number
+    use_cache?: boolean
+  }) {
+    const res = await apiClient.get<InventoryStatsResponse>('/api/v1/dashboard-api/inventory-stats/', {
+      params: options
     })
     return res.data
   },
@@ -300,13 +485,23 @@ export const dashboardService = {
     return res.data
   },
 
-  // Sales Trend ASIN
+  // UPDATED: Sales Trend ASIN - Now returns pivot table data
   async getSalesTrendAsin(period?: string) {
-    const res = await apiClient.get<SalesTrendAsinItem[]>('/api/v1/dashboard-api/sales-trend-asin/', {
+    console.log('Fetching sales trend ASIN data with period:', period);
+    const res = await apiClient.get<SalesTrendResponse>('/api/v1/dashboard-api/sales-trend-asin/', {
       params: { period }
     })
+    console.log('Sales trend ASIN response received:', res.data);
     return res.data
   },
+
+  // LEGACY: Keep backward compatibility with old sales trend format
+  // async getSalesTrendAsinLegacy(period?: string) {
+  //   const res = await apiClient.get<SalesTrendAsinItem[]>('/api/v1/dashboard-api/sales-trend-asin-legacy/', {
+  //     params: { period }
+  //   })
+  //   return res.data
+  // },
 
   // Weekly Data
   async getWeeklyData(options?: {
@@ -348,16 +543,28 @@ export const dashboardService = {
     end_date: string
     focus_level?: 'high' | 'medium' | 'low' | 'all'
   }) {
-    const res = await apiClient.get<{ data: AsinSummaryItem[] }>('/api/v1/dashboard-api/asin-summary/', {
+    // Update the generic type to match the new API response structure
+    const res = await apiClient.get<{
+      asin_summary: AsinSummaryItem[]
+      summary_stats: {
+        total_sales: number
+        total_quantity: number
+        "Buy Box %": number
+        replacement_rate: number
+        "Return Rate": number
+      }
+    }>('/api/v1/dashboard-api/asin-summary/', {
       params: options
     })
-    // Only log if there's an issue or very few results
-    if (!res.data || (res.data?.data && res.data.data.length === 0)) {
+    
+    // Updated logging to check the new structure
+    if (!res.data || (res.data?.asin_summary && res.data.asin_summary.length === 0)) {
       console.log('⚠️ ASIN Summary: No data returned');
-    } else if (res.data?.data && res.data.data.every(item => item.total_sales === 0)) {
+    } else if (res.data?.asin_summary && res.data.asin_summary.every(item => item.total_sales === 0)) {
       console.log('⚠️ ASIN Summary: All items have zero sales');
     }
-    return res.data
+    
+    return res.data // This now returns { asin_summary: [...], summary_stats: {...} }
   },
 
   // Ads Trend
@@ -366,5 +573,63 @@ export const dashboardService = {
       params: { days }
     })
     return res.data
-  }
+  },
+
+  // Campaign Metrics Data
+  async getCampaignMetrics(options: {
+    start_date: string
+    end_date: string
+    focus_level?: 'high' | 'medium' | 'low' | 'all'
+  }) {
+    console.log('Fetching campaign metrics with options:', options);
+    const res = await apiClient.get<CampaignMetricsResponse>('/api/v1/dashboard-api/campaign-metrics/', {
+      params: options
+    })
+    console.log('Campaign metrics response received:', res.data);
+    return res.data
+  },
+
+  async getOrganicSalesData(options: {
+    start_date: string
+    end_date: string
+    limit?: number
+  }) {
+    const res = await apiClient.get<OrganicSalesResponse>('/api/v1/dashboard-api/organic-sales/', {
+      params: options
+    })
+    return res.data
+  },
+
+  async getReturnReplacementRates(options: {
+    start_date: string
+    end_date: string
+    focus_asins?: string[]
+  }) {
+    const params: any = {
+      start_date: options.start_date,
+      end_date: options.end_date
+    };
+    
+    if (options.focus_asins && options.focus_asins.length > 0) {
+      params.focus_asins = options.focus_asins.join(',');
+    }
+    
+    const res = await apiClient.get<ReturnReplacementResponse>('/api/v1/dashboard-api/return-replacement-rates/', {
+      params
+    });
+    
+    return res.data;
+  },
+  
+  async getSalesContributionByCategory(options: {
+    start_date: string
+    end_date: string
+  }) {
+    console.log('Fetching sales contribution by category with options:', options);
+    const res = await apiClient.get<SalesContributionResponse>('/api/v1/dashboard-api/sales-contribution-by-category/', {
+      params: options
+    })
+    console.log('Sales contribution response received:', res.data);
+    return res.data
+  },
 }

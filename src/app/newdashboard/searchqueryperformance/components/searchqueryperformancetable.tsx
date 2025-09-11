@@ -1,15 +1,8 @@
-// src/app/newdashboard/searchqueryperformance/components/searchqueryperformancetable.tsx
 "use client"
 
 import { useMemo, useState } from 'react'
-import {
-  MaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_ColumnFiltersState,
-  type MRT_PaginationState,
-  type MRT_SortingState,
-} from 'material-react-table'
-import { Box, Typography, Chip } from '@mui/material'
+import { Box, Typography } from '@mui/material'
+import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
 import { SearchQueryPerformanceData } from '../types/sqp.types'
 
 interface SearchQueryPerformanceProps {
@@ -17,315 +10,204 @@ interface SearchQueryPerformanceProps {
 }
 
 export default function SearchQueryPerformanceTable({ data }: SearchQueryPerformanceProps) {
-  const [columnFilters, setColumnFilters] = useState<MRT_ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = useState('')
-  const [sorting, setSorting] = useState<MRT_SortingState>([])
-  const [pagination, setPagination] = useState<MRT_PaginationState>({
-    pageIndex: 0,
-    pageSize: 20,
-  })
+  // Define table columns with advanced data table structure
+  const initialColumns: ColumnDefinition[] = useMemo(() => [
+    {
+      field: 'asin',
+      headerName: 'ASIN',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 120,
+      minWidth: 100,
+      pinned: 'left'
+    },
+    {
+      field: 'search_query',
+      headerName: 'Search Query',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 250,
+      minWidth: 200
+    },
+    {
+      field: 'total_click_count',
+      headerName: 'Total Clicks',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'asin_click_count',
+      headerName: 'ASIN Clicks',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'total_median_click_price',
+      headerName: 'Total Median Click Price (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 180
+    },
+    {
+      field: 'asin_median_click_price',
+      headerName: 'ASIN Median Click Price (₹)',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 180
+    },
+    {
+      field: 'total_purchase_count',
+      headerName: 'Total Purchases',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 150,
+      minWidth: 130
+    },
+    {
+      field: 'asin_purchase_count',
+      headerName: 'ASIN Purchases',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 150,
+      minWidth: 130
+    },
+    {
+      field: 'total_conversion',
+      headerName: 'Total CVR %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 130,
+      minWidth: 110
+    },
+    {
+      field: 'asin_conversion',
+      headerName: 'ASIN CVR %',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 130,
+      minWidth: 110
+    },
+    {
+      field: 'keyword_exists',
+      headerName: 'Keyword Exists',
+      type: 'boolean',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 140,
+      minWidth: 120
+    },
+    {
+      field: 'conversion_greater_than_market',
+      headerName: 'CVR > Market CVR',
+      type: 'boolean',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 160,
+      minWidth: 140
+    }
+  ], []);
 
-  const columns = useMemo<MRT_ColumnDef<SearchQueryPerformanceData>[]>(
-    () => [
-      {
-        accessorKey: 'asin',
-        header: 'ASIN',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'fuzzy',
-        columnFilterModeOptions: [
-          'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography sx={{ color: 'black', fontWeight: 'medium', fontSize: '0.875rem' }}>
-            {cell.getValue<string>()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'search_query',
-        header: 'Search Query',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'fuzzy',
-        columnFilterModeOptions: [
-          'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Box sx={{ maxWidth: 200 }}>
-            <Typography variant="body2" sx={{ 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis', 
-              whiteSpace: 'nowrap',
-              fontSize: '0.875rem'
-            }}>
-              {cell.getValue<string>()}
+  const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(initialColumns);
+
+  // Transform data to match TableData interface
+  const searchQueryData: TableData[] = useMemo(() => {
+    if (!data || !Array.isArray(data)) {
+      return [];
+    }
+    
+    return data.map((item: SearchQueryPerformanceData) => ({
+      asin: item.asin || '',
+      search_query: item.search_query || '',
+      total_click_count: item.total_click_count || 0,
+      asin_click_count: item.asin_click_count || 0,
+      total_median_click_price: item.total_median_click_price || 0,
+      asin_median_click_price: item.asin_median_click_price || 0,
+      total_purchase_count: item.total_purchase_count || 0,
+      asin_purchase_count: item.asin_purchase_count || 0,
+      total_conversion: item.total_conversion || 0,
+      asin_conversion: item.asin_conversion || 0,
+      keyword_exists: item.keyword_exists || false,
+      conversion_greater_than_market: item.conversion_greater_than_market || false,
+    }));
+  }, [data]);
+
+  // Handle empty data state
+  if (!searchQueryData || searchQueryData.length === 0) {
+    return (
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Search Query Performance Table
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="text.secondary">
+              No search query performance data available
             </Typography>
-          </Box>
-        ),
-      },
-      {
-        accessorKey: 'total_click_count',
-        header: 'Total Clicks',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'asin_click_count',
-        header: 'ASIN Clicks',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-            {
-        accessorKey: 'total_median_click_price',
-        header: 'Total Median Click Price',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2">
-            ₹{cell.getValue<number>().toFixed(2)}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'asin_median_click_price',
-        header: 'ASIN Median Click Price',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2">
-            ₹{cell.getValue<number>().toFixed(2)}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'total_purchase_count',
-        header: 'Total Purchases',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'asin_purchase_count',
-        header: 'ASIN Purchases',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {cell.getValue<number>().toLocaleString()}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'total_conversion',
-        header: 'Total CVR %',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ 
-            color: cell.getValue<number>() >= 10 ? 'success.main' : 
-                   cell.getValue<number>() >= 5 ? 'warning.main' : 'error.main'
-          }}>
-            {cell.getValue<number>().toFixed(2)}%
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'asin_conversion',
-        header: 'ASIN CVR %',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between',
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ cell }) => (
-          <Typography variant="body2" sx={{ 
-            color: cell.getValue<number>() >= 10 ? 'success.main' : 
-                   cell.getValue<number>() >= 5 ? 'warning.main' : 'error.main'
-          }}>
-            {cell.getValue<number>().toFixed(2)}%
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'keyword_exists',
-        header: 'Keyword Exists',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'equals',
-        columnFilterModeOptions: ['equals', 'notEquals'],
-        Cell: ({ cell }) => (
-          <Chip
-            label={cell.getValue<boolean>() ? 'Yes' : 'No'}
-            color={cell.getValue<boolean>() ? 'success' : 'error'}
-            size="small"
-            variant="filled"
-            sx={{ fontSize: '0.75rem', minWidth: '60px' }}
-          />
-        ),
-      },
-      {
-        accessorKey: 'conversion_greater_than_market',
-        header: 'CVR > Market CVR',
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'equals',
-        columnFilterModeOptions: ['equals', 'notEquals'],
-        Cell: ({ cell }) => (
-          <Chip
-            label={cell.getValue<boolean>() ? 'Yes' : 'No'}
-            color={cell.getValue<boolean>() ? 'success' : 'error'}
-            size="small"
-            variant="filled"
-            sx={{ fontSize: '0.75rem', minWidth: '60px' }}
-          />
-        ),
-      },
-    ],
-    []
-  )
+            <Typography variant="body2" color="text.secondary">
+              No data found for the selected criteria
+            </Typography>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Debug info */}
-      <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-        Showing {data.length} records
-      </Typography>
+    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      {/* Header with same style as ASIN Performance table */}
+      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          Search Query Performance Table
+        </h6>
+        <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+          Showing {searchQueryData.length} search query records
+        </Typography>
+      </div>
       
-      <MaterialReactTable
-        columns={columns}
-        data={data}
-        enableColumnFilters
-        enableGlobalFilter
-        enableSorting
-        enablePagination
-        enableRowSelection
-        enableColumnResizing
-        enableColumnPinning
-        enableDensityToggle
-        enableFullScreenToggle
-        enableColumnDragging
-        enableStickyHeader
-        enableStickyFooter
-        enableColumnFilterModes={true}
-        muiTableContainerProps={{
-          sx: {
-            maxHeight: '600px',
-            width: '100%',
-            overflowX: 'auto',
-          },
-        }}
-        muiTableHeadCellProps={(column) => ({
-          sx: {
-            backgroundColor: 'primary.main',
-            color: column?.column?.id === 'asin' ? 'black' : 'primary.contrastText',
-            fontWeight: 'bold',
-            fontSize: '0.875rem'
-          },
-        })}
-        muiTableBodyCellProps={{
-          sx: {
-            borderBottom: '1px solid rgba(224, 224, 224, 1)',
-            fontSize: '0.875rem'
-          },
-        }}
-        muiTableProps={{
-          sx: {
-            tableLayout: 'auto',
-            width: '100%',
-            minWidth: 1400, // Increased for more columns
-          },
-        }}
-        state={{
-          columnFilters,
-          globalFilter,
-          sorting,
-          pagination,
-        }}
-        onColumnFiltersChange={setColumnFilters}
-        onGlobalFilterChange={setGlobalFilter}
-        onSortingChange={setSorting}
-        onPaginationChange={setPagination}
-        initialState={{
-          density: 'compact',
-          pagination: { pageSize: 20, pageIndex: 0 },
-          sorting: [{ id: 'total_impression', desc: true }],
-          columnPinning: {
-            left: ['mrt-row-select', 'asin', 'search_query'],
-            right: [],
-          },
-        }}
-        displayColumnDefOptions={{
-          'mrt-row-select': {
-            size: 50,
-            enablePinning: true,
-          },
-        }}
-        muiTablePaperProps={{
-          elevation: 3,
-          sx: {
-            borderRadius: 2,
-          },
-        }}
-        renderTopToolbarCustomActions={({ table }) => (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              {table.getFilteredSelectedRowModel().rows.length} of{' '}
-              {table.getFilteredRowModel().rows.length} row(s) selected
-            </Typography>
-          </Box>
-        )}
-        renderBottomToolbarCustomActions={({ table }) => (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Total: {table.getFilteredRowModel().rows.length} search queries
-            </Typography>
-          </Box>
-        )}
-      />
-    </Box>
-  )
+      {/* Table Content */}
+      <div className="p-4 md:p-6 flex-1 min-h-0">
+        <AdvancedDataTable
+          data={searchQueryData}
+          columns={tableColumns}
+          onDataChange={(newData) => {
+            // Handle data changes if needed
+            console.log('Search query data changed:', newData);
+          }}
+          onColumnsChange={setTableColumns}
+          className="w-full h-full"
+          showCheckboxColumn={false}
+        />
+      </div>
+    </div>
+  );
 }

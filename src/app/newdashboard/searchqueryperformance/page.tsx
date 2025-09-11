@@ -143,8 +143,8 @@ export default function ASINSearchQueryPerformance() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f6fa]">
-      <div className="w-full transition-all duration-300 px-1 py-4 sm:py-8">
+    <div className="min-h-screen bg-[#f5f6fa] px-16">
+      <div className="w-full transition-all duration-300 py-4 sm:py-8">
         <div className="w-full flex flex-col gap-4 sm:gap-6 md:gap-8">
           {/* Page Heading */}
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-2 text-center tracking-tight px-2">
@@ -442,19 +442,18 @@ export default function ASINSearchQueryPerformance() {
 
           {/* Table Section */}
           <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[400px] flex flex-col gap-6 w-full overflow-hidden">
-            <div className="w-full p-6">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pb-4 flex items-center justify-center">
-                Search Performance Data
+            
+              {/* <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pb-4 flex items-center justify-center">
                 {filterState.view === "individual" &&
                   filterState.selectedAsin && (
                     <span className="ml-2 text-sm font-normal text-gray-600">
                       - {filterState.selectedAsin}
                     </span>
                   )}
-              </h2>
+              </h2> */}
 
               <SearchQueryPerformanceTable data={filteredSearchQueries} />
-            </div>
+           
           </div>
         </div>
       </div>

@@ -1,320 +1,344 @@
 "use client"
 
-import { useMemo } from 'react'
-import {
-  MaterialReactTable,
-  useMaterialReactTable,
-  type MRT_ColumnDef,
-} from 'material-react-table'
-import { Box, Typography } from '@mui/material'
-import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard'
+import { useMemo, useState } from 'react'
+import { Box, Typography, FormControl, InputLabel, Select, MenuItem, Alert } from '@mui/material'
+import { useSalesTrendAsin } from '@/lib/hooks/queries/use-dashboard'
+import { SalesTrendPivotData } from '@/lib/api/services/dashboard.service'
+import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
 
-// Define the type for the ASIN trend data
-interface AsinTrendData {
-  ASIN: string;
-  'Product Name': string;
-  // Metrics for each period
-  [key: string]: string | number;
-}
-
-// Helper to parse and format numbers - with null safety
-function formatNumber(val: any, digits = 2) {
+// Helper functions with null safety
+function formatNumber(val: any, digits = 2): string {
   if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
   const num = Number(val);
   return num.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
-function formatPercent(val: any, digits = 2) {
+function formatPercent(val: any, digits = 2): string {
   if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
   const num = Number(val);
   return num.toFixed(digits) + '%';
 }
 
-const periods = [
-  { key: '14 days', label: '14DAYS' },
-  { key: '26 June', label: '26 JUNE' },
-  { key: '30 days', label: '30DAYS' },
-  { key: '60 days', label: '60DAYS' },
-  { key: '7 days', label: '7DAYS' },
-];
-
-const metrics = [
-  { key: 'Sales', label: 'Sales', format: formatNumber, trendKey: 'Sales_Trend' },
-  { key: 'Orders', label: 'Orders', format: formatNumber, trendKey: 'Orders_Trend' },
-  { key: 'Cost', label: 'Cost', format: formatNumber, trendKey: 'Cost_Trend' },
-  { key: 'Conversion %', label: 'Conversion %', format: formatPercent, trendKey: 'Conversion %_Trend' },
-  { key: 'Sessions', label: 'Sessions', format: formatNumber, trendKey: 'Sessions_Trend' },
-  { key: 'TACOS %', label: 'TACOS %', format: formatPercent, trendKey: 'TACOS %_Trend' },
-];
+function formatTrend(val: any): { text: string; color?: string } {
+  if (!val || val === 0) return { text: '→' };
+  
+  const numVal = Number(val);
+  if (isNaN(numVal)) {
+    // Handle string trend indicators like '↑', '↓'
+    const strVal = String(val);
+    if (strVal.includes('↑') || strVal.includes('+')) {
+      return { text: strVal, color: 'success.main' };
+    } else if (strVal.includes('↓') || strVal.includes('-')) {
+      return { text: strVal, color: 'error.main' };
+    }
+    return { text: strVal };
+  }
+  
+  // Handle numeric trend percentages
+  if (numVal > 0) {
+    return { text: `+${numVal.toFixed(2)}%`, color: 'success.main' };
+  } else if (numVal < 0) {
+    return { text: `${numVal.toFixed(2)}%`, color: 'error.main' };
+  }
+  
+  return { text: '0%' };
+}
 
 export default function AsinSalesTrendTable() {
-  // Fetch ASIN performance data from API - use stable date values
-  const dateParams = useMemo(() => ({
-    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
-    period: '30d',
-    focus_level: 'all' as const
-  }), []);
+  const [selectedPeriod, setSelectedPeriod] = useState('30d');
 
-  const { targetingAnalysis, isLoading, isError, error } = useAsinPerformanceData(dateParams);
+  // Available period options
+  const periodOptions = [
+    { value: '14d', label: '14 Days' },
+    { value: '30d', label: '30 Days' },
+    { value: '60d', label: '60 Days' },
+    { value: '90d', label: '90 Days' },
+    { value: 'current_month', label: 'Current Month' },
+    { value: 'previous_month', label: 'Previous Month' }
+  ];
 
-  // Transform API data to match existing interface
-  const asinData: AsinTrendData[] = useMemo(() => {
-    if (!targetingAnalysis?.data) return [];
+  // Fetch ASIN sales trend data using the new pivot table API
+  const { data: salesTrendData, isLoading, isError, error } = useSalesTrendAsin(selectedPeriod);
+
+  // Extract pivot data and summary
+  const { pivotedData, summary } = useMemo(() => {
+    if (!salesTrendData) {
+      return { pivotedData: [], summary: null };
+    }
+
+    return {
+      pivotedData: salesTrendData.pivoted_data || [],
+      summary: salesTrendData.summary
+    };
+  }, [salesTrendData]);
+
+  // Transform data to match AdvancedDataTable format
+  const transformedData: TableData[] = useMemo(() => {
+    if (!pivotedData || pivotedData.length === 0) return [];
     
-    // Handle the targeting analysis structure - flatten the nested groups
-    const flattenedData: any[] = [];
-    
-    // Check if data is the expected targeting analysis structure
-    if (typeof targetingAnalysis.data === 'object' && !Array.isArray(targetingAnalysis.data)) {
-      Object.entries(targetingAnalysis.data).forEach(([groupName, groupData]: [string, any]) => {
-        if (groupData.items && Array.isArray(groupData.items)) {
-          groupData.items.forEach((item: any) => {
-            flattenedData.push({
-              asin: item.targeting_type || 'N/A',
-              product_name: `${groupName} - ${item.targeting_type}`,
-              total_sales: item.sales || 0,
-              total_units: item.units_sold || 0,
-              sales_trend: []
-            });
-          });
-        }
+    return pivotedData.map((item: SalesTrendPivotData, index: number) => {
+      // Convert the pivot data object to a flat structure
+      const transformedItem: TableData = {};
+      
+      // Copy all properties from the original item
+      Object.keys(item).forEach(key => {
+        transformedItem[key] = item[key as keyof SalesTrendPivotData];
       });
-    } else if (Array.isArray(targetingAnalysis.data)) {
-      // If it's already an array, use it directly
-      flattenedData.push(...targetingAnalysis.data);
+      
+      return transformedItem;
+    });
+  }, [pivotedData]);
+
+  // Dynamic column generation based on available data
+  const dynamicColumns = useMemo<ColumnDefinition[]>(() => {
+    if (!transformedData.length) return [];
+
+    // Get all available column names from the first row
+    const firstRow = transformedData[0];
+    const availableColumns = Object.keys(firstRow);
+
+    // Base columns that should always be present
+    const baseColumns: ColumnDefinition[] = [
+      {
+        field: 'ASIN',
+        headerName: 'ASIN',
+        type: 'text',
+        editable: false,
+        sortable: true,
+        filterable: true,
+        width: 120,
+        minWidth: 100,
+        pinned: 'left'
+      },
+      {
+        field: 'Product Name',
+        headerName: 'Product Name',
+        type: 'text',
+        editable: false,
+        sortable: true,
+        filterable: true,
+        width: 250,
+        minWidth: 200
+      }
+    ];
+
+    // Extract metrics and periods from column names
+    const metricColumns: ColumnDefinition[] = [];
+    const processedColumns = new Set(['ASIN', 'Product Name']);
+
+    // Define expected metrics and their formatting
+    const metricFormatters = {
+      Sessions: { formatter: formatNumber, type: 'number' as const },
+      Cost: { formatter: formatNumber, type: 'number' as const },
+      Orders: { formatter: formatNumber, type: 'number' as const },
+      Sales: { formatter: formatNumber, type: 'number' as const },
+      'Conversion%': { formatter: formatPercent, type: 'number' as const },
+      'TACOS%': { formatter: formatPercent, type: 'number' as const },
+    };
+
+    // Group columns by metric type
+    const columnGroups: { [key: string]: string[] } = {};
+    
+    availableColumns.forEach(colName => {
+      if (processedColumns.has(colName)) return;
+
+      // Parse column name format: "Metric_Period" or "Metric_Trend"
+      const parts = colName.split('_');
+      if (parts.length >= 2) {
+        const metric = parts[0];
+        const period = parts.slice(1).join('_');
+
+        if (!columnGroups[metric]) {
+          columnGroups[metric] = [];
+        }
+        columnGroups[metric].push(colName);
+      }
+    });
+
+    // Create columns for each metric group
+    Object.entries(columnGroups).forEach(([metric, columns]) => {
+      const metricConfig = metricFormatters[metric as keyof typeof metricFormatters];
+      const columnType = metricConfig?.type || 'text';
+      
+      // Sort columns within each metric group (periods first, then trend)
+      const sortedColumns = columns.sort((a, b) => {
+        if (a.includes('Trend')) return 1;
+        if (b.includes('Trend')) return -1;
+        return a.localeCompare(b);
+      });
+
+      sortedColumns.forEach(colName => {
+        const parts = colName.split('_');
+        const period = parts.slice(1).join('_');
+        const isTrend = period.includes('Trend');
+
+        metricColumns.push({
+          field: colName,
+          headerName: isTrend ? `${metric} Trend` : `${metric} (${period})`,
+          type: columnType,
+          editable: false,
+          sortable: true,
+          filterable: !isTrend,
+          width: isTrend ? 120 : 140,
+          minWidth: isTrend ? 100 : 120,
+        });
+      });
+    });
+
+    return [...baseColumns, ...metricColumns];
+  }, [transformedData]);
+
+  const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(dynamicColumns);
+
+  // Update columns when dynamic columns change
+  useMemo(() => {
+    setTableColumns(dynamicColumns);
+  }, [dynamicColumns]);
+
+  const initialSort = useMemo(() => {
+    if (dynamicColumns.length === 0) return []
+    
+    // Find the 60-day sales column dynamically
+    const salesColumn = dynamicColumns.find(col => 
+      col.field.includes('Sales') && col.field.includes('60d')
+    )
+    
+    if (salesColumn) {
+      return [{ field: salesColumn.field, direction: 'desc' as const }]
     }
     
-    return flattenedData.map(item => ({
-      ASIN: item.asin,
-      'Product Name': item.product_name,
-      // Use available data from sales_trend or fallback to total values
-      'Sales_14 days': item.total_sales || 0,
-      'Sales_26 June': item.total_sales || 0,
-      'Sales_30 days': item.total_sales || 0,
-      'Sales_60 days': item.total_sales || 0,
-      'Sales_7 days': item.total_sales || 0,
-      'Orders_14 days': item.total_units || 0,
-      'Orders_26 June': item.total_units || 0,
-      'Orders_30 days': item.total_units || 0,
-      'Orders_60 days': item.total_units || 0,
-      'Orders_7 days': item.total_units || 0,
-      'Cost_14 days': 0, // Not available in current API structure
-      'Cost_26 June': 0,
-      'Cost_30 days': 0,
-      'Cost_60 days': 0,
-      'Cost_7 days': 0,
-      'Conversion %_14 days': 0, // Not available in current API structure
-      'Conversion %_26 June': 0,
-      'Conversion %_30 days': 0,
-      'Conversion %_60 days': 0,
-      'Conversion %_7 days': 0,
-      'Sessions_14 days': 0, // Not available in current API structure
-      'Sessions_26 June': 0,
-      'Sessions_30 days': 0,
-      'Sessions_60 days': 0,
-      'Sessions_7 days': 0,
-      'TACOS %_14 days': 0, // Not available in current API structure
-      'TACOS %_26 June': 0,
-      'TACOS %_30 days': 0,
-      'TACOS %_60 days': 0,
-      'TACOS %_7 days': 0,
-      // Add trend indicators based on sales_trend
-      'Sales_Trend': item.sales_trend?.length > 0 ? 
-        (item.sales_trend[item.sales_trend.length - 1]?.trend_direction === 'up' ? '↑' : '↓') : '→',
-      'Orders_Trend': '→',
-      'Cost_Trend': '→',
-      'Conversion %_Trend': '→',
-      'Sessions_Trend': '→',
-      'TACOS %_Trend': '→',
-    }));
-  }, [targetingAnalysis]);
+    return []
+  }, [dynamicColumns])
 
   // Handle loading state
   if (isLoading) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          Loading targeting analysis data...
-        </Typography>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Sales Trend Analysis
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <Typography variant="h6" color="text.secondary" className="ml-3">
+            Loading ASIN sales trend data...
+          </Typography>
+        </div>
+      </div>
     );
   }
 
   // Handle error state
-  if (isError || !asinData || asinData.length === 0) {
+  if (isError) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="error">
-          Failed to load targeting analysis data
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {error?.message || 'No data available'}
-        </Typography>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Sales Trend Analysis
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="error">
+              Failed to load ASIN sales trend data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {error?.message || 'An error occurred while fetching data'}
+            </Typography>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
-    {
-      accessorKey: 'ASIN',
-      header: 'ASIN',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      columnFilterModeOptions: [
-        'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      // Ensure we always return a string
-      Cell: ({ row }) => row.original.ASIN || '',
-    },
-    {
-      accessorKey: 'Product Name',
-      header: 'Product Name',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      columnFilterModeOptions: [
-        'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-      ],
-      // Ensure we always return a string
-      Cell: ({ row }) => row.original['Product Name'] || '',
-    },
-    ...metrics.flatMap(metric => [
-      ...periods.map(period => ({
-        accessorKey: `${metric.key}_${period.key}`,
-        header: `${metric.label} (${period.label})`,
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'between' as const,
-        columnFilterModeOptions: [
-          'between', 'betweenInclusive', 'greaterThan', 'greaterThanOrEqualTo', 
-          'lessThan', 'lessThanOrEqualTo', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ row }: any) => {
-          const value = row.original[`${metric.key}_${period.key}`];
-          return metric.format(value);
-        },
-      })),
-      {
-        accessorKey: `${metric.key}_Trend`,
-        header: `${metric.label} Trend`,
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: 'fuzzy' as const,
-        columnFilterModeOptions: [
-          'fuzzy', 'contains', 'startsWith', 'endsWith', 'equals', 'notEquals', 'empty', 'notEmpty'
-        ],
-        Cell: ({ row }: any) => {
-          const trend = row.original[`${metric.key}_Trend`] || '-';
-          let color = undefined;
-          if (typeof trend === 'string') {
-            if (trend.includes('↑')) color = 'success.main';
-            else if (trend.includes('↓')) color = 'error.main';
-          }
-          return (
-            <Typography component="span" sx={{ color: color || 'inherit' }}>
-              {trend}
+  // Handle no data
+  if (!transformedData.length) {
+    return (
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Sales Trend Analysis
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="text.secondary">
+              No ASIN data available
             </Typography>
-          );
-        },
-      }
-    ]),
-  ], []);
-
-  const table = useMaterialReactTable({
-    columns,
-    data: asinData,
-    enableColumnFilterModes: true,
-    enableColumnFilters: true,
-    enableGlobalFilter: true,
-    enableSorting: true, // Changed from false to true for consistency
-    enablePagination: true,
-    enableRowSelection: false,
-    enableColumnResizing: true,
-    enableColumnPinning: true,
-    enableDensityToggle: true,
-    enableFullScreenToggle: true,
-    enableColumnDragging: true,
-    enableStickyHeader: true,
-    enableStickyFooter: true,
-    // Add default values to prevent undefined states
-    getRowId: (row, index) => `${row.ASIN || index}`, // Ensure unique row IDs
-    muiTableContainerProps: {
-      sx: {
-        maxHeight: 'calc(100vh - 200px)',
-        width: '100%',
-        overflowX: 'auto',
-      },
-    },
-    muiTableHeadCellProps: (column) => ({
-      sx: column?.column?.getIsPinned?.()
-        ? {
-            backgroundColor: '#fff',
-            color: '#111',
-            fontWeight: 'bold',
-            opacity: 1,
-            borderRight: '2px solid #e5e7eb',
-            zIndex: 1301,
-          }
-        : {
-            backgroundColor: 'primary.main',
-            color: 'primary.contrastText',
-            fontWeight: 'bold',
-          },
-    }),
-    muiTableBodyCellProps: {
-      sx: {
-        borderBottom: '1px solid rgba(224, 224, 224, 1)',
-      },
-    },
-    muiTableProps: {
-      sx: {
-        tableLayout: 'auto',
-        width: '100%',
-        minWidth: 1200,
-      },
-    },
-    initialState: {
-      density: 'compact',
-      pagination: { pageSize: 20, pageIndex: 0 },
-      sorting: [{ id: 'Sales_7 days', desc: true }],
-      columnPinning: {
-        left: ['ASIN', 'Product Name'],
-        right: [],
-      },
-      showColumnFilters: true,
-      // Ensure all state values are defined
-      columnFilters: [],
-      globalFilter: '',
-    },
-    // Add state management to prevent undefined values
-    state: {
-      // You can add controlled state here if needed
-    },
-    // Add default sorting state
-    defaultColumn: {
-      minSize: 100,
-      maxSize: 400,
-      size: 150,
-    },
-    displayColumnDefOptions: {
-      'mrt-row-select': {
-        size: 50,
-        enablePinning: true,
-      },
-    },
-    muiTablePaperProps: {
-      elevation: 3,
-      sx: {
-        borderRadius: 2,
-      },
-    },
-  });
+            <Typography variant="body2" color="text.secondary">
+              {summary?.error || 'No data found for the selected period'}
+            </Typography>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <MaterialReactTable table={table} />
-    </Box>
+    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      {/* Header with period selector and summary - matches ASIN Performance styling */}
+      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            ASIN Sales Trend Analysis
+          </h6>
+          
+          <div className="flex items-center gap-4">
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Period</InputLabel>
+              <Select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                label="Period"
+              >
+                {periodOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            {summary && (
+              <div className="text-right">
+                <div className="text-sm font-medium text-slate-700">
+                  {summary.total_asins} ASINs • {summary.periods_analyzed} periods
+                </div>
+                {summary.date_range && (
+                  <div className="text-xs text-slate-500">
+                    {summary.date_range}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Table Content */}
+      <div className="p-4 md:p-6 flex-1 min-h-0">
+        <AdvancedDataTable
+          data={transformedData}
+          columns={tableColumns}
+          onDataChange={(newData) => {
+            // Handle data changes if needed for sales trend
+            console.log('Sales trend data changed:', newData);
+          }}
+          onColumnsChange={setTableColumns}
+          className="w-full h-full"
+          showCheckboxColumn={false}
+          initialSort={initialSort}
+        />
+        
+        {/* Footer info */}
+        <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <Typography variant="body2" color="text.secondary">
+            Data shows daily averages for each period. Trend columns show percentage change or directional indicators.
+            Use filters and sorting to analyze performance across different time periods.
+          </Typography>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ export interface ImpersonationUser {
   username: string
   first_name: string
   last_name: string
+  display_name: string
   role: string
   agency_id: number
   agency_name: string
