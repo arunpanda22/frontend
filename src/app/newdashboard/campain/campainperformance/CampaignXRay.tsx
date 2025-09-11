@@ -91,29 +91,55 @@ export default function CampaignXRayTable() {
   // Fetch ads trend data
   const { data: adsTrendData, isLoading, isError, error } = useAdsTrend(selectedDays);
 
-  // Transform data to match AdvancedDataTable format
+  // Transform data to match AdvancedDataTable format with pre-formatted values
   const transformedData: TableData[] = useMemo(() => {
     if (!adsTrendData || adsTrendData.length === 0) return [];
     
     return adsTrendData.map((item: Record<string, string | number>, index: number) => {
-      // Convert the ads trend data to a flat structure for the table
       const transformedItem: TableData = {};
       
-      // Copy all properties from the original item as-is
       Object.keys(item).forEach(key => {
-        transformedItem[key] = item[key];
+        const value = item[key];
+        const metricName = extractMetricName(key);
+        
+        if (key.includes('Trend')) {
+          // Format trend data and store both text and color info
+          const trendData = formatTrend(value);
+          transformedItem[key] = trendData.text;
+          transformedItem[`${key}_color`] = trendData.color;
+        } else if (metricName && value !== null && value !== undefined && value !== '' && !isNaN(Number(value))) {
+          // Format other values based on field type
+          const fieldType = getFieldType(metricName);
+          const numericValue = Number(value);
+          
+          switch (fieldType) {
+            case 'percentage':
+              transformedItem[key] = formatPercentage(numericValue);
+              break;
+            case 'currency':
+              transformedItem[key] = formatCurrency(numericValue);
+              break;
+            case 'number':
+              transformedItem[key] = formatNumber(numericValue);
+              break;
+            default:
+              transformedItem[key] = value;
+          }
+        } else {
+          transformedItem[key] = value || '-';
+        }
       });
       
       return transformedItem;
     });
-  }, [adsTrendData]);
+  }, [adsTrendData, formatCurrency, formatNumber, formatPercentage]);
 
-  // Define columns based on actual API response structure with flexible interface
+  // Define columns based on actual API response structure
   const dynamicColumns = useMemo<ColumnDefinition[]>(() => {
     if (!transformedData.length) return [];
 
     const firstRow = transformedData[0];
-    const availableFields = Object.keys(firstRow);
+    const availableFields = Object.keys(firstRow).filter(key => !key.includes('_color')); // Exclude color fields
 
     // Base campaign column
     const baseColumns: ColumnDefinition[] = [
@@ -149,8 +175,6 @@ export default function CampaignXRayTable() {
     const metricColumns: ColumnDefinition[] = [];
     
     Object.entries(fieldGroups).forEach(([metric, fields]) => {
-      const fieldType = getFieldType(metric);
-      
       // Sort fields within each metric group
       const sortedFields = fields.sort((a, b) => {
         const aTrend = a.includes('Trend');
@@ -198,48 +222,18 @@ export default function CampaignXRayTable() {
         metricColumns.push({
           field: fieldName,
           headerName: headerName,
-          type: 'text', // Use text type for flexibility with the dynamic interface
+          type: 'text',
           editable: false,
           sortable: true,
           filterable: !isTrend,
           width: isTrend ? 200 : (isCurrent ? 200 : 200),
-          minWidth: isTrend ? 200 : (isCurrent ? 200 : 200),
-          renderCell: (params) => {
-            if (isTrend) {
-              const trendData = formatTrend(params.value);
-              return (
-                <span style={{ color: trendData.color }}>
-                  {trendData.text}
-                </span>
-              );
-            } else {
-              // Apply formatting based on field type using currency context
-              // Ensure we have a valid numeric value
-              const rawValue = params.value;
-              if (rawValue === null || rawValue === undefined || rawValue === '' || isNaN(Number(rawValue))) {
-                return '-';
-              }
-              
-              const numericValue = Number(rawValue);
-              
-              switch (fieldType) {
-                case 'percentage':
-                  return formatPercentage(numericValue);
-                case 'currency':
-                  return formatCurrency(numericValue);
-                case 'number':
-                  return formatNumber(numericValue);
-                default:
-                  return rawValue || '-';
-              }
-            }
-          }
+          minWidth: isTrend ? 200 : (isCurrent ? 200 : 200)
         });
       });
     });
 
     return [...baseColumns, ...metricColumns];
-  }, [transformedData, formatCurrency, formatNumber, formatPercentage]);
+  }, [transformedData]);
 
   const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(dynamicColumns);
 
