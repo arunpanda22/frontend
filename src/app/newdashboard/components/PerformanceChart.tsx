@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, LineController } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import type { ChartData, ChartDataset } from 'chart.js';
 import { DateRangePicker } from 'react-date-range';
@@ -8,6 +7,20 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { addDays, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { useWeeklyData } from '@/lib/hooks/queries/use-dashboard';
+
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  LineElement, 
+  PointElement, 
+  Title, 
+  Tooltip, 
+  Legend, 
+  LineController,
+  BarController  // ADD THIS - this is what's missing!
+} from 'chart.js';
 
 // Register Chart.js components we're using
 ChartJS.register(
@@ -19,7 +32,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  LineController
+  LineController,
+  BarController  // ADD THIS - this is what's missing!
 );
 
 const DATASET_OPTIONS = [
