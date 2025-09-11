@@ -37,7 +37,7 @@ export function Navbar() {
           <Link href={user ? "/" : "/login"} className="flex items-center h-16">
             <div className="relative h-10 w-40 rounded-md p-1">
               <Image
-                src="/logo.png"
+                src="/Logo.png"
                 alt="PacePivot Logo"
                 fill
                 sizes="(max-width: 768px) 120px, 160px"
