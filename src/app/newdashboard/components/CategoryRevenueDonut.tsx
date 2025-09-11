@@ -2,11 +2,18 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 import { useAdsSalesData } from '@/lib/hooks/queries/use-dashboard';
 import { useDateRange } from '@/lib/context/DateRangeContext';
+import type { ApexOptions } from 'apexcharts';
 
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import('react-apexcharts'), {
   ssr: false,
 });
+
+// Type for category analysis items
+type CategoryAnalysis = {
+  product_type: string;
+  percentage: number;
+};
 
 const CategoryRevenueDonut = () => {
   const { dateRange } = useDateRange();
@@ -32,14 +39,16 @@ const CategoryRevenueDonut = () => {
     }
 
     const categoryData = adsSalesData.category_analysis;
-    const series = categoryData.map(item => parseFloat(item.percentage.toFixed(1)));
-    const labels = categoryData.map(item => {
-      // Format product type names to be more readable
-      return item.product_type
+    const series = categoryData.map((item: CategoryAnalysis) =>
+      parseFloat(item.percentage.toFixed(1))
+    );
+
+    const labels = categoryData.map((item: CategoryAnalysis) =>
+      item.product_type
         .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-    });
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+    );
 
     return { series, labels };
   };
@@ -47,7 +56,9 @@ const CategoryRevenueDonut = () => {
   const { series, labels } = getCategoryData();
 
   // Generate colors for each category
-  const generateColors = (count) => {
+
+  
+  const generateColors = (count: number): string[] => {
     const baseColors = [
       '#3B82F6', // Blue
       '#10B981', // Green  
@@ -77,11 +88,11 @@ const CategoryRevenueDonut = () => {
 
   const chartColors = generateColors(series.length);
 
-  const options = {
+  const options: ApexOptions = {
     labels: labels,
     chart: {
       height: 240,
-      type: 'donut',
+      type: 'donut' as const,
       fontFamily: 'inherit',
     },
     plotOptions: {
@@ -105,7 +116,7 @@ const CategoryRevenueDonut = () => {
               fontWeight: 700,
               color: '#111827',
               offsetY: 8,
-              formatter: function (val) {
+              formatter: function (val: string) {
                 return parseFloat(val).toFixed(1) + '%';
               },
             },
@@ -116,8 +127,8 @@ const CategoryRevenueDonut = () => {
               fontSize: '12px',
               fontWeight: 400,
               color: '#6B7280',
-              formatter: function (w) {
-                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+              formatter: function (w: any) {
+                const total = w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0);
                 return total.toFixed(1) + '%';
               },
             },
@@ -150,8 +161,8 @@ const CategoryRevenueDonut = () => {
     tooltip: {
       enabled: true,
       y: {
-        formatter: function (val) {
-          return parseFloat(val).toFixed(1) + '%';
+        formatter: function (val: number) {
+          return parseFloat(val.toString()).toFixed(1) + '%';
         },
       },
     },

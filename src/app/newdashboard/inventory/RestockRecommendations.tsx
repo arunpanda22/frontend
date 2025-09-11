@@ -1,6 +1,15 @@
 import React, { useMemo } from 'react';
 import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard';
 
+// Helper function to get product icon based on ASIN
+const getProductIcon = (asin: string): string => {
+  // You can customize this logic based on your product categories
+  // For now, using a simple hash-based approach to assign icons
+  const icons = ['📦', '🛍️', '📱', '💻', '👕', '📚', '🏠', '🎮', '⌚', '🎧'];
+  const hash = asin.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return icons[hash % icons.length];
+};
+
 const TopRestockRecommendations = () => {
   const { data: inventoryHealthData, isLoading, error } = useInventoryHealth({
     sales_days: 30,
@@ -43,8 +52,6 @@ const TopRestockRecommendations = () => {
 
     return restockCandidates;
   }, [inventoryHealthData]);
-
-  
 
   if (isLoading) {
     return (
@@ -117,8 +124,12 @@ const TopRestockRecommendations = () => {
         <div className="space-y-3">
           {topRestockAsins.map((asin, index) => (
             <div key={asin.asin} className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-red-50 border border-red-200">
-                <span className="text-2xl">{asin.image}</span>
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-red-50 border border-red-200 overflow-hidden">
+                <img 
+                  src={asin.image} 
+                  alt={asin.productName}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
