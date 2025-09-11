@@ -7,12 +7,14 @@ import { useEffect } from 'react'
 import { apiService } from '@/lib/services/api'
 import { Button } from '@/components/ui/button'
 import { AmazonConnector } from '@/components/amazon/AmazonConnector'
+import { useUserProfile } from '@/lib/hooks/queries/use-user-profile'
 
 export default function Dashboard() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [connectivityResult, setConnectivityResult] = useState<string | null>(null)
   const [connectivityError, setConnectivityError] = useState<string | null>(null)
+  const { data: userProfile, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useUserProfile()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -32,7 +34,7 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
     </div>
@@ -65,9 +67,29 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Linked accounts guard + message */}
+          {profileError && (
+            <div className="mt-6 p-4 rounded-md bg-red-50 border border-red-100 text-red-800">
+              Failed to load your linked accounts. Please try again later.
+            </div>
+          )}
+
           <div className="mt-10">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Amazon Integrations</h2>
-            <AmazonConnector />
+            {/* If no accounts linked, show a gentle info panel and still show connector to allow linking */}
+            {userProfile &&
+              userProfile.connected_advertising_profiles.length === 0 &&
+              userProfile.connected_seller_accounts.length === 0 && (
+                <div className="mb-6 p-4 rounded-md bg-amber-50 border border-amber-100 text-amber-900">
+                  <p className="font-medium">No accounts linked yet</p>
+                  <p className="text-sm">Connect an Amazon Advertising or Seller account to start using dashboard features.</p>
+                </div>
+              )
+            }
+            <AmazonConnector 
+              userProfile={userProfile}
+              onRefresh={async () => { await refetchProfile() }}
+            />
           </div>
             
           {/* <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100 mt-8">

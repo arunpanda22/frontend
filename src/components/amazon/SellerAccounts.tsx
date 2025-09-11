@@ -1,24 +1,38 @@
 'use client'
 
-import { useUserProfile, type ConnectedSellerAccount } from '@/lib/hooks/queries/use-user-profile'
+import { useUserProfile, type ConnectedSellerAccount, type UserProfile } from '@/lib/hooks/queries/use-user-profile'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
-export function SellerAccounts() {
-  const { data: userProfile, isLoading, error, refetch } = useUserProfile()
+interface SellerAccountsProps {
+  userProfile?: UserProfile | null
+  onRefresh?: () => Promise<void> | void
+}
+
+export function SellerAccounts({ userProfile: userProfileProp, onRefresh }: SellerAccountsProps) {
+  const shouldFetchInternally = !userProfileProp
+  const { data: userProfileQueryData, isLoading, error, refetch } = useUserProfile({ enabled: shouldFetchInternally })
+  const userProfile = userProfileProp ?? userProfileQueryData
   const [isRefreshing, setIsRefreshing] = useState(false)
   
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await refetch()
-    setIsRefreshing(false)
+    try {
+      if (onRefresh) {
+        await onRefresh()
+      } else if (shouldFetchInternally) {
+        await refetch()
+      }
+    } finally {
+      setIsRefreshing(false)
+    }
   }
   
   const connectedSellerAccounts = userProfile?.connected_seller_accounts || []
   
-  if (isLoading) {
+  if (shouldFetchInternally && isLoading) {
     return (
       <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 mt-4">
         <div className="animate-pulse flex space-x-4">
@@ -34,7 +48,7 @@ export function SellerAccounts() {
     )
   }
   
-  if (error) {
+  if (shouldFetchInternally && error) {
     return (
       <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-red-800 mt-4">
         <p>Error loading seller accounts: {error.message}</p>

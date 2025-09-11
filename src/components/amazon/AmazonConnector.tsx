@@ -9,8 +9,14 @@ import { RegionDialog } from './RegionDialog'
 import { AlertTriangle, ArrowRight, ShoppingCart } from 'lucide-react'
 import { Icons } from '../icons'
 import { SellerAccounts } from './SellerAccounts'
+import type { UserProfile } from '@/lib/hooks/queries/use-user-profile'
 
-export function AmazonConnector() {
+interface AmazonConnectorProps {
+  userProfile?: UserProfile | null
+  onRefresh?: () => Promise<void> | void
+}
+
+export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps) {
   const { user } = useAuth()
   const [connectError, setConnectError] = useState<string | null>(null)
   const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false)
@@ -87,7 +93,7 @@ export function AmazonConnector() {
           )}
           
           <div className="mt-6">
-            <AdvertisingAccounts />
+            <AdvertisingAccounts userProfile={userProfile} onRefresh={onRefresh} />
           </div>
         </div>
         
@@ -110,7 +116,7 @@ export function AmazonConnector() {
               </Button>
               
               <div className="mt-6">
-                <SellerAccounts />
+                <SellerAccounts userProfile={userProfile} onRefresh={onRefresh} />
               </div>
             </div>
           </div>

@@ -57,7 +57,7 @@ export interface UserProfile {
  * - No automatic refetch on window focus or component mount to reduce API calls
  * - Use invalidateProfileCache() from AuthContext to manually refresh when needed
  */
-export const useUserProfile = (): UseQueryResult<UserProfile, Error> => {
+export const useUserProfile = (options?: { enabled?: boolean }): UseQueryResult<UserProfile, Error> => {
   const { user } = useAuth();
 
   return useQuery({
@@ -72,7 +72,7 @@ export const useUserProfile = (): UseQueryResult<UserProfile, Error> => {
       
       return response.data;
     },
-    enabled: !!user,
+    enabled: (options?.enabled ?? true) && !!user,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     // Cache profile data for 5 minutes since roles/permissions don't change often

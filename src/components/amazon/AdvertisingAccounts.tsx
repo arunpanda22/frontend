@@ -4,18 +4,33 @@ import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { Badge } from '../ui/badge'
 import { AlertCircle, Check, Globe2, Store, Tag, Info, Building2, Clock, DollarSign } from 'lucide-react'
-import { useUserProfile, ConnectedAdvertisingProfile } from '@/lib/hooks/queries/use-user-profile'
+import { useUserProfile, ConnectedAdvertisingProfile, type UserProfile } from '@/lib/hooks/queries/use-user-profile'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import * as Tooltip from '@radix-ui/react-tooltip'
 
-export function AdvertisingAccounts() {
-  const { data: userProfile, isLoading, error, isError, refetch } = useUserProfile()
+interface AdvertisingAccountsProps {
+  userProfile?: UserProfile | null
+  onRefresh?: () => Promise<void> | void
+}
+
+export function AdvertisingAccounts({ userProfile: userProfileProp, onRefresh }: AdvertisingAccountsProps) {
+  // If parent provides profile, avoid internal fetching
+  const shouldFetchInternally = !userProfileProp
+  const { data: userProfileQueryData, isLoading, error, isError, refetch } = useUserProfile({ enabled: shouldFetchInternally })
+  const userProfile = userProfileProp ?? userProfileQueryData
   const [isRefetching, setIsRefetching] = useState(false)
   
   const handleRefresh = async () => {
     setIsRefetching(true)
-    await refetch()
-    setIsRefetching(false)
+    try {
+      if (onRefresh) {
+        await onRefresh()
+      } else if (shouldFetchInternally) {
+        await refetch()
+      }
+    } finally {
+      setIsRefetching(false)
+    }
   }
   
   const connectedProfiles = userProfile?.connected_advertising_profiles || []
@@ -29,18 +44,18 @@ export function AdvertisingAccounts() {
             variant="ghost" 
             size="sm" 
             onClick={handleRefresh} 
-            disabled={isLoading || isRefetching}
+            disabled={(shouldFetchInternally ? isLoading : false) || isRefetching}
           >
             {isRefetching ? 'Refreshing...' : 'Refresh'}
           </Button>
         )}
       </div>
       
-      {isLoading ? (
+      {(shouldFetchInternally && isLoading) ? (
         <div className="flex items-center justify-center py-4">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600"></div>
         </div>
-      ) : isError ? (
+      ) : (shouldFetchInternally && isError) ? (
         <div className="p-4 rounded-md bg-red-50 text-red-800 flex items-start space-x-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div>
@@ -156,4 +171,5 @@ export function AdvertisingAccounts() {
       )}
     </div>
   )
-} 
+}
+ 
