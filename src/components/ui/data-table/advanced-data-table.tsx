@@ -1,0 +1,951 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu-2"
+import {
+  Download,
+  Trash2,
+  Edit3,
+  Check,
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Pin,
+  PinOff,
+  GripVertical,
+  MoreVertical,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+
+export interface ColumnDefinition {
+  field: string
+  headerName: string
+  type?: "text" | "number" | "date" | "boolean"
+  editable?: boolean
+  sortable?: boolean
+  filterable?: boolean
+  width?: number
+  minWidth?: number
+  pinned?: "left" | "right" | null
+}
+
+export interface TableData {
+  [key: string]: any
+}
+
+interface FilterState {
+  [field: string]: {
+    type: "text" | "number" | "date" | "boolean"
+    operator: string
+    value: any
+    values?: any[]
+  }
+}
+
+interface SortState {
+  field: string
+  direction: "asc" | "desc"
+}
+
+interface AdvancedDataTableProps {
+  data: TableData[]
+  columns: ColumnDefinition[]
+  onDataChange?: (data: TableData[]) => void
+  className?: string
+}
+
+interface FilterDropdownProps {
+  column: ColumnDefinition
+  filter: any
+  onFilter: (field: string, type: string, operator: string, value: any) => void
+  onClearFilter: (field: string) => void
+  data: TableData[]
+}
+
+interface CellRendererProps {
+  value: any
+  column: ColumnDefinition
+  isEditing: boolean
+  editValue: any
+  onEdit: (value: any) => void
+  onSave: () => void
+  onCancel: () => void
+  onEditValueChange: (value: any) => void
+  rowData: TableData
+}
+
+const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
+  const [isHovered, setIsHovered] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
+  console.log("[v0] ImageCell rendered with imageUrl:", imageUrl)
+
+  if (!imageUrl || imageError) {
+    console.log("[v0] ImageCell not rendering - no imageUrl or error:", { imageUrl, imageError })
+    return null
+  }
+
+  return (
+    <div className="relative inline-block mr-3">
+      <div
+        className="relative"
+        onMouseEnter={() => {
+          console.log("[v0] Mouse entered image cell")
+          setIsHovered(true)
+        }}
+        onMouseLeave={() => {
+          console.log("[v0] Mouse left image cell")
+          setIsHovered(false)
+        }}
+      >
+        <img
+          src={imageUrl || "/placeholder.svg"}
+          alt="Row image"
+          className="w-8 h-8 rounded-md object-cover border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
+          onError={() => {
+            console.log("[v0] Image failed to load:", imageUrl)
+            setImageError(true)
+          }}
+          onLoad={() => {
+            console.log("[v0] Image loaded successfully:", imageUrl)
+          }}
+        />
+
+        {isHovered && (
+          <div
+            className="absolute z-[9999] bg-white p-2 rounded-lg shadow-xl border border-slate-300"
+            style={{
+              left: "100%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              marginLeft: "8px",
+              width: "136px",
+              height: "136px",
+            }}
+            onMouseEnter={() => {
+              console.log("[v0] Mouse entered expanded image")
+              setIsHovered(true)
+            }}
+          >
+            <img
+              src={imageUrl || "/placeholder.svg"}
+              alt="Expanded view"
+              className="w-32 h-32 rounded-md object-cover"
+              onLoad={() => {
+                console.log("[v0] Expanded image loaded successfully")
+              }}
+              onError={() => {
+                console.log("[v0] Expanded image failed to load")
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})
+
+const CellRenderer = memo(function CellRenderer({
+  value,
+  column,
+  isEditing,
+  editValue,
+  onEdit,
+  onSave,
+  onCancel,
+  onEditValueChange,
+  rowData,
+}: CellRendererProps) {
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") onSave()
+      if (e.key === "Escape") onCancel()
+    },
+    [onSave, onCancel],
+  )
+
+  const handleClick = useCallback(() => {
+    if (column.editable) onEdit(value)
+  }, [column.editable, onEdit, value])
+
+  const displayValue = column.type === "date" && value ? new Date(value).toLocaleDateString() : String(value || "")
+
+  const isNameColumn = column.field.toLowerCase() === "name" || column.headerName.toLowerCase() === "name"
+
+  if (isEditing && column.editable) {
+    return (
+      <div className="flex items-center gap-2 w-full">
+        <Input
+          type={column.type === "number" ? "number" : column.type === "date" ? "date" : "text"}
+          value={editValue}
+          onChange={(e) => onEditValueChange(e.target.value)}
+          className="h-8 text-sm flex-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 rounded-md"
+          autoFocus
+          onKeyDown={handleKeyDown}
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 hover:bg-green-100 hover:text-green-700 rounded-md transition-all duration-200"
+          onClick={onSave}
+        >
+          <Check className="h-3 w-3" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-700 rounded-md transition-all duration-200"
+          onClick={onCancel}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between group w-full min-h-[1.75rem]",
+        column.editable &&
+          "cursor-pointer hover:bg-blue-50/70 rounded-md px-2 py-1 -mx-2 -my-1 transition-all duration-200",
+      )}
+      onClick={handleClick}
+    >
+      <div className="flex items-center flex-1 min-w-0">
+        {isNameColumn && rowData?.image_url && <ImageCell imageUrl={rowData.image_url} />}
+        <span className="truncate text-sm font-medium text-slate-700">{displayValue}</span>
+      </div>
+      {column.editable && (
+        <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-60 ml-2 text-slate-400 transition-all duration-200" />
+      )}
+    </div>
+  )
+})
+
+const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
+  column,
+  sorts,
+  filters,
+  onSort,
+  onFilter,
+  onClearFilter,
+  onPin,
+  data,
+}: {
+  column: ColumnDefinition
+  sorts: SortState[]
+  filters: FilterState
+  onSort: (field: string) => void
+  onFilter: (field: string, type: string, operator: string, value: any) => void
+  onClearFilter: (field: string) => void
+  onPin: (field: string, position: "left" | "right" | null) => void
+  data: TableData[]
+}) {
+  const [filterOperator, setFilterOperator] = useState(filters[column.field]?.operator || "contains")
+  const [filterValue, setFilterValue] = useState(filters[column.field]?.value || "")
+
+  const type = column.type || "text"
+  const currentSort = sorts.find((s) => s.field === column.field)
+  const hasFilter = filters[column.field]
+
+  const operators = {
+    text: [
+      { value: "contains", label: "Contains" },
+      { value: "equals", label: "Equals" },
+      { value: "startsWith", label: "Starts with" },
+      { value: "endsWith", label: "Ends with" },
+    ],
+    number: [
+      { value: "equals", label: "Equals" },
+      { value: "greaterThan", label: "Greater than" },
+      { value: "lessThan", label: "Less than" },
+      { value: "greaterThanOrEqual", label: "Greater than or equal" },
+      { value: "lessThanOrEqual", label: "Less than or equal" },
+    ],
+    date: [
+      { value: "equals", label: "Equals" },
+      { value: "after", label: "After" },
+      { value: "before", label: "Before" },
+    ],
+  }
+
+  const handleApplyFilter = useCallback(() => {
+    onFilter(column.field, type, filterOperator, filterValue)
+  }, [onFilter, column.field, type, filterOperator, filterValue])
+
+  const handleClearFilter = useCallback(() => {
+    setFilterValue("")
+    setFilterOperator("contains")
+    onClearFilter(column.field)
+  }, [onClearFilter, column.field])
+
+  const handleSort = useCallback(() => {
+    onSort(column.field)
+  }, [onSort, column.field])
+
+  const getSortLabel = currentSort
+    ? currentSort.direction === "asc"
+      ? "Sort Descending"
+      : "Remove Sort"
+    : "Sort Ascending"
+
+  const getSortIcon = currentSort ? (
+    currentSort.direction === "asc" ? (
+      <ArrowUp className="h-4 w-4" />
+    ) : (
+      <ArrowDown className="h-4 w-4" />
+    )
+  ) : (
+    <ArrowUpDown className="h-4 w-4" />
+  )
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-7 w-7 p-0 hover:bg-slate-600/20 text-white rounded-md transition-all duration-200",
+            (currentSort || hasFilter || column.pinned) && "bg-slate-600/30 shadow-sm",
+          )}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-80 p-0 bg-white border-slate-200 shadow-xl rounded-lg" align="end">
+        <div className="p-5 space-y-5 bg-white">
+          {/* Sort Section */}
+          {column.sortable !== false && (
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sort Options</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSort}
+                className="w-full justify-start gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 font-medium py-2.5 rounded-lg transition-all duration-200"
+              >
+                {getSortIcon}
+                {getSortLabel}
+              </Button>
+            </div>
+          )}
+
+          {/* Filter Section */}
+          {column.filterable !== false && (
+            <>
+              <div className="h-px bg-slate-200"></div>
+              <div className="space-y-4">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter Options</label>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-600">Filter Type</label>
+                  <select
+                    value={filterOperator}
+                    onChange={(e) => setFilterOperator(e.target.value)}
+                    className="w-full p-3 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  >
+                    {operators[type]?.map((op) => (
+                      <option key={op.value} value={op.value}>
+                        {op.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-600">Filter Value</label>
+                  <Input
+                    type={type === "number" ? "number" : type === "date" ? "date" : "text"}
+                    value={filterValue}
+                    onChange={(e) => setFilterValue(e.target.value)}
+                    className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 rounded-lg py-2.5"
+                    placeholder="Enter filter value..."
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    onClick={handleApplyFilter}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
+                  >
+                    Apply Filter
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleClearFilter}
+                    className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-lg transition-all duration-200 hover:shadow-md"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Pin Section */}
+          <div className="h-px bg-slate-200"></div>
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pin Column</label>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                size="sm"
+                variant={column.pinned === "left" ? "default" : "outline"}
+                onClick={() => onPin(column.field, "left")}
+                className={cn(
+                  "text-xs font-medium py-2.5 rounded-lg transition-all duration-200",
+                  column.pinned === "left"
+                    ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700",
+                )}
+              >
+                <Pin className="h-3 w-3 mr-1" />
+                Left
+              </Button>
+              <Button
+                size="sm"
+                variant={!column.pinned ? "default" : "outline"}
+                onClick={() => onPin(column.field, null)}
+                className={cn(
+                  "text-xs font-medium py-2.5 rounded-lg transition-all duration-200",
+                  !column.pinned
+                    ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700",
+                )}
+              >
+                <PinOff className="h-3 w-3 mr-1" />
+                None
+              </Button>
+              <Button
+                size="sm"
+                variant={column.pinned === "right" ? "default" : "outline"}
+                onClick={() => onPin(column.field, "right")}
+                className={cn(
+                  "text-xs font-medium py-2.5 rounded-lg transition-all duration-200",
+                  column.pinned === "right"
+                    ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700",
+                )}
+              >
+                <Pin className="h-3 w-3 mr-1" />
+                Right
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+})
+
+export function AdvancedDataTable({ data, columns, onDataChange, className }: AdvancedDataTableProps) {
+  const [filteredData, setFilteredData] = useState<TableData[]>(data)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
+  const [editingCell, setEditingCell] = useState<{ row: number; field: string } | null>(null)
+  const [editValue, setEditValue] = useState<any>("")
+  const [filters, setFilters] = useState<FilterState>({})
+  const [sorts, setSorts] = useState<SortState[]>([])
+  const [hasChanges, setHasChanges] = useState(false)
+
+  const rowsPerPage = 100
+  const minVisibleRows = 10
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerHeight, setContainerHeight] = useState(600)
+
+  const pinnedColumns = useMemo(() => {
+    const left = columns.filter((col) => col.pinned === "left")
+    const right = columns.filter((col) => col.pinned === "right")
+    const center = columns.filter((col) => !col.pinned)
+    return { left, center, right }
+  }, [columns])
+
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage)
+    const startIndex = (currentPage - 1) * rowsPerPage
+    const endIndex = Math.min(startIndex + rowsPerPage, filteredData.length)
+    const currentPageData = filteredData.slice(startIndex, endIndex)
+
+    return { totalPages, startIndex, endIndex, currentPageData }
+  }, [filteredData, currentPage, rowsPerPage])
+
+  const displayData = useMemo(() => {
+    const pageData = [...paginationData.currentPageData]
+    while (pageData.length < minVisibleRows) {
+      pageData.push({})
+    }
+    return pageData
+  }, [paginationData.currentPageData, minVisibleRows])
+
+  const processedData = useMemo(() => {
+    let result = [...data]
+
+    // Apply filters
+    Object.entries(filters).forEach(([field, filter]) => {
+      result = result.filter((row) => {
+        const value = row[field]
+        const filterValue = filter.value
+
+        if (filterValue === "" || filterValue === null || filterValue === undefined) return true
+
+        switch (filter.type) {
+          case "text":
+            const strValue = String(value).toLowerCase()
+            const strFilter = String(filterValue).toLowerCase()
+            switch (filter.operator) {
+              case "contains":
+                return strValue.includes(strFilter)
+              case "equals":
+                return strValue === strFilter
+              case "startsWith":
+                return strValue.startsWith(strFilter)
+              case "endsWith":
+                return strValue.endsWith(strFilter)
+              default:
+                return true
+            }
+          case "number":
+            const numValue = Number(value)
+            const numFilter = Number(filterValue)
+            switch (filter.operator) {
+              case "equals":
+                return numValue === numFilter
+              case "greaterThan":
+                return numValue > numFilter
+              case "lessThan":
+                return numValue < numFilter
+              case "greaterThanOrEqual":
+                return numValue >= numFilter
+              case "lessThanOrEqual":
+                return numValue <= numFilter
+              default:
+                return true
+            }
+          case "date":
+            const dateValue = new Date(value)
+            const dateFilter = new Date(filterValue)
+            switch (filter.operator) {
+              case "equals":
+                return dateValue.toDateString() === dateFilter.toDateString()
+              case "after":
+                return dateValue > dateFilter
+              case "before":
+                return dateValue < dateFilter
+              default:
+                return true
+            }
+          default:
+            return true
+        }
+      })
+    })
+
+    // Apply sorts
+    if (sorts.length > 0) {
+      result.sort((a, b) => {
+        for (const sort of sorts) {
+          const aVal = a[sort.field]
+          const bVal = b[sort.field]
+
+          if (aVal === bVal) continue
+
+          const comparison = aVal < bVal ? -1 : 1
+          return sort.direction === "asc" ? comparison : -comparison
+        }
+        return 0
+      })
+    }
+
+    return result
+  }, [data, filters, sorts])
+
+  useEffect(() => {
+    setFilteredData(processedData)
+    setCurrentPage(1)
+  }, [processedData])
+
+  const orderedColumns = useMemo(() => {
+    return [...pinnedColumns.left, ...pinnedColumns.center, ...pinnedColumns.right]
+  }, [pinnedColumns])
+
+  const handleSort = useCallback((field: string) => {
+    setSorts((prev) => {
+      const existingSort = prev.find((s) => s.field === field)
+      if (existingSort) {
+        if (existingSort.direction === "asc") {
+          return prev.map((s) => (s.field === field ? { ...s, direction: "desc" as const } : s))
+        } else {
+          return prev.filter((s) => s.field !== field)
+        }
+      } else {
+        return [...prev, { field, direction: "asc" as const }]
+      }
+    })
+  }, [])
+
+  const handleFilter = useCallback((field: string, type: string, operator: string, value: any) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: { type: type as any, operator, value },
+    }))
+  }, [])
+
+  const clearFilter = useCallback((field: string) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev }
+      delete newFilters[field]
+      return newFilters
+    })
+  }, [])
+
+  const handleCellEdit = useCallback((rowIndex: number, field: string, value: any) => {
+    setEditingCell({ row: rowIndex, field })
+    setEditValue(value)
+  }, [])
+
+  const saveEdit = useCallback(() => {
+    if (!editingCell) return
+
+    const actualRowIndex = paginationData.startIndex + editingCell.row
+    const newData = [...data]
+    newData[actualRowIndex] = {
+      ...newData[actualRowIndex],
+      [editingCell.field]: editValue,
+    }
+
+    onDataChange?.(newData)
+    setEditingCell(null)
+    setHasChanges(true)
+  }, [editingCell, editValue, data, onDataChange, paginationData.startIndex])
+
+  const cancelEdit = useCallback(() => {
+    setEditingCell(null)
+    setEditValue("")
+  }, [])
+
+  const handleRowSelect = useCallback(
+    (rowIndex: number, checked: boolean) => {
+      setSelectedRows((prev) => {
+        const newSet = new Set(prev)
+        const actualIndex = paginationData.startIndex + rowIndex
+        if (checked) {
+          newSet.add(actualIndex)
+        } else {
+          newSet.delete(actualIndex)
+        }
+        return newSet
+      })
+    },
+    [paginationData.startIndex],
+  )
+
+  const handleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        const allIndices = new Set(Array.from({ length: filteredData.length }, (_, i) => i))
+        setSelectedRows(allIndices)
+      } else {
+        setSelectedRows(new Set())
+      }
+    },
+    [filteredData.length],
+  )
+
+  const deleteSelectedRows = useCallback(() => {
+    if (selectedRows.size === 0) return
+
+    const newData = data.filter((_, index) => !selectedRows.has(index))
+    onDataChange?.(newData)
+    setSelectedRows(new Set())
+    setHasChanges(true)
+  }, [data, selectedRows, onDataChange])
+
+  const exportData = useCallback(
+    (format: "csv" | "excel") => {
+      const exportData = filteredData
+      const headers = columns.map((col) => col.headerName).join(",")
+      const rows = exportData.map((row) => columns.map((col) => row[col.field] || "").join(",")).join("\n")
+
+      const csvContent = `${headers}\n${rows}`
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `export.${format === "excel" ? "csv" : "csv"}`
+      a.click()
+      URL.revokeObjectURL(url)
+    },
+    [filteredData, columns],
+  )
+
+  const handleColumnPin = useCallback(
+    (field: string, position: "left" | "right" | null) => {
+      const updatedColumns = columns.map((col) => (col.field === field ? { ...col, pinned: position } : col))
+      onDataChange?.(updatedColumns)
+    },
+    [columns, onDataChange],
+  )
+
+  return (
+    <div className={cn("w-full space-y-6 bg-slate-50", className)}>
+      <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <div className="flex items-center gap-4">
+          {selectedRows.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={deleteSelectedRows}
+              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete ({selectedRows.size})
+            </Button>
+          )}
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
+            <div>
+              <div className="text-lg font-bold text-slate-800">
+                {filteredData.length.toLocaleString()}{" "}
+                <span className="text-sm font-medium text-slate-500">records</span>
+              </div>
+              <div className="text-xs text-slate-500">
+                {selectedRows.size > 0 && `${selectedRows.size} selected • `}
+                Page {currentPage} of {paginationData.totalPages || 1}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Data
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-white border-slate-200 shadow-lg rounded-lg">
+              <DropdownMenuItem onClick={() => exportData("csv")} className="hover:bg-slate-50">
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportData("excel")} className="hover:bg-slate-50">
+                Export as Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="overflow-auto" style={{ height: containerHeight }}>
+          <div className="relative">
+            <table className="w-full border-collapse min-w-full">
+              <thead>
+                <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600">
+                  <th className="sticky left-0 z-20 w-14 p-0 bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600">
+                    <div className="flex items-center justify-center h-12">
+                      <Checkbox
+                        checked={selectedRows.size === filteredData.length && filteredData.length > 0}
+                        onCheckedChange={handleSelectAll}
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-400 rounded"
+                      />
+                    </div>
+                  </th>
+                  {orderedColumns.map((column) => {
+                    const isLeftPinned = column.pinned === "left"
+                    const isRightPinned = column.pinned === "right"
+                    const leftOffset = isLeftPinned
+                      ? 56 +
+                        pinnedColumns.left
+                          .slice(0, pinnedColumns.left.indexOf(column))
+                          .reduce((acc, col) => acc + (col.width || 180), 0)
+                      : undefined
+                    const rightOffset = isRightPinned
+                      ? pinnedColumns.right
+                          .slice(pinnedColumns.right.indexOf(column) + 1)
+                          .reduce((acc, col) => acc + (col.width || 180), 0)
+                      : undefined
+
+                    return (
+                      <th
+                        key={column.field}
+                        className={cn(
+                          "text-left p-0 font-bold text-sm bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600 relative group",
+                          isLeftPinned && "sticky z-10 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
+                          isRightPinned && "sticky z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
+                        )}
+                        style={{
+                          width: column.width || 180,
+                          minWidth: column.minWidth || 120,
+                          left: leftOffset,
+                          right: rightOffset,
+                        }}
+                      >
+                        <div className="flex items-center justify-between h-12 px-4">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <GripVertical className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                            <span className="truncate font-bold text-white text-sm tracking-wide">
+                              {column.headerName}
+                            </span>
+                          </div>
+                          <div className="flex items-center ml-3">
+                            <ColumnActionsDropdown
+                              column={column}
+                              sorts={sorts}
+                              filters={filters}
+                              onSort={handleSort}
+                              onFilter={handleFilter}
+                              onClearFilter={clearFilter}
+                              onPin={handleColumnPin}
+                              data={data}
+                            />
+                          </div>
+                        </div>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+
+              <tbody>
+                {displayData.map((row, rowIndex) => {
+                  const actualIndex = paginationData.startIndex + rowIndex
+                  const isSelected = selectedRows.has(actualIndex)
+                  const isEmpty = Object.keys(row).length === 0
+
+                  return (
+                    <tr
+                      key={rowIndex}
+                      className={cn(
+                        "border-b border-slate-100 hover:bg-blue-50/50 transition-all duration-150",
+                        isSelected && "bg-blue-50 border-blue-200",
+                        isEmpty && "opacity-30",
+                        rowIndex % 2 === 0 && "bg-slate-50/30",
+                      )}
+                    >
+                      <td className="sticky left-0 z-10 p-0 bg-white border-r border-slate-200">
+                        <div className="flex items-center justify-center h-11">
+                          {!isEmpty && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleRowSelect(rowIndex, checked as boolean)}
+                              className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-300 rounded"
+                            />
+                          )}
+                        </div>
+                      </td>
+                      {orderedColumns.map((column) => {
+                        const isLeftPinned = column.pinned === "left"
+                        const isRightPinned = column.pinned === "right"
+                        const leftOffset = isLeftPinned
+                          ? 56 +
+                            pinnedColumns.left
+                              .slice(0, pinnedColumns.left.indexOf(column))
+                              .reduce((acc, col) => acc + (col.width || 180), 0)
+                          : undefined
+                        const rightOffset = isRightPinned
+                          ? pinnedColumns.right
+                              .slice(pinnedColumns.right.indexOf(column) + 1)
+                              .reduce((acc, col) => acc + (col.width || 180), 0)
+                          : undefined
+
+                        return (
+                          <td
+                            key={column.field}
+                            className={cn(
+                              "p-0 border-r border-slate-200 relative",
+                              isLeftPinned && "sticky z-10 bg-white shadow-[4px_0_8px_rgba(0,0,0,0.08)]",
+                              isRightPinned && "sticky z-10 bg-white shadow-[-4px_0_8px_rgba(0,0,0,0.08)]",
+                              isSelected && (isLeftPinned || isRightPinned) && "bg-blue-50",
+                            )}
+                            style={{
+                              width: column.width || 180,
+                              minWidth: column.minWidth || 120,
+                              left: leftOffset,
+                              right: rightOffset,
+                            }}
+                          >
+                            <div className="h-11 px-4 flex items-center">
+                              {!isEmpty && (
+                                <CellRenderer
+                                  value={row[column.field]}
+                                  column={column}
+                                  isEditing={editingCell?.row === rowIndex && editingCell?.field === column.field}
+                                  editValue={editValue}
+                                  onEdit={(value) => handleCellEdit(rowIndex, column.field, value)}
+                                  onSave={saveEdit}
+                                  onCancel={cancelEdit}
+                                  onEditValueChange={setEditValue}
+                                  rowData={row}
+                                />
+                              )}
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-slate-600 font-medium">
+            Showing <span className="font-bold text-slate-800">{paginationData.startIndex + 1}</span> to{" "}
+            <span className="font-bold text-slate-800">{paginationData.endIndex}</span> of{" "}
+            <span className="font-bold text-slate-800">{filteredData.length.toLocaleString()}</span> entries
+          </div>
+          {filteredData.length !== data.length && (
+            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full font-medium">
+              Filtered from {data.length.toLocaleString()} total
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md disabled:opacity-50"
+          >
+            Previous
+          </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-600">Page</span>
+            <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-bold min-w-[3rem] text-center shadow-sm">
+              {currentPage}
+            </div>
+            <span className="text-sm font-medium text-slate-600">of {paginationData.totalPages || 1}</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(paginationData.totalPages, prev + 1))}
+            disabled={currentPage === paginationData.totalPages || paginationData.totalPages === 0}
+            className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md disabled:opacity-50"
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}

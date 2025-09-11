@@ -7,8 +7,8 @@ import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard';
 import InventoryHealth from "./inventoryHealth";
 import ASinLiqudation from "./asinliqudation";
 import ASinExcess from "./asinexcess";
-
 import InventoryStats from "./inventoryStats";
+import TopRestockRecommendations from "./RestockRecommendations";
 
 import { Bar as ChartBar } from "react-chartjs-2";
 import {
@@ -27,6 +27,7 @@ import LineColumnAreaChart from "./linenadbarchart";
 import { Widgets } from "@mui/icons-material";
 import Cards from "./cards";
 import AdsRevenueApp from "./cards";
+import InventoryReplenishment from "../components/InventoryReplenishment";
 
 // Register Chart.js components
 ChartJS.register(
@@ -172,44 +173,35 @@ export default function CampaignPerformanceLayout() {
   const adsChartRef = useRef(null);
 
   return (
-    <div className="min-h-screen w-full p-6 bg-[#f6fafd] flex flex-col gap-6 font-sans">
+    <div className="min-h-screen w-full px-12 py-8 bg-[#f6fafd] flex flex-col gap-6 font-sans">
       {/* --- Page Heading --- */}
       <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">Inventory Dashboard</h1>
       <InventoryStats />
-      {/* --- Top Stat Cards Row --- */}
       
-      {/* --- Section 1: Bar Chart and Large Card --- */}
-      <div className="flex gap-4">
-        {/* Left: Bar Chart, 40% width */}
-        <div className="rounded-2xl bg-white/80 h-[50vh] shadow-lg flex items-center justify-center p-2 w-full transition duration-200 hover:shadow-[0_4px_32px_0_rgba(37,99,235,0.15)] hover:ring-2 hover:ring-blue-200">
-          <LineColumnAreaChart chartColors={""} chartDarkColors={""} chartId={chartRef} />
+      {/* --- Section 1: Bar Chart and Restock Recommendations --- */}
+      <div className="flex gap-4 items-stretch">
+        {/* Left: Chart */}
+        <div className="w-[70%]">
+          <LineColumnAreaChart chartColors="" chartDarkColors="" chartId={chartRef} />
         </div>
-        
+
+        {/* Right: Replenishment */}
+        <div className="w-[30%]">
+          <InventoryReplenishment />
+        </div>
       </div>
-
-      {/* --- Section 2: Large card, next to a card with two cylinders inside --- */}
-      
-     
-
-      {/* --- Section 4: Large card, next to a card with two stacked rectangles --- */}
-     
 
       {/* --- Bottom: Three Large Chart Cards with Table --- */}
       <div className="flex flex-col gap-6 w-full">
-        <div className="bg-white rounded-2xl shadow-lg p-4 w-full flex flex-col mb-6">
-          <h2 className="text-2xl font-bold text-blue-700 mb-4 text-center">Inventory Health</h2>
           <InventoryHealth />
-        </div>
         <div className="flex flex-col lg:flex-row gap-6 w-full">
           <div className="flex-1 min-w-0 min-h-[300px] flex">
-            <div className="bg-white rounded-2xl shadow-lg p-4 w-full h-full flex flex-col">
-              <h2 className="text-2xl font-bold text-blue-700 mb-4 text-center">ASIN Liquidation</h2>
+            <div className="bg-white rounded-2xl shadow-lg w-full h-full flex flex-col">
               <ASinLiqudation />
             </div>
           </div>
           <div className="flex-1 min-w-0 min-h-[300px] flex">
-            <div className="bg-white rounded-2xl shadow-lg p-4 w-full h-full flex flex-col">
-              <h2 className="text-2xl font-bold text-blue-700 mb-4 text-center">ASIN Excess</h2>
+            <div className="bg-white rounded-2xl shadow-lg w-full h-full flex flex-col">
               <ASinExcess />
             </div>
           </div>

@@ -227,3 +227,46 @@ export interface ASINImagesResponse {
     generated_at: string | null;
   };
 }
+
+
+export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
+
+export interface DateRange {
+  startDate: string; // ISO date string (YYYY-MM-DD)
+  endDate: string;   // ISO date string (YYYY-MM-DD)
+  preset: DateRangePreset;
+}
+
+export interface DateRangeContextType {
+  dateRange: DateRange;
+  setDateRange: (range: DateRange) => void;
+  updatePreset: (preset: DateRangePreset) => void;
+  updateCustomDates: (startDate: string, endDate: string) => void;
+}
+
+export interface CurrencyInfo {
+  symbol: string;
+  name: string;
+  position: 'before' | 'after';
+}
+
+export interface MarketplaceCurrency {
+  currency_code: string;
+  currency_info: CurrencyInfo;
+}
+
+export interface CurrencyData {
+  [marketplaceId: string]: MarketplaceCurrency;
+}
+
+export interface CurrencyContextType {
+  currencies: CurrencyData;
+  isLoading: boolean;
+  error: string | null;
+  formatCurrency: (value: number, marketplaceId?: string) => string;
+  formatNumber: (value: number) => string;
+  formatPercentage: (value: number) => string;
+  formatChange: (change: number, suffix?: string) => string;
+  primaryCurrency: CurrencyInfo | null;
+  refetchCurrencies: () => Promise<void>;
+}

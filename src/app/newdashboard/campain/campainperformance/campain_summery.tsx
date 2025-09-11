@@ -1,222 +1,277 @@
 "use client"
 
-import { useMemo, useState, useEffect } from 'react'
-import {
-  MaterialReactTable,
-  type MRT_ColumnDef,
-  type MRT_ColumnFiltersState,
-  type MRT_PaginationState,
-  type MRT_SortingState,
-} from 'material-react-table'
-import { Box, Typography, Button, Grid, Card, CardContent, Chip } from '@mui/material'
-import { ViewList, ViewModule } from '@mui/icons-material'
+import { useMemo, useState } from 'react'
+import { Typography } from '@mui/material'
 import { useCampaignSummaryWithParams } from '@/lib/hooks/queries/use-dashboard'
+import { useCurrency } from '@/lib/context/CurrencyContext' 
 import type { CampaignSummaryItem } from '@/lib/api/services/dashboard.service'
+import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
 
-interface CampaignSummary {
-  "Campaign Name": string;
-  Impressions: string;
-  Clicks: string;
-  "CTR%": string;
-  "Ad Cost": string;
-  "Cost/Click": string;
-  "Units Sold": string;
-  Sales: string;
-  "ACOS%": string;
+interface CampaignAdsSummaryProps {
+  startDate?: string;
+  endDate?: string;
+  period?: string;
 }
 
-export default function CampainAdsSummery() {
-  // Fetch real campaign data from API
+export default function CampaignAdsSummary({ 
+  startDate, 
+  endDate, 
+  period = '30d' 
+}: CampaignAdsSummaryProps = {}) {
+
+  const { formatCurrency, formatNumber, formatPercentage } = useCurrency();
+
+  // Fetch real campaign data from API using provided date range
   const dateParams = useMemo(() => ({
-    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
-    period: '30d',
+    start_date: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end_date: endDate || new Date().toISOString().split('T')[0],
+    period,
     focus_level: 'all' as const
-  }), []);
+  }), [startDate, endDate, period]);
 
   const { data: apiCampaignData, isLoading: loading, error } = useCampaignSummaryWithParams(dateParams);
 
-  // Transform API data to match table format
-  const campaignData = useMemo(() => {
-    if (!apiCampaignData) return [];
-    
-    return apiCampaignData.map((campaign: CampaignSummaryItem) => ({
-      "Campaign Name": campaign.campaign_name || '',
-      Impressions: campaign.impressions?.toLocaleString() || '0',
-      Clicks: campaign.clicks?.toLocaleString() || '0',
-      "CTR%": campaign.ctr_percent ? `${campaign.ctr_percent.toFixed(2)}%` : '0%',
-      "Ad Cost": campaign.ad_cost ? `$${campaign.ad_cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0',
-      "Cost/Click": campaign.cost_per_click ? `$${campaign.cost_per_click.toFixed(2)}` : '$0',
-      "Units Sold": campaign.purchases?.toLocaleString() || '0',
-      Sales: campaign.sales ? `$${campaign.sales.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '$0',
-      "ACOS%": campaign.acos_percent ? `${campaign.acos_percent.toFixed(2)}%` : '0%',
-    }));
-  }, [apiCampaignData]);
-
-  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
-  const columns = useMemo<MRT_ColumnDef<CampaignSummary>[]>(() => [
+  // Define columns for the AdvancedDataTable
+  const tableColumns: ColumnDefinition[] = useMemo(() => [
     {
-      accessorKey: 'Campaign Name',
-      header: 'Campaign Name',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
+      field: 'campaign_name',
+      headerName: 'Campaign Name',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 280,
+      minWidth: 200,
+      pinned: 'left'
     },
     {
-      accessorKey: 'Impressions',
-      header: 'Impressions',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'impressions',
+      headerName: 'Impressions',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 200
     },
     {
-      accessorKey: 'Clicks',
-      header: 'Clicks',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'clicks',
+      headerName: 'Clicks',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 180,
+      minWidth: 200
     },
     {
-      accessorKey: 'CTR%',
-      header: 'CTR%',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'ctr_percent',
+      headerName: 'CTR%',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 180,
+      minWidth: 180
     },
     {
-      accessorKey: 'Ad Cost',
-      header: 'Ad Cost',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'ad_cost',
+      headerName: 'Ad Cost',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 180,
+      minWidth: 180
     },
     {
-      accessorKey: 'Cost/Click',
-      header: 'Cost/Click',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'cost_per_click',
+      headerName: 'Cost/Click',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 200
     },
     {
-      accessorKey: 'Units Sold',
-      header: 'Units Sold',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'units_sold',
+      headerName: 'Units Sold',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 200
     },
     {
-      accessorKey: 'Sales',
-      header: 'Sales',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
+      field: 'sales',
+      headerName: 'Sales',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 200
     },
     {
-      accessorKey: 'ACOS%',
-      header: 'ACOS%',
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: 'fuzzy',
-      Cell: ({ cell }) => <span style={{ textAlign: 'right', display: 'block' }}>{cell.getValue<string>()}</span>,
-    },
+      field: 'acos_percent',
+      headerName: 'ACOS%',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      width: 200,
+      minWidth: 200
+    }
   ], []);
 
-  // Handle loading and error states AFTER all hooks
+  const [columns, setColumns] = useState<ColumnDefinition[]>(tableColumns);
+
+  // Transform API data to match AdvancedDataTable format
+  const transformedData: TableData[] = useMemo(() => {
+    if (!apiCampaignData || !Array.isArray(apiCampaignData)) {
+      console.log('No valid campaign data found');
+      return [];
+    }
+    
+    console.log('Processing campaign items:', apiCampaignData.length);
+    
+    return apiCampaignData.map((campaign: CampaignSummaryItem, index: number) => {
+      return {
+        campaign_name: campaign.campaign_name || '',
+        impressions: formatNumber(campaign.impressions),
+        clicks: formatNumber(campaign.clicks),
+        ctr_percent: formatPercentage(campaign.ctr_percent),
+        ad_cost: formatCurrency(campaign.ad_cost),
+        cost_per_click: formatCurrency(campaign.cost_per_click),
+        units_sold: formatNumber(campaign.purchases),
+        sales: formatCurrency(campaign.sales),
+        acos_percent: formatPercentage(campaign.acos_percent),
+        // Store raw values for sorting/filtering if needed
+        _raw_impressions: campaign.impressions || 0,
+        _raw_clicks: campaign.clicks || 0,
+        _raw_ctr_percent: campaign.ctr_percent || 0,
+        _raw_ad_cost: campaign.ad_cost || 0,
+        _raw_cost_per_click: campaign.cost_per_click || 0,
+        _raw_units_sold: campaign.purchases || 0,
+        _raw_sales: campaign.sales || 0,
+        _raw_acos_percent: campaign.acos_percent || 0,
+      };
+    });
+  }, [apiCampaignData]);
+
+  // Debug log for transformed data
+  console.log('Transformed campaign data:', transformedData);
+
+  // Handle loading state
   if (loading) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          Loading campaign data...
-        </Typography>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Campaign Ads Summary
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <Typography variant="h6" color="text.secondary" className="ml-3">
+            Loading campaign data...
+          </Typography>
+        </div>
+      </div>
     );
   }
 
+  // Handle error state
   if (error) {
     return (
-      <Box sx={{ width: '100%', p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="error">
-          Failed to load campaign data
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {error?.message || 'Unknown error occurred'}
-        </Typography>
-      </Box>
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Campaign Ads Summary
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="error">
+              Failed to load campaign data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {error?.message || 'Unknown error occurred'}
+            </Typography>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle empty data state
+  if (!transformedData || transformedData.length === 0) {
+    return (
+      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Campaign Ads Summary
+          </h6>
+        </div>
+        <div className="p-4 md:p-6 flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center">
+            <Typography variant="h6" color="text.secondary">
+              No campaign data available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              No campaigns found for the selected date range
+            </Typography>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <MaterialReactTable
-        columns={columns}
-        data={campaignData}
-        enableColumnFilters
-        enableGlobalFilter
-        enableSorting
-        enablePagination
-        enableRowSelection
-        enableColumnResizing={true}
-        enableColumnPinning
-        enableDensityToggle
-        enableFullScreenToggle
-        enableColumnDragging
-        enableStickyHeader
-        enableStickyFooter
-        enableColumnFilterModes={true}
-        muiTableContainerProps={{
-          sx: {
-            maxHeight: 'calc(100vh - 200px)',
-            width: '100%',
-            overflowX: 'auto',
-          },
-        }}
-        muiTableHeadCellProps={(column) => ({
-          sx: {
-            backgroundColor: 'primary.main',
-            color: column?.column?.id === 'Campaign Name' ? 'black' : 'primary.contrastText',
-            fontWeight: 'bold',
-          },
-        })}
-        muiTableBodyCellProps={{
-          sx: {
-            borderBottom: '1px solid rgba(224, 224, 224, 1)',
-          },
-        }}
-        muiTableProps={{
-          sx: {
-            tableLayout: 'auto',
-            width: '100%',
-          },
-        }}
-        initialState={{
-          density: 'compact',
-          pagination: { pageSize: 15, pageIndex: 0 },
-          sorting: [{ id: 'Sales', desc: true }],
-          columnPinning: {
-            left: ['mrt-row-select', 'Campaign Name'],
-            right: [],
-          },
-        }}
-        displayColumnDefOptions={{
-          'mrt-row-select': {
-            size: 50,
-            enablePinning: true,
-          },
-        }}
-        muiTablePaperProps={{
-          elevation: 3,
-          sx: {
-            borderRadius: 2,
-          },
-        }}
-      />
-    </Box>
-  )
+    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      {/* Header - matches ASIN Performance styling */}
+      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            Campaign Ads Summary
+          </h6>
+          
+          {/* Summary info */}
+          <div className="text-right">
+            <div className="text-sm font-medium text-slate-700">
+              {transformedData.length} campaigns • {period.replace('d', ' days')}
+            </div>
+            <div className="text-xs text-slate-500">
+              {dateParams.start_date} to {dateParams.end_date}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Table Content */}
+      <div className="p-4 md:p-6 flex-1 min-h-0">
+        <AdvancedDataTable
+          data={transformedData}
+          columns={columns}
+          onDataChange={(newData) => {
+            // Handle data changes if needed for campaign data
+            console.log('Campaign data changed:', newData);
+          }}
+          onColumnsChange={setColumns}
+          className="w-full h-full"
+          showCheckboxColumn={false}
+        />
+        
+        {/* Footer info */}
+        <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <Typography variant="body2" color="text.secondary">
+            Campaign performance metrics for the last 30 days. Use filters and sorting to analyze individual campaign performance.
+            ACOS% represents advertising cost of sales, CTR% shows click-through rate.
+          </Typography>
+        </div>
+      </div>
+    </div>
+  );
 }

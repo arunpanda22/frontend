@@ -1,58 +1,63 @@
-// Path: src/components/layout/layout-wrapper.tsx
-"use client";
+'use client'
 
-import { useAuth } from "@/lib/context/AuthContext";
-import { useState, useEffect, createContext, useContext } from "react";
+import { createContext, useContext, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { Sidebar } from './sidebar'
 
-// Create a context for sidebar state
-const SidebarContext = createContext<{
-  isSidebarOpen: boolean;
-  setIsSidebarOpen: (open: boolean) => void;
-}>({
-  isSidebarOpen: true,
-  setIsSidebarOpen: () => {},
-});
+interface SidebarContextType {
+  isCollapsed: boolean
+  setIsCollapsed: (collapsed: boolean) => void
+}
 
-export const useSidebar = () => useContext(SidebarContext);
+const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
-export function LayoutWrapper({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+export const useSidebar = () => {
+  const context = useContext(SidebarContext)
+  if (context === undefined) {
+    throw new Error('useSidebar must be used within a SidebarProvider')
+  }
+  return context
+}
 
-  // Handle responsive behavior
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
-    };
+interface LayoutWrapperProps {
+  children: React.ReactNode
+}
 
-    // Set initial state
-    handleResize();
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+export function LayoutWrapper({ children }: LayoutWrapperProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const pathname = usePathname()
+  
+  // Define routes that should not show the sidebar
+  const routesWithoutSidebar = [
+    '/login',
+    '/signup',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/', // landing page
+  ]
+  
+  // Check if current path starts with /admin or is in the routes without sidebar
+  const shouldHideSidebar = pathname?.startsWith('/admin') || 
+                            routesWithoutSidebar.includes(pathname || '')
+  
+  // If sidebar should be hidden, render children without sidebar
+  if (shouldHideSidebar) {
+    return <div className="w-full">{children}</div>
+  }
 
   return (
-    <SidebarContext.Provider value={{ isSidebarOpen, setIsSidebarOpen }}>
-      <div className="min-h-screen">
-        {/* Main Content Area */}
-        <div className="pt-16">
-          {/* Content with dynamic sidebar spacing */}
-          <div className={`transition-all duration-300 ease-in-out ${
-            user && isSidebarOpen 
-              ? 'md:ml-80' 
-              : user 
-                ? 'md:ml-16' 
-                : ''
-          }`}>
-            {children}
-          </div>
+    <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
+      <div className="flex min-h-screen">
+        <div className={`flex-shrink-0 transition-all duration-300 ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}>
+          <Sidebar />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          {children}
         </div>
       </div>
     </SidebarContext.Provider>
-  );
+  )
 }

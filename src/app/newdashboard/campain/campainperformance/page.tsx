@@ -1,37 +1,89 @@
-"use client"
+"use client";
 import React from "react";
-import StatCardGrid from './statecardgrid'
-import CampainAdsSummery from './campain_summery'
+import CampaignMetricsCardGrid from "./CampaignMetricsCardGrid"; // Import the new component
+
 import CampaignSummaryCard from "./CampaignSummaryCard";
+import AdsTimelineChart from "./AdsTimelineChart";
+import FilterBar from "../../components/FilterBar";
+import { DateRangeProvider, useDateRange } from "@/lib/context/DateRangeContext";
+import type { Range } from "react-date-range"; 
+import SalesContributionDonut from "./SalesContributionDonut";
+import CampaignAdsSummary from "./campain_summery";
+import CampaignTablePage from "./CampaignXRay";
 
+const CampaignPerformancePage = () => {
+  // Access the date range context
+  const { dateRange, updateCustomDates } = useDateRange();
+  
+  // Convert context date range to FilterBar format
+  const filterBarDateRange = {
+    startDate: dateRange.startDate ? new Date(dateRange.startDate) : undefined,
+    endDate: dateRange.endDate ? new Date(dateRange.endDate) : undefined,
+    key: "selection" as const,
+  };
 
+  const handleDateRangeChange = (newRange: Range) => {
+    if (newRange.startDate && newRange.endDate) {
+      updateCustomDates(
+        newRange.startDate.toISOString().split("T")[0],
+        newRange.endDate.toISOString().split("T")[0]
+      );
+    }
+  };
 
-
-
-export default function CRMPage() {
   return (
-    <div className="min-h-screen bg-[#f8fafc] py-4 px-1 sm:px-2 md:px-4 w-full">
-      <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">Campaign Performance Dashboard</h1>
-      <div className="flex flex-col gap-4 sm:gap-6 w-full">
-         {/* Stat Cards Grid */}
-         <StatCardGrid />
+    <div className="min-h-screen bg-[#f8fafc] py-8 px-12">
+      <div className="w-full transition-all duration-300 sm:py-8">
+        <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">
+          Campaign Performance Dashboard
+        </h1>
         
-    
-       
-        {/* Campaign Performance Overview */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 w-full">
-          <CampaignSummaryCard />
-        </div>
-        {/* Leads Table */}
-        {/* Campaign Summary Table */}
-       
+        {/* Date Range Filter */}
+        <FilterBar
+          dateRange={filterBarDateRange}
+          onDateRangeChange={handleDateRangeChange}
+        />
 
-
-        <CampainAdsSummery />
-       
+        {/* Performance Snapshot Section */}
+        <div className="flex flex-col">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+            Performance Snapshot
+          </h2>
+          {/* Replace StatCardGrid with CampaignMetricsCardGrid */}
+          <CampaignMetricsCardGrid />
         </div>
-        
+
+        {/* Advertising Snapshot Section */}
+        <div className="flex flex-col">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
+            Advertising Snapshot
+          </h2>
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 md:gap-6 md:py-6 lg:py-8">
+            <div className="rounded-2xl flex w-full bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-5 row-span-1 transition-all duration-300 animate-fadein delay-300 h-full">
+              <AdsTimelineChart />
+            </div>
+            <div className="rounded-2xl flex w-full bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-2 row-span-1 transition-all duration-300 animate-fadein delay-300 h-full">
+              <SalesContributionDonut />
+            </div>
+          </div>
+          {/* Campaign Summary Table */}
+          <CampaignAdsSummary 
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            period={dateRange.preset || '30d'}
+          />
+        </div>
+        <CampaignTablePage />
       </div>
-    
+    </div>
+  );
+}
+
+// Main wrapper component
+export default function CampaignLayout() {
+  return (
+    <DateRangeProvider defaultPreset="30d">
+      <CampaignPerformancePage />
+    </DateRangeProvider>
   );
 }

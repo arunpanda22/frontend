@@ -174,7 +174,7 @@ export default function ProfileDropdown() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-gray-900 truncate">
-                                {u.first_name} {u.last_name}
+                                {u.display_name} 
                               </div>
                               <div className="text-xs text-gray-500 truncate">
                                 {u.email} • {u.role}

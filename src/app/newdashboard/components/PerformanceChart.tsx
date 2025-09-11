@@ -23,7 +23,6 @@ ChartJS.register(
 );
 
 const DATASET_OPTIONS = [
-  { label: 'Daily', value: 'dailysails' },
   { label: 'Weekly', value: 'weeklysails' },
   { label: 'Monthly', value: 'monthlysails' },
 ];
@@ -76,7 +75,7 @@ const PerformanceChart = () => {
   const cardDropdownRefs = [React.useRef<HTMLDivElement>(null), React.useRef<HTMLDivElement>(null), React.useRef<HTMLDivElement>(null), React.useRef<HTMLDivElement>(null)];
 
   // Dropdown state
-  const [granularity, setGranularity] = useState<'dailysails' | 'weeklysails' | 'monthlysails'>('monthlysails');
+  const [granularity, setGranularity] = useState< 'weeklysails' | 'monthlysails'>('monthlysails');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -529,7 +528,7 @@ const PerformanceChart = () => {
                 <button
                   key={opt.value}
                   className={`w-full text-left px-4 py-2 hover:bg-slate-100 ${granularity === opt.value ? 'bg-slate-100 font-semibold' : ''}`}
-                  onClick={() => { setGranularity(opt.value as 'dailysails' | 'weeklysails' | 'monthlysails'); setDropdownOpen(false); }}
+                  onClick={() => { setGranularity(opt.value as 'weeklysails' | 'monthlysails'); setDropdownOpen(false); }}
                   type="button"
                 >
                   {opt.label}
@@ -539,69 +538,7 @@ const PerformanceChart = () => {
           )}
         </div>
         {/* Date Range Picker with quick selects */}
-        <div className="ml-4 relative">
-          <button
-            className="border border-slate-300 rounded px-4 py-2 text-slate-700 bg-white shadow-sm flex items-center gap-2 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]"
-            onClick={() => setPickerOpen((open) => !open)}
-            type="button"
-          >
-            {startDate && endDate
-              ? `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
-              : 'Select date range'}
-            <svg className={`w-4 h-4 ml-1 transition-transform ${pickerOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          {pickerOpen && (
-            <div className="absolute right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 flex flex-row p-4" style={{ minWidth: 420 }}>
-              {/* Quick selects */}
-              <div className="flex flex-col pr-4 gap-2">
-                <button className={`text-left px-3 py-2 rounded ${quick === 'lastWeek' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => {
-                  setQuick('lastWeek');
-                  setDateRange({
-                    startDate: subDays(new Date(), 7),
-                    endDate: new Date(),
-                    key: 'selection',
-                  });
-                }}>Last Week</button>
-                <button className={`text-left px-3 py-2 rounded ${quick === 'lastMonth' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => {
-                  setQuick('lastMonth');
-                  setDateRange({
-                    startDate: startOfMonth(subDays(new Date(), 30)),
-                    endDate: new Date(),
-                    key: 'selection',
-                  });
-                }}>Last Month</button>
-                <button className={`text-left px-3 py-2 rounded ${quick === 'lastYear' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => {
-                  setQuick('lastYear');
-                  setDateRange({
-                    startDate: startOfYear(subDays(new Date(), 365)),
-                    endDate: new Date(),
-                    key: 'selection',
-                  });
-                }}>Last Year</button>
-                <button className={`text-left px-3 py-2 rounded ${quick === 'custom' ? 'bg-slate-100 font-semibold' : ''}`} onClick={() => setQuick('custom')}>Custom</button>
-                <button className="mt-4 bg-slate-900 text-white px-3 py-2 rounded font-semibold hover:bg-slate-800 transition" onClick={() => setPickerOpen(false)}>Apply</button>
-              </div>
-              {/* Calendar */}
-              <div className="pl-4">
-                <DateRangePicker
-                  onChange={(item: RangeKeyDict) => {
-                    setDateRange(item.selection);
-                    setQuick('custom');
-                  }}
-                  moveRangeOnFirstSelection={false}
-                  ranges={[dateRange]}
-                  months={1}
-                  direction="horizontal"
-                  rangeColors={["#2563eb"]}
-                  editableDateInputs={true}
-                  maxDate={new Date()}
-                  staticRanges={[]}
-                  inputRanges={[]}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+  
       </div>
       {/* KPI Cards Grid with independent dropdowns */}
       {selectedMetrics.length > 0 && (

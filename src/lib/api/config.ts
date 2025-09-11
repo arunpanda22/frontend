@@ -163,6 +163,9 @@ apiClient.interceptors.response.use(
 // Debug interceptor for development (request only, response handled by main interceptor)
 if (process.env.NODE_ENV === 'development') {
   apiClient.interceptors.request.use(request => {
+    // logging for developmet
+    console.log('🔑 Authorization:', request.headers?.Authorization);
+    console.log('🛡️ CSRF Token:', request.headers?.['X-CSRFToken']);
     // Only log non-auth requests to reduce noise
     if (!request.url?.includes('verify-token') && !request.url?.includes('auth')) {
       console.log('🌐 API Request:', {
