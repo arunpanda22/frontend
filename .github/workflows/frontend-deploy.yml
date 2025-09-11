@@ -1,22 +1,22 @@
-name: Build and deploy to test-server
+Qsc!@#$123name: Build and Deploy
 
 on:
   push:
-    branches: [ test-server ]
+    branches: [ main ]
     paths:
       - '**'
-      - '.github/workflows/frontend-deploy-test-server.yml'
+      - '.github/workflows/frontend-deploy.yml'
   workflow_dispatch:
 
 env:
   AZURE_WEBAPP_NAME: ${{ secrets.AZURE_FRONTEND_WEBAPP_NAME_PROD }}
-  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE_PROD  }}
+  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE_PROD }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment:
-      name: test-server
+      name: production
 
     steps:
       # Step 1: Checkout the repository
