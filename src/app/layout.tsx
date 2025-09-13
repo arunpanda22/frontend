@@ -7,7 +7,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Navbar } from '@/components/layout/new-navbar'
+import { Navbar } from '@/components/layout/navbar'
 import Footer from '@/components/layout/footer'
 import { Providers } from '@/lib/providers/providers'
 import { LayoutWrapper } from '@/components/layout/layout-wrapper'

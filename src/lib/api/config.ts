@@ -53,108 +53,79 @@ export function clearAuthTokenCache() {
 }
 
 // Authentication interceptor
-// apiClient.interceptors.request.use(
-//   async (config: InternalAxiosRequestConfig) => {
-//     try {
-//       const currentUser = auth?.currentUser;
-//       if (currentUser) {
-//         const now = Date.now();
-        
-//         // Use cached token if valid and not expired
-//         if (cachedToken && now < tokenExpiry - 15 * 60 * 1000) { // 15-minute buffer
-//           if (!config.headers) {
-//             config.headers = new AxiosHeaders();
-//           }
-//           config.headers.set('Authorization', `Bearer ${cachedToken}`);
-//           return config;
-//         }
-        
-//         // Prevent excessive token requests by enforcing minimum interval
-//         if (now - lastTokenFetch < MIN_TOKEN_INTERVAL && tokenPromise) {
-//           if (process.env.NODE_ENV === 'development') {
-//             console.log('⏳ Waiting for existing token request...');
-//           }
-//           cachedToken = await tokenPromise;
-//         } else if (!cachedToken || now >= tokenExpiry - 15 * 60 * 1000) {
-//           // Only fetch new token if cache is truly expired or missing
-//           if (!tokenPromise || now - lastTokenFetch >= MIN_TOKEN_INTERVAL) {
-//             lastTokenFetch = now;
-//             if (process.env.NODE_ENV === 'development') {
-//               console.log('🔄 Fetching fresh Firebase token (cache expired)');
-//             }
-            
-//             tokenPromise = currentUser.getIdToken(true).then(token => {  // Force refresh
-//               cachedToken = token;
-//               // Firebase tokens are valid for 1 hour, set expiry with 15-minute buffer
-//               tokenExpiry = now + 45 * 60 * 1000; // 45 minutes from now
-//               if (process.env.NODE_ENV === 'development') {
-//                 console.log('✅ Fresh Firebase token cached');
-//               }
-//               return token;
-//             }).catch(error => {
-//               // Clear cache and promise on error
-//               cachedToken = null;
-//               tokenExpiry = 0;
-//               if (process.env.NODE_ENV === 'development') {
-//                 console.error('❌ Token fetch failed:', error);
-//               }
-//               throw error;
-//             }).finally(() => {
-//               // Clear promise after completion (success or failure)
-//               setTimeout(() => { tokenPromise = null; }, 1000);
-//             });
-//           }
-          
-//           if (tokenPromise) {
-//             cachedToken = await tokenPromise;
-//           }
-//         }
-        
-//         if (!config.headers) {
-//           config.headers = new AxiosHeaders();
-//         }
-//         config.headers.set('Authorization', `Bearer ${cachedToken}`);
-//       }
-//     } catch (error) {
-//       console.error('Error getting auth token:', error);
-//       // Clear all cache on error
-//       cachedToken = null;
-//       tokenExpiry = 0;
-//       tokenPromise = null;
-//     }
-//     return config;
-//   },
-//   (error) => {
-//     return Promise.reject(error);
-//   }
-// );
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
       const currentUser = auth?.currentUser;
       if (currentUser) {
-        // Always get a fresh token or reuse the pending promise
-        if (!tokenPromise) {
-          tokenPromise = currentUser.getIdToken(false) // Use cached token
-            .catch(() => currentUser.getIdToken(true)) // Force refresh on error
-            .finally(() => {
-              // Clear promise after 55 minutes to force refresh
-              setTimeout(() => { tokenPromise = null; }, 55 * 60 * 1000);
-            });
+        const now = Date.now();
+        
+        // Use cached token if valid and not expired
+        if (cachedToken && now < tokenExpiry - 15 * 60 * 1000) { // 15-minute buffer
+          if (!config.headers) {
+            config.headers = new AxiosHeaders();
+          }
+          config.headers.set('Authorization', `Bearer ${cachedToken}`);
+          return config;
         }
         
-        const token = await tokenPromise;
+        // Prevent excessive token requests by enforcing minimum interval
+        if (now - lastTokenFetch < MIN_TOKEN_INTERVAL && tokenPromise) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('⏳ Waiting for existing token request...');
+          }
+          cachedToken = await tokenPromise;
+        } else if (!cachedToken || now >= tokenExpiry - 15 * 60 * 1000) {
+          // Only fetch new token if cache is truly expired or missing
+          if (!tokenPromise || now - lastTokenFetch >= MIN_TOKEN_INTERVAL) {
+            lastTokenFetch = now;
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔄 Fetching fresh Firebase token (cache expired)');
+            }
+            
+            tokenPromise = currentUser.getIdToken(true).then(token => {  // Force refresh
+              cachedToken = token;
+              // Firebase tokens are valid for 1 hour, set expiry with 15-minute buffer
+              tokenExpiry = now + 45 * 60 * 1000; // 45 minutes from now
+              if (process.env.NODE_ENV === 'development') {
+                console.log('✅ Fresh Firebase token cached');
+              }
+              return token;
+            }).catch(error => {
+              // Clear cache and promise on error
+              cachedToken = null;
+              tokenExpiry = 0;
+              if (process.env.NODE_ENV === 'development') {
+                console.error('❌ Token fetch failed:', error);
+              }
+              throw error;
+            }).finally(() => {
+              // Clear promise after completion (success or failure)
+              setTimeout(() => { tokenPromise = null; }, 1000);
+            });
+          }
+          
+          if (tokenPromise) {
+            cachedToken = await tokenPromise;
+          }
+        }
         
         if (!config.headers) {
           config.headers = new AxiosHeaders();
         }
-        config.headers.set('Authorization', `Bearer ${token}`);
+        config.headers.set('Authorization', `Bearer ${cachedToken}`);
       }
     } catch (error) {
       console.error('Error getting auth token:', error);
-      tokenPromise = null; // Clear on error
+      // Clear all cache on error
+      cachedToken = null;
+      tokenExpiry = 0;
+      tokenPromise = null;
     }
     return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
 );
 
@@ -287,4 +258,4 @@ apiClient.interceptors.request.use(
   }
 );
 
-export { getCsrfToken }; 
+export { getCsrfToken };
