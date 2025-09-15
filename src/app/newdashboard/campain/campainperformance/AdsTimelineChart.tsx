@@ -338,7 +338,6 @@ const AdsTimeLineChart = () => {
       return { labels: [], data: initialData, totals: initialTotals };
     }
 
-    console.log("Processing dataset with", dataset.length, "items");
 
     // Filter dataset by date range if selected
     let filtered = dataset;
@@ -401,7 +400,6 @@ const AdsTimeLineChart = () => {
       }
     }
 
-    console.log("Final chart data:", { labels, data, totals });
     return { labels, data, totals };
   }, [dataset, granularity, startDate, endDate]);
 
@@ -485,7 +483,6 @@ const AdsTimeLineChart = () => {
         const axisId = `y_${id}`;
         const dataArray = chartData.data[id];
 
-        console.log(`Processing ${id}:`, { dataArray, kpi });
 
         if (id === "impressions") {
           datasets.push({
@@ -654,9 +651,7 @@ const AdsTimeLineChart = () => {
     );
   }
 
-  console.log("Before dataset check - weeklyApiData:", weeklyApiData);
-  console.log("Before dataset check - dataset:", dataset);
-  console.log("Before dataset check - dataset length:", dataset?.length);
+
 
   if (!dataset?.length) {
     return (
@@ -672,12 +667,6 @@ const AdsTimeLineChart = () => {
       </div>
     );
   }
-
-  // Temporary debug: Check if chartData is being processed correctly
-  console.log("Chart data check - chartData:", chartData);
-  console.log("Chart data check - chartData.labels:", chartData.labels);
-  console.log("Chart data check - chartData.data:", chartData.data);
-  console.log("Chart data check - selectedMetrics:", selectedMetrics);
 
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-300 flex flex-col w-full">

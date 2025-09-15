@@ -142,7 +142,6 @@ export default function InventoryHealthTable({
       return [];
     }
     
-    console.log('Processing inventory health items:', data.inventory_health.length);
     
     return data.inventory_health.map((item: InventoryHealthItem) => {
       return {
@@ -167,7 +166,7 @@ export default function InventoryHealthTable({
   }, [data]);
 
   // Debug log for transformed data
-  console.log('Transformed inventory data:', transformedData);
+  // console.log('Transformed inventory data:', transformedData);
 
   // Handle loading state
   if (isLoading) {

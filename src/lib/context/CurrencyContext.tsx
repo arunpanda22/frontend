@@ -1,7 +1,8 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CurrencyContextType, CurrencyData, CurrencyInfo } from '../api/types';
-import { currencyService } from '../api/services/currency.service';
+import { useMarketplaceCurrencies } from '../hooks/queries/use-currencies';
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
@@ -14,50 +15,41 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
   children, 
   defaultMarketplace 
 }) => {
-  const [currencies, setCurrencies] = useState<CurrencyData>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  
+  // Use React Query hook for currency data
+  const { 
+    data: currencies = {}, 
+    isLoading, 
+    error: queryError,
+    refetch
+  } = useMarketplaceCurrencies({ defaultMarketplace });
+
+  // Convert React Query error to string
+  const error = queryError?.message || null;
 
   // Get primary currency (first marketplace or specified default)
-  const primaryCurrency: CurrencyInfo | null = React.useMemo(() => {
+  const primaryCurrency: CurrencyInfo | null = useMemo(() => {
     if (Object.keys(currencies).length === 0) return null;
     
     const targetMarketplace = defaultMarketplace || Object.keys(currencies)[0];
     return currencies[targetMarketplace]?.currency_info || null;
   }, [currencies, defaultMarketplace]);
 
-  // Fetch currencies from API
-  const fetchCurrencies = useCallback(async () => {
+  // Refetch function that works with React Query
+  const refetchCurrencies = useCallback(async (): Promise<void> => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const data = await currencyService.getUserMarketplaceCurrencies();
-      setCurrencies(data);
+      await refetch();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch currencies';
-      setError(errorMessage);
-      console.error('Currency fetch error:', err);
-      
-      // Fallback to default currency if API fails
-      setCurrencies({
-        'default': {
-          currency_code: 'USD',
-          currency_info: {
-            symbol: '$',
-            name: 'US Dollar',
-            position: 'before'
-          }
-        }
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Currency refetch error:', err);
+      // Error is already handled by React Query
     }
-  }, []);
+  }, [refetch]);
 
-  // Initialize currencies on mount
-  useEffect(() => {
-    fetchCurrencies();
-  }, [fetchCurrencies]);
+  // Invalidate and refetch currencies (useful for manual refresh)
+  const invalidateAndRefetch = useCallback(async (): Promise<void> => {
+    await queryClient.invalidateQueries({ queryKey: ['marketplace-currencies'] });
+  }, [queryClient]);
 
   // Format currency with proper symbol and position
   const formatCurrency = useCallback((value: number, marketplaceId?: string): string => {
@@ -110,7 +102,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
   }, []);
 
   const contextValue: CurrencyContextType = {
-    currencies,
+    currencies: currencies,
     isLoading,
     error,
     formatCurrency,
@@ -118,7 +110,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     formatPercentage,
     formatChange,
     primaryCurrency,
-    refetchCurrencies: fetchCurrencies,
+    refetchCurrencies,
   };
 
   return (

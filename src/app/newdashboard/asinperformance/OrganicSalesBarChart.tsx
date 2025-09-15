@@ -46,7 +46,7 @@ const OrganicSalesCard: React.FC<OrganicSalesCardProps> = ({
   // Debug logging
   React.useEffect(() => {
     if (organicSalesData?.data) {
-      console.log('🌿 OrganicSalesCard - Organic Sales Data Available:', organicSalesData.data.organic_sales_data?.length, 'items');
+      console.log('OrganicSalesCard - Organic Sales Data Available:', organicSalesData.data.organic_sales_data?.length, 'items');
     }
     if (isError) {
       console.error('❌ OrganicSalesCard - API Error:', error);

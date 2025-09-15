@@ -145,17 +145,13 @@ export default function AsinPerformanceTable() {
   const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(initialColumns);
 
   // Transform API data - updated to match new service structure
-  const asinData: TableData[] = useMemo(() => {
-    console.log('Raw asinSummary data:', asinSummary); // Debug log
-    
+  const asinData: TableData[] = useMemo(() => {    
     const rawData = asinSummary?.data?.asin_summary;
     
     if (!rawData || !Array.isArray(rawData)) {
       console.log('No valid asin_summary data found');
       return [];
     }
-    
-    console.log('Processing asin_summary items:', rawData.length);
     
     return rawData.map((item: any) => {
       // Handle nested json property if it exists, otherwise use item directly
@@ -183,10 +179,6 @@ export default function AsinPerformanceTable() {
   const summaryStats = useMemo(() => {
     return asinSummary?.data?.summary_stats || {};
   }, [asinSummary]);
-
-  // Debug log for transformed data
-  console.log('Transformed asinData:', asinData);
-  console.log('Summary stats:', summaryStats);
 
   // Handle loading state
   if (isLoading) {

@@ -235,7 +235,6 @@ const PerformanceChart = () => {
       }
     }
 
-    console.log('Final chart data:', { labels, data, totals });
     return { labels, data, totals };
   }, [dataset, granularity, startDate, endDate]);
 
@@ -301,8 +300,6 @@ const PerformanceChart = () => {
       
       const axisId = `y_${id}`;
       const dataArray = chartData.data[id];
-      
-      console.log(`Processing ${id}:`, { dataArray, kpi });
       
       if (id === 'impressions') {
         datasets.push({
@@ -441,10 +438,6 @@ const PerformanceChart = () => {
     );
   }
 
-  console.log('Before dataset check - weeklyApiData:', weeklyApiData);
-  console.log('Before dataset check - dataset:', dataset);
-  console.log('Before dataset check - dataset length:', dataset?.length);
-
   if (!dataset?.length) {
     return (
       <div className="w-full h-[400px] flex flex-col items-center justify-center text-gray-500">
@@ -454,12 +447,6 @@ const PerformanceChart = () => {
       </div>
     );
   }
-
-  // Temporary debug: Check if chartData is being processed correctly
-  console.log('Chart data check - chartData:', chartData);
-  console.log('Chart data check - chartData.labels:', chartData.labels);
-  console.log('Chart data check - chartData.data:', chartData.data);
-  console.log('Chart data check - selectedMetrics:', selectedMetrics);
 
   return (
     <div className="font-sans bg-slate-100 p-6 rounded-xl shadow-lg w-full mx-auto my-8">

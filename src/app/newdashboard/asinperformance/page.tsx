@@ -142,28 +142,24 @@ export default function ASINPerformance() {
   // Debug logging - only show summary
   React.useEffect(() => {
     if (asinSummary?.data) {
-      console.log("✅ ASIN Summary Data Available");
       // Check if we have the new structure or old structure
       if (asinSummary.data.asin_summary) {
         console.log(
-          "📊 New API Structure - asin_summary items:",
           asinSummary.data.asin_summary.length
         );
-        console.log("📊 Summary Stats:", asinSummary.data.summary_stats);
-      } else if (Array.isArray(asinSummary.data)) {
+        } else if (Array.isArray(asinSummary.data)) {
         console.log(
-          "📊 Old API Structure - direct array items:",
           asinSummary.data.length
         );
       }
     }
-    if (organicSalesData?.data) {
-      console.log(
-        "🌿 Organic Sales Data Available:",
-        organicSalesData.data.organic_sales_data?.length,
-        "items"
-      );
-    }
+    // if (organicSalesData?.data) {
+    //   console.log(
+    //     "Organic Sales Data Available:",
+    //     organicSalesData.data.organic_sales_data?.length,
+    //     "items"
+    //   );
+    // }
     if (isError) {
       console.error("❌ API Error:", error);
     }
@@ -213,7 +209,6 @@ export default function ASINPerformance() {
     const apiSummaryStats = asinSummary?.data?.summary_stats;
 
     if (apiSummaryStats) {
-      console.log("✅ Using API Summary Stats:", apiSummaryStats);
       return {
         totalSales: apiSummaryStats.total_sales || 0,
         totalQuantity: apiSummaryStats.total_quantity || 0,

@@ -34,7 +34,7 @@ export default function ProfileDropdown() {
   // } = useAvailableUsersForImpersonation(open && !!hasImpersonationPermission)
 
   // Debug logging for dropdown state
-  console.log('🔍 Profile dropdown state:', { open })
+  // console.log('🔍 Profile dropdown state:', { open })
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -49,16 +49,16 @@ export default function ProfileDropdown() {
      if (!user) return null
 
    // Debug logging for user profile
-   console.log('🔍 Profile dropdown user data:', {
-     user: user?.email,
-     userProfile: userProfile ? {
-       id: userProfile.id,
-       email: userProfile.email,
-       role: userProfile.rbac_context?.role_name,
-       isAdmin: userProfile.isAdmin,
-       isAgencyAdmin: userProfile.isAgencyAdmin
-     } : null
-   })
+  //  console.log('🔍 Profile dropdown user data:', {
+  //    user: user?.email,
+  //    userProfile: userProfile ? {
+  //      id: userProfile.id,
+  //      email: userProfile.email,
+  //      role: userProfile.rbac_context?.role_name,
+  //      isAdmin: userProfile.isAdmin,
+  //      isAgencyAdmin: userProfile.isAgencyAdmin
+  //    } : null
+  //  })
 
    const displayName = user.displayName || user.email || 'User'
   const initials = (displayName || '?')

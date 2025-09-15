@@ -37,19 +37,59 @@ axiosRetry(apiClient, {
   }
 });
 
-// Enhanced token cache to avoid excessive Firebase requests
+// Enhanced token cache with proper management
 let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
 let tokenPromise: Promise<string> | null = null;
-let lastTokenFetch: number = 0;
-const MIN_TOKEN_INTERVAL = 2000; // Minimum 2 seconds between token fetches
+const TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // 5 minutes buffer before expiry
+const TOKEN_VALIDITY_PERIOD = 55 * 60 * 1000; // 55 minutes (Firebase tokens valid for 1 hour)
 
-// Expose a helper to clear the token cache (useful on explicit logout)
+// Expose a helper to clear the token cache
 export function clearAuthTokenCache() {
+  if (isDevelopment) {
+    console.log('🧹 Clearing auth token cache');
+  }
   cachedToken = null;
   tokenExpiry = 0;
   tokenPromise = null;
-  lastTokenFetch = 0;
+}
+
+// Helper to check if current token is valid
+function isTokenValid(): boolean {
+  const now = Date.now();
+  return !!(cachedToken && now < tokenExpiry - TOKEN_REFRESH_BUFFER);
+}
+
+// Helper to get fresh token
+async function getFreshToken(currentUser: any, forceRefresh: boolean = false): Promise<string> {
+  const now = Date.now();
+  
+  if (isDevelopment) {
+    console.log(`🔄 Fetching ${forceRefresh ? 'force-refreshed' : 'fresh'} Firebase token`);
+  }
+  
+  try {
+    const token = await currentUser.getIdToken(forceRefresh);
+    cachedToken = token;
+    tokenExpiry = now + TOKEN_VALIDITY_PERIOD;
+    
+    if (isDevelopment) {
+      console.log('✅ Firebase token obtained:', {
+        length: token.length,
+        expiresAt: new Date(tokenExpiry).toLocaleTimeString(),
+        forceRefresh
+      });
+    }
+    
+    return token;
+  } catch (error) {
+    cachedToken = null;
+    tokenExpiry = 0;
+    if (isDevelopment) {
+      console.error('❌ Token fetch failed:', error);
+    }
+    throw error;
+  }
 }
 
 // Authentication interceptor
@@ -57,70 +97,47 @@ apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
       const currentUser = auth?.currentUser;
-      if (currentUser) {
-        const now = Date.now();
-        
-        // Use cached token if valid and not expired
-        if (cachedToken && now < tokenExpiry - 15 * 60 * 1000) { // 15-minute buffer
-          if (!config.headers) {
-            config.headers = new AxiosHeaders();
-          }
-          config.headers.set('Authorization', `Bearer ${cachedToken}`);
-          return config;
+      if (!currentUser) {
+        return config; // No user, proceed without auth header
+      }
+
+      // Use cached token if still valid
+      if (isTokenValid()) {
+        if (!config.headers) {
+          config.headers = new AxiosHeaders();
         }
-        
-        // Prevent excessive token requests by enforcing minimum interval
-        if (now - lastTokenFetch < MIN_TOKEN_INTERVAL && tokenPromise) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('⏳ Waiting for existing token request...');
-          }
-          cachedToken = await tokenPromise;
-        } else if (!cachedToken || now >= tokenExpiry - 15 * 60 * 1000) {
-          // Only fetch new token if cache is truly expired or missing
-          if (!tokenPromise || now - lastTokenFetch >= MIN_TOKEN_INTERVAL) {
-            lastTokenFetch = now;
-            if (process.env.NODE_ENV === 'development') {
-              console.log('🔄 Fetching fresh Firebase token (cache expired)');
-            }
-            
-            tokenPromise = currentUser.getIdToken(true).then(token => {  // Force refresh
-              cachedToken = token;
-              // Firebase tokens are valid for 1 hour, set expiry with 15-minute buffer
-              tokenExpiry = now + 45 * 60 * 1000; // 45 minutes from now
-              if (process.env.NODE_ENV === 'development') {
-                console.log('✅ Fresh Firebase token cached');
-              }
-              return token;
-            }).catch(error => {
-              // Clear cache and promise on error
-              cachedToken = null;
-              tokenExpiry = 0;
-              if (process.env.NODE_ENV === 'development') {
-                console.error('❌ Token fetch failed:', error);
-              }
-              throw error;
-            }).finally(() => {
-              // Clear promise after completion (success or failure)
-              setTimeout(() => { tokenPromise = null; }, 1000);
-            });
-          }
-          
-          if (tokenPromise) {
-            cachedToken = await tokenPromise;
-          }
+        config.headers.set('Authorization', `Bearer ${cachedToken}`);
+        return config;
+      }
+
+      // Handle concurrent token requests
+      if (tokenPromise) {
+        if (isDevelopment) {
+          console.log('⏳ Waiting for existing token request...');
         }
+        cachedToken = await tokenPromise;
+      } else {
+        // Create new token request
+        tokenPromise = getFreshToken(currentUser, false)
+          .finally(() => {
+            // Clear promise after completion
+            tokenPromise = null;
+          });
         
+        cachedToken = await tokenPromise;
+      }
+
+      if (cachedToken) {
         if (!config.headers) {
           config.headers = new AxiosHeaders();
         }
         config.headers.set('Authorization', `Bearer ${cachedToken}`);
       }
+
     } catch (error) {
       console.error('Error getting auth token:', error);
-      // Clear all cache on error
-      cachedToken = null;
-      tokenExpiry = 0;
-      tokenPromise = null;
+      clearAuthTokenCache();
+      // Don't throw here, let the request proceed and let the backend handle it
     }
     return config;
   },
@@ -133,63 +150,106 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    // In dev, log a compact error; avoid double noisy logs in production.
-    // Suppress expected 400s from verify-token during initial auth bootstrap.
-    if (process.env.NODE_ENV === 'development') {
-      const url = error.config?.url || '';
-      const status = error.response?.status;
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+
+    // Log errors in development (with noise reduction)
+    if (isDevelopment) {
       const isVerifyToken = url.includes('/api/v1/auth/verify-token/');
       const isExpectedBootstrap = isVerifyToken && status === 400;
+      
       if (!isExpectedBootstrap) {
         console.error('Response Error:', {
           message: error.message,
-          response: error.response?.data,
           status,
           url,
+          data: error.response?.data,
         });
-      } else {
-        console.warn('Auth bootstrap (expected) verify-token 400 suppressed');
       }
     }
-    if (error.response?.status === 401) {
-      // Clear all cached token data on 401 to force refresh
+
+    // Handle authentication errors
+    if (status === 401 || status === 403) {
+      console.warn(`🔐 Auth error ${status} detected. Clearing token cache...`);
       clearAuthTokenCache();
-      await handleAuthError(error);
+
+      // Try one retry with force-refreshed token for 403 errors
+      if (status === 403 && !error.config?.headers?.['X-Retry-Auth']) {
+        try {
+          const currentUser = auth?.currentUser;
+          if (currentUser && error.config) {
+            if (isDevelopment) {
+              console.log('🔄 Retrying with force-refreshed token...');
+            }
+            
+            // Force refresh token
+            const freshToken = await getFreshToken(currentUser, true);
+            
+            // Mark request as retry and add fresh token
+            const retryConfig = {
+              ...error.config,
+              headers: {
+                ...error.config.headers,
+                'Authorization': `Bearer ${freshToken}`,
+                'X-Retry-Auth': 'true' // Prevent infinite retries
+              }
+            };
+
+            return apiClient.request(retryConfig);
+          }
+        } catch (retryError) {
+          console.error('❌ Token refresh retry failed:', retryError);
+        }
+      }
+
+      // Handle auth error through error handler
+      if (status === 401) {
+        await handleAuthError(error);
+      }
     }
+
     return Promise.reject(error);
   }
 );
 
-// Debug interceptor for development (request only, response handled by main interceptor)
-if (process.env.NODE_ENV === 'development') {
+// Debug interceptor for development
+if (isDevelopment) {
   apiClient.interceptors.request.use(request => {
-    // logging for developmet
-    console.log('🔑 Authorization:', request.headers?.Authorization);
+    const url = request.url;
+    
+    // Log auth details
+    const authHeader = request.headers?.Authorization as string;
+    if (authHeader) {
+      console.log('🔑 Authorization:', `${authHeader.substring(0, 20)}...`, "URL:", url);
+    }
+    
     console.log('🛡️ CSRF Token:', request.headers?.['X-CSRFToken']);
+    
     // Only log non-auth requests to reduce noise
-    if (!request.url?.includes('verify-token') && !request.url?.includes('auth')) {
+    if (!url?.includes('verify-token') && !url?.includes('auth')) {
       console.log('🌐 API Request:', {
         method: request.method?.toUpperCase(),
-        url: request.url,
+        url,
+        hasAuth: !!authHeader
       });
     }
     return request;
   });
 }
 
-// CSRF token management
+// CSRF token management (simplified)
 let csrfToken: string | null = null;
 
 const getCsrfToken = async (): Promise<string> => {
-  try {
-    // If we already have a token, use it
-    if (csrfToken) {
-      return csrfToken;
-    }
+  if (csrfToken) {
+    return csrfToken;
+  }
 
-    // First try to get the CSRF token from the cookie
+  try {
+    // Try to get from cookie first
     const cookies = document.cookie.split(';');
     const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrftoken='));
+    
     if (csrfCookie) {
       const token = csrfCookie.split('=')[1];
       if (token) {
@@ -198,8 +258,8 @@ const getCsrfToken = async (): Promise<string> => {
       }
     }
 
-    // If no cookie, fetch it from the server
-    console.log('No CSRF token in cookie, fetching from server...');
+    // Fetch from server if not in cookie
+    console.log('Fetching CSRF token from server...');
     const response = await axios.get(`${API_BASE_URL}/api/v1/get-csrf-token/`, {
       withCredentials: true,
       headers: {
@@ -208,54 +268,50 @@ const getCsrfToken = async (): Promise<string> => {
       }
     });
 
-    // If the server sends the token directly in the response
-    if (response.data && response.data.csrfToken) {
-      const token = response.data.csrfToken;
-      if (token) {
-        csrfToken = token;
-        return token;
+    const token = response.data?.csrfToken;
+    if (token) {
+      csrfToken = token;
+      return token;
+    }
+
+    // Check cookies again after server call
+    const updatedCookies = document.cookie.split(';');
+    const updatedCsrfCookie = updatedCookies.find(cookie => cookie.trim().startsWith('csrftoken='));
+    if (updatedCsrfCookie) {
+      const cookieToken = updatedCsrfCookie.split('=')[1];
+      if (cookieToken) {
+        csrfToken = cookieToken;
+        return cookieToken;
       }
     }
 
-    // Check response and cookies again
-    const newCookies = document.cookie.split(';');
-    const newCsrfCookie = newCookies.find(cookie => cookie.trim().startsWith('csrftoken='));
-    if (newCsrfCookie) {
-      const token = newCsrfCookie.split('=')[1];
-      if (token) {
-        csrfToken = token;
-        return token;
-      }
-    }
-
-    throw new Error('Failed to get CSRF token from cookie after fetch');
+    throw new Error('CSRF token not available');
   } catch (error) {
     console.error('Error getting CSRF token:', error);
     throw error;
   }
 };
 
-// Request interceptor to add CSRF token
+// CSRF token interceptor (only for non-GET requests)
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    if (config.method !== 'get' && config.method !== 'GET') {
+    const method = config.method?.toLowerCase();
+    if (method && method !== 'get') {
       try {
         const token = await getCsrfToken();
         if (!config.headers) {
-          config.headers = new axios.AxiosHeaders();
+          config.headers = new AxiosHeaders();
         }
         config.headers['X-CSRFToken'] = token;
         config.headers['X-Requested-With'] = 'XMLHttpRequest';
-        console.log('Added CSRF token to request:', token);
       } catch (error) {
-        console.error('Failed to get CSRF token:', error);
+        console.warn('Failed to get CSRF token:', error);
+        // Don't throw - let request proceed without CSRF token
       }
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export { getCsrfToken };

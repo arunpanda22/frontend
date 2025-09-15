@@ -135,7 +135,6 @@ export default function CampaignAdsSummary({
       return [];
     }
     
-    console.log('Processing campaign items:', apiCampaignData.length);
     
     return apiCampaignData.map((campaign: CampaignSummaryItem, index: number) => {
       return {
@@ -160,9 +159,6 @@ export default function CampaignAdsSummary({
       };
     });
   }, [apiCampaignData]);
-
-  // Debug log for transformed data
-  console.log('Transformed campaign data:', transformedData);
 
   // Handle loading state
   if (loading) {
