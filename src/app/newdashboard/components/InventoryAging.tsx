@@ -152,7 +152,7 @@ const InventoryAging = () => {
           series={chartData.series}
           type="pie"
           data-chart-colors="custom"
-          chartId={chartId}
+          // chartId={chartId}
           height={300}
           width="100%"
         />

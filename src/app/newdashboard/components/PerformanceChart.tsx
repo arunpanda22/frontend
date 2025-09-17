@@ -208,10 +208,10 @@ const PerformanceChart = () => {
     const labels = filtered.map((d) => d.time_group);
 
     // Log the first item to see available keys
-    if (filtered.length > 0) {
-      console.log('Sample data item:', filtered[0]);
-      console.log('Available keys in first item:', Object.keys(filtered[0]));
-    }
+    // if (filtered.length > 0) {
+    //   console.log('Sample data item:', filtered[0]);
+    //   console.log('Available keys in first item:', Object.keys(filtered[0]));
+    // }
 
     for (const kpi of KPI_OPTIONS) {
       const keyToUse = kpi.keys.find(key => filtered[0]?.[key] !== undefined);

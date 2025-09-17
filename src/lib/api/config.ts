@@ -6,7 +6,7 @@ import { handleAuthError } from '@/lib/utils/error-handler';
 // Environment-aware base URL determination
 const isDevelopment = process.env.NODE_ENV === 'development';
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-  (isDevelopment ? "http://localhost:8000" : "https://django-backend-epcse2awb3cyh5e8.centralindia-01.azurewebsites.net");
+  (isDevelopment ? "http://localhost:8000" : "https://backend-test-server-h7hvgbhcdgbtfnhd.centralindia-01.azurewebsites.net");
 
 // Log API URL for debugging
 console.log(`API base URL: ${API_BASE_URL} (${isDevelopment ? 'development' : 'production'})`);
@@ -222,6 +222,8 @@ if (isDevelopment) {
     if (authHeader) {
       console.log('🔑 Authorization:', `${authHeader.substring(0, 20)}...`, "URL:", url);
     }
+
+    console.log('🔑 Authorization:', request.headers?.Authorization);
     
     console.log('🛡️ CSRF Token:', request.headers?.['X-CSRFToken']);
     
