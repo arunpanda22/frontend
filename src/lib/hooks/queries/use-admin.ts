@@ -11,10 +11,10 @@ export const adminQueryKeys = {
   users: ['admin', 'users'] as const,
   userDetails: (id: string) => ['admin', 'users', id] as const,
   userRoles: (id: string) => ['admin', 'users', id, 'roles'] as const,
-  userPermissions: (id: string, agencyId?: number) => ['admin', 'users', id, 'permissions', agencyId] as const,
-  userEffectivePermissions: (id: string, agencyId: number) => ['admin', 'users', id, 'effective-permissions', agencyId] as const,
+  userPermissions: (id: string) => ['admin', 'users', id, 'permissions'] as const,
+  userEffectivePermissions: (id: string) => ['admin', 'users', id, 'effective-permissions'] as const,
   roles: ['admin', 'roles'] as const,
-  roleDetails: (id: number) => ['admin', 'roles', id] as const,
+  roleDetails: (roleName: string) => ['admin', 'roles', roleName] as const,
   permissions: ['admin', 'permissions'] as const,
   permissionsByModule: (module: string) => ['admin', 'permissions', 'module', module] as const,
   agencies: ['admin', 'agencies'] as const,
@@ -26,6 +26,7 @@ export const adminQueryKeys = {
   usersWithStaffEmails: ['admin', 'users-with-staff-emails'] as const,
   staffEmailStats: ['admin', 'staff-email-stats'] as const,
 }
+
 
 // Reports
 export function useAdminReports(filters?: ReportFilters) {
@@ -94,8 +95,8 @@ export function useAdminUserRoles(id: string) {
 
 export function useAdminUserPermissions(id: string, agencyId?: number) {
   return useQuery({
-    queryKey: adminQueryKeys.userPermissions(id, agencyId),
-    queryFn: () => adminDashboardService.getUserPermissionOverrides(parseInt(id), agencyId),
+    queryKey: adminQueryKeys.userPermissions(id),
+    queryFn: () => adminDashboardService.getUserPermissionOverrides(parseInt(id)),
     enabled: !!id,
     staleTime: 1 * 60 * 1000, // 1 minute - permissions change frequently
     gcTime: 5 * 60 * 1000, // 5 minutes
@@ -107,8 +108,8 @@ export function useAdminUserPermissions(id: string, agencyId?: number) {
 
 export function useAdminUserEffectivePermissions(id: string, agencyId: number) {
   return useQuery({
-    queryKey: adminQueryKeys.userEffectivePermissions(id, agencyId),
-    queryFn: () => adminDashboardService.getUserEffectivePermissions(parseInt(id), agencyId),
+    queryKey: adminQueryKeys.userEffectivePermissions(id),
+    queryFn: () => adminDashboardService.getUserEffectivePermissions(parseInt(id)),
     enabled: !!id && !!agencyId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -128,12 +129,12 @@ export function useAdminRoles(options?: {
   })
 }
 
-export function useAdminRoleDetails(id: number) {
+export function useAdminRoleDetails(roleName: string) {
   return useQuery({
-    queryKey: adminQueryKeys.roleDetails(id),
-    queryFn: () => adminDashboardService.getRole(id),
-    enabled: !!id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    queryKey: adminQueryKeys.roleDetails(roleName),  // Update this too
+    queryFn: () => adminDashboardService.getRole(roleName),
+    enabled: !!roleName,
+    staleTime: 10 * 60 * 1000,
   })
 }
 
@@ -150,14 +151,14 @@ export function useAdminPermissions(options?: {
   })
 }
 
-export function useAdminPermissionsByModule(module: string) {
-  return useQuery({
-    queryKey: adminQueryKeys.permissionsByModule(module),
-    queryFn: () => adminDashboardService.getPermissionsByModule(module),
-    enabled: !!module,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  })
-}
+// export function useAdminPermissionsByModule(module: string) {
+//   return useQuery({
+//     queryKey: adminQueryKeys.permissionsByModule(module),
+//     queryFn: () => adminDashboardService.getPermissionsByModule(module),
+//     enabled: !!module,
+//     staleTime: 10 * 60 * 1000, // 10 minutes
+//   })
+// }
 
 // Agency management
 export function useAdminAgencies(options?: { 
@@ -266,7 +267,7 @@ export function useAdminQueryRefresh() {
       return queryClient.refetchQueries({ queryKey: adminQueryKeys.userRoles(id) })
     },
     refreshUserPermissions: async (id: string) => {
-      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.userPermissions(id) })
+            await queryClient.invalidateQueries({ queryKey: adminQueryKeys.userPermissions(id) })
       return queryClient.refetchQueries({ queryKey: adminQueryKeys.userPermissions(id) })
     },
     refreshRoles: async () => {

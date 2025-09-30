@@ -215,7 +215,7 @@ const PerformanceChart = () => {
 
     for (const kpi of KPI_OPTIONS) {
       const keyToUse = kpi.keys.find(key => filtered[0]?.[key] !== undefined);
-      console.log(`Looking for key for ${kpi.id}:`, kpi.keys, 'Found:', keyToUse);
+      // console.log(`Looking for key for ${kpi.id}:`, kpi.keys, 'Found:', keyToUse);
       if (keyToUse) {
         const dataArray = filtered.map(item => safeParse(item[keyToUse], kpi.format));
         data[kpi.id] = dataArray;
@@ -229,7 +229,7 @@ const PerformanceChart = () => {
           totals[kpi.id] = dataArray.reduce((sum, val) => sum + val, 0);
         }
         
-        console.log(`Processed ${kpi.id}:`, dataArray.length, 'values, total:', totals[kpi.id]);
+        // console.log(`Processed ${kpi.id}:`, dataArray.length, 'values, total:', totals[kpi.id]);
       } else {
         console.log(`No key found for ${kpi.id}, available keys:`, Object.keys(filtered[0] || {}));
       }
@@ -375,8 +375,8 @@ const PerformanceChart = () => {
     scales: dynamicAxes,
   };
 
-  console.log('Chart options:', chartOptions);
-  console.log('Dynamic axes:', dynamicAxes);
+  // console.log('Chart options:', chartOptions);
+  // console.log('Dynamic axes:', dynamicAxes);
 
   // Modified KPICard to accept dropdown for title
   type KPICardProps = {

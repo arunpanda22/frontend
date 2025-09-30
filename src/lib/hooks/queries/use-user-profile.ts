@@ -7,7 +7,7 @@ export interface ConnectedAdvertisingProfile {
   account_name: string;
   account_type: string;
   account_subtype: string;
-  country_code: string;
+  country_code: string; 
   currency_code: string;
   timezone: string;
   marketplace_id: string;
@@ -29,10 +29,28 @@ export interface ConnectedSellerAccount {
 
 export interface RBACContext {
   role_id: number;
-  role_name: 'superadmin' | 'admin' | 'agency' | 'user';
-  agency_id: number;
-  agency_name: string;
+  role_name: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user' ;
+  role_display: string;
+  hierarchy_level: number;
+
+  // Agency role context
+  agency_id?: number;
+  agency_name?: string;
+  agency_slug?: string;
+  
+  // Admin role context - NEW
+  managed_agencies?: Array<{
+    id: number;
+    name: string;
+    slug: string;
+  }>;
+  managed_agency_ids?: number[];
+  
+  // User role context
+  parent_seller_id?: number;
+  parent_seller_email?: string;
 }
+
 
 export interface UserProfile {
   id: number;
@@ -43,6 +61,13 @@ export interface UserProfile {
   last_name: string;
   created_at: string;
   updated_at: string;
+  current_role_name: string | null;
+  current_role_display: string | null;
+  current_agency: {
+    id: number;
+    name: string;
+    slug: string;
+  } | null;
   rbac_context: RBACContext;
   connected_advertising_profiles: ConnectedAdvertisingProfile[];
   connected_seller_accounts: ConnectedSellerAccount[];
