@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/context/AuthContext'
-import { ManagedUser } from '@/lib/context/AuthContext'
+// import { ManagedUser } from '@/lib/context/AuthContext'
 
 /**
  * Custom hook for checking user permissions
@@ -9,7 +9,7 @@ import { ManagedUser } from '@/lib/context/AuthContext'
 export function usePermissions() {
   const { 
     userProfile,
-    switchManagedUser,
+    // switchManagedUser,
     endImpersonation,
     isImpersonating,
     hasPermission, 
@@ -32,7 +32,7 @@ export function usePermissions() {
     if (!userProfile) return false
     
     // Check for admin status first - admins have all permissions
-    if (userProfile.isAdmin) return true
+    // if (userProfile.isAdmin) return true
     
     // Check single permission if provided
     if (requiredPermission && hasPermission(requiredPermission)) {
@@ -59,18 +59,18 @@ export function usePermissions() {
    * @param agencyId Agency ID to check
    * @returns boolean indicating if user belongs to the agency
    */
-  const belongsToAgency = (agencyId: string): boolean => {
-    if (!userProfile || !userProfile.agencies) return false
-    return !!userProfile.agencies.find(agency => agency.id === agencyId)
-  }
+  // const belongsToAgency = (agencyId: string): boolean => {
+  //   if (!userProfile || !userProfile.agencies) return false
+  //   return !!userProfile.agencies.find(agency => agency.id === agencyId)
+  // }
   
   /**
    * Check if current user is an agency admin
    * @returns boolean indicating if user is an agency admin
    */
-  const isAgencyAdmin = (): boolean => {
-    return userProfile?.isAgencyAdmin || false
-  }
+  // const isAgencyAdmin = (): boolean => {
+  //   return userProfile?.isAgencyAdmin || false
+  // }
   
   /**
    * Check if user is currently impersonating another user
@@ -85,13 +85,13 @@ export function usePermissions() {
    * @param userId The user ID to switch to
    * @returns Promise that resolves when the switch is complete
    */
-  const switchToManagedUser = async (userId: string): Promise<void> => {
-    if (!userProfile?.isAgencyAdmin) {
-      throw new Error('Only agency admins can impersonate users')
-    }
+  // const switchToManagedUser = async (userId: string): Promise<void> => {
+  //   if (!userProfile?.isAgencyAdmin) {
+  //     throw new Error('Only agency admins can impersonate users')
+  //   }
     
-    await switchManagedUser(userId)
-  }
+  //   await switchManagedUser(userId)
+  // }
   
   /**
    * End impersonation and return to the admin's own account
@@ -109,23 +109,23 @@ export function usePermissions() {
     
     // Advanced permission helpers
     canAccess,
-    belongsToAgency,
-    isAgencyAdmin,
+    // belongsToAgency,
+    // isAgencyAdmin,
     isActingAsManagedUser,
     
     // Managed user functions
-    switchToManagedUser,
+    // switchToManagedUser,
     resetToAdminUser,
     
     // Agency and managed user information
-    currentAgency: userProfile?.currentAgency || null,
-    agencies: userProfile?.agencies || [],
-    managedUsers: userProfile?.managedUsers || [],
-    currentManagedUser: userProfile?.currentManagedUser || null,
+    // currentAgency: userProfile?.currentAgency || null,
+    // agencies: userProfile?.agencies || [],
+    // managedUsers: userProfile?.managedUsers || [],
+    // currentManagedUser: userProfile?.currentManagedUser || null,
     
-    // User information
-    isAdmin: userProfile?.isAdmin || false,
-    permissions: userProfile?.permissions || []
+    // // User information
+    // isAdmin: userProfile?.isAdmin || false,
+    // permissions: userProfile?.permissions || []
   }
 }
 
