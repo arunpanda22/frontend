@@ -342,6 +342,7 @@ export interface AssignUserToSellerRequest {
   action: 'assign_user_to_seller'
   user_id: number
   parent_seller_id: number
+  access_level?: 'full' | 'read_only' | 'limited'
 }
 
 export interface AssignAdminToAgenciesRequest {
@@ -561,11 +562,16 @@ export const adminDashboardService = {
     return res.data
   },
 
-  async assignUserToSeller(userId: number, parentSellerId: number) {
+  async assignUserToSeller(
+    userId: number, 
+    parentSellerId: number,
+    options?: { access_level?: 'full' | 'read_only' | 'limited' }
+  ) {
     const payload: AssignUserToSellerRequest = {
       action: 'assign_user_to_seller',
       user_id: userId,
       parent_seller_id: parentSellerId,
+      access_level: options?.access_level
     }
 
     const res = await apiClient.post<AssignUserToSellerResponse>(
@@ -1065,4 +1071,129 @@ export const adminDashboardService = {
     )
     return res.data
   },
+  
+  // ========================================================================
+  // SELLER-AGENCY ASSIGNMENT MANAGEMENT
+  // ========================================================================
+
+  /**
+   * Get all sellers with their agency assignment status
+   */
+  async getSellersWithAgencyStatus(params?: {
+    agency_id?: number
+    is_assigned?: boolean
+    page?: number
+    page_size?: number
+  }) {
+    const res = await apiClient.get<PaginatedResponse<AdminUser>>(
+      '/api/v1/rbac-admin/users/',
+      { params: { ...params, role_name: 'seller' } }
+    )
+    return res.data
+  },
+
+  /**
+   * Get unassigned sellers (sellers without agency)
+   */
+  async getUnassignedSellers(params?: { page?: number; page_size?: number }) {
+    // This will need backend support to filter unassigned sellers
+    // For now, fetch all sellers and filter on frontend
+    const res = await apiClient.get<PaginatedResponse<AdminUser>>(
+      '/api/v1/rbac-admin/users/',
+      { params: { ...params, role_name: 'seller' } }
+    )
+    return res.data
+  },
+
+  /**
+   * Remove seller from agency (keeps seller role)
+   */
+  async removeSellerFromAgency(sellerId: number, agencyId: number) {
+    const res = await apiClient.delete(
+      '/api/v1/rbac-admin/user-assignments/',
+      { 
+        data: {
+          action: 'remove_seller_from_agency',
+          user_id: sellerId,
+          agency_id: agencyId
+        }
+      }
+    )
+    return res.data
+  },
+
+  // ========================================================================
+  // SELLER-STAFF ASSIGNMENT MANAGEMENT
+  // ========================================================================
+
+  /**
+   * Get staff users under a seller
+   */
+  async getSellerStaff(sellerId: number) {
+    // This retrieves users with parent_seller_id matching the seller
+    const res = await apiClient.get<PaginatedResponse<AdminUser>>(
+      '/api/v1/rbac-admin/users/',
+      { params: { role_name: 'user', page_size: 1000 } }
+    )
+    
+    // Filter on frontend for now - backend could add parent_seller_id filter
+    const staffUsers = res.data.results.filter(
+      user => user.current_role?.parent_seller_id === sellerId
+    )
+    
+    return {
+      ...res.data,
+      results: staffUsers,
+      count: staffUsers.length
+    }
+  },
+
+  /**
+   * Get unassigned users (users without parent seller)
+   */
+  async getUnassignedUsers(params?: { page?: number; page_size?: number }) {
+    const res = await apiClient.get<PaginatedResponse<AdminUser>>(
+      '/api/v1/rbac-admin/users/',
+      { params: { ...params, role_name: 'user' } }
+    )
+    
+    // Filter users without parent_seller
+    const unassigned = res.data.results.filter(
+      user => !user.current_role?.parent_seller_id
+    )
+    
+    return {
+      ...res.data,
+      results: unassigned,
+      count: unassigned.length
+    }
+  },
+
+  /**
+   * Remove user from seller staff
+   */
+  async removeUserFromSeller(userId: number) {
+    const res = await apiClient.delete(
+      '/api/v1/rbac-admin/user-assignments/',
+      { 
+        data: {
+          action: 'remove_user_from_seller',
+          user_id: userId
+        }
+      }
+    )
+    return res.data
+  },
+
+  /**
+   * Update staff user access level
+   */
+  async updateStaffAccessLevel(
+    userId: number,
+    parentSellerId: number,
+    accessLevel: 'full' | 'read_only' | 'limited'
+  ) {
+    return this.assignUserToSeller(userId, parentSellerId, { access_level: accessLevel })
+  },
+
 }
