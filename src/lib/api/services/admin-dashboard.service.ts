@@ -36,6 +36,15 @@ export interface Role {
   can_be_deleted?: boolean // Always false - roles are fixed
 }
 
+export interface ManagedAgencyAssignment {
+  id: number
+  agency_id: number
+  agency_name: string
+  agency_slug: string
+  assigned_at: string
+  assigned_by_email?: string
+}
+
 export interface AdminUser {
   id: number
   email: string
@@ -49,6 +58,8 @@ export interface AdminUser {
   created_at: string
   updated_at?: string
   current_role: CurrentRole | null
+  managed_agencies?: ManagedAgencyAssignment[]  // Add this
+  managed_agencies_count?: number  // Add this
 }
 
 export interface RoleHistoryItem extends CurrentRole {
@@ -599,6 +610,23 @@ export const adminDashboardService = {
     const res = await apiClient.post(
       '/api/v1/rbac-admin/user-assignments/',
       payload
+    )
+    return res.data
+  },
+
+  /**
+   * Remove admin from a specific agency
+   */
+  async removeAdminFromAgency(adminId: number, agencyId: number) {
+    const res = await apiClient.delete(
+      '/api/v1/rbac-admin/user-assignments/',
+      { 
+        data: {
+          action: 'remove_admin_from_agency',
+          user_id: adminId,
+          agency_id: agencyId
+        }
+      }
     )
     return res.data
   },

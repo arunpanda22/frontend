@@ -1,7 +1,43 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/context/AuthContext'
-// import { ManagedUser } from '@/lib/context/AuthContext'
+import { apiClient } from '@/lib/api/config'
+
+interface UserPermissionsResponse {
+  permissions: string[]
+  current_role: {
+    role_id: number
+    role_name: string
+    role_display: string
+    hierarchy_level: number
+    agency?: { id: number; name: string; slug: string }
+    managed_agencies?: Array<{ id: number; name: string; slug: string }>
+    parent_seller?: { id: number; email: string }
+  } | null
+  is_superuser: boolean
+}
+
+/**
+ * Hook to fetch and cache user permissions from backend
+ */
+export function useUserPermissions() {
+  const { user } = useAuth()
+
+  return useQuery({
+    queryKey: ['user-permissions'],
+    queryFn: async () => {
+      const response = await apiClient.get<UserPermissionsResponse>(
+        '/api/v1/auth/user-permissions/'
+      )
+      return response.data
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+  })
+}
 
 /**
  * Custom hook for checking user permissions
@@ -9,20 +45,48 @@ import { useAuth } from '@/lib/context/AuthContext'
 export function usePermissions() {
   const { 
     userProfile,
-    // switchManagedUser,
     endImpersonation,
     isImpersonating,
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions 
+    isSuperAdmin,
+    isAdmin,
+    isAgencyAdmin,
+    isSeller,
+    isUser,
+    getUserRole,
+    hasRoleOrHigher,
+    getAgency,
+    getManagedAgencies,
+    getParentSeller,
   } = useAuth()
+  
+  const { data: permissionsData, isLoading } = useUserPermissions()
+
+  /**
+   * Check if user has a specific permission
+   */
+  const hasPermission = (permission: string): boolean => {
+    if (isSuperAdmin()) return true
+    return permissionsData?.permissions?.includes(permission) ?? false
+  }
+
+  /**
+   * Check if user has any of the specified permissions
+   */
+  const hasAnyPermission = (permissions: string[]): boolean => {
+    if (isSuperAdmin()) return true
+    return permissions.some(p => permissionsData?.permissions?.includes(p))
+  }
+
+  /**
+   * Check if user has all of the specified permissions
+   */
+  const hasAllPermissions = (permissions: string[]): boolean => {
+    if (isSuperAdmin()) return true
+    return permissions.every(p => permissionsData?.permissions?.includes(p))
+  }
   
   /**
    * Check if user can view a page that requires specific permission(s)
-   * @param requiredPermission Single permission required
-   * @param anyRequiredPermissions Array of permissions where user needs at least one
-   * @param allRequiredPermissions Array of permissions where user needs all
-   * @returns boolean indicating if user has access
    */
   const canAccess = (
     requiredPermission?: string, 
@@ -30,22 +94,17 @@ export function usePermissions() {
     allRequiredPermissions?: string[]
   ): boolean => {
     if (!userProfile) return false
+    if (isSuperAdmin()) return true
     
-    // Check for admin status first - admins have all permissions
-    // if (userProfile.isAdmin) return true
-    
-    // Check single permission if provided
     if (requiredPermission && hasPermission(requiredPermission)) {
       return true
     }
     
-    // Check if user has any of the specified permissions
     if (anyRequiredPermissions && anyRequiredPermissions.length > 0 && 
         hasAnyPermission(anyRequiredPermissions)) {
       return true
     }
     
-    // Check if user has all of the specified permissions
     if (allRequiredPermissions && allRequiredPermissions.length > 0 && 
         hasAllPermissions(allRequiredPermissions)) {
       return true
@@ -55,77 +114,91 @@ export function usePermissions() {
   }
   
   /**
-   * Check if current user belongs to specified agency
-   * @param agencyId Agency ID to check
-   * @returns boolean indicating if user belongs to the agency
+   * Check if user can manage a specific agency
    */
-  // const belongsToAgency = (agencyId: string): boolean => {
-  //   if (!userProfile || !userProfile.agencies) return false
-  //   return !!userProfile.agencies.find(agency => agency.id === agencyId)
-  // }
+  const canManageAgency = (agencyId: number): boolean => {
+    if (isSuperAdmin()) return true
+    
+    // Only admins and agency role can manage agencies
+    if (!isAdmin() && getUserRole() !== 'agency') return false
+    
+    // For admin role, check managed agencies
+    if (isAdmin()) {
+      const managedAgencies = getManagedAgencies()
+      return managedAgencies.some(a => a.id === agencyId)
+    }
+    
+    // For agency role, check if this is their assigned agency
+    const currentAgency = getAgency()
+    return currentAgency?.id === agencyId
+  }
   
   /**
-   * Check if current user is an agency admin
-   * @returns boolean indicating if user is an agency admin
+   * Check if user can manage a specific seller
    */
-  // const isAgencyAdmin = (): boolean => {
-  //   return userProfile?.isAgencyAdmin || false
-  // }
+  const canManageSeller = (sellerAgencyId?: number): boolean => {
+    if (isSuperAdmin()) return true
+    
+    // Admins can manage sellers in their agencies
+    if (isAdmin() && sellerAgencyId) {
+      return canManageAgency(sellerAgencyId)
+    }
+    
+    // Agency role can manage sellers that are their clients
+    if (getUserRole() === 'agency') {
+      const currentAgency = getAgency()
+      return currentAgency?.id === sellerAgencyId
+    }
+    
+    return false
+  }
   
   /**
    * Check if user is currently impersonating another user
-   * @returns boolean indicating if user is impersonating someone
    */
   const isActingAsManagedUser = (): boolean => {
     return isImpersonating()
   }
   
   /**
-   * Switch to impersonate a user (for agency admins)
-   * @param userId The user ID to switch to
-   * @returns Promise that resolves when the switch is complete
-   */
-  // const switchToManagedUser = async (userId: string): Promise<void> => {
-  //   if (!userProfile?.isAgencyAdmin) {
-  //     throw new Error('Only agency admins can impersonate users')
-  //   }
-    
-  //   await switchManagedUser(userId)
-  // }
-  
-  /**
-   * End impersonation and return to the admin's own account
-   * @returns Promise that resolves when the switch is complete
+   * End impersonation and return to the original user
    */
   const resetToAdminUser = async (): Promise<void> => {
     await endImpersonation()
   }
   
   return {
-    // Base permission checks
+    // Permission checks
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    
-    // Advanced permission helpers
     canAccess,
-    // belongsToAgency,
-    // isAgencyAdmin,
-    isActingAsManagedUser,
+    isLoadingPermissions: isLoading,
+    permissions: permissionsData?.permissions || [],
     
-    // Managed user functions
-    // switchToManagedUser,
+    // Role checks
+    isSuperAdmin,
+    isAdmin,
+    isAgency: () => getUserRole() === 'agency',
+    isSeller,
+    isUser,
+    getUserRole,
+    hasRoleOrHigher,
+    
+    // Context checks
+    canManageAgency,
+    canManageSeller,
+    getAgency,
+    getManagedAgencies,
+    getParentSeller,
+    
+    // Impersonation
+    isActingAsManagedUser,
     resetToAdminUser,
     
-    // Agency and managed user information
-    // currentAgency: userProfile?.currentAgency || null,
-    // agencies: userProfile?.agencies || [],
-    // managedUsers: userProfile?.managedUsers || [],
-    // currentManagedUser: userProfile?.currentManagedUser || null,
-    
-    // // User information
-    // isAdmin: userProfile?.isAdmin || false,
-    // permissions: userProfile?.permissions || []
+    // User info
+    currentRole: userProfile?.current_role_name,
+    currentRoleDisplay: userProfile?.current_role_display,
   }
 }
 

@@ -16,7 +16,7 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const pathname = usePathname()
-  const { user, userProfile, hasAnyPermission } = useAuth()
+  const { user, isSuperAdmin, isAdmin, hasRoleOrHigher } = useAuth()
   const [isDashboardOpen, setIsDashboardOpen] = useState(true)
   const [isToolsOpen, setIsToolsOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -62,25 +62,13 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
     { name: 'Search Query Performance', href: '/newdashboard/searchqueryperformance', description: 'Analyze search query performance data' },
   ]
 
-  // Admin visibility
-  const adminPermissions = [
-    'view_users',
-    'manage_users',
-    'view_rbac_admin',
-    'rbac.view_user',
-    'rbac.view_role',
-    'rbac.view_permission',
-    'rbac.view_agency'
-  ]
-  
+  // Admin visibility - Only show to admin role or higher (admin, super_admin)
+  // In dev mode, also show to everyone for testing
   const showAdmin = !!user && (
     process.env.NODE_ENV === 'development' ||
-    !!userProfile?.isAdmin ||
-    !!userProfile?.isAgencyAdmin ||
-    hasAnyPermission(adminPermissions) ||
-    userProfile?.permissions?.some(p => p.includes('admin')) ||
-    userProfile?.permissions?.some(p => p.includes('super')) ||
-    true
+    isSuperAdmin() ||
+    isAdmin() ||
+    hasRoleOrHigher('admin')
   )
 
   // Close sidebar when clicking outside
@@ -234,7 +222,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                     )}
                   </div>
 
-                  {/* Admin Section */}
+                  {/* Admin Section - Only visible to admin role or higher */}
                   {showAdmin && (
                     <div className="pt-2">
                       <Link

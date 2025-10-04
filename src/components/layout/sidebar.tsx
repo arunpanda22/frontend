@@ -3,15 +3,14 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon } from '@heroicons/react/24/outline'
-import { RiArrowRightDoubleLine, RiArrowLeftDoubleLine  } from "react-icons/ri";
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { RiArrowRightDoubleLine, RiArrowLeftDoubleLine } from "react-icons/ri"
 import { useAuth } from '@/lib/context/AuthContext'
 import { useSidebar } from '@/components/layout/layout-wrapper'
 
-
 export function Sidebar() {
   const pathname = usePathname()
-  const { user, userProfile, hasAnyPermission } = useAuth()
+  const { user, isSuperAdmin, isAdmin, hasRoleOrHigher } = useAuth()
   const { isCollapsed, setIsCollapsed } = useSidebar()
   const [isDashboardOpen, setIsDashboardOpen] = useState(true)
   const [isToolsOpen, setIsToolsOpen] = useState(true)
@@ -57,25 +56,13 @@ export function Sidebar() {
     { name: 'Search Query Performance', href: '/newdashboard/searchqueryperformance', description: 'Analyze search query performance data' },
   ]
 
-  // Admin visibility
-  const adminPermissions = [
-    'view_users',
-    'manage_users',
-    'view_rbac_admin',
-    'rbac.view_user',
-    'rbac.view_role',
-    'rbac.view_permission',
-    'rbac.view_agency'
-  ]
-  
+  // Admin visibility - Only show to admin role or higher (admin, super_admin)
+  // In dev mode, also show to everyone for testing
   const showAdmin = !!user && (
     process.env.NODE_ENV === 'development' ||
-    !!userProfile?.isAdmin ||
-    !!userProfile?.isAgencyAdmin ||
-    hasAnyPermission(adminPermissions) ||
-    userProfile?.permissions?.some(p => p.includes('admin')) ||
-    userProfile?.permissions?.some(p => p.includes('super')) ||
-    true
+    isSuperAdmin() ||
+    isAdmin() ||
+    hasRoleOrHigher('admin')
   )
 
   if (!user) return null
@@ -128,12 +115,12 @@ export function Sidebar() {
             {isCollapsed ? (
               <RiArrowRightDoubleLine className="h-5 w-5" />
             ) : (
-              <RiArrowLeftDoubleLine  className="h-5 w-5" />
+              <RiArrowLeftDoubleLine className="h-5 w-5" />
             )}
           </button>
         </div>
 
-        {/* Collapsed State - Just the toggle button area */}
+        {/* Collapsed State */}
         {isCollapsed ? (
           <div className="flex-1 flex items-center justify-center">
             {/* Empty space - just the toggle button above is visible */}
@@ -217,7 +204,7 @@ export function Sidebar() {
                 )}
               </div>
 
-              {/* Admin Section */}
+              {/* Admin Section - Only visible to admin role or higher */}
               {showAdmin && (
                 <div className="pt-2">
                   <Link
