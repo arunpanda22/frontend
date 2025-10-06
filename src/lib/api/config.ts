@@ -4,9 +4,9 @@ import { auth } from '@/lib/firebase';
 import { handleAuthError } from '@/lib/utils/error-handler';
 
 // Environment-aware base URL determination
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = process.env.NODE_ENV === 'development';git 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-  (isDevelopment ? "http://localhost:8000" : "https://django-backend-epcse2awb3cyh5e8.centralindia-01.azurewebsites.net");
+  (isDevelopment ? "http://localhost:8000" : "https://pacepivot.com/amazon-management");
 
 // Log API URL for debugging
 console.log(`API base URL: ${API_BASE_URL} (${isDevelopment ? 'development' : 'production'})`);

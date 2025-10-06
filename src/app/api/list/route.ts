@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     // Use environment variable for backend URL
     const isDevelopment = process.env.NODE_ENV === 'development';
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 
-      (isDevelopment ? "http://localhost:8000/" : "https://django-backend-epcse2awb3cyh5e8.centralindia-01.azurewebsites.net/");
+      (isDevelopment ? "http://localhost:8000/" : "https://pacepivot.com/amazon-management/");
     
     // Forward the request to the Django backend
     const data = await request.json();
