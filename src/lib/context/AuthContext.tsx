@@ -3,33 +3,36 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { apiClient, clearAuthTokenCache } from '@/lib/api/config'
+import { 
+  apiClient, 
+  clearAuthTokenCache, 
+  setJWTTokens, 
+  clearJWTTokens,
+  isImpersonating as checkImpersonating,
+  getJWTAccessToken
+} from '@/lib/api/config'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 
-// RBAC context from backend API - Updated to match new model
+// RBAC context from backend API (simplified - removed permissions)
 export interface RBACContext {
   role_id: number
   role_name: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user'
   role_display: string
   hierarchy_level: number
-  // Agency role context (only for 'agency' role)
   agency_id?: number
   agency_name?: string
   agency_slug?: string
-  // Admin role context (only for 'admin' role)
   managed_agencies?: Array<{
     id: number
     name: string
     slug: string
   }>
   managed_agency_ids?: number[]
-  // User role context (only for 'user' role)
   parent_seller_id?: number
   parent_seller_email?: string
 }
 
-// Connected account interfaces
 export interface ConnectedAdvertisingProfile {
   profile_id: string
   account_name: string
@@ -55,7 +58,6 @@ export interface ConnectedSellerAccount {
   last_refreshed_at: string
 }
 
-// User profile with new RBAC data structure
 export interface UserProfile {
   id: number
   email: string
@@ -88,8 +90,8 @@ export interface UserProfile {
   }
 }
 
-// Available user for impersonation
-export interface AvailableUser {
+// Available SELLER for impersonation
+export interface AvailableSeller {
   id: number
   email: string
   username: string
@@ -103,6 +105,7 @@ export interface AvailableUser {
     id: number
     name: string
   }
+  is_current?: boolean
 }
 
 interface AuthContextType {
@@ -111,15 +114,14 @@ interface AuthContextType {
   loading: boolean
   error: Error | null
   signOut: () => Promise<void>
-  // New impersonation functions
-  startImpersonation: (userId: number) => Promise<void>
+  
+  // Impersonation functions (seller-only)
+  startSellerImpersonation: (sellerId: number) => Promise<void>
   endImpersonation: () => Promise<void>
-  getAvailableUsersForImpersonation: () => Promise<AvailableUser[]>
-  // Permission checking functions
-  hasPermission: (permission: string) => boolean
-  hasAnyPermission: (permissions: string[]) => boolean
-  hasAllPermissions: (permissions: string[]) => boolean
-  // Role-based functions - Updated for new hierarchy
+  getAvailableSellers: () => Promise<AvailableSeller[]>
+  switchToSeller: (sellerId: number) => Promise<void>
+  
+  // Role-based functions (no permission checks)
   getUserRole: () => 'super_admin' | 'admin' | 'agency' | 'seller' | 'user' | null
   isRole: (role: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user') => boolean
   hasRoleOrHigher: (role: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user') => boolean
@@ -128,10 +130,15 @@ interface AuthContextType {
   isAgencyAdmin: () => boolean
   isSeller: () => boolean
   isUser: () => boolean
+  
   // Impersonation status
   isImpersonating: () => boolean
+  canImpersonateSellers: () => boolean
+  
   // Cache management
   invalidateProfileCache: () => void
+  invalidatePermissionsCache: () => void
+  
   // Context getters
   getAgency: () => { id: number, name: string, slug: string } | null
   getManagedAgencies: () => Array<{ id: number, name: string, slug: string }>
@@ -144,12 +151,10 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   signOut: async () => {},
-  startImpersonation: async () => {},
+  startSellerImpersonation: async () => {},
   endImpersonation: async () => {},
-  getAvailableUsersForImpersonation: async () => [],
-  hasPermission: () => false,
-  hasAnyPermission: () => false,
-  hasAllPermissions: () => false,
+  getAvailableSellers: async () => [],
+  switchToSeller: async () => {},
   getUserRole: () => null,
   isRole: () => false,
   hasRoleOrHigher: () => false,
@@ -159,7 +164,9 @@ const AuthContext = createContext<AuthContextType>({
   isSeller: () => false,
   isUser: () => false,
   isImpersonating: () => false,
+  canImpersonateSellers: () => false,
   invalidateProfileCache: () => {},
+  invalidatePermissionsCache: () => {},
   getAgency: () => null,
   getManagedAgencies: () => [],
   getParentSeller: () => null,
@@ -177,25 +184,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign out function
   const signOut = async () => {
     try {
+      // Clear JWT tokens first (in case of impersonation)
+      clearJWTTokens()
+      
       if (auth) {
         await firebaseSignOut(auth)
-        // Clear any cached auth state in API client
         clearAuthTokenCache()
-        // Clear local storage tokens
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-          localStorage.removeItem('impersonationActive')
-          localStorage.removeItem('originalUser')
-        }
-        // Proactively clear local auth state
+        
         setUser(null)
         setUserProfile(null)
-        // Redirect to login immediately
+        
+        // Clear all caches
+        queryClient.clear()
+        
         try {
           router.replace('/login')
         } catch {
-          // Fallback if router not available
           if (typeof window !== 'undefined') window.location.href = '/login'
         }
       }
@@ -205,116 +209,224 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Start impersonation function
-  const startImpersonation = async (userId: number) => {
+  // Check if user can impersonate sellers
+  const canImpersonateSellers = (): boolean => {
+    const role = getUserRole()
+    // Only super_admin, admin, and agency can impersonate sellers
+    return role === 'super_admin' || role === 'admin' || role === 'agency'
+  }
+
+  // Start seller impersonation
+  const startSellerImpersonation = async (sellerId: number) => {
     try {
       if (!user) throw new Error('No authenticated user')
       
-      console.log(`🔄 Starting impersonation of user ${userId}`)
+      if (!canImpersonateSellers()) {
+        throw new Error('You do not have permission to impersonate sellers')
+      }
+      
+      console.log(`🔄 Starting seller impersonation: ${sellerId}`)
       
       const response = await apiClient.post('/api/v1/auth/switch-user/', { 
-        user_id: userId
+        user_id: sellerId
       })
       
       if (response.data) {
-        // Store tokens and impersonation state
-        if (response.data.access) {
-          localStorage.setItem('accessToken', response.data.access)
-        }
-        if (response.data.refresh) {
-          localStorage.setItem('refreshToken', response.data.refresh)
+        // Store JWT tokens
+        if (response.data.access && response.data.refresh) {
+          setJWTTokens(response.data.access, response.data.refresh)
         }
         
-        // Store original user info for returning later
+        // Store original user info
         const originalUserInfo = {
           id: userProfile?.id || 0,
           email: userProfile?.email || '',
           role: userProfile?.rbac_context?.role_name || 'unknown',
           agency: userProfile?.rbac_context?.agency_name
         }
-        localStorage.setItem('originalUser', JSON.stringify(originalUserInfo))
-        localStorage.setItem('impersonationActive', 'true')
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('original_user_data', JSON.stringify(originalUserInfo))
+        }
 
-        // Update user profile with the impersonated user data
-        setUserProfile(prev => ({
-          ...response.data.user,
-          isImpersonating: true,
-          originalUser: originalUserInfo,
-          rbac_context: response.data.target_context ? {
-            role_id: 0, // Will be updated by profile fetch
-            role_name: response.data.target_context.role_name,
-            role_display: response.data.target_context.role_display,
-            hierarchy_level: 1, // Will be updated by profile fetch
-            agency_name: response.data.target_context.agency_name
-          } : null
-        }))
+        // Invalidate permissions cache to fetch impersonated user's permissions
+        invalidatePermissionsCache()
         
-        // Invalidate and refresh profile cache
-        invalidateProfileCache()
+        // Update user profile
+        await fetchUserProfile(true)
         
-        console.log('✅ Impersonation started:', response.data.message)
+        console.log('✅ Seller impersonation started:', response.data.message)
       }
     } catch (error) {
-      console.error('❌ Impersonation failed:', error)
+      console.error('❌ Seller impersonation failed:', error)
+      throw error
+    }
+  }
+
+  // Switch directly to another seller (while already impersonating)
+  const switchToSeller = async (sellerId: number) => {
+    try {
+      if (!user) throw new Error('No authenticated user')
+      
+      console.log(`🔄 Switching to seller: ${sellerId}`)
+      
+      const response = await apiClient.post('/api/v1/auth/switch-user/', { 
+        user_id: sellerId
+      })
+      
+      if (response.data) {
+        // Update JWT tokens
+        if (response.data.access && response.data.refresh) {
+          setJWTTokens(response.data.access, response.data.refresh)
+        }
+
+        // Invalidate permissions cache to fetch new seller's permissions
+        invalidatePermissionsCache()
+
+        // Update user profile
+        await fetchUserProfile(true)
+        
+        console.log('✅ Switched to seller:', response.data.message)
+      }
+    } catch (error) {
+      console.error('❌ Seller switch failed:', error)
       throw error
     }
   }
   
-  // End impersonation function
+  // End impersonation
   const endImpersonation = async () => {
     try {
       if (!user) throw new Error('No authenticated user')
       
-      console.log('🔄 Ending impersonation')
+      if (!checkImpersonating()) {
+        throw new Error('Not currently impersonating')
+      }
+      
+      console.log('🔄 Ending seller impersonation')
       
       const response = await apiClient.post('/api/v1/auth/end-impersonation/')
       
       if (response.data) {
-        // Update tokens
-        if (response.data.access) {
-          localStorage.setItem('accessToken', response.data.access)
-        }
-        if (response.data.refresh) {
-          localStorage.setItem('refreshToken', response.data.refresh)
-        }
+        // Clear JWT tokens
+        clearJWTTokens()
         
-        // Clear impersonation flags
-        localStorage.removeItem('impersonationActive')
-        localStorage.removeItem('originalUser')
+        // Clear Firebase token cache to force refresh
+        clearAuthTokenCache()
         
-        // Update user profile to return to the original user
-        setUserProfile(prev => prev ? {
-          ...response.data.user,
-          isImpersonating: false,
-          originalUser: undefined
-        } : null)
+        // Invalidate permissions cache to fetch original user's permissions
+        invalidatePermissionsCache()
         
-        // Invalidate and refresh profile cache
-        invalidateProfileCache()
+        // Force re-fetch user profile with Firebase token
+        await fetchUserProfile(false)
         
         console.log('✅ Returned to original user:', response.data.message)
       }
     } catch (error) {
       console.error('❌ End impersonation failed:', error)
+      
+      // Force cleanup on error
+      clearJWTTokens()
+      clearAuthTokenCache()
+      
+      // Reload the page to reset state
+      if (typeof window !== 'undefined') {
+        window.location.reload()
+      }
+      
       throw error
     }
   }
 
-  // Get available users for impersonation
-  const getAvailableUsersForImpersonation = async (): Promise<AvailableUser[]> => {
+  // Get available sellers for impersonation
+  const getAvailableSellers = async (): Promise<AvailableSeller[]> => {
     try {
       const response = await apiClient.get('/api/v1/auth/switch-user/')
-      return response.data || []
+      
+      if (response.data) {
+        const sellers = response.data.users || response.data || []
+        return sellers
+      }
+      
+      return []
     } catch (error) {
-      console.error('❌ Failed to get available users:', error)
+      console.error('❌ Failed to get available sellers:', error)
       return []
     }
   }
 
-  // Check if user is currently impersonating someone
+  // Fetch user profile (simplified - no permissions here)
+  const fetchUserProfile = async (isImpersonating: boolean = false) => {
+    try {
+      const currentUser = auth?.currentUser
+      if (!currentUser && !isImpersonating) {
+        return
+      }
+
+      console.log('🔄 Fetching user profile...')
+      
+      // Use the profile endpoint (not verify-token)
+      const response = await apiClient.get('/api/v1/auth/profile/')
+      
+      if (response.data) {
+        const userData = response.data
+        
+        // Check impersonation status
+        const impersonationActive = checkImpersonating()
+        let originalUser = undefined
+        
+        if (impersonationActive && typeof window !== 'undefined') {
+          const originalUserStr = localStorage.getItem('original_user_data')
+          if (originalUserStr) {
+            try {
+              originalUser = JSON.parse(originalUserStr)
+            } catch (e) {
+              console.warn('Failed to parse original user data')
+            }
+          }
+        }
+        
+        const userProfile: UserProfile = {
+          id: userData.id || 0,
+          email: userData.email || '',
+          firebase_uid: currentUser?.uid || userData.firebase_uid || '',
+          username: userData.username || '',
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          created_at: userData.created_at || '',
+          updated_at: userData.updated_at || '',
+          current_role_name: userData.current_role_name || null,
+          current_role_display: userData.current_role_display || null,
+          current_agency: userData.current_agency || null,
+          rbac_context: userData.rbac_context || null,
+          connected_advertising_profiles: userData.connected_advertising_profiles || [],
+          connected_seller_accounts: userData.connected_seller_accounts || [],
+          isImpersonating: impersonationActive,
+          originalUser: originalUser
+        }
+        
+        console.log('✅ UserProfile loaded:', {
+          id: userProfile.id,
+          email: userProfile.email,
+          role: userProfile.current_role_name,
+          isImpersonating: userProfile.isImpersonating
+        })
+        
+        setUserProfile(userProfile)
+      }
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error)
+      
+      if (error?.response?.status === 401) {
+        console.warn('🔐 Unauthorized, clearing auth state')
+        await signOut()
+      }
+    }
+  }
+
+  // Check if user is currently impersonating
   const isImpersonating = (): boolean => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('impersonationActive') === 'true' || !!userProfile?.isImpersonating
+    return checkImpersonating() || !!userProfile?.isImpersonating
   }
 
   // Role hierarchy: super_admin > admin > agency > seller > user
@@ -356,7 +468,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getAgency = () => {
     const context = userProfile?.rbac_context
     
-    // Only 'agency' role has direct agency assignment
     if (context?.role_name === 'agency' && context?.agency_id && context?.agency_name && context?.agency_slug) {
       return {
         id: context.agency_id,
@@ -365,7 +476,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    // Also check the serializer field for convenience
     if (userProfile?.current_agency) {
       return userProfile.current_agency
     }
@@ -373,11 +483,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null
   }
 
-  // NEW: Get managed agencies for admin rol
   const getManagedAgencies = () => {
     const context = userProfile?.rbac_context
     
-    // Only 'admin' role has managed agencies
     if (context?.role_name === 'admin' && context?.managed_agencies) {
       return context.managed_agencies
     }
@@ -387,7 +495,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getParentSeller = () => {
     const context = userProfile?.rbac_context
-    // Only 'user' role has parent seller
     if (context?.role_name === 'user' && context?.parent_seller_id && context?.parent_seller_email) {
       return {
         id: context.parent_seller_id,
@@ -397,58 +504,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null
   }
 
-  // Invalidate profile cache when needed
+  // Invalidate profile cache
   const invalidateProfileCache = () => {
     queryClient.invalidateQueries({ queryKey: ['user-profile'] })
   }
   
-  // Permission check helpers (Note: These would need to be implemented with backend API calls
-  // or by including permissions in the user profile response)
-  const hasPermission = (permission: string): boolean => {
-    if (!userProfile) return false
-    
-    // Super admin always has all permissions
-    if (isSuperAdmin()) return true
-    
-    // TODO: Implement permission checking with backend
-    // For now, return false as permissions aren't loaded in this context
-    console.warn('Permission checking not fully implemented - use useUserPermissions hook instead')
-    return false
-  }
-  
-  const hasAnyPermission = (permissions: string[]): boolean => {
-    if (!userProfile) return false
-    
-    // Super admin always has all permissions
-    if (isSuperAdmin()) return true
-    
-    // TODO: Implement permission checking with backend
-    console.warn('Permission checking not fully implemented - use useUserPermissions hook instead')
-    return false
-  }
-  
-  const hasAllPermissions = (permissions: string[]): boolean => {
-    if (!userProfile) return false
-    
-    // Super admin always has all permissions
-    if (isSuperAdmin()) return true
-    
-    // TODO: Implement permission checking with backend
-    console.warn('Permission checking not fully implemented - use useUserPermissions hook instead')
-    return false
+  // Invalidate permissions cache (critical for impersonation)
+  const invalidatePermissionsCache = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-permissions'] })
+    console.log('🔄 Permissions cache invalidated')
   }
 
   useEffect(() => {
-    // Only run this effect on the client side
     if (typeof window === 'undefined') return
-    
-    // Prevent double initialization in React Strict Mode
     if (authInitialized) return
 
     let timeoutId: NodeJS.Timeout
     let unsubscribe: () => void
     let lastVerifyCall: number = 0
-    const VERIFY_DEBOUNCE_MS = 5000 // Prevent multiple verify calls within 5 seconds
+    const VERIFY_DEBOUNCE_MS = 5000
 
     const initializeAuth = async () => {
       try {
@@ -456,128 +530,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Firebase auth not initialized')
         }
 
-        // Set up timeout
         timeoutId = setTimeout(() => {
           if (loading && !authInitialized) {
             setLoading(false)
             setError(new Error('Auth initialization timed out'))
           }
-        }, 7000) // 7 seconds timeout
+        }, 7000)
 
-        // Set up auth state listener
         unsubscribe = onAuthStateChanged(
           auth,
           async (firebaseUser) => {
             setUser(firebaseUser)
             
-            // If user is logged in, fetch their profile with RBAC data
             if (firebaseUser) {
               const now = Date.now()
               
-              // Debounce verify-token calls to prevent multiple rapid calls
               if (now - lastVerifyCall < VERIFY_DEBOUNCE_MS) {
-                console.log('🚫 Skipping verify-token call (debounced)')
+                console.log('🚫 Skipping profile fetch (debounced)')
                 return
               }
               lastVerifyCall = now
 
               try {
-                // Add a small delay to ensure Firebase token is properly set
                 await new Promise(resolve => setTimeout(resolve, 100))
                 
-                const token = await firebaseUser.getIdToken(false) // Use cached token if available
+                // Check if we're in impersonation mode
+                const impersonating = checkImpersonating()
                 
-                // Add additional validation
-                if (!token || token.length < 100) {
-                  throw new Error('Invalid token received from Firebase')
-                }
-                
-                console.log('🔄 Calling verify-token with fresh Firebase auth')
-                
-                // Fetch user profile with permissions from backend
-                const response = await apiClient.post(
-                  '/api/v1/auth/verify-token/',
-                  { token },
-                  { 
-                    headers: { Authorization: `Bearer ${token}` },
-                    timeout: 10000 // 10 second timeout
-                  }
-                )
-                
-                if (response.data && response.data.user) {
-                  const userData = response.data.user
-                  const userContext = response.data.user_context // Get the separate user_context
-                  
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('🔄 Backend user data received:', userData)
-                    console.log('🔄 Backend user context received:', userContext)
-                  }
-                  
-                  // Check if currently impersonating
-                  const impersonationActive = localStorage.getItem('impersonationActive') === 'true'
-                  const originalUserStr = localStorage.getItem('originalUser')
-                  let originalUser = undefined
-                  
-                  if (impersonationActive && originalUserStr) {
-                    try {
-                      originalUser = JSON.parse(originalUserStr)
-                    } catch (e) {
-                      console.warn('Failed to parse original user data')
-                    }
-                  }
-                  
-                  // Transform backend response to our UserProfile format
-                  const userProfile: UserProfile = {
-                    id: userData.id || 0,
-                    email: userData.email || firebaseUser.email || '',
-                    firebase_uid: firebaseUser.uid,
-                    username: userData.username || '',
-                    first_name: userData.first_name || '',
-                    last_name: userData.last_name || '',
-                    created_at: userData.created_at || '',
-                    updated_at: userData.updated_at || '',
-
-                    // NEW: Use serializer fields instead of current_role FK
-                    current_role_name: userData.current_role_name || null,
-                    current_role_display: userData.current_role_display || null,
-                    current_agency: userData.current_agency || null,
-
-                    rbac_context: userContext || null,
-                    connected_advertising_profiles: userData.connected_advertising_profiles || [],
-                    connected_seller_accounts: userData.connected_seller_accounts || [],
-                    // Impersonation fields
-                    isImpersonating: impersonationActive,
-                    originalUser: originalUser
-                  }
-                  
-                  // Debug logging
-                  console.log('✅ UserProfile created:', {
-                    id: userProfile.id,
-                    email: userProfile.email,
-                    role_name: userProfile.current_role_name,
-                    role_display: userProfile.current_role_display,
-                    agency: userProfile.current_agency,
-                    isImpersonating: userProfile.isImpersonating,
-                    rbacContext: userProfile.rbac_context
-                  })
-                  
-                  setUserProfile(userProfile)
+                if (impersonating) {
+                  console.log('🔄 Loading impersonated user profile')
+                  await fetchUserProfile(true)
+                } else {
+                  console.log('🔄 Loading normal user profile')
+                  await fetchUserProfile(false)
                 }
               } catch (profileError: any) {
                 console.error('Error fetching user profile:', profileError)
                 
-                // Handle specific error cases
-                if (profileError?.response?.status === 400) {
-                  console.warn('🔄 Verify token failed (400), will retry on next request')
-                } else if (profileError?.response?.status === 401) {
+                if (profileError?.response?.status === 401) {
                   console.warn('🔐 Token expired, clearing auth state')
-                  await signOut() // Sign out on 401 errors
+                  await signOut()
                   return
-                } else {
-                  console.error('❌ Unexpected profile error:', profileError?.message)
                 }
-                
-                // Don't set global error state here, as we still have a valid Firebase user
               }
             } else {
               setUserProfile(null)
@@ -613,7 +607,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Show error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800">
@@ -631,7 +624,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800">
@@ -648,12 +640,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading, 
         error, 
         signOut, 
-        startImpersonation,
+        startSellerImpersonation,
         endImpersonation,
-        getAvailableUsersForImpersonation,
-        hasPermission,
-        hasAnyPermission,
-        hasAllPermissions,
+        getAvailableSellers,
+        switchToSeller,
         getUserRole,
         isRole,
         hasRoleOrHigher,
@@ -663,7 +653,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isSeller,
         isUser,
         isImpersonating,
+        canImpersonateSellers,
         invalidateProfileCache,
+        invalidatePermissionsCache,
         getAgency,
         getManagedAgencies,
         getParentSeller

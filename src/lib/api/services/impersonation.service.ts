@@ -42,7 +42,7 @@ export const impersonationService = {
    * Start impersonation of a specific user
    */
   async startImpersonation(userId: number): Promise<ImpersonationResponse> {
-    const response = await apiClient.post('/api/v1/auth/switch-to-user/', {
+    const response = await apiClient.post('/api/v1/auth/switch-seller/', {
       user_id: userId
     })
     return response.data

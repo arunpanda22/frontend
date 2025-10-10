@@ -9,11 +9,9 @@ import { MobileSidebar } from '@/components/layout/mobile-sidebar'
 import ProfileDropdown from './profile-dropdown'
 
 export function Navbar() {
-  // const { user } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
-  const { user, userProfile, hasAnyPermission } = useAuth()
-
+  const { user } = useAuth()
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -33,7 +31,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-[9999] bg-gray-900 border-b border-gray-700">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-16">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {/* Logo - Links to home if logged in, login if not */}
           <Link href={user ? "/" : "/login"} className="flex items-center h-16">
             <div className="relative h-10 w-40 rounded-md p-1">
               <Image
@@ -46,30 +44,23 @@ export function Navbar() {
               />
             </div>
           </Link>
-          
-          {/* Desktop - Only show sign in if not logged in */}
-          {/* <div className="hidden md:block">
-            {!user && (
-              <Link href="/login">
-                <Button className="bg-yellow-400 text-black hover:bg-yellow-300">Sign In</Button>
-              </Link>
-            )}
-          </div> */}
 
-          {/* User Menu */}
+          {/* Desktop - User Menu or Sign In */}
           <div className="hidden md:block">
             <div className="ml-4 flex items-center md:ml-6">
               {user ? (
                 <ProfileDropdown />
               ) : (
                 <Link href="/login">
-                  <Button className="bg-yellow-400 text-black hover:bg-yellow-300">Sign In</Button>
+                  <Button className="bg-yellow-400 text-black hover:bg-yellow-300">
+                    Sign In
+                  </Button>
                 </Link>
               )}
             </div>
           </div>
           
-          {/* Mobile menu button - Always show for responsive menu */}
+          {/* Mobile - Menu Button */}
           <div className="md:hidden flex items-center">
             <button
               type="button"
@@ -93,7 +84,7 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu overlay */}
+      {/* Mobile menu overlay - MobileSidebar handles permission filtering */}
       {isMobileMenuOpen && (
         <MobileSidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
       )}
