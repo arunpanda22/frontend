@@ -62,6 +62,28 @@ export interface AdminUser {
   managed_agencies_count?: number  // Add this
 }
 
+export interface UpdateUserRequest {
+  first_name?: string
+  last_name?: string
+  username?: string
+  is_active?: boolean
+}
+
+export interface UpdateUserResponse {
+  success: boolean
+  message: string
+  user: {
+    id: number
+    email: string
+    username: string
+    first_name: string
+    last_name: string
+    display_name: string
+    is_active: boolean
+    updated_at: string
+  }
+}
+
 export interface RoleHistoryItem extends CurrentRole {
   deactivated_at: string | null
 }
@@ -512,6 +534,14 @@ export const adminDashboardService = {
   async getUser(userId: number) {
     const res = await apiClient.get<AdminUser>(
       `/api/v1/rbac-admin/users/${userId}/`
+    )
+    return res.data
+  },
+
+  async updateUser(userId: number, data: UpdateUserRequest) {
+    const res = await apiClient.patch<UpdateUserResponse>(
+      `/api/v1/rbac-admin/users/${userId}/`,
+      data
     )
     return res.data
   },

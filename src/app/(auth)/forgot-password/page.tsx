@@ -1,4 +1,3 @@
-//forgot password page for frontend
 'use client'
 
 import { useState } from 'react'
@@ -24,7 +23,15 @@ export default function ForgotPassword() {
       setLoading(true)
       setError('')
       setSuccessMessage('')
-      await sendPasswordResetEmail(auth, email)
+      
+      // Configure action code settings to redirect directly to our custom reset page
+      const actionCodeSettings = {
+        // Point directly to your reset page - Firebase will append ?mode=resetPassword&oobCode=...
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false, // This tells Firebase NOT to show their page first
+      }
+      
+      await sendPasswordResetEmail(auth, email, actionCodeSettings)
       setSuccessMessage('Password reset email sent! Please check your inbox and spam folder.')
       setEmail('')
     } catch (error) {
@@ -97,11 +104,6 @@ export default function ForgotPassword() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              {error && (
-                <p className="mt-2 text-sm text-red-600">
-                  {error}
-                </p>
-              )}
             </div>
 
             <button
@@ -123,4 +125,4 @@ export default function ForgotPassword() {
       </div>
     </div>
   )
-} 
+}

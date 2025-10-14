@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { FcGoogle } from 'react-icons/fc'
 // import { FaFacebook } from 'react-icons/fa'
 import { FaEye, FaEyeSlash } from 'react-icons/fa'
@@ -20,6 +20,31 @@ const getErrorMessage = (error: FirebaseError) => {
     default:
       return error.message
   }
+}
+
+export function ResetSuccessMessage() {
+  const searchParams = useSearchParams()
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('reset') === 'success') {
+      setShow(true)
+      // Auto-hide after 5 seconds
+      const timer = setTimeout(() => setShow(false), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
+
+  if (!show) return null
+
+  return (
+    <div className="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700 flex items-center">
+      <svg className="w-5 h-5 mr-2 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
+      </svg>
+      Password reset successful! You can now log in with your new password.
+    </div>
+  )
 }
 
 export default function Login() {

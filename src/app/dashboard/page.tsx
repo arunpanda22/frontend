@@ -46,13 +46,13 @@ export default function Dashboard() {
         <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl p-8 border border-gray-100">
           <div className="flex items-center space-x-4 mb-6">
             <div className="h-16 w-16 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-2xl text-white font-bold">
-              {user?.displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
+              {userProfile?.first_name?.[0]?.toUpperCase() || userProfile?.email?.[0]?.toUpperCase()}
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user?.displayName || 'User'}!
+                Welcome back, {userProfile?.first_name || 'User'}!
               </h1>
-              <p className="text-gray-600">{user?.email}</p>
+              <p className="text-gray-600">{userProfile?.email}</p>
             </div>
           </div>
           

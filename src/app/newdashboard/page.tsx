@@ -37,12 +37,20 @@ const DashboardContent = () => {
 
   const handleDateRangeChange = (newRange: Range) => {
     if (newRange.startDate && newRange.endDate) {
+      // Format dates as YYYY-MM-DD in local timezone to avoid UTC conversion issues
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       updateCustomDates(
-        newRange.startDate.toISOString().split("T")[0],
-        newRange.endDate.toISOString().split("T")[0]
+        formatLocalDate(newRange.startDate),
+        formatLocalDate(newRange.endDate)
       );
-    }
-  };
+  }
+};
 
   // Fetch ads-sales data using the hook
   const {

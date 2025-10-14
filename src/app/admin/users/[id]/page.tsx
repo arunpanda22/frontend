@@ -12,6 +12,7 @@ import {
   useAdminQueryRefresh, 
   useAdminUsers
 } from '@/lib/hooks/queries/use-admin'
+import UserDetailsForm from '@/components/admin/UserDetailsForm'
 
 export default function AdminUserManagePage() {
   const params = useParams<{ id: string }>()
@@ -179,6 +180,29 @@ export default function AdminUserManagePage() {
     if (!user || user.current_role?.role_code !== 'admin') return []
     return user.managed_agencies || []
   }, [user])
+
+  const handleUpdateUserDetails = async (updates: {
+    first_name?: string
+    last_name?: string
+    username?: string
+    is_active?: boolean
+  }) => {
+    setStatus({ saving: true })
+    try {
+      const response = await adminDashboardService.updateUser(userId, updates)
+      await refreshUserDetails(userId.toString())
+      
+      setStatus({ 
+        saving: false, 
+        message: response.message || 'User details updated successfully' 
+      })
+    } catch (error: any) {
+      setStatus({ 
+        saving: false, 
+        error: error?.response?.data?.error || error?.message || 'Failed to update user details' 
+      })
+    }
+  }
 
 
   const handleChangeRole = async () => {
@@ -381,6 +405,20 @@ export default function AdminUserManagePage() {
           <p className="text-sm text-blue-700">No role assigned</p>
         )}
       </div>
+
+      <UserDetailsForm
+        user={{
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          is_active: user.is_active
+        }}
+        onUpdate={handleUpdateUserDetails}
+        isUpdating={status.saving}
+      />
+
 
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">

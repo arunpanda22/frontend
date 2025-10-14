@@ -17,9 +17,15 @@ export const LONG_OPERATION_TIMEOUT = 300000; // 5 minutes
 const STORAGE_KEYS = {
   JWT_ACCESS: 'jwt_access_token',
   JWT_REFRESH: 'jwt_refresh_token',
+  JWT_EXPIRES_AT: 'jwt_expires_at', // 🔧 NEW: Track token expiry
   IMPERSONATION_ACTIVE: 'impersonation_active',
   ORIGINAL_USER: 'original_user_data',
 } as const;
+
+// 🔧 JWT token refresh constants
+const JWT_TOKEN_LIFETIME = 10 * 60 * 1000; // 55 minutes (Django default is 60min)
+const JWT_REFRESH_BUFFER = 5 * 60 * 1000; // Refresh 5 minutes before expiry
+let jwtRefreshPromise: Promise<string | null> | null = null;
 
 // Create axios instance
 export const apiClient: AxiosInstance = axios.create({
@@ -48,7 +54,7 @@ let cachedFirebaseToken: string | null = null;
 let firebaseTokenExpiry: number = 0;
 let firebaseTokenPromise: Promise<string> | null = null;
 const TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // 5 minutes buffer
-const TOKEN_VALIDITY_PERIOD = 55 * 60 * 1000; // 55 minutes
+const TOKEN_VALIDITY_PERIOD = 10 * 60 * 1000; // 55 minutes
 
 // Helper functions for token storage
 export function isImpersonating(): boolean {
@@ -66,19 +72,58 @@ export function getJWTRefreshToken(): string | null {
   return localStorage.getItem(STORAGE_KEYS.JWT_REFRESH);
 }
 
+// 🔧 NEW: Get JWT token expiry time
+function getJWTExpiresAt(): number {
+  if (typeof window === 'undefined') return 0;
+  const expiresAt = localStorage.getItem(STORAGE_KEYS.JWT_EXPIRES_AT);
+  return expiresAt ? parseInt(expiresAt, 10) : 0;
+}
+
+// 🔧 NEW: Check if JWT token needs refresh
+function shouldRefreshJWT(): boolean {
+  const expiresAt = getJWTExpiresAt();
+  if (!expiresAt) return false;
+  
+  const now = Date.now();
+  const timeUntilExpiry = expiresAt - now;
+  
+  // Refresh if token expires in less than 5 minutes
+  return timeUntilExpiry < JWT_REFRESH_BUFFER;
+}
+
+// 🔧 NEW: Check if JWT token is expired
+function isJWTExpired(): boolean {
+  const expiresAt = getJWTExpiresAt();
+  if (!expiresAt) return true;
+  
+  return Date.now() >= expiresAt;
+}
+
 export function setJWTTokens(accessToken: string, refreshToken: string) {
   if (typeof window === 'undefined') return;
+  
+  const expiresAt = Date.now() + JWT_TOKEN_LIFETIME;
+  
   localStorage.setItem(STORAGE_KEYS.JWT_ACCESS, accessToken);
   localStorage.setItem(STORAGE_KEYS.JWT_REFRESH, refreshToken);
+  localStorage.setItem(STORAGE_KEYS.JWT_EXPIRES_AT, expiresAt.toString());
   localStorage.setItem(STORAGE_KEYS.IMPERSONATION_ACTIVE, 'true');
+  
+  if (isDevelopment) {
+    console.log('🔑 JWT tokens stored, expires at:', new Date(expiresAt).toLocaleTimeString());
+  }
 }
 
 export function clearJWTTokens() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(STORAGE_KEYS.JWT_ACCESS);
   localStorage.removeItem(STORAGE_KEYS.JWT_REFRESH);
+  localStorage.removeItem(STORAGE_KEYS.JWT_EXPIRES_AT);
   localStorage.removeItem(STORAGE_KEYS.IMPERSONATION_ACTIVE);
   localStorage.removeItem(STORAGE_KEYS.ORIGINAL_USER);
+  
+  // Clear refresh promise
+  jwtRefreshPromise = null;
   
   if (isDevelopment) {
     console.log('🧹 Cleared JWT tokens and impersonation state');
@@ -132,7 +177,7 @@ async function getFreshFirebaseToken(currentUser: any, forceRefresh: boolean = f
   }
 }
 
-// Refresh JWT access token using refresh token
+// 🔧 IMPROVED: Refresh JWT access token using refresh token
 async function refreshJWTAccessToken(): Promise<string | null> {
   const refreshToken = getJWTRefreshToken();
   
@@ -149,42 +194,88 @@ async function refreshJWTAccessToken(): Promise<string | null> {
     }
 
     const response = await axios.post(
-      `${API_BASE_URL}/api/token/refresh/`,
+      `${API_BASE_URL}/api/v1/auth/token-refresh/`,
       { refresh: refreshToken },
       { timeout: 10000 }
     );
 
     if (response.data?.access) {
       const newAccessToken = response.data.access;
+      const expiresAt = Date.now() + JWT_TOKEN_LIFETIME;
+      
       localStorage.setItem(STORAGE_KEYS.JWT_ACCESS, newAccessToken);
+      localStorage.setItem(STORAGE_KEYS.JWT_EXPIRES_AT, expiresAt.toString());
       
       if (isDevelopment) {
-        console.log('✅ JWT access token refreshed');
+        console.log('✅ JWT access token refreshed, expires at:', new Date(expiresAt).toLocaleTimeString());
       }
       
       return newAccessToken;
     }
     
     return null;
-  } catch (error) {
-    console.error('❌ JWT token refresh failed:', error);
-    // Clear JWT tokens on refresh failure
-    clearJWTTokens();
+  } catch (error: any) {
+    console.error('❌ JWT token refresh failed:', error?.response?.data || error.message);
+    
+    // If refresh token is invalid/expired, clear everything
+    if (error?.response?.status === 401) {
+      console.warn('⚠️ Refresh token invalid, ending impersonation');
+      clearJWTTokens();
+    }
+    
     return null;
+  } finally {
+    jwtRefreshPromise = null;
   }
 }
 
-// Main authentication interceptor
+// 🔧 NEW: Get valid JWT token (with auto-refresh)
+async function getValidJWTToken(): Promise<string | null> {
+  const currentToken = getJWTAccessToken();
+  
+  // No token at all
+  if (!currentToken) {
+    return null;
+  }
+  
+  // Token is expired - must refresh
+  if (isJWTExpired()) {
+    if (isDevelopment) {
+      console.log('⏰ JWT token expired, refreshing...');
+    }
+    return await refreshJWTAccessToken();
+  }
+  
+  // Token expires soon - refresh proactively
+  if (shouldRefreshJWT()) {
+    if (isDevelopment) {
+      console.log('⚠️ JWT token expiring soon, refreshing proactively...');
+    }
+    
+    // Use promise to prevent multiple concurrent refresh requests
+    if (!jwtRefreshPromise) {
+      jwtRefreshPromise = refreshJWTAccessToken();
+    }
+    
+    const newToken = await jwtRefreshPromise;
+    return newToken || currentToken; // Fall back to current token if refresh fails
+  }
+  
+  // Token is still valid
+  return currentToken;
+}
+
+// 🔧 IMPROVED: Main authentication interceptor
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
       // Check if we're in an impersonation session
       if (isImpersonating()) {
-        // Use JWT token for impersonation
-        let jwtToken = getJWTAccessToken();
+        // Get valid JWT token (with auto-refresh)
+        const jwtToken = await getValidJWTToken();
         
         if (!jwtToken) {
-          console.warn('⚠️ Impersonation active but no JWT token found');
+          console.warn('⚠️ Impersonation active but no valid JWT token');
           clearJWTTokens();
           return config;
         }
@@ -251,7 +342,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor for auth errors and JWT refresh
+// 🔧 IMPROVED: Response interceptor with better JWT refresh handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -278,25 +369,30 @@ apiClient.interceptors.response.use(
     if (status === 401 && originalRequest) {
       // Check if we're in impersonation mode
       if (isImpersonating()) {
-        // Try to refresh JWT token
-        if (!originalRequest.headers?.['X-JWT-Retry']) {
+        // Check if JWT token is expired
+        if (isJWTExpired()) {
           if (isDevelopment) {
-            console.log('🔄 Attempting JWT token refresh...');
+            console.log('🔄 JWT expired, attempting refresh...');
           }
 
+          // Try to refresh JWT token
           const newAccessToken = await refreshJWTAccessToken();
           
           if (newAccessToken) {
             // Retry the original request with new token
             originalRequest.headers = originalRequest.headers || new AxiosHeaders();
             originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
-            originalRequest.headers.set('X-JWT-Retry', 'true');
+            
+            if (isDevelopment) {
+              console.log('✅ Retrying request with refreshed JWT');
+            }
             
             return apiClient.request(originalRequest);
           } else {
             // JWT refresh failed, end impersonation
             console.warn('⚠️ JWT refresh failed, ending impersonation session');
             clearJWTTokens();
+            
             // Reload to return to normal Firebase auth
             if (typeof window !== 'undefined') {
               window.location.reload();
@@ -353,7 +449,10 @@ if (isDevelopment) {
     
     if (authHeader) {
       const tokenType = isImpersonating() ? 'JWT' : 'Firebase';
-      console.log(`🔑 ${tokenType} Token:`, `${authHeader.substring(0, 20)}...`, "URL:", url);
+      const expiryInfo = isImpersonating() 
+        ? `expires: ${new Date(getJWTExpiresAt()).toLocaleTimeString()}`
+        : '';
+      console.log(`🔑 ${tokenType} Token:`, `${authHeader.substring(0, 20)}...`, expiryInfo, "URL:", url);
     }
     
     if (!url?.includes('verify-token') && !url?.includes('auth')) {

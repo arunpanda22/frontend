@@ -1,9 +1,10 @@
 'use client'
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './sidebar'
 import { RouteGuard } from '../gaurds/route-guard'
+import { useAuth } from '@/lib/context/AuthContext'
 
 interface SidebarContextType {
   isCollapsed: boolean
@@ -26,10 +27,17 @@ interface LayoutWrapperProps {
 
 export function LayoutWrapper({ children }: LayoutWrapperProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [mounted, setMounted] = useState(false) // Track client-side mount
   const pathname = usePathname()
+  const { isImpersonating } = useAuth()
 
-  // Routes without sidebar (like login/signup/public pages)
-  const routesWithoutSidebar = [
+  // Wait for client-side hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Public routes that don't need authentication or RouteGuard
+  const publicRoutes = [
     '/login',
     '/signup',
     '/register',
@@ -38,13 +46,25 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     '/',
   ]
 
-  // Hide sidebar for these routes
-  const shouldHideSidebar =
-    pathname?.startsWith('/admin') ||
-    routesWithoutSidebar.includes(pathname || '')
+  // Check if current route is public
+  const isPublicRoute = publicRoutes.includes(pathname || '')
 
-  if (shouldHideSidebar) {
-    // Public pages: no sidebar, but still guarded if needed
+  // Routes that need auth but no sidebar (like admin pages)
+  const routesWithoutSidebar = pathname?.startsWith('/admin')
+
+  // Only check impersonation after mount to prevent hydration mismatch
+  const impersonationActive = mounted && isImpersonating()
+  
+  const topOffset = 'top-16'
+  const heightCalc = 'h-[calc(100vh-4rem)]'
+
+  // PUBLIC PAGES - No auth needed, no sidebar, no guard
+  if (isPublicRoute) {
+    return <div className="w-full">{children}</div>
+  }
+
+  // PROTECTED PAGES WITHOUT SIDEBAR (like /admin)
+  if (routesWithoutSidebar) {
     return (
       <RouteGuard>
         <div className="w-full">{children}</div>
@@ -52,7 +72,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     )
   }
 
-  // Protected area: sidebar + route guard
+  // PROTECTED PAGES WITH SIDEBAR (main app)
   return (
     <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
       <div className="flex min-h-screen">
@@ -61,7 +81,10 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
             isCollapsed ? 'w-16' : 'w-64'
           }`}
         >
-          <Sidebar />
+          {/* Sidebar with dynamic top position based on impersonation */}
+          <div className={`sticky ${topOffset} ${heightCalc} transition-all duration-300 ${!mounted ? 'opacity-0' : 'opacity-100'}`}>
+            <Sidebar />
+          </div>
         </div>
         <div className="flex-1 overflow-hidden">
           <RouteGuard>{children}</RouteGuard>

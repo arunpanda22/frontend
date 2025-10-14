@@ -456,17 +456,41 @@ export const dashboardService = {
     return res.data
   },
 
-  // Campaign Summary with full params
+  // Campaign Summary with full params - FIXED VERSION
   async getCampaignSummaryWithParams(options: {
     start_date: string
     end_date: string
     period?: string
     focus_level?: 'high' | 'medium' | 'low' | 'all'
   }) {
+    // Build params based on backend expectations
+    const params: Record<string, string> = {};
+    
+    // If period is 'custom', format dates for the period parameter
+    // Otherwise, use the period preset
+    if (options.period === 'custom' && options.start_date && options.end_date) {
+      // Backend expects: 'YYYY-MM-DD to YYYY-MM-DD'
+      params.period = `${options.start_date} to ${options.end_date}`;
+    } else if (options.period) {
+      // Use preset period like '7d', '30d', '3m', etc.
+      params.period = options.period;
+    }
+    
+    // Add focus_level if provided
+    if (options.focus_level) {
+      params.focus_level = options.focus_level;
+    }
+
+    console.log('📊 Campaign Summary Request:', {
+      originalOptions: options,
+      finalParams: params
+    });
+
     const res = await apiClient.get('/api/v1/dashboard-api/campaign-summary/', {
-      params: options
-    })
-    console.log('📊 Campaign Summary API Response:', res.data)
+      params
+    });
+    
+    console.log('📊 Campaign Summary API Response:', res.data);
     
     // Handle wrapped response structure - extract from 'json' if present
     let processedData = res.data;
@@ -474,7 +498,7 @@ export const dashboardService = {
       processedData = Array.isArray(res.data.json) ? res.data.json : [res.data.json];
     }
     
-    return processedData
+    return processedData;
   },
 
   // Targeting Analysis

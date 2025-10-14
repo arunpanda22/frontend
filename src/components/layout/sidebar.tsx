@@ -1,22 +1,30 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { RiArrowRightDoubleLine, RiArrowLeftDoubleLine } from "react-icons/ri"
 import { useAuth } from '@/lib/context/AuthContext'
-import { usePermissions, useUserPermissions } from '@/lib/hooks/usePermissions'
+import { usePermissions } from '@/lib/hooks/usePermissions'
 import { useSidebar } from '@/components/layout/layout-wrapper'
 import { ROUTES, TOOL_CATEGORIES, RouteConfig } from '@/config/routes.config'
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, isImpersonating } = useAuth()
   const { canAccess, isLoadingPermissions } = usePermissions()
   const { isCollapsed, setIsCollapsed } = useSidebar()
   const [isDashboardOpen, setIsDashboardOpen] = useState(true)
   const [isToolsOpen, setIsToolsOpen] = useState(true)
+
+  // Force refresh sidebar when impersonation state changes
+  const impersonationActive = isImpersonating()
+  
+  useEffect(() => {
+    // This effect will trigger a re-render when impersonation changes
+    // The useMemo hooks below will recalculate accessible routes
+  }, [impersonationActive, userProfile?.id])
 
   /**
    * Filter routes based on user permissions
@@ -54,7 +62,7 @@ export function Sidebar() {
     const dashboardCategory = ROUTES.find(r => r.category === 'dashboard')
     if (!dashboardCategory) return []
     return filterAccessibleRoutes(dashboardCategory.children)
-  }, [userProfile, isLoadingPermissions])
+  }, [userProfile, isLoadingPermissions, impersonationActive])
 
   /**
    * Get accessible tools organized by category
@@ -64,7 +72,7 @@ export function Sidebar() {
       name: category.name,
       tools: filterAccessibleRoutes(category.tools),
     })).filter(category => category.tools.length > 0) // Only show categories with accessible tools
-  }, [userProfile, isLoadingPermissions])
+  }, [userProfile, isLoadingPermissions, impersonationActive])
 
   /**
    * Check if user has access to admin section
@@ -74,7 +82,7 @@ export function Sidebar() {
     if (!adminCategory) return false
     const accessibleAdminRoutes = filterAccessibleRoutes(adminCategory.children)
     return accessibleAdminRoutes.length > 0
-  }, [userProfile, isLoadingPermissions])
+  }, [userProfile, isLoadingPermissions, impersonationActive])
 
   /**
    * Get first accessible admin route (for the main admin link)
@@ -84,7 +92,7 @@ export function Sidebar() {
     if (!adminCategory) return null
     const accessibleAdminRoutes = filterAccessibleRoutes(adminCategory.children)
     return accessibleAdminRoutes[0]?.href || '/admin/users'
-  }, [userProfile, isLoadingPermissions])
+  }, [userProfile, isLoadingPermissions, impersonationActive])
 
   // Don't render sidebar if no user
   if (!user) return null
@@ -92,7 +100,7 @@ export function Sidebar() {
   // Show loading state while permissions are loading
   if (isLoadingPermissions()) {
     return (
-      <div className="sticky top-16 bg-gray-900 border-r border-gray-700 flex flex-col h-[calc(100vh-4rem)]">
+      <div className="bg-gray-900 border-r border-gray-700 flex flex-col h-full">
         <div className="flex items-center justify-center h-full">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
         </div>
@@ -131,14 +139,21 @@ export function Sidebar() {
         }
       `}</style>
 
-      <div className="sticky top-16 bg-gray-900 border-r border-gray-700 flex flex-col h-[calc(100vh-4rem)]">
+      <div className="bg-gray-900 border-r border-gray-700 flex flex-col h-full">
         
         {/* Toggle Button */}
         <div className={`flex items-center p-3 border-b border-gray-700 ${
           isCollapsed ? 'justify-center' : 'justify-between'
         }`}>
           {!isCollapsed && (
-            <h2 className="text-sm font-semibold text-gray-300">Navigation</h2>
+            <div className="flex flex-col">
+              <h2 className="text-sm font-semibold text-gray-300">Navigation</h2>
+              {impersonationActive && (
+                <span className="text-xs text-yellow-400 mt-0.5">
+                  Impersonating
+                </span>
+              )}
+            </div>
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -156,7 +171,9 @@ export function Sidebar() {
         {/* Collapsed State */}
         {isCollapsed ? (
           <div className="flex-1 flex items-center justify-center">
-            {/* Empty space - just the toggle button above is visible */}
+            {impersonationActive && (
+              <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" title="Impersonating" />
+            )}
           </div>
         ) : (
           /* Expanded State - Full Navigation */
