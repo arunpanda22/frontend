@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import ProtectedRoute from '@/components/auth/protected-route'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { useProcessSpAds } from '@/lib/hooks/queries/use-sp-ads'
 import { SpAdsResponse } from '@/lib/api/types'
 import { Buffer } from 'buffer'

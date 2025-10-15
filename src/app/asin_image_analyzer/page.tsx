@@ -2,7 +2,7 @@
 
 "use client"
 import ASINImagesAnalyzerForm from '@/components/asin_image_analyzer/ASINImagesAnalyzerForm';
-import ProtectedRoute from '@/components/auth/protected-route';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 export default function CerebroPage() {
   return (
     <ProtectedRoute>

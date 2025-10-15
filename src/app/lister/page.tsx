@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useAuth } from '@/lib/context/AuthContext'
 import { useProcessListings } from '@/lib/hooks/queries/use-listings';
 import { BoltIcon, ChartBarIcon, ShieldCheckIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
-import ProtectedRoute from '@/components/auth/protected-route'
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"

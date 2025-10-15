@@ -1,6 +1,6 @@
 "use client"
 import { CerebroForm } from '@/components/cerebro/CerebroForm';
-import ProtectedRoute from '@/components/auth/protected-route';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 export default function CerebroPage() {
   return (
     <ProtectedRoute>
