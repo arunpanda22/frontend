@@ -22,7 +22,7 @@ const getErrorMessage = (error: FirebaseError) => {
   }
 }
 
-export function ResetSuccessMessage() {
+function ResetSuccessMessage() {
   const searchParams = useSearchParams()
   const [show, setShow] = useState(false)
 
