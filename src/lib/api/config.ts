@@ -6,7 +6,7 @@ import { handleAuthError } from '@/lib/utils/error-handler';
 // Environment-aware base URL determination
 const isDevelopment = process.env.NODE_ENV === 'development';
 export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 
-  (isDevelopment ? "http://localhost:8000" : "https://backend-test-server-h7hvgbhcdgbtfnhd.centralindia-01.azurewebsites.net");
+  (isDevelopment ? "http://localhost:8000" : "https://api.pacepivot.com");
 
 console.log(`API base URL: ${API_BASE_URL} (${isDevelopment ? 'development' : 'production'})`);
 
