@@ -134,7 +134,7 @@ export default function CampaignXRayTable() {
     });
   }, [adsTrendData, formatCurrency, formatNumber, formatPercentage]);
 
-  // Define columns based on actual API response structure
+  // Define columns based on actual API response structure with auto-fit
   const dynamicColumns = useMemo<ColumnDefinition[]>(() => {
     if (!transformedData.length) return [];
 
@@ -150,8 +150,9 @@ export default function CampaignXRayTable() {
         editable: false,
         sortable: true,
         filterable: true,
-        width: 300,
+        width: 350,
         minWidth: 250,
+        maxWidth: 500,
         pinned: 'left'
       }
     ];
@@ -171,7 +172,7 @@ export default function CampaignXRayTable() {
       }
     });
 
-    // Create columns for each metric group
+    // Create columns for each metric group with auto-fit
     const metricColumns: ColumnDefinition[] = [];
     
     Object.entries(fieldGroups).forEach(([metric, fields]) => {
@@ -226,8 +227,9 @@ export default function CampaignXRayTable() {
           editable: false,
           sortable: true,
           filterable: !isTrend,
-          width: isTrend ? 200 : (isCurrent ? 200 : 200),
-          minWidth: isTrend ? 200 : (isCurrent ? 200 : 200)
+          autoFitHeader: true,  // Enable auto-fit for all metric columns
+          minWidth: isTrend ? 180 : (isCurrent ? 220 : 240),
+          maxWidth: isTrend ? 250 : (isCurrent ? 280 : 300)
         });
       });
     });

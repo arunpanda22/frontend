@@ -45,7 +45,7 @@ const ReturnReplacementCards = () => {
   }, !!(previousPeriodDates?.start_date && previousPeriodDates?.end_date));
 
   // Helper functions
-  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
+  const formatPercentage = (value: number) => `${value.toFixed(2)}%`;
   
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-US').format(Math.round(value));

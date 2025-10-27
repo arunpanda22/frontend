@@ -5,7 +5,6 @@ import { Box, Typography } from '@mui/material'
 import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard'
 import { AdvancedDataTable, type ColumnDefinition, type TableData  } from '@/components/dashboard/table/advanced-data-table'
 
-
 export default function AsinPerformanceTable() {
   // Fetch ASIN performance data from API - use stable date values
   const dateParams = useMemo(() => ({
@@ -17,7 +16,7 @@ export default function AsinPerformanceTable() {
 
   const { asinSummary, isLoading, isError, error } = useAsinPerformanceData(dateParams);
 
-  // State for managing table columns
+  // State for managing table columns - now simplified with auto-fit
   const initialColumns: ColumnDefinition[] = useMemo(() => [
     {
       field: 'asin',
@@ -26,8 +25,8 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100,
+      width: 160,  
+      minWidth: 220,
       pinned: 'left'
     },
     {
@@ -37,8 +36,9 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 300,
-      minWidth: 200
+      width: 450,  // Manual width for longer product names
+      minWidth: 300,
+      maxWidth: 600
     },
     {
       field: 'total_quantity',
@@ -47,8 +47,7 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true  // Let the table auto-fit this column
     },
     {
       field: 'total_sales',
@@ -57,8 +56,7 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 150,
-      minWidth: 130
+      autoFitHeader: true
     },
     {
       field: 'sales_asp',
@@ -67,18 +65,16 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true
     },
     {
       field: 'buybox',
-      headerName: 'Buy Box %',
+      headerName: 'Buy Box % ',
       type: 'number',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100
+      autoFitHeader: true
     },
     {
       field: 'organic_sales',
@@ -87,8 +83,7 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 160,
-      minWidth: 140
+      autoFitHeader: true
     },
     {
       field: 'conversion',
@@ -97,28 +92,25 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 130,
-      minWidth: 110
+      autoFitHeader: true
     },
     {
       field: 'acos',
-      headerName: 'ACOS %',
+      headerName: 'ACOS %  ',
       type: 'number',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 110,
-      minWidth: 90
+      autoFitHeader: true
     },
     {
       field: 'tacos',
-      headerName: 'TACOS %',
+      headerName: 'TACOS %  ',
       type: 'number',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 110,
-      minWidth: 90
+      autoFitHeader: true
     },
     {
       field: 'replacement_rate',
@@ -127,8 +119,7 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 160,
-      minWidth: 140
+      autoFitHeader: true
     },
     {
       field: 'return_rate',
@@ -137,8 +128,7 @@ export default function AsinPerformanceTable() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true
     }
   ], []);
 

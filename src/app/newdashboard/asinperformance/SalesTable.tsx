@@ -89,7 +89,7 @@ export default function AsinSalesTrendTable() {
     });
   }, [pivotedData]);
 
-  // Dynamic column generation based on available data
+  // Dynamic column generation based on available data with auto-fit support
   const dynamicColumns = useMemo<ColumnDefinition[]>(() => {
     if (!transformedData.length) return [];
 
@@ -106,8 +106,8 @@ export default function AsinSalesTrendTable() {
         editable: false,
         sortable: true,
         filterable: true,
-        width: 120,
-        minWidth: 100,
+        width: 130,
+        minWidth: 120,
         pinned: 'left'
       },
       {
@@ -117,8 +117,9 @@ export default function AsinSalesTrendTable() {
         editable: false,
         sortable: true,
         filterable: true,
-        width: 250,
-        minWidth: 200
+        width: 350,
+        minWidth: 250,
+        maxWidth: 500
       }
     ];
 
@@ -155,7 +156,7 @@ export default function AsinSalesTrendTable() {
       }
     });
 
-    // Create columns for each metric group
+    // Create columns for each metric group with auto-fit
     Object.entries(columnGroups).forEach(([metric, columns]) => {
       const metricConfig = metricFormatters[metric as keyof typeof metricFormatters];
       const columnType = metricConfig?.type || 'text';
@@ -179,8 +180,9 @@ export default function AsinSalesTrendTable() {
           editable: false,
           sortable: true,
           filterable: !isTrend,
-          width: isTrend ? 120 : 140,
-          minWidth: isTrend ? 100 : 120,
+          autoFitHeader: true,  // Enable auto-fit for all metric columns
+          minWidth: isTrend ? 120 : 180,
+          maxWidth: isTrend ? 250 : 280
         });
       });
     });

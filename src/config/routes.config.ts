@@ -42,6 +42,13 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
+    name: 'Orders',
+    href: '/newdashboard/orders',
+    description: 'Live orders dashboard',
+    permission: 'view_dashboard',
+    requiresSellerAccount: true,
+  },
+  {
     name: 'ASIN Performance',
     href: '/newdashboard/asinperformance',
     description: 'Analyze ASIN performance metrics',

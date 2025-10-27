@@ -91,7 +91,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
 
   const formatPercentage = useCallback((value: number): string => {
     if (isNaN(value) || value === null || value === undefined) return '0%';
-    return `${value.toFixed(1)}%`;
+    return `${value.toFixed(2)}%`;
   }, []);
 
   const formatChange = useCallback((change: number, suffix: string = "%"): string => {

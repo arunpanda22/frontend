@@ -512,7 +512,7 @@ export interface ReportFilters {
   page_size?: number
   report_type?: string
   source?: 'ads' | 'fba'
-  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
+  status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'failed'
   start_date?: string
   end_date?: string
   tenant_id?: string

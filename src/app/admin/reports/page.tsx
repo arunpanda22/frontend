@@ -97,7 +97,7 @@ export default function AdminReportsPage() {
           <div className="md:col-span-2">
             <input
               className="border border-gray-300 rounded px-3 py-2 text-sm w-full"
-              placeholder="Report type slug"
+              placeholder="Report type"
               value={filters.report_type || ''}
               onChange={e => updateFilters({ report_type: e.target.value || undefined })}
             />
@@ -124,6 +124,7 @@ export default function AdminReportsPage() {
               <option value="IN_PROGRESS">IN_PROGRESS</option>
               <option value="COMPLETED">COMPLETED</option>
               <option value="FAILED">FAILED</option>
+              <option value="failed">failed</option>
             </select>
           </div>
           <div className="md:col-span-2 flex gap-2">

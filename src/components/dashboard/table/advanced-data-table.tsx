@@ -34,6 +34,7 @@ export interface ColumnDefinition {
   minWidth?: number
   maxWidth?: number
   pinned?: "left" | "right" | null
+  autoFitHeader?: boolean // New option to enable auto-fit for specific columns
 }
 
 export interface TableData {
@@ -63,6 +64,7 @@ interface AdvancedDataTableProps {
   showCheckboxColumn?: boolean
   rowsPerPage?: number
   initialSort?: SortState[]
+  autoFitHeaders?: boolean // Global option to enable auto-fit for all columns
 }
 
 interface FilterDropdownProps {
@@ -84,6 +86,30 @@ interface CellRendererProps {
   onEditValueChange: (value: any) => void
   rowData: TableData
 }
+
+// Utility function to calculate optimal column width based on header text
+const calculateOptimalHeaderWidth = (headerText: string): number => {
+  // Component widths in the header:
+  // - GripVertical icon: ~16px (hidden by default but takes space on hover)
+  // - Header text: ~9px per character
+  // - 3-dot menu button: ~28px
+  // - Gap between elements: ~12px
+  // - Padding (px-4 = 16px on each side): 32px
+  // - Resize handle hover area: ~6px
+  
+  const gripIconWidth = 16;
+  const menuButtonWidth = 28;
+  const gapWidth = 8;
+  const paddingWidth = 16; // 16px left + 16px right
+  const resizeHandleWidth = 6;
+  const charWidth = 9;
+  
+  const textWidth = headerText.length * charWidth;
+  const totalWidth = gripIconWidth + textWidth + gapWidth + menuButtonWidth + paddingWidth + resizeHandleWidth;
+  
+  // Ensure minimum width and round up to nearest 5px for cleaner numbers
+  return Math.max(120, Math.ceil(totalWidth / 5) * 5);
+};
 
 const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
   const [isHovered, setIsHovered] = useState(false)
@@ -440,10 +466,49 @@ export function AdvancedDataTable({
   onColumnsChange, 
   className, 
   showCheckboxColumn = true,
-  rowsPerPage = 10 ,
-  initialSort = []
+  rowsPerPage = 10,
+  initialSort = [],
+  autoFitHeaders = false // Default to false for backward compatibility
 }: AdvancedDataTableProps) {
-  const [internalColumns, setInternalColumns] = useState<ColumnDefinition[]>(columns)
+  // Process columns with auto-fit widths
+  const processedColumns = useMemo(() => {
+    return columns.map(col => {
+      // Check if auto-fit should be applied (either globally or per-column)
+      const shouldAutoFit = autoFitHeaders || col.autoFitHeader;
+      
+      // If width is already explicitly set and auto-fit is not enabled, use the provided width
+      if (!shouldAutoFit && col.width !== undefined) {
+        return col;
+      }
+      
+      // Calculate optimal width if auto-fit is enabled
+      if (shouldAutoFit) {
+        const calculatedWidth = calculateOptimalHeaderWidth(col.headerName);
+        
+        // Respect minWidth and maxWidth constraints
+        let finalWidth = calculatedWidth;
+        if (col.minWidth !== undefined) {
+          finalWidth = Math.max(finalWidth, col.minWidth);
+        }
+        if (col.maxWidth !== undefined) {
+          finalWidth = Math.min(finalWidth, col.maxWidth);
+        }
+        
+        return {
+          ...col,
+          width: finalWidth
+        };
+      }
+      
+      // Default width if nothing is specified
+      return {
+        ...col,
+        width: col.width || 240
+      };
+    });
+  }, [columns, autoFitHeaders]);
+
+  const [internalColumns, setInternalColumns] = useState<ColumnDefinition[]>(processedColumns)
   const [filteredData, setFilteredData] = useState<TableData[]>(data)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
@@ -528,8 +593,8 @@ export function AdvancedDataTable({
 
   // Update internal columns when columns prop changes
   useEffect(() => {
-    setInternalColumns(columns)
-  }, [columns])
+    setInternalColumns(processedColumns)
+  }, [processedColumns])
 
   const pinnedColumns = useMemo(() => {
     const left = internalColumns.filter((col) => col.pinned === "left")
@@ -869,9 +934,9 @@ export function AdvancedDataTable({
                 ))}
               </colgroup>
               <thead>
-                <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600" style={{ height: '48px' }}>
+                <tr className="bg-gradient-to-r from-cyan-100 via-cyan-200 to-cyan-300 border-b border-slate-600" style={{ height: '48px' }}>
                   {showCheckboxColumn && (
-                    <th className="sticky left-0 z-30 p-0 bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600"
+                    <th className="sticky left-0 z-30 p-0 bg-gradient-to-r from-cyan-100 to-cyan-300 text-black border-r border-slate-600"
                         style={{ width: checkboxColumnWidth, minWidth: checkboxColumnWidth }}>
                       <div className="flex items-center justify-center h-12">
                         <Checkbox
@@ -892,7 +957,7 @@ export function AdvancedDataTable({
                       <th
                         key={column.field}
                         className={cn(
-                          "text-left p-0 font-bold text-sm bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600 relative group",
+                          "text-left p-0 font-bold text-sm bg-gradient-to-r from-blue-100 to-blue-200 border-r border-slate-200 relative group",
                           isLeftPinned && "sticky z-20 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
                           isRightPinned && "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
                         )}
@@ -904,10 +969,10 @@ export function AdvancedDataTable({
                           right: rightOffset,
                         }}
                       >
-                        <div className="flex items-center justify-between h-12 px-4">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex items-center justify-between h-12 px-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
                             <GripVertical className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                            <span className="truncate font-bold text-white text-sm tracking-wide">
+                            <span className="truncate font-bold text-black text-sm tracking-wide">
                               {column.headerName}
                             </span>
                           </div>
@@ -998,7 +1063,6 @@ export function AdvancedDataTable({
                             <div className="h-11 px-4 flex items-center">
                               {!isEmpty && (
                                 <CellRenderer
-                                  // value={row[column.field]}
                                   value={(row as TableData)[column.field as keyof TableData]}
                                   column={column}
                                   isEditing={editingCell?.row === rowIndex && editingCell?.field === column.field}
