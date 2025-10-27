@@ -99,9 +99,23 @@ interface UseRealtimeOrdersReturn {
   reconnect: () => void;
 }
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+const getWebSocketUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  if (isDevelopment) {
+    return "ws://localhost:8000";
+  }
+  return "wss://api.pacepivot.com";
+};
+
+export const WS_BASE_URL = getWebSocketUrl();
+
 export function useRealtimeOrders({
   sellerId,
-  wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000',
+  wsUrl = WS_BASE_URL,
   reconnectInterval = 5000,
   maxOrders = 100,
   enabled = true,
