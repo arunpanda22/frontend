@@ -42,7 +42,7 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
-    name: 'Orders',
+    name: 'Orders Realtime',
     href: '/newdashboard/orders',
     description: 'Live orders dashboard',
     permission: 'view_dashboard',
