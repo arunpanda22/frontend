@@ -176,8 +176,8 @@ export default function RealtimeOrdersPage() {
                 title={metric.title}
                 value={metric.value}
                 icon={metric.icon}
-                change={metric.change}
-                changeType={metric.changeType}
+                // change={metric.change}
+                // changeType={metric.changeType}
                 bgColor={metric.bgColor}
                 className="animate-fadeIn"
               />

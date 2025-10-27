@@ -129,14 +129,14 @@ const HourlyOrdersChart = ({ hourlyOrders, isLoading = false }: HourlyOrdersChar
         color: '#1a2b3c'
       }
     },
-    subtitle: {
-      text: `Live data • Updates every 5 minutes`,
-      align: 'left',
-      style: {
-        fontSize: '12px',
-        color: '#6b7280'
-      }
-    },
+    // subtitle: {
+    //   text: `Live data • Updates every 5 minutes`,
+    //   align: 'left',
+    //   style: {
+    //     fontSize: '12px',
+    //     color: '#6b7280'
+    //   }
+    // },
     legend: {
       show: false, // Hide default legend
     },
