@@ -1,8 +1,20 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, memo } from "react";
 import { ChevronLeft, ChevronRight, Package, Calendar, Hash, CheckCircle, Clock, XCircle, Truck, AlertCircle } from "lucide-react";
-import type { Order } from "@/lib/hooks/useRealtimeOrders";
+
+interface Order {
+  AmazonOrderId: string;
+  OrderStatus: string | null;
+  product_name: string;
+  PurchaseDate: string | null;
+  FulfillmentType: string | null;
+  OrderType: string | null;
+  EventTime?: string | null;
+  ChangeReason?: string | null;
+  seller_sku?: string | null;
+  product_image?: string | null;
+}
 
 interface OrdersTableProps {
   orders: Order[];
@@ -10,6 +22,53 @@ interface OrdersTableProps {
 }
 
 const ITEMS_PER_PAGE = 20;
+
+const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string | null | undefined }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  if (!imageUrl || imageError) {
+    return null;
+  }
+
+  return (
+    <div className="relative inline-block mr-3">
+      <div
+        className="relative"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <img
+          src={imageUrl}
+          alt="Product"
+          className="w-12 h-12 rounded-md object-cover border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
+          onError={() => setImageError(true)}
+        />
+
+        {isHovered && (
+          <div
+            className="absolute z-[9999] bg-white p-2 rounded-lg shadow-xl border border-gray-300"
+            style={{
+              left: "100%",
+              top: "50%",
+              transform: "translateY(-50%)",
+              marginLeft: "8px",
+              width: "204px",
+              height: "204px",
+            }}
+            onMouseEnter={() => setIsHovered(true)}
+          >
+            <img
+              src={imageUrl}
+              alt="Expanded view"
+              className="w-48 h-48 rounded-md object-cover"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
 
 export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,17 +134,6 @@ export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
       return dateStr;
     }
   };
-
-  // const truncateSKU = (skuString: string, maxLength: number = 40) => {
-  //   if (!skuString) return '-';
-  //   if (skuString.length <= maxLength) return skuString;
-    
-  //   const skus = skuString.split(',');
-  //   if (skus.length > 1) {
-  //     return `${skus[0]} +${skus.length - 1} more`;
-  //   }
-  //   return skuString.substring(0, maxLength) + '...';
-  // };
 
   if (isLoading) {
     return (
@@ -177,11 +225,14 @@ export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
                   )}
                 </td>
                 <td className="py-4 px-4">
-                  <div 
-                    className="text-sm text-gray-600 max-w-xs truncate cursor-help" 
-                    title={order.product_name}
-                  >
-                    {order.product_name}
+                  <div className="flex items-center">
+                    {order.product_image && <ImageCell imageUrl={order.product_image} />}
+                    <div 
+                      className="text-sm text-gray-600 max-w-40 truncate cursor-help" 
+                      title={order.product_name}
+                    >
+                      {order.product_name}
+                    </div>
                   </div>
                 </td>
                 <td className="py-4 px-4">

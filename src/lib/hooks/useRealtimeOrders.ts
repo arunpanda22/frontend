@@ -1,8 +1,11 @@
-// hooks/useRealtimeOrders.ts - Fixed for React StrictMode
+// hooks/useRealtimeOrders.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { auth } from '@/lib/firebase';
+import { getJWTAccessToken, isImpersonating } from '../api/config';
 
-// [All your existing type definitions stay the same]
+
+// Types
 export interface Order {
   AmazonOrderId: string;
   seller_id: string;
@@ -73,7 +76,7 @@ export interface HourlyOrders {
 export interface Metrics {
   daily: DailyMetrics;
   top_products: TopProduct[];
-  hourly_orders: HourlyOrders; 
+  hourly_orders: HourlyOrders;
 }
 
 interface WebSocketMessage {
@@ -95,6 +98,7 @@ interface UseRealtimeOrdersReturn {
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
+  isAuthError: boolean;
   refreshMetrics: () => void;
   reconnect: () => void;
 }
@@ -105,13 +109,37 @@ const getWebSocketUrl = (): string => {
   if (process.env.NEXT_PUBLIC_WS_URL) {
     return process.env.NEXT_PUBLIC_WS_URL;
   }
-  if (isDevelopment) {
-    return "ws://localhost:8000";
-  }
-  return "wss://api.pacepivot.com";
+  return isDevelopment ? "ws://localhost:8000" : "wss://api.pacepivot.com";
 };
 
 export const WS_BASE_URL = getWebSocketUrl();
+
+// Get authentication token (Firebase or JWT)
+async function getAuthToken(): Promise<string | null> {
+  try {
+    // Check if impersonating (use JWT)
+    if (isImpersonating()) {
+      const jwtToken = getJWTAccessToken();
+      if (jwtToken) {
+        if (isDevelopment) console.log('🔑 Using JWT token for WebSocket');
+        return jwtToken;
+      }
+    }
+    
+    // Use Firebase token
+    const currentUser = auth?.currentUser;
+    if (currentUser) {
+      const token = await currentUser.getIdToken();
+      if (isDevelopment) console.log('🔑 Using Firebase token for WebSocket');
+      return token;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    return null;
+  }
+}
 
 export function useRealtimeOrders({
   sellerId,
@@ -125,12 +153,14 @@ export function useRealtimeOrders({
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthError, setIsAuthError] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isIntentionalCloseRef = useRef(false);
-  const isMountedRef = useRef(true); // NEW: Track if component is mounted
+  const isMountedRef = useRef(true);
+  const currentTokenRef = useRef<string | null>(null);
 
   const sendMessage = useCallback((message: { type: string }) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -181,8 +211,9 @@ export function useRealtimeOrders({
           setMetrics(message.metrics);
           setIsLoading(false);
           setError(null);
+          setIsAuthError(false);
           reconnectAttemptsRef.current = 0;
-          console.log(`Received initial state: ${message.count} orders`);
+          if (isDevelopment) console.log(`✅ Received initial state: ${message.count} orders`);
           break;
 
         case 'batch_update':
@@ -190,12 +221,12 @@ export function useRealtimeOrders({
           if (message.metrics) {
             setMetrics(message.metrics);
           }
-          console.log(`Received batch update: ${message.count} order items`);
+          if (isDevelopment) console.log(`📦 Batch update: ${message.count} items`);
           break;
 
         case 'metrics_refresh':
           setMetrics(message.metrics);
-          console.log('Metrics refreshed');
+          if (isDevelopment) console.log('📊 Metrics refreshed');
           break;
 
         case 'ping':
@@ -203,55 +234,69 @@ export function useRealtimeOrders({
           break;
 
         case 'pong':
-          console.debug('Received pong from server');
           break;
 
         case 'error':
           setError(message.message);
-          console.error('WebSocket error message:', message.message);
+          console.error('❌ WebSocket error:', message.message);
           break;
 
         default:
-          console.warn('Unknown message type:', message);
+          console.warn('⚠️ Unknown message type:', message);
       }
     } catch (err) {
       console.error('Error parsing WebSocket message:', err);
-      setError('Failed to parse server message');
     }
   }, [mergeOrders, maxOrders, sendMessage]);
 
-  const connect = useCallback(() => {
-    // CRITICAL: Don't connect if already connected or component unmounted
+  const connect = useCallback(async () => {
+    // Don't connect if not enabled, no seller, or unmounted
     if (!enabled || !sellerId || !isMountedRef.current) {
       return;
     }
 
-    // CRITICAL: Don't create a new connection if one exists and is open
+    // Don't create duplicate connections
     if (wsRef.current && 
         (wsRef.current.readyState === WebSocket.OPEN || 
          wsRef.current.readyState === WebSocket.CONNECTING)) {
-      console.log('WebSocket already connected or connecting, skipping...');
+      if (isDevelopment) console.log('⏭️ WebSocket already connected/connecting');
       return;
     }
 
-    // Clean up existing connection
-    if (wsRef.current) {
-      isIntentionalCloseRef.current = true;
-      wsRef.current.close();
-    }
-
     try {
-      const url = `${wsUrl}/ws/orders/${sellerId}/`;
-      console.log('Connecting to WebSocket:', url);
+      // Get authentication token
+      const token = await getAuthToken();
+      
+      if (!token) {
+        console.error('❌ No authentication token available');
+        setError('Authentication required');
+        setIsAuthError(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Store current token
+      currentTokenRef.current = token;
+
+      // Clean up existing connection
+      if (wsRef.current) {
+        isIntentionalCloseRef.current = true;
+        wsRef.current.close();
+      }
+
+      // Build WebSocket URL with token
+      const url = `${wsUrl}/ws/orders/${sellerId}/?token=${token}`;
+      if (isDevelopment) console.log('🔌 Connecting to:', url.replace(token, 'TOKEN'));
       
       const ws = new WebSocket(url);
       wsRef.current = ws;
       isIntentionalCloseRef.current = false;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        if (isDevelopment) console.log('✅ WebSocket connected');
         setIsConnected(true);
         setError(null);
+        setIsAuthError(false);
         setIsLoading(false);
         reconnectAttemptsRef.current = 0;
       };
@@ -259,48 +304,69 @@ export function useRealtimeOrders({
       ws.onmessage = handleMessage;
 
       ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        console.error('❌ WebSocket error:', event);
       };
 
-      ws.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
+      ws.onclose = async (event) => {
+        if (isDevelopment) console.log(`🔌 WebSocket closed: ${event.code}`);
         setIsConnected(false);
 
-        // Don't reconnect if component is unmounted or it was intentional
+        // Don't reconnect if unmounted or intentional
         if (!isMountedRef.current || isIntentionalCloseRef.current) {
-          console.log('Not reconnecting - component unmounted or intentional close');
           return;
         }
 
-        // Handle specific close codes
+        // Handle auth errors
+        if (event.code === 4001) {
+          console.warn('⚠️ WebSocket closed: Unauthorized (token invalid/expired)');
+          setError('Authentication failed. Refreshing...');
+          setIsAuthError(true);
+          
+          // Try to refresh token and reconnect
+          if (reconnectAttemptsRef.current < 3) {
+            reconnectAttemptsRef.current += 1;
+            if (isDevelopment) console.log('🔄 Attempting to refresh token and reconnect...');
+            setTimeout(() => connect(), 2000);
+          } else {
+            setError('Authentication failed. Please refresh the page.');
+          }
+          return;
+        }
+
+        // Handle other close codes
         if (event.code === 4002) {
-          console.error('Connection closed: Invalid seller ID');
           setError('Invalid seller ID');
           return;
         }
 
-        // Attempt to reconnect with exponential backoff
+        if (event.code === 4003) {
+          setError('Access denied to this seller');
+          setIsAuthError(true);
+          return;
+        }
+
+        // Normal reconnection logic
         if (enabled && reconnectAttemptsRef.current < 10) {
           const delay = Math.min(
             reconnectInterval * Math.pow(1.5, reconnectAttemptsRef.current),
             30000
           );
           
-          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1})`);
           setError(`Connection lost. Reconnecting in ${Math.round(delay/1000)}s...`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current += 1;
             connect();
           }, delay);
-        } else if (reconnectAttemptsRef.current >= 10) {
-          setError('Failed to connect after multiple attempts. Please refresh the page.');
+        } else {
+          setError('Failed to connect. Please refresh the page.');
           setIsLoading(false);
         }
       };
     } catch (err) {
-      console.error('Error creating WebSocket:', err);
+      console.error('❌ Error creating WebSocket:', err);
       setError('Failed to establish connection');
+      setIsAuthError(true);
       setIsLoading(false);
     }
   }, [enabled, sellerId, wsUrl, reconnectInterval, handleMessage]);
@@ -308,21 +374,17 @@ export function useRealtimeOrders({
   const reconnect = useCallback(() => {
     reconnectAttemptsRef.current = 0;
     setError(null);
+    setIsAuthError(false);
     setIsLoading(true);
     connect();
   }, [connect]);
 
-  // Handle page visibility changes
+  // Handle page visibility (don't reconnect on hidden)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        console.log('Page hidden - connection maintained by server pings');
-      } else {
-        console.log('Page visible');
-        if (!isConnected && enabled && sellerId && isMountedRef.current) {
-          console.log('Reconnecting after page became visible');
-          reconnect();
-        }
+      if (!document.hidden && !isConnected && enabled && sellerId && isMountedRef.current) {
+        if (isDevelopment) console.log('👁️ Page visible, reconnecting...');
+        reconnect();
       }
     };
 
@@ -330,27 +392,22 @@ export function useRealtimeOrders({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isConnected, enabled, sellerId, reconnect]);
 
-  // CRITICAL: Single connection effect
+  // Initial connection
   useEffect(() => {
     isMountedRef.current = true;
 
     if (enabled && sellerId) {
-      // Small delay to prevent double mounting in StrictMode
       const timeoutId = setTimeout(() => {
         if (isMountedRef.current) {
           connect();
         }
       }, 100);
 
-      return () => {
-        clearTimeout(timeoutId);
-      };
+      return () => clearTimeout(timeoutId);
     }
+  }, [enabled, sellerId]);
 
-    return undefined;
-  }, [enabled, sellerId]); // CRITICAL: Only depend on these, not 'connect'
-
-  // CRITICAL: Cleanup effect
+  // Cleanup
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -364,7 +421,7 @@ export function useRealtimeOrders({
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, []); // Empty deps - only run on mount/unmount
+  }, []);
 
   return {
     orders,
@@ -372,6 +429,7 @@ export function useRealtimeOrders({
     isConnected,
     isLoading,
     error,
+    isAuthError,
     refreshMetrics,
     reconnect,
   };
