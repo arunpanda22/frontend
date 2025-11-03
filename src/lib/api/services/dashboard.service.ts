@@ -24,7 +24,7 @@ export interface InventoryHealthItem {
   'Sales/Day': number             
   'Inventory Cover': number       
   reorder_quantity: number
-  OOS_Alert: string       
+  status: string       
   image_url: string       
 }
 

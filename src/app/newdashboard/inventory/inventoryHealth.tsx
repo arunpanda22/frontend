@@ -47,8 +47,8 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100,
+      width: 160,  
+      minWidth: 220,
       pinned: 'left'
     },
     {
@@ -58,8 +58,9 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 280,
-      minWidth: 200
+      width: 450,  
+      minWidth: 300,
+      maxWidth: 600
     },
     {
       field: 'focus_category',
@@ -68,8 +69,7 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 150,
-      minWidth: 120
+      autoFitHeader: true 
     },
     {
       field: 'reserved_quantity',
@@ -78,8 +78,7 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 130,
-      minWidth: 110
+      autoFitHeader: true 
     },
     {
       field: 'fulfillable_quantity',
@@ -88,8 +87,7 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true 
     },
     {
       field: 'sales_per_day',
@@ -98,8 +96,7 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100
+      autoFitHeader: true 
     },
     {
       field: 'inventory_cover',
@@ -108,8 +105,7 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 160,
-      minWidth: 140
+      autoFitHeader: true 
     },
     {
       field: 'reorder_quantity',
@@ -118,18 +114,16 @@ export default function InventoryHealthTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 130,
-      minWidth: 110
+      autoFitHeader: true 
     },
     {
-      field: 'oos_alert',
-      headerName: 'OOS Alert',
+      field: 'status',
+      headerName: 'Status',
       type: 'text',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100
+      autoFitHeader: true 
     }
   ], []);
 
@@ -154,7 +148,7 @@ export default function InventoryHealthTable({
         sales_per_day: formatDecimal(item['Sales/Day']),
         inventory_cover: formatDecimal(item['Inventory Cover']),
         reorder_quantity: formatNumber(item.reorder_quantity),
-        oos_alert: item.OOS_Alert || '',
+        status: item.status || 'OK',
         // Store raw values for proper sorting/filtering
         _raw_reserved_quantity: item.reserved_quantity || 0,
         _raw_fulfillable_quantity: item.fulfillable_quantity || 0,

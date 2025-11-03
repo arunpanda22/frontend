@@ -75,7 +75,7 @@ export default function RealtimeOrdersPage() {
       ];
     }
 
-    const { revenue, orders: orderCount, units, asp, cancelled } = metrics.daily;
+    const { revenue, total_orders: orderCount, quantity, asp, shipped } = metrics.daily;
 
     return [
       {
@@ -96,7 +96,7 @@ export default function RealtimeOrdersPage() {
       },
       {
         title: "Units Sold",
-        value: units.toString(),
+        value: quantity.toString(),
         icon: Package,
         change: "Live",
         changeType: "increase" as const,
@@ -111,10 +111,10 @@ export default function RealtimeOrdersPage() {
         bgColor: "indigo" as const,
       },
       {
-        title: "Cancelled",
-        value: cancelled.toString(),
+        title: "Shipped %",
+        value: formatPercentage(shipped),
         icon: XCircle,
-        change: cancelled === 0 ? "None" : "Today",
+        change: shipped === 0 ? "None" : "Today",
         changeType: "decrease" as const,
         bgColor: "red" as const,
       },
@@ -194,7 +194,7 @@ export default function RealtimeOrdersPage() {
             {/* Hourly Orders Chart - 2/3 width */}
             <div className="lg:col-span-2">
               <HourlyOrdersChart 
-                hourlyOrders={metrics?.hourly_orders || null}
+                hourlyData={metrics?.hourly_data || null}
                 isLoading={isLoading}
               />
             </div>

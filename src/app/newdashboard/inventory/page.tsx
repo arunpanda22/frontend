@@ -179,7 +179,7 @@ export default function CampaignPerformanceLayout() {
       <InventoryStats />
       
       {/* --- Section 1: Bar Chart and Restock Recommendations --- */}
-      <div className="flex gap-4 items-stretch">
+      <div className="flex gap-4 items-stretch min-h-[500px]">
         {/* Left: Chart */}
         <div className="w-[70%]">
           <LineColumnAreaChart chartColors="" chartDarkColors="" chartId={chartRef} />

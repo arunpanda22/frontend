@@ -13,7 +13,7 @@ interface Order {
   EventTime?: string | null;
   ChangeReason?: string | null;
   seller_sku?: string | null;
-  product_image?: string | null;
+  image_url?: string | null;
 }
 
 interface OrdersTableProps {
@@ -226,7 +226,7 @@ export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center">
-                    {order.product_image && <ImageCell imageUrl={order.product_image} />}
+                    {order.image_url && <ImageCell imageUrl={order.image_url} />}
                     <div 
                       className="text-sm text-gray-600 max-w-40 truncate cursor-help" 
                       title={order.product_name}

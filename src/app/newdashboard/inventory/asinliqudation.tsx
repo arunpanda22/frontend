@@ -39,8 +39,8 @@ export default function ASinLiquidation() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100,
+      width: 160,  
+      minWidth: 220,
       pinned: 'left'
     },
     {
@@ -50,8 +50,9 @@ export default function ASinLiquidation() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 250,
-      minWidth: 180
+      width: 360,  
+      minWidth: 250,
+      maxWidth: 600
     },
     {
       field: 'FBA_Inv',
@@ -60,8 +61,7 @@ export default function ASinLiquidation() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true 
     },
     {
       field: 'Price',
@@ -70,8 +70,7 @@ export default function ASinLiquidation() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100
+      autoFitHeader: true 
     },
     {
       field: 'LT_Storage_Fee',
@@ -80,8 +79,7 @@ export default function ASinLiquidation() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 160,
-      minWidth: 140
+      autoFitHeader: true 
     },
     {
       field: '>5_months',
@@ -90,8 +88,7 @@ export default function ASinLiquidation() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 130,
-      minWidth: 110
+      autoFitHeader: true 
     }
   ], []);
 
@@ -133,6 +130,11 @@ export default function ASinLiquidation() {
   if (!liquidationData || liquidationData.length === 0) {
     return (
       <div className="h-full flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          ASIN Liquidation
+        </h6>
+      </div>
         <div className="flex-1 min-h-0 flex items-center justify-center">
           <div className="text-center">
             <Typography variant="h6" color="text.secondary">

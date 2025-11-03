@@ -26,7 +26,7 @@ export default function ASinExcess() {
       Price: item.Price,
       INV_90_365: item.INV_90_365,
       product_name: item.product_name,
-      'SalesQuantity/day': item.SalesQuantity_day || null,
+      'SalesQuantity/day': item.SalesQuantity_day || "-",
     }));
   }, [data])
 
@@ -39,8 +39,8 @@ export default function ASinExcess() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100,
+      width: 160,  
+      minWidth: 220,
       pinned: 'left'
     },
     {
@@ -50,8 +50,9 @@ export default function ASinExcess() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 250,
-      minWidth: 180
+      width: 360,  
+      minWidth: 240,
+      maxWidth: 600
     },
     {
       field: 'FBA_Inv',
@@ -60,8 +61,7 @@ export default function ASinExcess() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true 
     },
     {
       field: 'Price',
@@ -70,8 +70,7 @@ export default function ASinExcess() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100
+      autoFitHeader: true 
     },
     {
       field: 'INV_90_365',
@@ -80,8 +79,7 @@ export default function ASinExcess() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true 
     },
     {
       field: 'SalesQuantity/day',
@@ -90,8 +88,7 @@ export default function ASinExcess() {
       editable: false,
       sortable: true,
       filterable: true,
-      width: 150,
-      minWidth: 130
+      autoFitHeader: true 
     }
   ], []);
 

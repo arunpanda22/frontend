@@ -9,7 +9,7 @@ import { getJWTAccessToken, isImpersonating } from '../api/config';
 export interface Order {
   AmazonOrderId: string;
   seller_id: string;
-  seller_sku: string;
+  SellerSKU: string;
   EventTime: string | null;
   PurchaseDate: string | null;
   OrderStatus: string | null;
@@ -22,61 +22,43 @@ export interface Order {
   Pending: number;
   Unshipped: number;
   product_name: string;
-  product_image: string | null;
-  product_price: number;
+  image_url: string | null;
+  price: string | number;  // Changed from product_price, can be string or number
   product_asin: string;
-  quantity: number;
+  Quantity: number;  // Changed from quantity (capitalized)
+  OrderItemId?: string;  // Added optional OrderItemId
+  marketplace_id?: string;  // Added optional marketplace_id
 }
 
 export interface DailyMetrics {
   revenue: number;
-  orders: number;
-  units: number;
-  asp: number;
-  cancelled: number;
-  date: string;
+  total_orders: number;  // Changed from orders
+  quantity: number;  // Changed from units
+  asp: number;  // Changed from asp (Average Order Value)
+  shipped: number;  // Changed from cancelled
   last_updated: string;
 }
 
 export interface TopProduct {
-  seller_sku: string;
-  revenue: number;
-  units: number;
-  orders: number;
-  asp: number;
-  product_name: string;
-  asin: string;
+  SellerSKU: string;  
+  units: number;  
   image_url: string | null;
   price: number;
-  fulfillment_channel: string | null;
+  product_name: string;  
 }
 
 export interface HourlyDataPoint {
-  hour: number;
-  count: number;
-  timestamp: string;
-  label: string;
-}
-
-export interface HourlyOrders {
-  today: HourlyDataPoint[];
-  yesterday: HourlyDataPoint[];
-  day_before_yesterday: HourlyDataPoint[];
-  metadata: {
-    today_date: string;
-    yesterday_date: string;
-    day_before_date: string;
-    total_today: number;
-    total_yesterday: number;
-    total_day_before: number;
-    last_updated: string;
-  };
+  date: string;  
+  hour: string;  
+  period: string;  
+  quantity: number;  
+  timestamp: string; 
 }
 
 export interface Metrics {
   daily: DailyMetrics;
   top_products: TopProduct[];
-  hourly_orders: HourlyOrders;
+  hourly_data: HourlyDataPoint[];  // Changed from hourly_orders
 }
 
 interface WebSocketMessage {
@@ -145,7 +127,7 @@ export function useRealtimeOrders({
   sellerId,
   wsUrl = WS_BASE_URL,
   reconnectInterval = 5000,
-  maxOrders = 100,
+  maxOrders = 500,
   enabled = true,
 }: UseRealtimeOrdersOptions): UseRealtimeOrdersReturn {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -182,16 +164,19 @@ export function useRealtimeOrders({
   const mergeOrders = useCallback((existingOrders: Order[], newOrders: Order[]): Order[] => {
     const orderMap = new Map<string, Order>();
     
+    // Add existing orders to map
     existingOrders.forEach(order => {
-      const key = `${order.AmazonOrderId}:${order.seller_sku}`;
+      const key = `${order.AmazonOrderId}:${order.SellerSKU}`;
       orderMap.set(key, order);
     });
     
+    // Merge or add new orders
     newOrders.forEach(order => {
-      const key = `${order.AmazonOrderId}:${order.seller_sku}`;
+      const key = `${order.AmazonOrderId}:${order.SellerSKU}`;
       orderMap.set(key, order);
     });
     
+    // Sort by EventTime (most recent first) and limit
     return Array.from(orderMap.values())
       .sort((a, b) => {
         const dateA = a.EventTime ? new Date(a.EventTime).getTime() : 0;
@@ -207,26 +192,43 @@ export function useRealtimeOrders({
 
       switch (message.type) {
         case 'initial_state':
-          setOrders(message.data.slice(0, maxOrders));
+          // Lambda response: { type, data: [...], metrics: {...}, seller_id, count, timestamp }
+          setOrders(message.order_items.slice(0, maxOrders));
           setMetrics(message.metrics);
           setIsLoading(false);
           setError(null);
           setIsAuthError(false);
           reconnectAttemptsRef.current = 0;
-          if (isDevelopment) console.log(`✅ Received initial state: ${message.count} orders`);
+          if (isDevelopment) {
+            console.log(`✅ Received initial state: ${message.count} orders`);
+            console.log('📊 Daily metrics:', message.metrics?.daily);
+            console.log('🏆 Top products:', message.metrics?.top_products?.length);
+            console.log('⏰ Hourly data points:', message.metrics?.hourly_data?.length);
+          }
           break;
 
         case 'batch_update':
+          // Periodic update from Lambda: { type, order_items: [...], metrics: {...}, count, timestamp }
           setOrders(prev => mergeOrders(prev, message.order_items));
           if (message.metrics) {
             setMetrics(message.metrics);
           }
-          if (isDevelopment) console.log(`📦 Batch update: ${message.count} items`);
+          if (isDevelopment) {
+            console.log(`📦 Batch update: ${message.count} items`);
+            if (message.metrics) {
+              console.log('📊 Updated metrics:', {
+                revenue: message.metrics?.daily?.revenue,
+                orders: message.metrics?.daily?.total_orders,
+                quantity: message.metrics?.daily?.quantity,
+              });
+            }
+          }
           break;
 
         case 'metrics_refresh':
+          // Manual metrics refresh
           setMetrics(message.metrics);
-          if (isDevelopment) console.log('📊 Metrics refreshed');
+          if (isDevelopment) console.log('📊 Metrics refreshed manually');
           break;
 
         case 'ping':
@@ -234,6 +236,7 @@ export function useRealtimeOrders({
           break;
 
         case 'pong':
+          // Server acknowledged our ping
           break;
 
         case 'error':
@@ -242,7 +245,7 @@ export function useRealtimeOrders({
           break;
 
         default:
-          console.warn('⚠️ Unknown message type:', message);
+          console.warn('⚠️ Unknown message type:', message.type);
       }
     } catch (err) {
       console.error('Error parsing WebSocket message:', err);

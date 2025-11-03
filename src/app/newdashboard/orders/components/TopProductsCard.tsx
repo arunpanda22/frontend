@@ -64,7 +64,7 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
       <div className="p-2 md:p-6 flex-1">
         <div className="space-y-3">
           {topProducts.map((product, index) => (
-            <div key={product.seller_sku} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+            <div key={`${product.SellerSKU}-${index}`} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
               {/* Rank Badge */}
               <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                 index === 0 ? 'bg-yellow-100 text-yellow-700' :
@@ -99,7 +99,7 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
                   <div className="text-xs">
                     <span className="text-gray-500">Revenue:</span>
                     <span className="font-semibold text-green-600 ml-1">
-                      {formatCurrency(product.revenue)}
+                      {formatCurrency(product.price)}
                     </span>
                   </div>
                   <div className="text-xs">

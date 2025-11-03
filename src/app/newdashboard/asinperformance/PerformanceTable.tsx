@@ -143,7 +143,7 @@ export default function AsinPerformanceTable() {
       return [];
     }
     
-    return rawData.map((item: any) => {
+    return  rawData.map((item: any) => {
       // Handle nested json property if it exists, otherwise use item directly
       const actualItem = item.json || item;
       
@@ -157,10 +157,10 @@ export default function AsinPerformanceTable() {
         buybox: actualItem.buy_box_percentage || 0,
         organic_sales: ((actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0)).toFixed(2),
         conversion: actualItem.conversion_rate || 0,
-        acos: actualItem.acos_percent !== undefined ? actualItem.acos_percent : null,
-        tacos: actualItem.tacos_percent !== undefined ? actualItem.tacos_percent : null,
-        replacement_rate: actualItem.replacement_rate !== undefined ? actualItem.replacement_rate : null,
-        return_rate: actualItem.return_rate !== undefined ? actualItem.return_rate : null,
+        acos: actualItem.acos_percent || "-",
+        tacos:  actualItem.tacos_percent || "-",
+        replacement_rate:  actualItem.replacement_rate  || "-",
+        return_rate: actualItem.return_rate || "-",
       };
     });
   }, [asinSummary]);
