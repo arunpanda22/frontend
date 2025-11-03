@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { DollarSign, Package, ShoppingCart, XCircle } from "lucide-react";
+import { DollarSign, Package, ShoppingCart, Truck, XCircle } from "lucide-react";
 import { MetricsCard } from "@/components/dashboard/ui";
 import { useRealtimeOrders } from "@/lib/hooks/useRealtimeOrders";
 import OrdersTable from "./components/OrdersTable";
@@ -65,12 +65,12 @@ export default function RealtimeOrdersPage() {
           bgColor: "indigo" as const,
         },
         {
-          title: "Cancelled",
+          title: "Shipped",
           value: "Loading...",
-          icon: XCircle,
+          icon: Truck,
           change: "...",
           changeType: "decrease" as const,
-          bgColor: "red" as const,
+          bgColor: "green" as const,
         },
       ];
     }
@@ -113,10 +113,10 @@ export default function RealtimeOrdersPage() {
       {
         title: "Shipped %",
         value: formatPercentage(shipped),
-        icon: XCircle,
+        icon: Truck,
         change: shipped === 0 ? "None" : "Today",
         changeType: "decrease" as const,
-        bgColor: "red" as const,
+        bgColor: "green" as const,
       },
     ];
   }, [metrics, formatCurrency]);
