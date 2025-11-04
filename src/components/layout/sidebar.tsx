@@ -15,8 +15,8 @@ export function Sidebar() {
   const { user, userProfile, isImpersonating } = useAuth()
   const { canAccess, isLoadingPermissions } = usePermissions()
   const { isCollapsed, setIsCollapsed } = useSidebar()
-  const [isDashboardOpen, setIsDashboardOpen] = useState(true)
-  const [isToolsOpen, setIsToolsOpen] = useState(true)
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false)
+  const [isToolsOpen, setIsToolsOpen] = useState(false)
 
   // Force refresh sidebar when impersonation state changes
   const impersonationActive = isImpersonating()

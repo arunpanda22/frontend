@@ -157,6 +157,7 @@ export default function AdminReportsPage() {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-32">Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-48">Created</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-48">Completed</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-56">Rows Processed</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-32">Actions</th>
             </tr>
           </thead>
@@ -192,6 +193,7 @@ export default function AdminReportsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm">{new Date(r.created_at).toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm">{r.completed_at ? new Date(r.completed_at).toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-sm truncate" title={String(r.rows_processed)}>{r.rows_processed}</td>
                     <td className="px-4 py-3 text-sm text-right">
                       <div className="flex items-center justify-end gap-2">
                         {canRerun && (
