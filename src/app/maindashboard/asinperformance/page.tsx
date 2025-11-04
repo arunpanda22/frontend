@@ -1,4 +1,4 @@
-// src/app/newdashboard/asinperformance/page.tsx
+// src/app/maindashboard/asinperformance/page.tsx
 "use client";
 import React, { useState } from "react";
 import { Package, DollarSign, Percent, Coins, RotateCcw } from "lucide-react";

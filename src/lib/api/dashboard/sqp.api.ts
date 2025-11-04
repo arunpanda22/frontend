@@ -1,5 +1,5 @@
 import { apiClient, LONG_OPERATION_TIMEOUT } from '@/lib/api/config';
-import { SQPDashboardResponse, SQPRequestParams } from '@/app/newdashboard/searchqueryperformance/types/sqp.types';
+import { SQPDashboardResponse, SQPRequestParams } from '@/app/maindashboard/searchqueryperformance/types/sqp.types';
 
 export class SQPApiService {
   private static readonly BASE_PATH = '/api/v1/dashboard-api';

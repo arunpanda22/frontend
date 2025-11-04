@@ -10,10 +10,10 @@ The provided API documentation (`API_DOCUMENTATION.md`) defines 10 main endpoint
 
 | Dashboard Page | API Endpoints Used | Purpose |
 |---|---|---|
-| Main Dashboard (`/newdashboard`) | `campaign-summary`, `weekly`, `ads-sales` | Overview metrics and trends |
-| ASIN Performance (`/newdashboard/asinperformance`) | `asin-summary`, `sales-trend-asin`, `targeting-analysis` | ASIN-level analytics |
-| Campaign Performance (`/newdashboard/campain/campainperformance`) | `campaign-summary`, `targeting-analysis`, `ads-trend` | Campaign analytics |
-| Inventory (`/newdashboard/inventory`) | `inventory-health`, `asin-liquidation` | Inventory management |
+| Main Dashboard (`/maindashboard`) | `campaign-summary`, `weekly`, `ads-sales` | Overview metrics and trends |
+| ASIN Performance (`/maindashboard/asinperformance`) | `asin-summary`, `sales-trend-asin`, `targeting-analysis` | ASIN-level analytics |
+| Campaign Performance (`/maindashboard/campain/campainperformance`) | `campaign-summary`, `targeting-analysis`, `ads-trend` | Campaign analytics |
+| Inventory (`/maindashboard/inventory`) | `inventory-health`, `asin-liquidation` | Inventory management |
 
 ## Implementation
 

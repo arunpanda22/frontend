@@ -2,7 +2,7 @@
 import React from "react";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 
-export default function NewDashboardLayout({ children }: { children: React.ReactNode }) {
+export default function MainDashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: userProfile, isLoading, error } = useUserProfile();
 
   if (isLoading) {

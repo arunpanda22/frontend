@@ -24,11 +24,11 @@ export default function AmazonSellerError() {
   }, [searchParams])
 
   const handleReturnToDashboard = () => {
-    router.push('/newdashboard')
+    router.push('/maindashboard')
   }
 
   const handleTryAgain = () => {
-    router.push('/newdashboard')
+    router.push('/maindashboard')
   }
 
   return (
