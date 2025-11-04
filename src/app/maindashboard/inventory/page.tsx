@@ -175,7 +175,7 @@ export default function CampaignPerformanceLayout() {
   return (
     <div className="min-h-screen w-full px-12 py-8 bg-[#f6fafd] flex flex-col gap-6 font-sans">
       {/* --- Page Heading --- */}
-      <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">Inventory Dashboard</h1>
+      <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">InventoryPulse</h1>
       <InventoryStats />
       
       {/* --- Section 1: Bar Chart and Restock Recommendations --- */}

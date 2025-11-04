@@ -187,7 +187,7 @@ export function Sidebar() {
                     onClick={() => setIsDashboardOpen(!isDashboardOpen)}
                     className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white rounded-md transition-colors"
                   >
-                    <span>Dashboard</span>
+                    <span>OptivizeX</span>
                     {isDashboardOpen ? (
                       <ChevronDownIcon className="h-4 w-4" />
                     ) : (

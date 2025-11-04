@@ -63,7 +63,7 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
-    name: 'Inventory',
+    name: 'InventoryPulse',
     href: '/maindashboard/inventory',
     description: 'Monitor inventory levels and trends',
     permission: 'view_inventory',
