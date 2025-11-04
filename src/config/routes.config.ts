@@ -35,28 +35,28 @@ export interface RouteCategory {
  */
 const DASHBOARD_ROUTES: RouteConfig[] = [
   {
-    name: 'Main Dashboard',
+    name: 'Command Center',
     href: '/maindashboard',
     description: 'Overview dashboard',
     permission: 'view_dashboard',
     requiresSellerAccount: true,
   },
   {
-    name: 'Orders Realtime',
+    name: 'Live Orders & Revenue Tracker',
     href: '/maindashboard/orders',
     description: 'Live orders dashboard',
     permission: 'view_dashboard',
     requiresSellerAccount: true,
   },
   {
-    name: 'ASIN Performance',
+    name: 'ASIN Intelligence',
     href: '/maindashboard/asinperformance',
     description: 'Analyze ASIN performance metrics',
     permission: 'view_asin_performance',
     requiresSellerAccount: true,
   },
   {
-    name: 'Campaign Performance',
+    name: 'Campaign Analytics',
     href: '/maindashboard/campain/campainperformance',
     description: 'Track and analyze campaign data',
     permission: 'view_campaign_performance',
@@ -70,7 +70,7 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
-    name: 'Search Query Performance',
+    name: 'Market Funnel Insights',
     href: '/maindashboard/searchqueryperformance',
     description: 'Analyze search query performance data',
     permission: 'view_sqp_performance',

@@ -316,7 +316,8 @@ export default function ASINPerformance() {
         <div className="w-full flex flex-col gap-4 sm:gap-6 md:gap-8">
           {/* --- Page Heading --- */}
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-2 text-center tracking-tight px-2">
-            ASIN Performance
+            📊 ASIN Intelligence  
+
           </h1>
 
           {/* Metrics Cards Grid - Only show if API Summary Stats are available */}

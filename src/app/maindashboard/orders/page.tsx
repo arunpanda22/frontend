@@ -128,7 +128,7 @@ export default function RealtimeOrdersPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] tracking-tight">
-              Real-Time Orders
+              📦 Live Orders & Revenue Tracker
             </h1>
             
             {/* Connection Status */}

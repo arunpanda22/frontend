@@ -172,7 +172,7 @@ const DashboardContent = () => {
     <div className="min-h-screen bg-[#f7fafc] px-12">
       <div className="w-full transition-all duration-300 sm:py-8">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight px-2">
-          Dashboard
+          🏠 Command Center
         </h1>
 
         {/* Filter Bar with date range integration */}
