@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Package, DollarSign, Percent, Coins, RotateCcw } from "lucide-react";
 import DotScatterChart from "./DotScatterChart";
 import AsinPerformanceTable from "./PerformanceTable";
-import AsinSalesTable from "./SalesTable";
+// import AsinSalesTable from "./SalesTable";
 import OrganicSalesCard from "./OrganicSalesBarChart";
 import FilterBar from "../components/FilterBar";
 import { MetricsCard } from "@/components/dashboard/ui";
