@@ -75,7 +75,7 @@ export default function ProfileDropdown() {
       await switchToSeller(sellerId)
       setSearchQuery('')
       setOpen(false)
-      router.push('/dashboard') // Add this line to redirect to dashboard
+      router.push('/maindashboard') 
     } catch (error) {
       console.error('Failed to switch to seller:', error)
       alert('Failed to switch to seller. Please try again.')

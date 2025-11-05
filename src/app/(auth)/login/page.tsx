@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { FcGoogle } from 'react-icons/fc'
-// import { FaFacebook } from 'react-icons/fa'
 import { FaEye, FaEyeSlash } from 'react-icons/fa'
 import { authService } from '@/lib/services/auth'
+import { useAuthenticatedRedirect } from '@/lib/hooks/use-authenticated-redirect'
 import { FirebaseError } from 'firebase/app'
 
 const getErrorMessage = (error: FirebaseError) => {
@@ -29,7 +29,6 @@ function ResetSuccessMessage() {
   useEffect(() => {
     if (searchParams.get('reset') === 'success') {
       setShow(true)
-      // Auto-hide after 5 seconds
       const timer = setTimeout(() => setShow(false), 5000)
       return () => clearTimeout(timer)
     }
@@ -48,7 +47,9 @@ function ResetSuccessMessage() {
 }
 
 export default function Login() {
-  const router = useRouter()
+  // Redirect if already authenticated
+  const { loading: authLoading } = useAuthenticatedRedirect()
+  
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -63,7 +64,7 @@ export default function Login() {
       setIsLoading(true)
       setError('')
       await authService.signInWithEmail(formData.email, formData.password)
-      router.push('/dashboard')
+      // Redirect will be handled by useAuthenticatedRedirect hook
     } catch (error) {
       if (error instanceof FirebaseError) {
         setError(error.message)
@@ -87,7 +88,7 @@ export default function Login() {
       setIsLoading(true)
       setError('')
       await authService.signInWithGoogle()
-      router.push('/dashboard')
+      // Redirect will be handled by useAuthenticatedRedirect hook
     } catch (error) {
       if (error instanceof FirebaseError) {
         setError(getErrorMessage(error))
@@ -99,27 +100,24 @@ export default function Login() {
     }
   }
 
-  // const handleFacebookSignIn = async () => {
-  //   try {
-  //     setIsLoading(true)
-  //     setError('')
-  //     await authService.signInWithFacebook()
-  //     router.push('/dashboard')
-  //   } catch (error) {
-  //     if (error instanceof FirebaseError) {
-  //       setError(getErrorMessage(error))
-  //     } else {
-  //       setError('An unexpected error occurred')
-  //     }
-  //   } finally {
-  //     setIsLoading(false)
-  //   }
-  // }
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         <div className="bg-white/80 backdrop-blur-lg shadow-xl rounded-2xl p-8 border border-gray-100">
+          <ResetSuccessMessage />
+          
           {error && (
             <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
               {error}

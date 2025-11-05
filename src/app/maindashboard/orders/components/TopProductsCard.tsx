@@ -99,7 +99,7 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
                   <div className="text-xs">
                     <span className="text-gray-500">Revenue:</span>
                     <span className="font-semibold text-green-600 ml-1">
-                      {formatCurrency(product.price)}
+                      {formatCurrency(product.revenue)}
                     </span>
                   </div>
                   <div className="text-xs">

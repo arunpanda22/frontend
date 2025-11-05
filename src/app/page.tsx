@@ -4,7 +4,7 @@ import { BoltIcon, ChartBarIcon, ShieldCheckIcon } from '@heroicons/react/24/out
 import Link from 'next/link'
 import Image from 'next/image'
 import { PricingCard } from '@/components/pricing/PricingCard'
-import { useAuth } from '@/lib/context/AuthContext'
+import { useAuthenticatedRedirect } from '@/lib/hooks/use-authenticated-redirect'
 
 const features = [
   {
@@ -25,34 +25,20 @@ const features = [
 ]
 
 export default function Home() {
-  const { userProfile, isAdmin, loading } = useAuth()
+  // Redirect authenticated users to their dashboard
+  const { loading } = useAuthenticatedRedirect()
 
-  // Determine CTA based on user state
-  const getHeroCTA = () => {
-    // Show "Get started" while loading or not logged in
-    if (loading || !userProfile) {
-      return {
-        text: 'Get started',
-        href: '/signup'
-      }
-    }
-
-    // Show admin dashboard for admin users
-    if (isAdmin()) {
-      return {
-        text: 'Go to Admin Dashboard',
-        href: '/admin/users'
-      }
-    }
-
-    // Show regular dashboard for logged in users
-    return {
-      text: 'Go to Dashboard',
-      href: '/dashboard'
-    }
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
-
-  const heroCTA = getHeroCTA()
 
   return (
     <main className="flex-1">
@@ -75,16 +61,14 @@ export default function Home() {
             </p>
             <div className="mt-10 flex items-center gap-x-6">
               <Link
-                href={heroCTA.href}
+                href="/signup"
                 className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all duration-200"
               >
-                {heroCTA.text}
+                Get started
               </Link>
-              {!userProfile && (
-                <Link href="/login" className="text-sm font-semibold leading-6 text-gray-900">
-                  Learn more <span aria-hidden="true">→</span>
-                </Link>
-              )}
+              <Link href="/login" className="text-sm font-semibold leading-6 text-gray-900">
+                Learn more <span aria-hidden="true">→</span>
+              </Link>
             </div>
           </div>
 

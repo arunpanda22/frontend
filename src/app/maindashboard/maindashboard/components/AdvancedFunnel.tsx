@@ -207,7 +207,7 @@ export default function AdvancedFunnel() {
                 <ellipse cx="100" cy="30" rx="90" ry="15" fill="#C51244" />
                 <text
                   x="100"
-                  y="58"
+                  y="68"
                   textAnchor="middle"
                   fill="white"
                   fontSize="14"
@@ -225,7 +225,7 @@ export default function AdvancedFunnel() {
                 />
                 <text
                   x="100"
-                  y="118"
+                  y="120"
                   textAnchor="middle"
                   fill="white"
                   fontSize="12"

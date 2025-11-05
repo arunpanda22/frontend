@@ -44,6 +44,7 @@ export interface TopProduct {
   units: number;  
   image_url: string | null;
   price: number;
+  revenue: number;
   product_name: string;  
 }
 
