@@ -2,13 +2,19 @@
 "use client";
 import React, { useState } from "react";
 import { Package, DollarSign, Percent, Coins, RotateCcw } from "lucide-react";
-import { ScatterProps } from "recharts";
 import DotScatterChart from "./DotScatterChart";
 import AsinPerformanceTable from "./PerformanceTable";
 import AsinSalesTable from "./SalesTable";
 import OrganicSalesCard from "./OrganicSalesBarChart";
-import { MetricsCard, type MetricsCardProps } from "@/components/dashboard/ui";
+import FilterBar from "../components/FilterBar";
+import { MetricsCard } from "@/components/dashboard/ui";
 import { useAsinPerformanceData } from "@/lib/hooks/queries/use-dashboard";
+import {
+  DateRangeProvider,
+  useDateRange,
+} from "@/lib/context/DateRangeContext";
+import { useCurrency } from "@/lib/context/CurrencyContext";
+import type { Range } from "react-date-range";
 
 interface AsinData {
   asin: string;
@@ -25,160 +31,81 @@ interface AsinData {
   "Return Rate": number | null;
 }
 
-// Brighter, modern color palette
-const dotColors = [
-  "#FACC15", // Yellow
-  "#2563EB", // Blue
-  "#F43F5E", // Pink
-  "#22C55E", // Green
-  "#FB923C", // Orange
-  "#A78BFA", // Purple
-];
+// Separate component that uses the context
+const AsinIntelligenceContent = () => {
+  // Access the date range context
+  const { dateRange, updateCustomDates } = useDateRange();
+  const { formatCurrency, formatNumber, formatPercentage } = useCurrency();
 
-interface CustomDotProps extends Partial<ScatterProps> {
-  cx?: number;
-  cy?: number;
-  payload?: any;
-  index: number;
-  hoveredIndex: number | null;
-  setHoveredIndex: (idx: number | null) => void;
-}
+  // Convert context date range to FilterBar format
+  const filterBarDateRange = {
+    startDate: dateRange.startDate ? new Date(dateRange.startDate) : undefined,
+    endDate: dateRange.endDate ? new Date(dateRange.endDate) : undefined,
+    key: "selection" as const,
+  };
 
-function CustomDot(props: CustomDotProps) {
-  const {
-    cx = 0,
-    cy = 0,
-    payload = {},
-    index,
-    hoveredIndex,
-    setHoveredIndex,
-  } = props;
-  const isHovered = hoveredIndex === index;
-  return (
-    <g
-      onMouseEnter={() => setHoveredIndex(index)}
-      onMouseLeave={() => setHoveredIndex(null)}
-      style={{ cursor: "pointer" }}
-    >
-      <circle
-        cx={cx}
-        cy={cy}
-        r={isHovered ? 11 : 7}
-        fill={payload.color}
-        stroke={isHovered ? "#fff" : payload.color}
-        strokeWidth={isHovered ? 4 : 2}
-        filter={
-          isHovered
-            ? "drop-shadow(0px 0px 8px " + payload.color + "55)"
-            : "none"
-        }
-        style={{ transition: "all 0.18s cubic-bezier(.4,2,.6,1)" }}
-      />
-    </g>
-  );
-}
+  const handleDateRangeChange = (newRange: Range) => {
+    if (newRange.startDate && newRange.endDate) {
+      // Format dates as YYYY-MM-DD in local timezone to avoid UTC conversion issues
+      const formatLocalDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
 
-// Custom tooltip for recharts
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length && payload[0].payload) {
-    const d = payload[0].payload;
-    return (
-      <div
-        style={{
-          background: "#18181b",
-          color: "#fff",
-          borderRadius: 10,
-          padding: "12px 20px",
-          boxShadow: "0 4px 24px #0002",
-          fontSize: 16,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          border: "2px solid #27272a",
-        }}
-      >
-        <span
-          style={{
-            width: 16,
-            height: 16,
-            borderRadius: 4,
-            background: d.color,
-            display: "inline-block",
-            marginRight: 8,
-            border: "2px solid #fff",
-          }}
-        />
-        <span style={{ fontWeight: 600 }}>ASIN:</span>{" "}
-        <span style={{ marginRight: 12 }}>{d.asin}</span>
-        <span>Sales: ₹{d.x.toLocaleString()}</span>
-        <span>TACOS: {d.y}</span>
-      </div>
-    );
-  }
-  return null;
-};
+      updateCustomDates(
+        formatLocalDate(newRange.startDate),
+        formatLocalDate(newRange.endDate)
+      );
+    }
+  };
 
-export default function ASINPerformance() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
-  // Fetch ASIN performance data from API
+  // Fetch ASIN performance data from API using date range from context
   const {
     asinSummary,
-    salesTrendAsin,
-    targetingAnalysis,
-    organicSalesData, // Add this to get organic sales data
+    // salesTrendAsin,
+    // targetingAnalysis,
+    organicSalesData,
     isLoading,
     isError,
     error,
   } = useAsinPerformanceData({
-    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0],
-    end_date: new Date().toISOString().split("T")[0],
-    period: "30d",
+    start_date: dateRange.startDate || "",
+    end_date: dateRange.endDate || "",
+    period: dateRange.preset === "custom" ? "custom" : dateRange.preset,
     focus_level: "all",
   });
 
-  // Debug logging - only show summary
+  // Debug logging
   React.useEffect(() => {
     if (asinSummary?.data) {
-      // Check if we have the new structure or old structure
       if (asinSummary.data.asin_summary) {
         console.log(
-          asinSummary.data.asin_summary.length
+          "📊 ASIN Summary loaded:",
+          asinSummary.data.asin_summary.length,
+          "items"
         );
-        } else if (Array.isArray(asinSummary.data)) {
-        console.log(
-          asinSummary.data.length
-        );
+      } else if (Array.isArray(asinSummary.data)) {
+        console.log("📊 ASIN Summary loaded:", asinSummary.data.length, "items");
       }
     }
-    // if (organicSalesData?.data) {
-    //   console.log(
-    //     "Organic Sales Data Available:",
-    //     organicSalesData.data.organic_sales_data?.length,
-    //     "items"
-    //   );
-    // }
     if (isError) {
       console.error("❌ API Error:", error);
     }
-  }, [asinSummary, organicSalesData, isError, error]);
+  }, [asinSummary, isError, error]);
 
   // Transform API data for components
   const asinData: AsinData[] = React.useMemo(() => {
-    // Handle new API structure: asin_summary array
     let rawData = null;
 
     if (asinSummary?.data?.asin_summary) {
       rawData = asinSummary.data.asin_summary;
     } else if (asinSummary?.data && Array.isArray(asinSummary.data)) {
-      // Fallback for old structure
       rawData = asinSummary.data;
     }
 
     if (!rawData || !Array.isArray(rawData)) {
-      console.log("No valid ASIN data found");
       return [];
     }
 
@@ -203,9 +130,8 @@ export default function ASINPerformance() {
     });
   }, [asinSummary]);
 
-  // Extract summary stats from API - only use API data, no fallback calculations
+  // Extract summary stats from API
   const summaryStats = React.useMemo(() => {
-    // Try to get summary stats from new API structure
     const apiSummaryStats = asinSummary?.data?.summary_stats;
 
     if (apiSummaryStats) {
@@ -218,72 +144,81 @@ export default function ASINPerformance() {
       };
     }
 
-    // No API summary stats available
-    console.log("⚠️ No API Summary Stats available");
     return null;
   }, [asinSummary]);
 
-  // Calculate top ASINs for scatter chart
-  const topAsins = React.useMemo(() => {
-    return [...asinData]
-      .filter(
-        (item) =>
-          typeof item["Total Sales"] === "number" &&
-          typeof item.TACOS === "number"
-      )
-      .sort((a, b) => (b["Total Sales"] || 0) - (a["Total Sales"] || 0))
-      .slice(0, 10);
-  }, [asinData]);
-
-  const topScatterData = React.useMemo(() => {
-    return topAsins.map((item, idx) => ({
-      asin: item.asin,
-      x: item["Total Sales"],
-      y: item.TACOS,
-      name: item.product_name,
-      color: dotColors[idx % dotColors.length],
-    }));
-  }, [topAsins]);
-
   // Prepare metrics data for MetricsCard components
   const metricsData = React.useMemo(() => {
-    if (!summaryStats) return [];
+    if (!summaryStats) {
+      return [
+        {
+          title: "TOTAL SALES",
+          value: "Loading...",
+          icon: DollarSign,
+          bgColor: "green" as const,
+        },
+        {
+          title: "TOTAL QUANTITY",
+          value: "Loading...",
+          icon: Package,
+          bgColor: "blue" as const,
+        },
+        {
+          title: "AVG. BUYBOX",
+          value: "Loading...",
+          icon: Percent,
+          bgColor: "orange" as const,
+        },
+        {
+          title: "RETURN RATE",
+          value: "Loading...",
+          icon: RotateCcw,
+          bgColor: "red" as const,
+        },
+        {
+          title: "REPLACEMENT RATE",
+          value: "Loading...",
+          icon: Coins,
+          bgColor: "purple" as const,
+        },
+      ];
+    }
 
     return [
       {
         title: "TOTAL SALES",
-        value: `₹${summaryStats.totalSales.toLocaleString()}`,
+        value: formatCurrency(summaryStats.totalSales),
         icon: DollarSign,
         bgColor: "green" as const,
       },
       {
         title: "TOTAL QUANTITY",
-        value: summaryStats.totalQuantity.toLocaleString(),
+        value: formatNumber(summaryStats.totalQuantity),
         icon: Package,
         bgColor: "blue" as const,
       },
       {
         title: "AVG. BUYBOX",
-        value: `${summaryStats.avgBuyBox.toFixed(2)}%`,
+        value: formatPercentage(summaryStats.avgBuyBox),
         icon: Percent,
         bgColor: "orange" as const,
       },
       {
         title: "RETURN RATE",
-        value: `${summaryStats.avgReturnRate.toFixed(2)}%`,
+        value: formatPercentage(summaryStats.avgReturnRate),
         icon: RotateCcw,
         bgColor: "red" as const,
       },
       {
         title: "REPLACEMENT RATE",
-        value: `${summaryStats.avgReplacementRate.toFixed(2)}%`,
+        value: formatPercentage(summaryStats.avgReplacementRate),
         icon: Coins,
         bgColor: "purple" as const,
       },
     ];
-  }, [summaryStats]);
+  }, [summaryStats, formatCurrency, formatNumber, formatPercentage]);
 
-  // Handle loading and error states
+  // Handle loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
@@ -297,6 +232,7 @@ export default function ASINPerformance() {
     );
   }
 
+  // Handle error state
   if (isError) {
     return (
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
@@ -311,31 +247,38 @@ export default function ASINPerformance() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f6fa] px-12">
-      <div className="w-full transition-all duration-300 px-1 py-2 sm:py-8">
-        <div className="w-full flex flex-col gap-4 sm:gap-6 md:gap-8">
-          {/* --- Page Heading --- */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-2 text-center tracking-tight px-2">
-            📊 ASIN Intelligence  
+    <div className="min-h-screen bg-[#f7fafc] py-12 px-12">
+      <div className="w-full transition-all duration-300">
+        {/* Filter Bar with date range integration */}
+        <FilterBar
+          title="📊 ASIN Intelligence"
+          dateRange={filterBarDateRange}
+          onDateRangeChange={handleDateRangeChange}
+        />
 
-          </h1>
+        {/* Metrics Cards Grid */}
+        <div className="flex flex-col">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+            Performance Snapshot
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            {metricsData.map((metric) => (
+              <MetricsCard
+                key={metric.title}
+                title={metric.title}
+                value={metric.value}
+                icon={metric.icon}
+                bgColor={metric.bgColor}
+              />
+            ))}
+          </div>
+        </div>
 
-          {/* Metrics Cards Grid - Only show if API Summary Stats are available */}
-          {summaryStats && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-              {metricsData.map((metric, idx) => (
-                <MetricsCard
-                  key={metric.title}
-                  title={metric.title}
-                  value={metric.value}
-                  icon={metric.icon}
-                  bgColor={metric.bgColor}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* --- Charts Section --- */}
+        {/* Charts Section */}
+        <div className="flex flex-col">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+            Analytics
+          </h2>
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start w-full">
             {/* Dot Scatter Chart */}
             <div className="xl:col-span-2 rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-4 sm:p-6 md:p-8 flex flex-col min-h-[400px] sm:min-h-[520px] w-full">
@@ -343,33 +286,60 @@ export default function ASINPerformance() {
                 Total Sales vs TACOS
               </div>
               <div className="rounded-2xl w-full h-full p-2 transition-transform duration-200">
-                <DotScatterChart />
+                <DotScatterChart
+                  startDate={dateRange.startDate || ""}
+                  endDate={dateRange.endDate || ""}
+                />
               </div>
-            
             </div>
 
-            {/* Organic Sales Card - Keep original implementation */}
+            {/* Organic Sales Card */}
             <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-4 sm:p-6 md:p-8 w-full h-full flex flex-col min-h-[400px] sm:min-h-[520px]">
-              <OrganicSalesCard maxItems={10} className="h-full" />
-            </div>
-          </div>
-
-          {/* --- Table Section --- */}
-          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">
-            
-            {/* Performance Table Card */}
-            {/* <div className="w-full overflow-x-auto "> */}
-              <AsinPerformanceTable />
-            {/* </div> */}
-          </div>
-          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">
-            {/* Sales Table Card */}
-            <div className="w-full overflow-x-auto">
-              <AsinSalesTable />
+              <OrganicSalesCard
+                maxItems={10}
+                className="h-full"
+                startDate={dateRange.startDate || ""}
+                endDate={dateRange.endDate || ""}
+              />
             </div>
           </div>
         </div>
+
+        {/* Table Section - Performance Table */}
+        <div className="flex flex-col mt-8">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+            Performance Details
+          </h2>
+          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">
+            <AsinPerformanceTable
+              startDate={dateRange.startDate || ""}
+              endDate={dateRange.endDate || ""}
+            />
+          </div>
+        </div>
+
+        {/* Table Section - Sales Table */}
+        {/* <div className="flex flex-col mt-8">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+            Sales Breakdown
+          </h2>
+          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">
+            <div className="w-full overflow-x-auto">
+              <AsinSalesTable
+              />
+            </div>
+          </div>
+        </div> */}
       </div>
     </div>
+  );
+};
+
+// Main wrapper component with DateRangeProvider
+export default function ASINPerformance() {
+  return (
+    <DateRangeProvider defaultPreset="30d">
+      <AsinIntelligenceContent />
+    </DateRangeProvider>
   );
 }

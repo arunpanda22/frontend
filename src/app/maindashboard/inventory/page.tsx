@@ -1,14 +1,14 @@
 "use client"
 import React, { useEffect, useState, useRef, useMemo } from "react";
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+// import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard';
 
 import InventoryHealth from "./inventoryHealth";
 import ASinLiqudation from "./asinliqudation";
 import ASinExcess from "./asinexcess";
 import InventoryStats from "./inventoryStats";
-import TopRestockRecommendations from "./RestockRecommendations";
+// import TopRestockRecommendations from "./RestockRecommendations";
 
 import { Bar as ChartBar } from "react-chartjs-2";
 import {
@@ -28,6 +28,7 @@ import { Widgets } from "@mui/icons-material";
 import Cards from "./cards";
 import AdsRevenueApp from "./cards";
 import InventoryReplenishment from "../components/InventoryReplenishment";
+import FilterBar from "../components/FilterBar";
 
 // Register Chart.js components
 ChartJS.register(
@@ -173,9 +174,13 @@ export default function CampaignPerformanceLayout() {
   const adsChartRef = useRef(null);
 
   return (
-    <div className="min-h-screen w-full px-12 py-8 bg-[#f6fafd] flex flex-col gap-6 font-sans">
+    <div className="min-h-screen w-full px-12 py-12 bg-[#f6fafd] flex flex-col gap-6 font-sans">
+      
       {/* --- Page Heading --- */}
-      <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">InventoryPulse</h1>
+      
+      <FilterBar
+          title="📦 InventoryPulse"
+      />
       <InventoryStats />
       
       {/* --- Section 1: Bar Chart and Restock Recommendations --- */}

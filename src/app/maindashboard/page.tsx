@@ -169,17 +169,12 @@ const DashboardContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7fafc] px-12">
-      <div className="w-full transition-all duration-300 sm:py-8">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight px-2">
-          🏠 Command Center
-        </h1>
-
+    <div className="min-h-screen bg-[#f7fafc] py-12 px-12">
+      <div className="w-full transition-all duration-300">
+      
         {/* Filter Bar with date range integration */}
         <FilterBar
-          // selectedCategory={selectedCategory}
-          // setSelectedCategory={setSelectedCategory}
-          // categories={categories}
+          title="🏠 Command Center"
           dateRange={filterBarDateRange}
           onDateRangeChange={handleDateRangeChange}
         />
@@ -205,12 +200,29 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl flex  flex-col  justify-center bg-white shadow-lg col-span-1 md:col-span-2 lg:col-span-5 row-span-1 px-2 md:px-8 py-4 md:py-8 transition-all duration-300 animate-fadein delay-400 mb-6">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
-            Timeline view
+        <div className="flex flex-col">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+            Highlights
           </h2>
-          <PerformanceChart />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">
+            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
+              <TopAsinsRevenue 
+                data={adsSalesData?.top_5_asins_by_revenue}
+                isLoading={isAdsSalesLoading}
+                isError={isAdsSalesError}
+              />
+            </div>
+            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
+              <CategoryRevenueDonut />
+            </div>
+            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
+              <ReturnReplacementCards />
+            </div>
+           
+          </div>
         </div>
+        
 
         <div className="flex flex-col">
           <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c]  tracking-tight px-2">
@@ -244,28 +256,7 @@ const DashboardContent = () => {
             </div>
           </div>
         </div>
-        <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
-            Highlights
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">
-            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
-              <TopAsinsRevenue 
-                data={adsSalesData?.top_5_asins_by_revenue}
-                isLoading={isAdsSalesLoading}
-                isError={isAdsSalesError}
-              />
-            </div>
-            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
-              <CategoryRevenueDonut />
-            </div>
-            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
-              <ReturnReplacementCards />
-            </div>
-           
-          </div>
-        </div>
+        
       </div>
     </div>
   );

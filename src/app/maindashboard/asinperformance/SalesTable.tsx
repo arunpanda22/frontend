@@ -1,10 +1,11 @@
 "use client"
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Box, Typography, FormControl, InputLabel, Select, MenuItem, Alert } from '@mui/material'
 import { useSalesTrendAsin } from '@/lib/hooks/queries/use-dashboard'
 import { SalesTrendPivotData } from '@/lib/api/services/dashboard.service'
 import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
+import { useDateRange } from '@/lib/context/DateRangeContext'
 
 // Helper functions with null safety
 function formatNumber(val: any, digits = 2): string {
@@ -44,7 +45,22 @@ function formatTrend(val: any): { text: string; color?: string } {
   return { text: '0%' };
 }
 
-export default function AsinSalesTrendTable() {
+// Update the import and usage in page.tsx:
+// Remove the props when calling AsinSalesTable
+
+// In the parent component (page.tsx), change from:
+// <AsinSalesTable
+//   startDate={dateRange.startDate || ""}
+//   endDate={dateRange.endDate || ""}
+// />
+
+// To:
+// <AsinSalesTable />
+
+export default function AsinSalesTable() {
+  // Get date range from context
+  const { dateRange } = useDateRange();
+  
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
 
   // Available period options
@@ -57,8 +73,41 @@ export default function AsinSalesTrendTable() {
     { value: 'previous_month', label: 'Previous Month' }
   ];
 
-  // Fetch ASIN sales trend data using the new pivot table API
-  const { data: salesTrendData, isLoading, isError, error } = useSalesTrendAsin(selectedPeriod);
+  // Sync selectedPeriod with context dateRange preset
+  useEffect(() => {
+    if (dateRange.preset && dateRange.preset !== 'custom') {
+      setSelectedPeriod(dateRange.preset);
+    }
+  }, [dateRange.preset]);
+
+  // Format the period parameter based on context
+  // Backend accepts: '7d', '14d', '30d', 'current_month', 'previous_month', or 'YYYY-MM-DD to YYYY-MM-DD'
+  const queryPeriod = useMemo(() => {
+    if (dateRange.preset === 'custom' && dateRange.startDate && dateRange.endDate) {
+      // Format custom date range as: 'YYYY-MM-DD to YYYY-MM-DD'
+      const formattedPeriod = `${dateRange.startDate} to ${dateRange.endDate}`;
+      console.log('📊 Sales Trend ASIN: Using custom date range:', formattedPeriod);
+      return formattedPeriod;
+    }
+    // Use the selected period preset (e.g., '30d', '60d', etc.)
+    console.log('📊 Sales Trend ASIN: Using preset period:', selectedPeriod);
+    return selectedPeriod;
+  }, [dateRange.preset, dateRange.startDate, dateRange.endDate, selectedPeriod]);
+
+  // Fetch ASIN sales trend data using the formatted period
+  const { data: salesTrendData, isLoading, isError, error } = useSalesTrendAsin(queryPeriod);
+
+  // Debug logging
+  useEffect(() => {
+    if (salesTrendData) {
+      console.log('📊 Sales Trend ASIN Data Loaded:', {
+        totalAsins: salesTrendData.summary?.total_asins,
+        periodsAnalyzed: salesTrendData.summary?.periods_analyzed,
+        dateRange: salesTrendData.summary?.date_range,
+        dataPoints: salesTrendData.pivoted_data?.length
+      });
+    }
+  }, [salesTrendData]);
 
   // Extract pivot data and summary
   const { pivotedData, summary } = useMemo(() => {
@@ -287,20 +336,32 @@ export default function AsinSalesTrendTable() {
           </h6>
           
           <div className="flex items-center gap-4">
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Period</InputLabel>
-              <Select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                label="Period"
-              >
-                {periodOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* Show period selector only when not using custom date range */}
+            {dateRange.preset !== 'custom' && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Period</InputLabel>
+                <Select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  label="Period"
+                >
+                  {periodOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+            
+            {/* Show custom date range indicator when using custom dates */}
+            {dateRange.preset === 'custom' && dateRange.startDate && dateRange.endDate && (
+              <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                <span className="text-sm font-medium text-blue-700">
+                  Custom: {dateRange.startDate} to {dateRange.endDate}
+                </span>
+              </div>
+            )}
             
             {summary && (
               <div className="text-right">

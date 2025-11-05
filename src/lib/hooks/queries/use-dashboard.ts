@@ -127,15 +127,15 @@ export function useTargetingAnalysis(period?: string) {
 }
 
 // UPDATED: Sales Trend ASIN Hook - Now returns pivot table data
-export function useSalesTrendAsin(period?: string, enabled = true) {
-  return useQuery<SalesTrendResponse>({
-    queryKey: dashboardQueryKeys.salesTrendAsin(period),
-    queryFn: () => dashboardService.getSalesTrendAsin(period),
-    enabled: enabled,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
-  })
-}
+// export function useSalesTrendAsin(period?: string, enabled = true) {
+//   return useQuery<SalesTrendResponse>({
+//     queryKey: dashboardQueryKeys.salesTrendAsin(period),
+//     queryFn: () => dashboardService.getSalesTrendAsin(period),
+//     enabled: enabled,
+//     staleTime: 10 * 60 * 1000, // 10 minutes
+//     gcTime: 60 * 60 * 1000, // 1 hour
+//   })
+// }
 
 // LEGACY: Sales Trend ASIN Hook (for backward compatibility)
 // export function useSalesTrendAsinLegacy(period?: string, enabled = true) {
@@ -390,17 +390,25 @@ export function useAsinPerformanceData(options?: {
   })
   
   // Use the NEW pivot table API
-  const salesTrendAsin = useSalesTrendAsin(defaultOptions.period)
-  const targetingAnalysis = useTargetingAnalysis(defaultOptions.period)
+  // const salesTrendAsin = useSalesTrendAsin(defaultOptions.period)
+  // const targetingAnalysis = useTargetingAnalysis(defaultOptions.period)
+
+  // return {
+  //   asinSummary, // This returns AsinSummaryResponse structure
+  //   salesTrendAsin, // This now returns SalesTrendResponse with pivot table data
+  //   targetingAnalysis,
+  //   organicSalesData,
+  //   isLoading: asinSummary.isLoading || salesTrendAsin.isLoading || targetingAnalysis.isLoading || organicSalesData.isLoading,
+  //   isError: asinSummary.isError || salesTrendAsin.isError || targetingAnalysis.isError || organicSalesData.isError,
+  //   error: asinSummary.error || salesTrendAsin.error || targetingAnalysis.error || organicSalesData.error,
+  // }
 
   return {
-    asinSummary, // This returns AsinSummaryResponse structure
-    salesTrendAsin, // This now returns SalesTrendResponse with pivot table data
-    targetingAnalysis,
+    asinSummary, 
     organicSalesData,
-    isLoading: asinSummary.isLoading || salesTrendAsin.isLoading || targetingAnalysis.isLoading || organicSalesData.isLoading,
-    isError: asinSummary.isError || salesTrendAsin.isError || targetingAnalysis.isError || organicSalesData.isError,
-    error: asinSummary.error || salesTrendAsin.error || targetingAnalysis.error || organicSalesData.error,
+    isLoading: asinSummary.isLoading  || organicSalesData.isLoading,
+    isError: asinSummary.isError || organicSalesData.isError,
+    error: asinSummary.error  || organicSalesData.error,
   }
 }
 

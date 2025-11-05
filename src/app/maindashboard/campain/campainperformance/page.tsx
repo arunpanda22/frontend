@@ -40,14 +40,11 @@ const CampaignPerformancePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] py-8 px-12">
-      <div className="w-full transition-all duration-300 sm:py-8">
-        <h1 className="text-4xl font-extrabold text-[#1a2b3c] mb-6 text-center tracking-tight">
-          🎯 Campaign Analytics
-        </h1>
-        
+    <div className="min-h-screen bg-[#f8fafc] py-12 px-12">
+      <div className="w-full transition-all duration-300 ">
         {/* Date Range Filter */}
         <FilterBar
+          title="🎯 Campaign Analytics"
           dateRange={filterBarDateRange}
           onDateRangeChange={handleDateRangeChange}
         />

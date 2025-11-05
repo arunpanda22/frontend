@@ -27,6 +27,7 @@ import {
   getLastMonthValue,
 } from "./utils/sqp.utils";
 import { FilterState, SQPRequestParams } from "./types/sqp.types";
+import FilterBar from "../components/FilterBar";
 
 export default function ASINSearchQueryPerformance() {
   const [filterState, setFilterState] = useState<FilterState>({
@@ -59,21 +60,21 @@ export default function ASINSearchQueryPerformance() {
 
   // Process monthly metrics for charts with dynamic months
   const { chartData, months } = useMemo(() => {
-  if (!sqpData?.monthly_metrics) return { chartData: null, months: [] };
+    if (!sqpData?.monthly_metrics) return { chartData: null, months: [] };
 
-  // Pass full data to utils
-  const processedData = processMonthlyMetrics(
-    sqpData.monthly_metrics,
-    filterState.view === "individual" && filterState.selectedAsin
-      ? filterState.selectedAsin
-      : "All ASINs"
-  );
+    // Pass full data to utils
+    const processedData = processMonthlyMetrics(
+      sqpData.monthly_metrics,
+      filterState.view === "individual" && filterState.selectedAsin
+        ? filterState.selectedAsin
+        : "All ASINs"
+    );
 
-  // Get months from full data (not filtered by ASIN)
-  const dynamicMonths = getMonthsFromData(sqpData.monthly_metrics);
+    // Get months from full data (not filtered by ASIN)
+    const dynamicMonths = getMonthsFromData(sqpData.monthly_metrics);
 
-  return { chartData: processedData, months: dynamicMonths };
-}, [sqpData?.monthly_metrics, filterState]);
+    return { chartData: processedData, months: dynamicMonths };
+  }, [sqpData?.monthly_metrics, filterState]);
 
   // Handle filter changes
   const handleFilterChange = async (
@@ -143,13 +144,11 @@ export default function ASINSearchQueryPerformance() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f6fa] px-16">
-      <div className="w-full transition-all duration-300 py-4 sm:py-8">
-        <div className="w-full flex flex-col gap-4 sm:gap-6 md:gap-8">
+    <div className="min-h-screen bg-[#f5f6fa] px-12 py-12">
+      <div className="w-full transition-all duration-300">
+
           {/* Page Heading */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] mb-2 text-center tracking-tight px-2">
-            🔍 Market Funnel Insights
-          </h1>
+          <FilterBar title="🔍 Market Funnel Insights" />
 
           {/* Filter Section */}
           <div className="bg-white/80 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl p-4 sm:p-6">
@@ -442,8 +441,7 @@ export default function ASINSearchQueryPerformance() {
 
           {/* Table Section */}
           <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[400px] flex flex-col gap-6 w-full overflow-hidden">
-            
-              {/* <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pb-4 flex items-center justify-center">
+            {/* <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pb-4 flex items-center justify-center">
                 {filterState.view === "individual" &&
                   filterState.selectedAsin && (
                     <span className="ml-2 text-sm font-normal text-gray-600">
@@ -452,11 +450,9 @@ export default function ASINSearchQueryPerformance() {
                   )}
               </h2> */}
 
-              <SearchQueryPerformanceTable data={filteredSearchQueries} />
-           
+            <SearchQueryPerformanceTable data={filteredSearchQueries} />
           </div>
         </div>
-      </div>
     </div>
   );
 }

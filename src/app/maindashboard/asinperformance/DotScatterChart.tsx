@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ScatterProps,
@@ -11,18 +11,47 @@ const dotColors = [
   "#FACC15", "#2563EB", "#F43F5E", "#22C55E", "#FB923C", "#A78BFA",
 ];
 
-export default function DotScatterChart() {
+interface DotScatterChartProps {
+  startDate: string;
+  endDate: string;
+}
+
+export default function DotScatterChart({ 
+  startDate, 
+  endDate,
+}: DotScatterChartProps ) {
   const [focusLevel, setFocusLevel] = useState<string>("High Focus");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
+  const period = useMemo(() => {
+    if (!startDate || !endDate) return '30d';
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Map days to period format
+    if (diffDays <= 7) return '7d';
+    if (diffDays <= 14) return '14d';
+    if (diffDays <= 30) return '30d';
+    if (diffDays <= 60) return '60d';
+    if (diffDays <= 90) return '90d';
+    return 'custom';
+  }, [startDate, endDate]);
+    
   // Fetch ASIN performance data
-  const dateParams = React.useMemo(() => ({
-    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
-    period: '30d',
+  // const dateParams = React.useMemo(() => ({
+  //   start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  //   end_date: new Date().toISOString().split('T')[0],
+  //   period: '30d',
+  //   focus_level: 'all' as const
+  // }), []);
+  const { asinSummary, isLoading, isError, error } = useAsinPerformanceData({
+    start_date: startDate,
+    end_date: endDate,
+    period: period,
     focus_level: 'all' as const
-  }), []);
-  const { asinSummary, isLoading, isError, error } = useAsinPerformanceData(dateParams);
+  });
 
   // Transform ASIN summary data
   const asinData = React.useMemo(() => {
