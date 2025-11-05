@@ -205,33 +205,7 @@ export default function ASINSearchQueryPerformance() {
                 <div className="w-12 h-1 bg-blue-500 mx-auto mt-1 rounded-full"></div>
               </div>
 
-              <MetricChartCard
-                icon={<FaEye />}
-                label="TOTAL IMPRESSIONS"
-                value={getLastMonthValue(chartData.impressions.total)}
-                trend={calculateTrend(chartData.impressions.total).value}
-                trendPositive={
-                  calculateTrend(chartData.impressions.total).positive
-                }
-                chartData={chartData.impressions.total}
-                chartColors={["#3b82f6"]}
-                chartType="vertical"
-                months={months}
-              />
 
-              <MetricChartCard
-                icon={<FaEye />}
-                label="ASIN IMPRESSIONS"
-                value={getLastMonthValue(chartData.impressions.asin)}
-                trend={calculateTrend(chartData.impressions.asin).value}
-                trendPositive={
-                  calculateTrend(chartData.impressions.asin).positive
-                }
-                chartData={chartData.impressions.asin}
-                chartColors={["#1e40af"]}
-                chartType="vertical"
-                months={months}
-              />
 
               <MetricChartCard
                 icon={<FaPercent />}
@@ -261,29 +235,7 @@ export default function ASINSearchQueryPerformance() {
                 <div className="w-12 h-1 bg-green-500 mx-auto mt-1 rounded-full"></div>
               </div>
 
-              <MetricChartCard
-                icon={<FaMousePointer />}
-                label="TOTAL CLICKS"
-                value={getLastMonthValue(chartData.clicks.total)}
-                trend={calculateTrend(chartData.clicks.total).value}
-                trendPositive={calculateTrend(chartData.clicks.total).positive}
-                chartData={chartData.clicks.total}
-                chartColors={["#10b981"]}
-                chartType="vertical"
-                months={months}
-              />
-
-              <MetricChartCard
-                icon={<FaMousePointer />}
-                label="ASIN CLICKS"
-                value={getLastMonthValue(chartData.clicks.asin)}
-                trend={calculateTrend(chartData.clicks.asin).value}
-                trendPositive={calculateTrend(chartData.clicks.asin).positive}
-                chartData={chartData.clicks.asin}
-                chartColors={["#059669"]}
-                chartType="vertical"
-                months={months}
-              />
+              
 
               <MetricChartCard
                 icon={<FaPercent />}
@@ -309,33 +261,6 @@ export default function ASINSearchQueryPerformance() {
                 <div className="w-12 h-1 bg-amber-500 mx-auto mt-1 rounded-full"></div>
               </div>
 
-              <MetricChartCard
-                icon={<FaShoppingCart />}
-                label="TOTAL PURCHASES"
-                value={getLastMonthValue(chartData.purchases.total)}
-                trend={calculateTrend(chartData.purchases.total).value}
-                trendPositive={
-                  calculateTrend(chartData.purchases.total).positive
-                }
-                chartData={chartData.purchases.total}
-                chartColors={["#f59e0b"]}
-                chartType="vertical"
-                months={months}
-              />
-
-              <MetricChartCard
-                icon={<FaShoppingCart />}
-                label="ASIN PURCHASES"
-                value={getLastMonthValue(chartData.purchases.asin)}
-                trend={calculateTrend(chartData.purchases.asin).value}
-                trendPositive={
-                  calculateTrend(chartData.purchases.asin).positive
-                }
-                chartData={chartData.purchases.asin}
-                chartColors={["#d97706"]}
-                chartType="vertical"
-                months={months}
-              />
 
               <MetricChartCard
                 icon={<FaPercent />}
@@ -450,7 +375,7 @@ export default function ASINSearchQueryPerformance() {
                   )}
               </h2> */}
 
-            <SearchQueryPerformanceTable data={filteredSearchQueries} />
+            <SearchQueryPerformanceTable data={filteredSearchQueries}  />
           </div>
         </div>
     </div>

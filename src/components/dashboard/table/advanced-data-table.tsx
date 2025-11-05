@@ -129,7 +129,7 @@ const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
         <img
           src={imageUrl || "/placeholder.svg"}
           alt="Row image"
-          className="w-8 h-8 rounded-md object-cover border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
+          className="min-w-8 h-8 rounded-md object-cover border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
           onError={() => setImageError(true)}
         />
 

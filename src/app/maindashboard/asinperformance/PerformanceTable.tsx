@@ -61,8 +61,8 @@ export default function AsinPerformanceTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 450,  // Manual width for longer product names
-      minWidth: 300,
+      width: 480,  // Manual width for longer product names
+      minWidth: 350,
       maxWidth: 600
     },
     {
@@ -326,6 +326,12 @@ export default function AsinPerformanceTable({
           onColumnsChange={setTableColumns}
           showCheckboxColumn={false}
           className="w-full h-full"
+            initialSort={[
+            {
+              field: 'total_sales', 
+              direction: 'desc' 
+            }
+          ]}
         />
       </div>
     </div>

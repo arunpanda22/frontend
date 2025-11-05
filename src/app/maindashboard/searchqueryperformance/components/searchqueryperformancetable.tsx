@@ -206,6 +206,12 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
           onColumnsChange={setTableColumns}
           className="w-full h-full"
           showCheckboxColumn={false}
+          initialSort={[
+            {
+              field: 'asin_purchase_count',  
+              direction: 'desc' ,
+            }
+          ]}
         />
       </div>
     </div>

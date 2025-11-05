@@ -252,12 +252,17 @@ export default function CampaignAdsSummary({
           data={transformedData}
           columns={columns}
           onDataChange={(newData) => {
-            // Handle data changes if needed for campaign data
             console.log('Campaign data changed:', newData);
           }}
           onColumnsChange={setColumns}
           className="w-full h-full"
           showCheckboxColumn={false}
+          initialSort={[
+            {
+              field: '_raw_sales',  // Sort by sales column
+              direction: 'desc' // Descending order (highest first)
+            }
+          ]}
         />
         
         {/* Footer info */}

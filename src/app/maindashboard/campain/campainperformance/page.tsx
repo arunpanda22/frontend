@@ -78,7 +78,7 @@ const CampaignPerformancePage = () => {
             period={dateRange.preset || '30d'}
           />
         </div>
-        <CampaignTablePage />
+        {/* <CampaignTablePage /> */}
       </div>
     </div>
   );
