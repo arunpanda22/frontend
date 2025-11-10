@@ -36,20 +36,38 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
 
   if (!topProducts || topProducts.length === 0) {
     return (
-      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 flex flex-col">
+            <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-pulse flex flex-col">
         <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
-            Top Products Today
-          </h6>
+          <div className="h-6 bg-gray-200 rounded w-48"></div>
         </div>
-        <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Package className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-600 font-medium">No product data yet</p>
-            <p className="text-sm text-gray-500 mt-1">Data will appear as orders come in</p>
+        <div className="p-4 md:p-6 flex-1">
+          <div className="space-y-3">
+            {[...Array(5)].map((_, index) => (
+              <div key={index} className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-gray-200"></div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-5 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+      // <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 flex flex-col">
+      //   <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+      //     <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      //       Top Products Today
+      //     </h6>
+      //   </div>
+      //   <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
+      //     <div className="text-center">
+      //       <Package className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+      //       <p className="text-gray-600 font-medium">No product data yet</p>
+      //       <p className="text-sm text-gray-500 mt-1">Data will appear as orders come in</p>
+      //     </div>
+      //   </div>
+      // </div>
     );
   }
 

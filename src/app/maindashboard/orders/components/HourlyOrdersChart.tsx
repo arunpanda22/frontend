@@ -307,9 +307,9 @@ const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartP
   if (!hourlyData || hourlyData.length === 0 || series.length === 0) {
     return (
       <div className="flex items-center justify-center h-[350px] bg-white rounded-2xl shadow-lg">
-        <div className="text-center">
-          <p className="text-gray-500 text-lg font-medium">No hourly data available</p>
-          <p className="text-gray-400 text-sm mt-2">Data will appear as orders come in</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+          <p className="text-sm text-gray-500">Loading hourly data...</p>
         </div>
       </div>
     );

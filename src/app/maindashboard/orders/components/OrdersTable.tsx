@@ -148,11 +148,17 @@ export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-        <p className="text-gray-500 text-lg font-medium">No orders yet</p>
-        <p className="text-gray-400 text-sm mt-2">Orders will appear here in real-time</p>
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <p className="text-gray-500 text-sm">Loading orders...</p>
+        </div>
       </div>
+      // <div className="text-center py-12">
+      //   <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+      //   <p className="text-gray-500 text-lg font-medium">No orders yet</p>
+      //   <p className="text-gray-400 text-sm mt-2">Orders will appear here in real-time</p>
+      // </div>
     );
   }
 
