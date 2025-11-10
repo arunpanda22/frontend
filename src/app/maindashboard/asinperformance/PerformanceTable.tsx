@@ -326,7 +326,7 @@ export default function AsinPerformanceTable({
           onColumnsChange={setTableColumns}
           showCheckboxColumn={false}
           className="w-full h-full"
-            initialSort={[
+          initialSort={[
             {
               field: 'total_sales', 
               direction: 'desc' 

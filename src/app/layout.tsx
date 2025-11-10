@@ -24,13 +24,17 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+
+  const topOffset = 'top-16'
+  const heightCalc = 'h-[calc(100vh-4rem)]'
+
   return (
     <html lang="en">
       <body className={inter.className}>
         <Providers>
-          <div className="min-h-screen flex flex-col">
+          <div className={`min-h-screen  flex flex-col`}>
             <Navbar />
-            <main className="flex-grow">
+            <main className={`flex-grow`}>
               <LayoutWrapper>
                 {children}
               </LayoutWrapper>

@@ -146,6 +146,27 @@ export interface WeeklyDataResponse {
   weekly_data: WeeklyDataItem[]
 }
 
+export interface TrendsDataItem {
+  time_group: string
+  impressions: number
+  clicks: number
+  'CTR%': number
+  CPC: number
+  cost: number
+  'CVR%': number
+  'ACOS%': number
+  CPA: number
+  sales_30d: number
+  purchases_30d: number
+  'Sales ASP': number
+  'Total Sales': number
+  'Total Quantity': number
+}
+
+export interface TrendsDataResponse {
+  trends_data: TrendsDataItem[]
+}
+
 export interface TopAsinByRevenue {
   asin: string
   product_name: string
@@ -540,6 +561,18 @@ export const dashboardService = {
     return res.data
   },
 
+  async getTrendsData(options?: {
+    period?: '30' | '90'
+    focus_level?: 'high' | 'medium' | 'low' | 'all'
+  }) {
+    console.log('Fetching trends data with options:', options);
+    const res = await apiClient.get<TrendsDataResponse>('/api/v1/dashboard-api/trends/', {
+      params: options
+    })
+    console.log('Trends data response received:', res.data);
+    return res.data
+  },
+
   // Ads Sales Data
   // Ads Sales Data
   async getAdsSalesData(options: {
@@ -552,7 +585,7 @@ export const dashboardService = {
       '/api/v1/dashboard-api/ads-sales/',
       { params: options }
     );
-    console.log('Ads-sales data response received:', res.data);
+
     
     // Handle wrapped response structure - extract from 'json' if present
     if ('json' in res.data) {

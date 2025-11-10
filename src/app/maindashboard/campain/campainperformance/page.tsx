@@ -2,14 +2,14 @@
 import React from "react";
 import CampaignMetricsCardGrid from "./CampaignMetricsCardGrid"; // Import the new component
 
-import CampaignSummaryCard from "./CampaignSummaryCard";
+
 import AdsTimelineChart from "./AdsTimelineChart";
 import FilterBar from "../../components/FilterBar";
 import { DateRangeProvider, useDateRange } from "@/lib/context/DateRangeContext";
 import type { Range } from "react-date-range"; 
 import SalesContributionDonut from "./SalesContributionDonut";
 import CampaignAdsSummary from "./campain_summery";
-import CampaignTablePage from "./CampaignXRay";
+
 
 const CampaignPerformancePage = () => {
   // Access the date range context

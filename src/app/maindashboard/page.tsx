@@ -1,8 +1,6 @@
 "use client";
 import React, { useState } from "react";
-;
 import AdvancedFunnel from "./maindashboard/components/AdvancedFunnel";
-import PerformanceChart from "./components/PerformanceChart";
 import FilterBar from "./components/FilterBar";
 import { DollarSign, Package, ShoppingCart, PercentIcon } from "lucide-react";
 import {
@@ -88,7 +86,7 @@ const DashboardContent = () => {
           bgColor: "green",
         },
         {
-          title: "Avg. Order Value",
+          title: "AOV",
           value: "Loading...",
           icon: ShoppingCart,
           change: "Loading...",
@@ -135,7 +133,7 @@ const DashboardContent = () => {
         bgColor: "green",
       },
       {
-        title: "Avg. Order Value",
+        title: "AOV",
         value: formatCurrency(current["AOV"]),
         icon: ShoppingCart,
         change: `${formatChange(changes["AOV"])} `,
@@ -146,7 +144,7 @@ const DashboardContent = () => {
         title: "TACOS",
         value: formatPercentage(current["TACOS"]),
         icon: PercentIcon,
-        change: `${formatChange(changes["TACOS"], "")}`,
+        change: `${formatChange(changes["TACOS"])}`,
         changeType: changes["TACOS"] >= 0 ? "decrease" : "increase", 
         bgColor: "orange",
       },
@@ -154,7 +152,7 @@ const DashboardContent = () => {
         title: "ACOS",
         value: formatPercentage(current["ACOS"]),
         icon: PercentIcon,
-        change: `${formatChange(changes["ACOS"], "")}`,
+        change: `${formatChange(changes["ACOS"])}`,
         changeType: changes["ACOS"] >= 0 ? "decrease" : "increase", 
         bgColor: "red",
       },
@@ -183,7 +181,7 @@ const DashboardContent = () => {
           <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Performance Snapshot
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mb-8">
             {metricsData.map((metric, index) => (
               <MetricsCard
                 key={metric.title}
@@ -194,6 +192,7 @@ const DashboardContent = () => {
                 changeType={metric.changeType}
                 bgColor={metric.bgColor}
                 className="animate-fadeIn"
+                showTrendButton={true}
                 // style={{ animationDelay: `${index * 100}ms` }}
               />
             ))}

@@ -128,6 +128,7 @@ export default function InventoryHealthTable({
   ], []);
 
   const [columns, setColumns] = useState<ColumnDefinition[]>(tableColumns);
+  
 
   // Transform API data to match AdvancedDataTable format
   const transformedData: TableData[] = useMemo(() => {
@@ -260,6 +261,12 @@ export default function InventoryHealthTable({
           onColumnsChange={setColumns}
           className="w-full h-full"
           showCheckboxColumn={false}
+          initialSort={[
+            {
+              field: 'sales_per_day', 
+              direction: 'desc' 
+            }
+          ]}
         />
         
         {/* Footer info */}

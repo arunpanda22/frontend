@@ -31,6 +31,7 @@ export const dashboardQueryKeys = {
   salesTrendAsin: (period?: string) => ['dashboard', 'sales-trend-asin', period] as const,
   salesTrendAsinLegacy: (period?: string) => ['dashboard', 'sales-trend-asin-legacy', period] as const,
   weeklyData: (options?: any) => ['dashboard', 'weekly-data', options] as const,
+  trendsData: (options?: any) => ['dashboard', 'trends-data', options] as const,
   adsSalesData: (options: any) => ['dashboard', 'ads-sales-data', options] as const,
   asinSummary: (options: any) => ['dashboard', 'asin-summary', options] as const,
   adsTrend: (days?: number) => ['dashboard', 'ads-trend', days] as const,
@@ -126,27 +127,6 @@ export function useTargetingAnalysis(period?: string) {
   })
 }
 
-// UPDATED: Sales Trend ASIN Hook - Now returns pivot table data
-// export function useSalesTrendAsin(period?: string, enabled = true) {
-//   return useQuery<SalesTrendResponse>({
-//     queryKey: dashboardQueryKeys.salesTrendAsin(period),
-//     queryFn: () => dashboardService.getSalesTrendAsin(period),
-//     enabled: enabled,
-//     staleTime: 10 * 60 * 1000, // 10 minutes
-//     gcTime: 60 * 60 * 1000, // 1 hour
-//   })
-// }
-
-// LEGACY: Sales Trend ASIN Hook (for backward compatibility)
-// export function useSalesTrendAsinLegacy(period?: string, enabled = true) {
-//   return useQuery<SalesTrendAsinItem[]>({
-//     queryKey: dashboardQueryKeys.salesTrendAsinLegacy(period),
-//     queryFn: () => dashboardService.getSalesTrendAsinLegacy(period),
-//     enabled: enabled,
-//     staleTime: 10 * 60 * 1000, // 10 minutes
-//     gcTime: 60 * 60 * 1000, // 1 hour
-//   })
-// }
 
 // Weekly Data Hook
 export function useWeeklyData(options?: {
@@ -157,6 +137,18 @@ export function useWeeklyData(options?: {
     queryKey: dashboardQueryKeys.weeklyData(options),
     queryFn: () => dashboardService.getWeeklyData(options),
     staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  })
+}
+
+export function useTrendsData(options?: {
+  period?: '30' | '90'
+  focus_level?: 'high' | 'medium' | 'low' | 'all'
+}) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.trendsData(options),
+    queryFn: () => dashboardService.getTrendsData(options),
+    staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
   })
 }
@@ -291,6 +283,10 @@ export function useDashboardQueryRefresh() {
     refreshWeeklyData: async (options?: any) => {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.weeklyData(options) })
       return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.weeklyData(options) })
+    },
+    refreshTrendsData: async (options?: any) => {
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.trendsData(options) })
+      return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.trendsData(options) })
     },
     refreshAdsSalesData: async (options: any) => {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.adsSalesData(options) })
