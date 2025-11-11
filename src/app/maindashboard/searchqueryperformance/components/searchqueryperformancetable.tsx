@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { AdvancedDataTable, type ColumnDefinition, type TableData } from '@/components/dashboard/table/advanced-data-table'
 import { SearchQueryPerformanceData } from '../types/sqp.types'
+import { useCurrency } from '@/lib/context/CurrencyContext' 
 
 interface SearchQueryPerformanceProps {
   data: SearchQueryPerformanceData[];
@@ -11,6 +12,8 @@ interface SearchQueryPerformanceProps {
 
 export default function SearchQueryPerformanceTable({ data }: SearchQueryPerformanceProps) {
   // Define table columns with advanced data table structure
+  const { formatCurrency, formatNumber, formatPercentage } = useCurrency();
+
   const initialColumns: ColumnDefinition[] = useMemo(() => [
     {
       field: 'asin',
@@ -19,8 +22,8 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 120,
-      minWidth: 100,
+      width: 160,  
+      minWidth: 220,
       pinned: 'left'
     },
     {
@@ -40,8 +43,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true
     },
     {
       field: 'asin_click_count',
@@ -50,8 +52,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true
     },
     {
       field: 'total_median_click_price',
@@ -60,8 +61,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 180
+      autoFitHeader: true
     },
     {
       field: 'asin_median_click_price',
@@ -70,8 +70,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 180
+      autoFitHeader: true
     },
     {
       field: 'total_purchase_count',
@@ -80,8 +79,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 150,
-      minWidth: 130
+      autoFitHeader: true
     },
     {
       field: 'asin_purchase_count',
@@ -90,8 +88,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 150,
-      minWidth: 130
+     autoFitHeader: true
     },
     {
       field: 'total_conversion',
@@ -100,8 +97,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 130,
-      minWidth: 110
+      autoFitHeader: true
     },
     {
       field: 'asin_conversion',
@@ -110,8 +106,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 130,
-      minWidth: 110
+      autoFitHeader: true
     },
     {
       field: 'keyword_exists',
@@ -120,8 +115,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 140,
-      minWidth: 120
+      autoFitHeader: true
     },
     {
       field: 'conversion_greater_than_market',
@@ -130,8 +124,7 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       editable: false,
       sortable: true,
       filterable: true,
-      width: 160,
-      minWidth: 140
+      autoFitHeader: true
     }
   ], []);
 
@@ -148,12 +141,12 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       search_query: item.search_query || '',
       total_click_count: item.total_click_count || 0,
       asin_click_count: item.asin_click_count || 0,
-      total_median_click_price: item.total_median_click_price || 0,
-      asin_median_click_price: item.asin_median_click_price || 0,
+      total_median_click_price: formatCurrency(item.total_median_click_price) || 0,
+      asin_median_click_price: formatCurrency(item.asin_median_click_price) || 0,
       total_purchase_count: item.total_purchase_count || 0,
       asin_purchase_count: item.asin_purchase_count || 0,
-      total_conversion: item.total_conversion || 0,
-      asin_conversion: item.asin_conversion || 0,
+      total_conversion: formatPercentage(item.total_conversion) || 0,
+      asin_conversion: formatPercentage(item.asin_conversion) || 0,
       keyword_exists: item.keyword_exists || false,
       conversion_greater_than_market: item.conversion_greater_than_market || false,
     }));

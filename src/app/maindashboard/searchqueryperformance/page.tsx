@@ -235,7 +235,6 @@ export default function ASINSearchQueryPerformance() {
                 <div className="w-12 h-1 bg-green-500 mx-auto mt-1 rounded-full"></div>
               </div>
 
-              
 
               <MetricChartCard
                 icon={<FaPercent />}
