@@ -2,6 +2,7 @@
 import React from "react";
 import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 import { useDateRange } from '@/lib/context/DateRangeContext';
+import { useCurrency } from "@/lib/context/CurrencyContext";
 
 interface MetricData {
   title: string;
@@ -27,6 +28,7 @@ const Metric: React.FC<MetricData> = ({ title, value, change, changeUp }) => (
 export default function AdvancedFunnel() {
   // Get date range from parent context (from FilterBar)
   const { dateRange } = useDateRange();
+  const { formatCurrency, formatNumber, formatPercentage, formatChange } = useCurrency();
   
   // Use the date range from context, or fallback to last 30 days
   const endDate = dateRange.endDate || new Date().toISOString().split("T")[0];
@@ -38,32 +40,6 @@ export default function AdvancedFunnel() {
     end_date: endDate,
     focus_level: "all",
   });
-
-  // Formatting helper functions
-  const formatNumber = (value: number): string => {
-    return new Intl.NumberFormat('en-US').format(Math.round(value));
-  };
-
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const formatPercentage = (value: number, decimals: number = 1): string => {
-    return `${value.toFixed(decimals)}%`;
-  };
-
-  const formatChange = (change: number, isPercentage: boolean = true): string => {
-    const absChange = Math.abs(change);
-    if (isPercentage) {
-      return `${absChange.toFixed(1)}%`;
-    }
-    return formatNumber(absChange);
-  };
 
   // Handle loading state
   if (isLoading) {
@@ -135,7 +111,7 @@ export default function AdvancedFunnel() {
     },
     adsSales: {
       title: "Ads Sales",
-      value: formatCurrency(current_period.Sales),
+      value: formatNumber(current_period.Sales),
       change: formatChange(changes.Sales),
       changeUp: changes.Sales >= 0
     }

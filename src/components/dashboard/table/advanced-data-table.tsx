@@ -339,10 +339,10 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
             <div className="space-y-3">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sort Options</label>
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={handleSort}
-                className="w-full justify-start gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700 font-medium py-2.5 rounded-lg transition-all duration-200"
+                className="w-full justify-start gap-3 bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700  hover:text-slate-700 font-medium py-2.5 rounded-lg transition-all duration-200"
               >
                 {getSortIcon}
                 {getSortLabel}
@@ -378,7 +378,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
                     type={type === "number" ? "number" : type === "date" ? "date" : "text"}
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}
-                    className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 rounded-lg py-2.5"
+                    className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white border-slate-200 rounded-lg py-2.5"
                     placeholder="Enter filter value..."
                   />
                 </div>

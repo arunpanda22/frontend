@@ -22,7 +22,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
   const { dateRange } = useDateRange();
 
   // Access the currency context
-  const { formatCurrency, formatNumber, formatPercentage, isLoading: isCurrencyLoading, error: currencyError } = useCurrency();
+  const { formatCurrency, formatNumber, formatCurrencyNoDecimal, formatPercentage, isLoading: isCurrencyLoading, error: currencyError } = useCurrency();
 
   // Fetch campaign metrics data using the hook
   const {
@@ -37,28 +37,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
   }, !!(dateRange.startDate && dateRange.endDate));
 
   // Currency formatting function
-  const formatCurrencyValue = (value: number) => {
-    if (isCurrencyLoading) return "Loading...";
-    if (currencyError) {
-      console.warn("Currency context error, using fallback:", currencyError);
-      // Fallback formatting
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    }
-    return formatCurrency(value);
-  };
 
-  // const formatNumber = (value: number) => {
-  //   return new Intl.NumberFormat('en-US').format(Math.round(value));
-  // };
-
-  // const formatPercentage = (value: number) => {
-  //   return `${value.toFixed(1)}%`;
-  // };
 
   const formatDecimal = (value: number, decimals: number = 2) => {
     return value.toFixed(decimals);
@@ -180,7 +159,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "CTR",
-        value: `${formatDecimal(current.CTR)}%`,
+        value: `${formatPercentage(current.CTR)}`,
         icon: Target,
         change: `${formatChange(changes.CTR)}`,
         changeType: changes.CTR >= 0 ? "increase" : "decrease",
@@ -188,7 +167,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "CPC",
-        value: formatCurrencyValue(current.CPC),
+        value: formatCurrency(current.CPC),
         icon: DollarSign,
         change: `${formatChange(changes.CPC)}`,
         changeType: changes.CPC >= 0 ? "decrease" : "increase", // Lower CPC is better
@@ -196,7 +175,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "Ad Costs",
-        value: formatCurrencyValue(current["Ad Costs"]),
+        value: formatCurrencyNoDecimal(current["Ad Costs"]),
         icon: TrendingDown,
         change: `${formatChange(changes["Ad Costs"])}`,
         changeType: changes["Ad Costs"] >= 0 ? "decrease" : "increase", // Lower costs might be better
@@ -220,7 +199,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "Ad Sales",
-        value: formatCurrencyValue(current["Ads Sales"]),
+        value: formatCurrencyNoDecimal(current["Ads Sales"]),
         icon: ShoppingCart,
         change: `${formatChange(changes["Ads Sales"])}`,
         changeType: changes["Ads Sales"] >= 0 ? "increase" : "decrease",

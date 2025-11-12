@@ -551,7 +551,7 @@ export const dashboardService = {
   // Weekly Data
   async getWeeklyData(options?: {
     focus_level?: 'high' | 'medium' | 'low' | 'all'
-    aggregation?: 'weekly' | 'monthly'
+    aggregation?: 'weekly' | 'monthly' | 'daily'
   }) {
     console.log('Fetching weekly data with options:', options);
     const res = await apiClient.get<WeeklyDataResponse>('/api/v1/dashboard-api/weekly/', {

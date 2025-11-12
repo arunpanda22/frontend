@@ -80,7 +80,7 @@ export default function RealtimeOrdersPage() {
     return [
       {
         title: "Today's Revenue",
-        value: formatCurrency(revenue),
+        value: formatNumber(revenue),
         icon: DollarSign,
         change: "Live",
         changeType: "increase" as const,

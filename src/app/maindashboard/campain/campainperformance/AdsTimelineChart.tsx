@@ -73,14 +73,14 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
   // State management
   const [cardMetrics, setCardMetrics] = useState<KPIKey[]>(DEFAULT_METRICS);
   const [chartMetrics, setChartMetrics] = useState<KPIKey[]>(['impressions', 'clicks']);
-  const [granularity, setGranularity] = useState<'weeklysails' | 'monthlysails'>('monthlysails');
+  const [granularity, setGranularity] = useState<'dailysales' | 'weeklysales'>('weeklysales');
   const [metricsFilterOpen, setMetricsFilterOpen] = useState(false);
   const metricsFilterRef = useRef<HTMLDivElement>(null);
 
   // API data fetching
   const { data: weeklyApiData, isLoading, isError, error } = useWeeklyData({
     focus_level: 'all',
-    aggregation: granularity === 'monthlysails' ? 'monthly' : 'weekly',
+    aggregation: granularity === 'dailysales' ? 'daily' : 'weekly',
   });
 
   // Date range filtering
@@ -311,11 +311,11 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
           {/* Granularity Selector */}
           <select
             value={granularity}
-            onChange={(e) => setGranularity(e.target.value as 'weeklysails' | 'monthlysails')}
+            onChange={(e) => setGranularity(e.target.value as 'weeklysales' | 'dailysales')}
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <option value="weeklysails">Weekly</option>
-            <option value="monthlysails">Monthly</option>
+            <option value="weeklysales">Weekly</option>
+            <option value="dailysales">daily</option>
           </select>
         </div>
       </div>

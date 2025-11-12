@@ -19,7 +19,7 @@ export default function CampaignAdsSummary({
   period = '30d' 
 }: CampaignAdsSummaryProps = {}) {
 
-  const { formatCurrency, formatNumber, formatPercentage } = useCurrency();
+  const { formatCurrency, formatNumber, formatPercentage, formatCurrencyNoDecimal } = useCurrency();
 
   // Fetch real campaign data from API using provided date range
   const dateParams = useMemo(() => ({
@@ -142,10 +142,10 @@ export default function CampaignAdsSummary({
         impressions: formatNumber(campaign.impressions),
         clicks: formatNumber(campaign.clicks),
         ctr_percent: formatPercentage(campaign.ctr_percent),
-        ad_cost: formatCurrency(campaign.ad_cost),
+        ad_cost: formatCurrencyNoDecimal(campaign.ad_cost),
         cost_per_click: formatCurrency(campaign.cost_per_click),
         units_sold: formatNumber(campaign.purchases),
-        sales: formatCurrency(campaign.sales),
+        sales: formatCurrencyNoDecimal(campaign.sales),
         acos_percent: formatPercentage(campaign.acos_percent),
         // Store raw values for sorting/filtering if needed
         _raw_impressions: campaign.impressions || 0,

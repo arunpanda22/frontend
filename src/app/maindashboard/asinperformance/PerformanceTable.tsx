@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard'
 import { AdvancedDataTable, type ColumnDefinition, type TableData  } from '@/components/dashboard/table/advanced-data-table'
+import { useCurrency } from '@/lib/context/CurrencyContext'
+
 
 interface AsinPerformanceTableProps {
   startDate: string;
@@ -17,6 +19,7 @@ export default function AsinPerformanceTable({
   focusLevel = 'all' 
 }: AsinPerformanceTableProps) {
   // Calculate period based on date range
+  const { formatPercentage, formatCurrencyNoDecimal, formatPercentageNoDecimal } = useCurrency();
   const period = useMemo(() => {
     if (!startDate || !endDate) return '30d';
     
@@ -61,9 +64,9 @@ export default function AsinPerformanceTable({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 480,  // Manual width for longer product names
       minWidth: 350,
-      maxWidth: 600
+      maxWidth: 600,
+      pinned: 'left'
     },
     {
       field: 'total_quantity',
@@ -177,15 +180,15 @@ export default function AsinPerformanceTable({
         product_name: actualItem.product_name || '',
         image_url: actualItem.image_url || '',
         total_quantity: actualItem.total_units || 0,
-        total_sales: actualItem.total_sales || 0,
-        sales_asp: actualItem.asp || 0,
+        total_sales: formatCurrencyNoDecimal(actualItem.total_sales) || 0,
+        sales_asp: formatCurrencyNoDecimal(actualItem.asp) || 0,
         buybox: actualItem.buy_box_percentage || 0,
-        organic_sales: ((actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0)).toFixed(2),
-        conversion: actualItem.conversion_rate || 0,
-        acos: actualItem.acos_percent || "-",
-        tacos:  actualItem.tacos_percent || "-",
-        replacement_rate:  actualItem.replacement_rate  || "-",
-        return_rate: actualItem.return_rate || "-",
+        organic_sales: formatPercentageNoDecimal(((actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0))*100 / (actualItem.total_sales || 0)),
+        conversion: formatPercentage(actualItem.conversion_rate) || 0,
+        acos: formatPercentage(actualItem.acos_percent) || "-",
+        tacos:  formatPercentage(actualItem.tacos_percent) || "-",
+        replacement_rate:  formatPercentage(actualItem.replacement_rate)  || "-",
+        return_rate: formatPercentage(actualItem.return_rate) || "-",
       };
     });
   }, [asinSummary]);

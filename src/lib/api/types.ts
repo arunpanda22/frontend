@@ -264,8 +264,10 @@ export interface CurrencyContextType {
   isLoading: boolean;
   error: string | null;
   formatCurrency: (value: number, marketplaceId?: string) => string;
+  formatCurrencyNoDecimal: (value: number, marketplaceId?: string) => string;
   formatNumber: (value: number) => string;
   formatPercentage: (value: number) => string;
+  formatPercentageNoDecimal: (value: number) => string;
   formatChange: (change: number, suffix?: string) => string;
   primaryCurrency: CurrencyInfo | null;
   refetchCurrencies: () => Promise<void>;

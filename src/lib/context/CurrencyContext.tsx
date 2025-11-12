@@ -25,33 +25,27 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     refetch
   } = useMarketplaceCurrencies({ defaultMarketplace });
 
-  // Convert React Query error to string
   const error = queryError?.message || null;
 
-  // Get primary currency (first marketplace or specified default)
   const primaryCurrency: CurrencyInfo | null = useMemo(() => {
     if (Object.keys(currencies).length === 0) return null;
-    
     const targetMarketplace = defaultMarketplace || Object.keys(currencies)[0];
     return currencies[targetMarketplace]?.currency_info || null;
   }, [currencies, defaultMarketplace]);
 
-  // Refetch function that works with React Query
   const refetchCurrencies = useCallback(async (): Promise<void> => {
     try {
       await refetch();
     } catch (err) {
       console.error('Currency refetch error:', err);
-      // Error is already handled by React Query
     }
   }, [refetch]);
 
-  // Invalidate and refetch currencies (useful for manual refresh)
   const invalidateAndRefetch = useCallback(async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: ['marketplace-currencies'] });
   }, [queryClient]);
 
-  // Format currency with proper symbol and position
+  /** 💲 Formatter with decimals (existing) */
   const formatCurrency = useCallback((value: number, marketplaceId?: string): string => {
     if (isNaN(value) || value === null || value === undefined) return '0';
     
@@ -59,7 +53,6 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     const currencyInfo = currencies[targetMarketplace]?.currency_info || primaryCurrency;
     
     if (!currencyInfo) {
-      // Fallback formatting
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
@@ -71,29 +64,59 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     const formattedNumber = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
+      useGrouping: true,
     }).format(Math.abs(value));
 
     const sign = value < 0 ? '-' : '';
     const { symbol, position } = currencyInfo;
 
-    if (position === 'after') {
-      return `${sign}${formattedNumber}${symbol}`;
-    } else {
-      return `${sign}${symbol}${formattedNumber}`;
-    }
+    return position === 'after'
+      ? `${sign}${formattedNumber}${symbol}`
+      : `${sign}${symbol}${formattedNumber}`;
   }, [currencies, primaryCurrency, defaultMarketplace]);
 
-  // Other formatting utilities (unchanged but centralized)
+  /** 💲 New formatter: Currency without decimals */
+  const formatCurrencyNoDecimal = useCallback((value: number, marketplaceId?: string): string => {
+    if (isNaN(value) || value === null || value === undefined) return '0';
+    
+    const targetMarketplace = marketplaceId || defaultMarketplace || Object.keys(currencies)[0];
+    const currencyInfo = currencies[targetMarketplace]?.currency_info || primaryCurrency;
+
+    const formattedNumber = new Intl.NumberFormat('en-US', {
+      useGrouping: true,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.abs(value));
+
+    const sign = value < 0 ? '-' : '';
+    const { symbol, position } = currencyInfo || { symbol: '$', position: 'before' };
+
+    return position === 'after'
+      ? `${sign}${formattedNumber}${symbol}`
+      : `${sign}${symbol}${formattedNumber}`;
+  }, [currencies, primaryCurrency, defaultMarketplace]);
+
+  /** 123,456 — plain number */
   const formatNumber = useCallback((value: number): string => {
     if (isNaN(value) || value === null || value === undefined) return '0';
-    return new Intl.NumberFormat('en-US').format(Math.round(value));
+    return new Intl.NumberFormat('en-US', {
+      useGrouping: true,
+      maximumFractionDigits: 0,
+    }).format(value);
   }, []);
 
+  /** 45.67% */
   const formatPercentage = useCallback((value: number): string => {
     if (isNaN(value) || value === null || value === undefined) return '0%';
     return `${value.toFixed(2)}%`;
   }, []);
 
+  const formatPercentageNoDecimal = useCallback((value: number): string => {
+    if (isNaN(value) || value === null || value === undefined) return '0%';
+    return `${value.toFixed()}%`;
+  }, []);
+
+  /** +5.3% / -2.1% */
   const formatChange = useCallback((change: number, suffix: string = "%"): string => {
     if (isNaN(change) || change === null || change === undefined) return '0%';
     const absChange = Math.abs(change);
@@ -102,12 +125,14 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
   }, []);
 
   const contextValue: CurrencyContextType = {
-    currencies: currencies,
+    currencies,
     isLoading,
     error,
     formatCurrency,
+    formatCurrencyNoDecimal, // 👈 Added here
     formatNumber,
     formatPercentage,
+    formatPercentageNoDecimal,
     formatChange,
     primaryCurrency,
     refetchCurrencies,

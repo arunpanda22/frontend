@@ -187,7 +187,7 @@ const AsinIntelligenceContent = () => {
     return [
       {
         title: "TOTAL SALES",
-        value: formatCurrency(summaryStats.totalSales),
+        value: formatNumber(summaryStats.totalSales),
         icon: DollarSign,
         bgColor: "green" as const,
       },

@@ -60,11 +60,21 @@ export default function InventoryHealthTable({
       filterable: true,
       width: 450,  
       minWidth: 300,
-      maxWidth: 600
+      maxWidth: 600,
+      pinned: 'left'
     },
     {
       field: 'focus_category',
       headerName: 'Focus Category',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      autoFitHeader: true 
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
       type: 'text',
       editable: false,
       sortable: true,
@@ -115,15 +125,6 @@ export default function InventoryHealthTable({
       sortable: true,
       filterable: true,
       autoFitHeader: true 
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      type: 'text',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true 
     }
   ], []);
 
@@ -147,7 +148,7 @@ export default function InventoryHealthTable({
         reserved_quantity: formatNumber(item.reserved_quantity),
         fulfillable_quantity: formatNumber(item.fulfillable_quantity),
         sales_per_day: formatDecimal(item['Sales/Day']),
-        inventory_cover: formatDecimal(item['Inventory Cover']),
+        inventory_cover: formatNumber(item['Inventory Cover']),
         reorder_quantity: formatNumber(item.reorder_quantity),
         status: item.status || 'OK',
         // Store raw values for proper sorting/filtering
@@ -263,7 +264,7 @@ export default function InventoryHealthTable({
           showCheckboxColumn={false}
           initialSort={[
             {
-              field: 'sales_per_day', 
+              field: 'reorder_quantity', 
               direction: 'desc' 
             }
           ]}

@@ -131,7 +131,7 @@ export function useTargetingAnalysis(period?: string) {
 // Weekly Data Hook
 export function useWeeklyData(options?: {
   focus_level?: 'high' | 'medium' | 'low' | 'all'
-  aggregation?: 'weekly' | 'monthly'
+  aggregation?: 'weekly' | 'monthly' | 'daily'
 }) {
   return useQuery({
     queryKey: dashboardQueryKeys.weeklyData(options),

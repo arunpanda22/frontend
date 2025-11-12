@@ -118,7 +118,7 @@ const DashboardContent = () => {
     return [
       {
         title: "Total Revenue",
-        value: formatCurrency(current["Total Sales"]),
+        value: formatNumber(current["Total Sales"]),
         icon: DollarSign,
         change: `${formatChange(changes["Total Sales"])}`,
         changeType: changes["Total Sales"] >= 0 ? "increase" : "decrease",
