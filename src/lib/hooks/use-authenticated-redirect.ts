@@ -20,10 +20,10 @@ export function useAuthenticatedRedirect() {
     const roleName = userProfile.rbac_context?.role_name
 
     // Determine redirect path based on role
-    let redirectPath = '/dashboard' // default
+    let redirectPath = '/profile' // default
 
     if (roleName === 'seller') {
-      redirectPath = '/maindashboard'
+      redirectPath = '/dashboard'
     } else if (roleName === 'super_admin' || roleName === 'admin') {
       redirectPath = '/admin/users'
     }

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import AdvancedFunnel from "./maindashboard/components/AdvancedFunnel";
-import FilterBar from "./components/FilterBar";
+import AdvancedFunnel from "./components/AdvancedFunnel";
+import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { DollarSign, Package, ShoppingCart, PercentIcon } from "lucide-react";
 import {
   DateRangeProvider,
@@ -16,7 +16,7 @@ import AdsSplitBubbleChart from "./components/AdsTypeSplit";
 import InventoryHealthDonut from "./components/InventoryHealth";
 import TopAsinsRevenue from "./components/TopAsinsCard";
 import CategoryRevenueDonut from "./components/CategoryRevenueDonut";
-import ReturnReplacementCards from "./maindashboard/ReturnReplacementCard";
+import ReturnReplacementCards from "./components/ReturnReplacementCard";
 import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 
 // Separate component that uses the context
@@ -264,7 +264,7 @@ const DashboardContent = () => {
 // Main wrapper component
 export default function DashboardLayout() {
   return (
-    <DateRangeProvider defaultPreset="30d">
+    <DateRangeProvider defaultPreset="this month">
       <DashboardContent />
     </DateRangeProvider>
   );

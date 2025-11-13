@@ -18,7 +18,7 @@ export default function AccessDenied() {
           
           <div className="flex flex-col gap-3">
             <button
-              onClick={() => router.push('/maindashboard')}
+              onClick={() => router.push('/dashboard')}
               className="w-full py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
             >
               Go to Dashboard

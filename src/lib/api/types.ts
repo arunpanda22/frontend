@@ -229,7 +229,7 @@ export interface ASINImagesResponse {
 }
 
 
-export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
+export type DateRangePreset = '7d' | '30d' | '90d' | 'this month' |'custom';
 
 export interface DateRange {
   startDate: string; // ISO date string (YYYY-MM-DD)

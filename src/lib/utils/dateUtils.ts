@@ -18,6 +18,9 @@ export const getDateRangeFromPreset = (preset: DateRangePreset): Omit<DateRange,
     case '90d':
       startDate.setDate(endDate.getDate() - 90);
       break;
+    case 'this month':
+      startDate.setDate(1);
+      break;
     case 'custom':
       // For custom, return last 30 days as default
       startDate.setDate(endDate.getDate() - 30);

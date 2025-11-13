@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Calendar, X } from "lucide-react"
-import { Button } from "../date-picker-button"
+import { Button } from "../../../ui/date-picker-button"
 
 
 interface DateRange {
@@ -25,21 +25,6 @@ interface AdvancedDatePickerProps {
 }
 
 const PRESET_RANGES: PresetRange[] = [
-  {
-    label: "Today",
-    getValue: () => {
-      const today = new Date()
-      return { startDate: today, endDate: today }
-    },
-  },
-  {
-    label: "Yesterday",
-    getValue: () => {
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      return { startDate: yesterday, endDate: yesterday }
-    },
-  },
   {
     label: "Last 7 days",
     getValue: () => {

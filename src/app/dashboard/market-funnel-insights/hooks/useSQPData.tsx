@@ -32,6 +32,7 @@ export const useSQPData = (initialParams?: SQPRequestParams): UseSQPDataReturn =
       
       const response = await SQPApiService.getSQPDashboardData(params);
       setData(response);
+      // setAvailableAsins(response.top_asins)
     } catch (err: any) {
       console.error('Error fetching SQP data:', err);
       
@@ -71,7 +72,7 @@ export const useSQPData = (initialParams?: SQPRequestParams): UseSQPDataReturn =
   useEffect(() => {
     fetchData(initialParams);
     fetchAvailableAsins();
-  }, [fetchData, fetchAvailableAsins, initialParams]);
+  }, [fetchData, initialParams]);
 
   return {
     data,

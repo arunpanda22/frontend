@@ -4,10 +4,10 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 // import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useInventoryHealth } from '@/lib/hooks/queries/use-dashboard';
 
-import InventoryHealth from "./inventoryHealth";
-import ASinLiqudation from "./asinliqudation";
-import ASinExcess from "./asinexcess";
-import InventoryStats from "./inventoryStats";
+import InventoryHealth from "./components/inventoryHealth";
+import ASinLiqudation from "./components/asinliqudation";
+import ASinExcess from "./components/asinexcess";
+import InventoryStats from "./components/inventoryStats";
 // import TopRestockRecommendations from "./RestockRecommendations";
 
 import { Bar as ChartBar } from "react-chartjs-2";
@@ -23,12 +23,12 @@ import {
   Legend,
   LineController,
 } from "chart.js";
-import LineColumnAreaChart from "./linenadbarchart";
+import LineColumnAreaChart from "./components/linenadbarchart";
 import { Widgets } from "@mui/icons-material";
-import Cards from "./cards";
-import AdsRevenueApp from "./cards";
-import InventoryReplenishment from "../components/InventoryReplenishment";
-import FilterBar from "../components/FilterBar";
+import Cards from "./components/cards";
+import AdsRevenueApp from "./components/cards";
+import InventoryReplenishment from "../command-center/components/InventoryReplenishment";
+import FilterBar from "../../../components/dashboard/ui/FilterBar";
 
 // Register Chart.js components
 ChartJS.register(

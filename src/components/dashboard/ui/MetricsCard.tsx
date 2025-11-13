@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, TrendingUpIcon, X, Info } from "lucide-react";
 import { MetricsCardProps } from "../types";
-import TrendsChart from "@/app/maindashboard/maindashboard/components/TrendsChart";
+import TrendsChart from "@/app/dashboard/command-center/components/TrendsChart";
 
 const MetricsCard: React.FC<MetricsCardProps> = ({
   title,

@@ -55,12 +55,12 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
   // Seller Dashboard links
   const dashboardTools = [
-    { name: 'Main Dashboard', href: '/maindashboard', description: 'Overview dashboard' },
-    { name: 'Orders Realtime', href: '/maindashboard/orders_realtime', description: 'Realtime orders dashboard' },
-    { name: 'ASIN Performance', href: '/maindashboard/asinperformance', description: 'Analyze ASIN performance metrics' },
-    { name: 'Campaign Performance', href: '/maindashboard/campain/campainperformance', description: 'Track and analyze campaign data' },
-    { name: 'Inventory', href: '/maindashboard/inventory', description: 'Monitor inventory levels and trends' },
-    { name: 'Search Query Performance', href: '/maindashboard/searchqueryperformance', description: 'Analyze search query performance data' },
+    { name: 'Command Center', href: '/dashboard/command-center', description: 'Overview dashboard' },
+    { name: 'Live Orders & Revenue Tracker', href: '/dashboard/orders_realtime', description: 'Realtime orders dashboard' },
+    { name: 'ASIN Intelligence', href: '/dashboard/asin-inteligence', description: 'Analyze ASIN performance metrics' },
+    { name: 'Campaign Analytics', href: '/dashboard/campaign-analytics', description: 'Track and analyze campaign data' },
+    { name: 'InventoryPulse', href: '/dashboard/inventorypulse', description: 'Monitor inventory levels and trends' },
+    { name: 'Market Funnel Insights', href: '/dashboard/market-funnel-insights', description: 'Analyze search query performance data' },
   ]
 
   // Admin visibility - Only show to admin role or higher (admin, super_admin)

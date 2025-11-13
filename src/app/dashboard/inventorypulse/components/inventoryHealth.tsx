@@ -81,6 +81,15 @@ export default function InventoryHealthTable({
       filterable: true,
       autoFitHeader: true 
     },
+      {
+      field: 'sales_per_day',
+      headerName: 'Sales/Day',
+      type: 'number',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      autoFitHeader: true 
+    },
     {
       field: 'reserved_quantity',
       headerName: 'Reserved Qty',
@@ -93,15 +102,6 @@ export default function InventoryHealthTable({
     {
       field: 'fulfillable_quantity',
       headerName: 'Fulfillable Qty',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true 
-    },
-    {
-      field: 'sales_per_day',
-      headerName: 'Sales/Day',
       type: 'number',
       editable: false,
       sortable: true,

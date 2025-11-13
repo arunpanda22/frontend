@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import type { Range } from "react-date-range";
-import { AdvancedDatePicker } from "@/components/ui/date-picker/advanced-date-picker";
+import { AdvancedDatePicker } from "@/components/dashboard/ui/date-picker/advanced-date-picker";
 
 interface FilterBarProps {
   className?: string;

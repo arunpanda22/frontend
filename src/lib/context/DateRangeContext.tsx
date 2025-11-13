@@ -13,7 +13,7 @@ interface DateRangeProviderProps {
 
 export const DateRangeProvider: React.FC<DateRangeProviderProps> = ({ 
   children, 
-  defaultPreset = '30d' 
+  defaultPreset = 'this month' 
 }) => {
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const initialRange = getDateRangeFromPreset(defaultPreset);

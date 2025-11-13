@@ -1,12 +1,12 @@
-// src/app/maindashboard/asinperformance/page.tsx
+// src/app/dashboard/asinperformance/page.tsx
 "use client";
 import React, { useState } from "react";
 import { Package, DollarSign, Percent, Coins, RotateCcw } from "lucide-react";
-import DotScatterChart from "./DotScatterChart";
-import AsinPerformanceTable from "./PerformanceTable";
+import DotScatterChart from "./components/DotScatterChart";
+import AsinPerformanceTable from "./components/PerformanceTable";
 // import AsinSalesTable from "./SalesTable";
-import OrganicSalesCard from "./OrganicSalesBarChart";
-import FilterBar from "../components/FilterBar";
+import OrganicSalesCard from "./components/OrganicSalesBarChart";
+import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { MetricsCard } from "@/components/dashboard/ui";
 import { useAsinPerformanceData } from "@/lib/hooks/queries/use-dashboard";
 import {

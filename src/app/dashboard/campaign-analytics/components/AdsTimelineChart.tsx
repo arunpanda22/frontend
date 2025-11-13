@@ -315,7 +315,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             <option value="weeklysales">Weekly</option>
-            <option value="dailysales">daily</option>
+            <option value="dailysales">Daily</option>
           </select>
         </div>
       </div>

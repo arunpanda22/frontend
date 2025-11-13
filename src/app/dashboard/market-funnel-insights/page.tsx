@@ -19,7 +19,7 @@ import SearchQueryPerformanceTable from "./components/searchqueryperformancetabl
 import MetricChartCard from "./components/MetricChartCard";
 import PriceWeightageChart from "./components/PriceWeightageChart";
 import ConversionChart from "./components/ConversionChart";
-import { useSQPData, useSQPSummaryStats } from "./hooks/useSQPData";
+import { useSQPData } from "./hooks/useSQPData";
 import {
   processMonthlyMetrics,
   getMonthsFromData,
@@ -27,7 +27,8 @@ import {
   getLastMonthValue,
 } from "./utils/sqp.utils";
 import { FilterState, SQPRequestParams } from "./types/sqp.types";
-import FilterBar from "../components/FilterBar";
+import FilterBar from "../../../components/dashboard/ui/FilterBar";
+import { Button } from "@/components/ui/button";
 
 export default function ASINSearchQueryPerformance() {
   const [filterState, setFilterState] = useState<FilterState>({
@@ -152,16 +153,17 @@ export default function ASINSearchQueryPerformance() {
 
           {/* Filter Section */}
           <div className="bg-white/80 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-end items-center sm:items-center">
               <div className="flex items-center gap-2">
                 <FaFilter className="text-gray-500" />
                 <span className="font-medium text-gray-700">View:</span>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                <button
+                <Button
                   onClick={() => handleFilterChange("all")}
                   disabled={loading}
+                  variant={'default'}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
                     filterState.view === "all"
                       ? "bg-blue-500 text-white"
@@ -169,7 +171,7 @@ export default function ASINSearchQueryPerformance() {
                   }`}
                 >
                   All {sqpData.metadata.total_asins} ASINs (Last Year)
-                </button>
+                </Button>
 
                 <div className="relative w-full max-w-xs">
                   <select

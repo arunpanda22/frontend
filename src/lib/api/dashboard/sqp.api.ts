@@ -1,5 +1,5 @@
 import { apiClient, LONG_OPERATION_TIMEOUT } from '@/lib/api/config';
-import { SQPDashboardResponse, SQPRequestParams } from '@/app/maindashboard/searchqueryperformance/types/sqp.types';
+import { SQPDashboardResponse, SQPRequestParams } from '@/app/dashboard/market-funnel-insights/types/sqp.types';
 
 export class SQPApiService {
   private static readonly BASE_PATH = '/api/v1/dashboard-api';
@@ -32,7 +32,7 @@ export class SQPApiService {
    */
   static async getAvailableASINs(): Promise<string[]> {
     try {
-      const response = await apiClient.get<{ asins: string[] }>(`${this.BASE_PATH}/sqp-asins-list/`);
+      const response = await apiClient.get<{ asins: string[] }>(`${this.BASE_PATH}/top-asins-list/`);
       return response.data.asins;
     } catch (error) {
       console.error('Error fetching available ASINs:', error);

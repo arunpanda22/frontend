@@ -1,14 +1,14 @@
 "use client";
 import React from "react";
-import CampaignMetricsCardGrid from "./CampaignMetricsCardGrid"; // Import the new component
+import CampaignMetricsCardGrid from "./components/CampaignMetricsCardGrid"; // Import the new component
 
 
-import AdsTimelineChart from "./AdsTimelineChart";
-import FilterBar from "../../components/FilterBar";
+import AdsTimelineChart from "./components/AdsTimelineChart";
+import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { DateRangeProvider, useDateRange } from "@/lib/context/DateRangeContext";
 import type { Range } from "react-date-range"; 
-import SalesContributionDonut from "./SalesContributionDonut";
-import CampaignAdsSummary from "./campain_summery";
+import SalesContributionDonut from "./components/SalesContributionDonut";
+import CampaignAdsSummary from "./components/campain_summery";
 
 
 const CampaignPerformancePage = () => {
