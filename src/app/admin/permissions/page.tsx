@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { adminDashboardService } from '@/lib/api/services/admin-dashboard.service'
 import { useAdminPermissions, useAdminQueryRefresh } from '@/lib/hooks/queries/use-admin'
 
@@ -10,6 +10,9 @@ export default function AdminPermissionsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showRefreshSuccess, setShowRefreshSuccess] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingPermission, setEditingPermission] = useState<any>(null)
+  const [allRoles, setAllRoles] = useState<any[]>([])
+  const [loadingRoles, setLoadingRoles] = useState(false)
   
   const permissionsQuery = useAdminPermissions()
   const { refreshPermissions } = useAdminQueryRefresh()
@@ -26,6 +29,31 @@ export default function AdminPermissionsPage() {
     description: '',
     category: ''
   })
+
+  // Edit permission form
+  const [editForm, setEditForm] = useState({
+    codename: '',
+    name: '',
+    description: '',
+    category: '',
+    assignedRoles: [] as string[] // role names that have this permission
+  })
+
+  // Load all roles on mount
+  useEffect(() => {
+    const loadRoles = async () => {
+      setLoadingRoles(true)
+      try {
+        const response = await adminDashboardService.listRoles()
+        setAllRoles(response.roles || [])
+      } catch (error) {
+        console.error('Failed to load roles:', error)
+      } finally {
+        setLoadingRoles(false)
+      }
+    }
+    loadRoles()
+  }, [])
 
   // Filter permissions
   const filteredPermissions = useMemo(() => {
@@ -106,6 +134,112 @@ export default function AdminPermissionsPage() {
     }
   }
 
+  const handleStartEdit = async (perm: any) => {
+    setEditingPermission(perm.id)
+    setShowCreateForm(false)
+    
+    // Fetch detailed permission info to get role assignments
+    try {
+      const details = await adminDashboardService.getPermission(perm.id)
+      
+      // Extract role names from default_roles
+      const roleNames = details.default_roles?.map((dr: any) => dr.role__name) || []
+      
+      setEditForm({
+        codename: perm.codename,
+        name: perm.name,
+        description: perm.description || '',
+        category: perm.category || 'general',
+        assignedRoles: roleNames
+      })
+    } catch (error) {
+      console.error('Failed to load permission details:', error)
+      // Fallback to basic info
+      setEditForm({
+        codename: perm.codename,
+        name: perm.name,
+        description: perm.description || '',
+        category: perm.category || 'general',
+        assignedRoles: perm.default_roles || []
+      })
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingPermission(null)
+    setEditForm({ codename: '', name: '', description: '', category: '', assignedRoles: [] })
+  }
+
+  const handleToggleRole = (roleName: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      assignedRoles: prev.assignedRoles.includes(roleName)
+        ? prev.assignedRoles.filter(r => r !== roleName)
+        : [...prev.assignedRoles, roleName]
+    }))
+  }
+
+  const handleUpdatePermission = async () => {
+    if (!editForm.codename || !editForm.name) {
+      setStatus({ saving: false, error: 'Codename and name are required' })
+      return
+    }
+    
+    setStatus({ saving: true })
+    try {
+      // Update basic permission info
+      await adminDashboardService.updatePermission(editingPermission, {
+        codename: editForm.codename,
+        name: editForm.name,
+        description: editForm.description,
+        category: editForm.category || 'general'
+      })
+      
+      // Get current permission details to compare roles
+      const currentDetails = await adminDashboardService.getPermission(editingPermission)
+      const currentRoles = currentDetails.default_roles?.map((dr: any) => dr.role__name) || []
+      
+      // Determine which roles to add/remove
+      const rolesToAdd = editForm.assignedRoles.filter(r => !currentRoles.includes(r))
+      const rolesToRemove = currentRoles.filter((r: string) => !editForm.assignedRoles.includes(r))
+      
+      // Add new role assignments
+      for (const roleName of rolesToAdd) {
+        try {
+          await adminDashboardService.addRolePermissions(roleName, [editingPermission])
+        } catch (e: any) {
+          console.error(`Failed to add permission to role ${roleName}:`, e)
+        }
+      }
+      
+      // Remove role assignments
+      for (const roleName of rolesToRemove) {
+        try {
+          await adminDashboardService.removeRolePermissions(roleName, [editingPermission])
+        } catch (e: any) {
+          console.error(`Failed to remove permission from role ${roleName}:`, e)
+        }
+      }
+      
+      setEditingPermission(null)
+      setEditForm({ codename: '', name: '', description: '', category: '', assignedRoles: [] })
+      
+      await refreshPermissions()
+      
+      setStatus({ 
+        saving: false, 
+        message: 'Permission and role assignments updated successfully' 
+      })
+      setTimeout(() => setStatus({ saving: false }), 3000)
+    } catch (e: any) {
+      setStatus({ 
+        saving: false, 
+        error: e?.response?.data?.error || e?.message || 'Failed to update permission' 
+      })
+      setTimeout(() => setStatus({ saving: false }), 5000)
+    }
+  }
+
   const handleDeletePermission = async (permissionId: string, permissionName: string) => {
     if (!confirm(`Are you sure you want to delete permission "${permissionName}"?\n\nThis cannot be undone and will fail if the permission is in use.`)) {
       return
@@ -150,7 +284,12 @@ export default function AdminPermissionsPage() {
           )}
           
           <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
+            onClick={() => {
+              setShowCreateForm(!showCreateForm)
+              if (!showCreateForm) {
+                setEditingPermission(null)
+              }
+            }}
             className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
           >
             {showCreateForm ? 'Cancel' : '+ Create Permission'}
@@ -361,56 +500,184 @@ export default function AdminPermissionsPage() {
               
               <div className="divide-y divide-gray-100">
                 {perms.map((perm: any) => (
-                  <div key={perm.id} className="p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-gray-900">{perm.name}</h4>
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-mono">
-                            {perm.codename}
-                          </span>
-                        </div>
+                  <div key={perm.id}>
+                    {editingPermission === perm.id ? (
+                      // Edit Form
+                      <div className="p-4 bg-blue-50">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Edit Permission</h4>
                         
-                        {perm.description && (
-                          <p className="text-sm text-gray-600 mb-2">{perm.description}</p>
-                        )}
-                        
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>
-                            {perm.default_role_count || 0} role(s) by default
-                          </span>
-                          <span>•</span>
-                          <span>
-                            {perm.custom_grant_count || 0} custom grant(s)
-                          </span>
-                          {perm.default_roles && perm.default_roles.length > 0 && (
-                            <>
-                              <span>•</span>
-                              <div className="flex items-center gap-1">
-                                {perm.default_roles.map((role: string) => (
-                                  <span key={role} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                                    {role}
-                                  </span>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Codename *
+                              </label>
+                              <input
+                                type="text"
+                                value={editForm.codename}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, codename: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Display Name *
+                              </label>
+                              <input
+                                type="text"
+                                value={editForm.name}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Category
+                            </label>
+                            <select
+                              value={editForm.category}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                            >
+                              <option value="">Select category...</option>
+                              {categories.map((cat: string) => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Description
+                            </label>
+                            <textarea
+                              value={editForm.description}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                              rows={2}
+                              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                            />
+                          </div>
+                          
+                          {/* Role Assignments */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                              Assigned to Roles (by default)
+                            </label>
+                            {loadingRoles ? (
+                              <div className="text-xs text-gray-500 py-2">Loading roles...</div>
+                            ) : (
+                              <div className="space-y-2">
+                                {allRoles.map((role: any) => (
+                                  <label
+                                    key={role.id}
+                                    className="flex items-center gap-2 p-2 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={editForm.assignedRoles.includes(role.name)}
+                                      onChange={() => handleToggleRole(role.name)}
+                                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <div className="flex-1">
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {role.display_name}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {role.description}
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      Level {role.hierarchy_level}
+                                    </div>
+                                  </label>
                                 ))}
                               </div>
-                            </>
-                          )}
+                            )}
+                          </div>
+                          
+                          <div className="flex justify-end gap-2 pt-2 border-t">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleUpdatePermission}
+                              disabled={!editForm.codename || !editForm.name || status.saving}
+                              className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {status.saving ? 'Saving...' : 'Save Changes'}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      
-                      <button
-                        onClick={() => handleDeletePermission(perm.id, perm.name)}
-                        disabled={status.saving || (perm.default_role_count > 0) || (perm.custom_grant_count > 0)}
-                        className="ml-4 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={
-                          (perm.default_role_count > 0) || (perm.custom_grant_count > 0)
-                            ? 'Cannot delete: Permission is in use'
-                            : 'Delete permission'
-                        }
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    ) : (
+                      // Display Mode
+                      <div className="p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium text-gray-900">{perm.name}</h4>
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-mono">
+                                {perm.codename}
+                              </span>
+                            </div>
+                            
+                            {perm.description && (
+                              <p className="text-sm text-gray-600 mb-2">{perm.description}</p>
+                            )}
+                            
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span>
+                                {perm.default_role_count || 0} role(s) by default
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {perm.custom_grant_count || 0} custom grant(s)
+                              </span>
+                              {perm.default_roles && perm.default_roles.length > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <div className="flex items-center gap-1">
+                                    {perm.default_roles.map((role: string) => (
+                                      <span key={role} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                                        {role}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 ml-4">
+                            <button
+                              onClick={() => handleStartEdit(perm)}
+                              disabled={status.saving}
+                              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeletePermission(perm.id, perm.name)}
+                              disabled={status.saving || (perm.default_role_count > 0) || (perm.custom_grant_count > 0)}
+                              className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={
+                                (perm.default_role_count > 0) || (perm.custom_grant_count > 0)
+                                  ? 'Cannot delete: Permission is in use'
+                                  : 'Delete permission'
+                              }
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -427,6 +694,7 @@ export default function AdminPermissionsPage() {
           <p>• Permissions can be granted/revoked for individual users (overrides)</p>
           <p>• Permissions in use by roles or users cannot be deleted</p>
           <p>• Use descriptive codenames like "view_reports" or "edit_campaigns"</p>
+          <p>• Click Edit to modify permission details and which roles have it by default</p>
         </div>
       </div>
     </div>

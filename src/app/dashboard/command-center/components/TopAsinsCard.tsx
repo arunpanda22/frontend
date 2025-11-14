@@ -1,8 +1,7 @@
-// Usage example: TopAsinsRevenue using the generic TopItemsList component
-
 import React from 'react';
-import TopItemsList from '@/components/dashboard/ui/TopItemsCard'; // Adjust path as needed
+import TopItemsList from '@/components/dashboard/ui/TopItemsCard';
 import { TopAsinByRevenue } from '@/lib/api/services/dashboard.service';
+import { useCurrency } from "@/lib/context/CurrencyContext";
 
 interface TopAsinsRevenueProps {
   data?: TopAsinByRevenue[]
@@ -15,13 +14,15 @@ const TopAsinsRevenue: React.FC<TopAsinsRevenueProps> = ({
   isLoading = false, 
   isError = false 
 }) => {
-  // Transform your API data to match the generic interface
+  const { formatCurrencyNoDecimal } = useCurrency();
+  
+  // Transform API data - format currency in the transformation
   const transformedData = data?.map(asin => ({
     id: asin.asin,
     name: asin.product_name || 'Unknown Product',
     imageUrl: asin.image_url,
-    value: asin.revenue,
-    subtitle: `ASIN: ${asin.asin}`, // Optional subtitle for additional info
+    value: formatCurrencyNoDecimal(asin.revenue), // Pre-format the currency
+    subtitle: `ASIN: ${asin.asin}`,
   })) || [];
 
   return (
@@ -31,8 +32,6 @@ const TopAsinsRevenue: React.FC<TopAsinsRevenueProps> = ({
       isLoading={isLoading}
       isError={isError}
       maxItems={5}
-      valueType="currency"
-      currency="INR"
       emptyStateMessage="No revenue data available"
     />
   );

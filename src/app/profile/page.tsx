@@ -55,17 +55,6 @@ export default function Dashboard() {
               <p className="text-gray-600">{userProfile?.email}</p>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <div className="p-6 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
-              <h2 className="text-xl font-semibold mb-2">Quick Stats</h2>
-              <p>Your account was created on {user?.metadata.creationTime}</p>
-            </div>
-            <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Account Info</h2>
-              <p className="text-gray-600">Last login: {user?.metadata.lastSignInTime}</p>
-            </div>
-          </div>
 
           {/* Linked accounts guard + message */}
           {profileError && (

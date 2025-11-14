@@ -87,7 +87,7 @@ const CampaignPerformancePage = () => {
 // Main wrapper component
 export default function CampaignLayout() {
   return (
-    <DateRangeProvider defaultPreset="30d">
+    <DateRangeProvider defaultPreset="this month">
       <CampaignPerformancePage />
     </DateRangeProvider>
   );

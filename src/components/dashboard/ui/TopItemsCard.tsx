@@ -4,7 +4,7 @@ interface TopItemsListItem {
   id: string;
   name: string;
   imageUrl?: string;
-  value: number;
+  value: number | string; // Allow both number and pre-formatted string
   subtitle?: string; // For ASIN code, SKU, etc.
 }
 
@@ -14,8 +14,6 @@ interface TopItemsListProps {
   isLoading?: boolean;
   isError?: boolean;
   maxItems?: number;
-  valueType?: 'currency' | 'number' | 'percentage';
-  currency?: 'INR' | 'USD' | 'EUR';
   emptyStateIcon?: string;
   emptyStateMessage?: string;
   errorIcon?: string;
@@ -28,33 +26,11 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
   isLoading = false, 
   isError = false,
   maxItems = 5,
-  valueType = 'currency',
-  currency = 'INR',
   emptyStateIcon = '📊',
   emptyStateMessage = 'No data available',
   errorIcon = '⚠️',
   errorMessage = 'Failed to load data'
 }) => {
-  // Helper function to format values based on type
-  const formatValue = (value: number): string => {
-    switch (valueType) {
-      case 'currency':
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: currency,
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        }).format(value);
-      
-      case 'percentage':
-        return `${value.toFixed(1)}%`;
-      
-      case 'number':
-      default:
-        return new Intl.NumberFormat('en-US').format(value);
-    }
-  };
-
   // Helper function to get fallback image
   const getImageSrc = (imageUrl: string, itemName: string): string => {
     if (imageUrl && imageUrl.trim() !== '') {
@@ -173,7 +149,7 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
                   </div>
                   <div className="flex-shrink-0">
                     <p className="text-lg font-bold text-blue-600">
-                      {formatValue(item.value)}
+                      {item.value}
                     </p>
                   </div>
                 </div>

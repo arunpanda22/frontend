@@ -338,7 +338,7 @@ const AsinIntelligenceContent = () => {
 // Main wrapper component with DateRangeProvider
 export default function ASINPerformance() {
   return (
-    <DateRangeProvider defaultPreset="30d">
+    <DateRangeProvider defaultPreset="this month">
       <AsinIntelligenceContent />
     </DateRangeProvider>
   );
