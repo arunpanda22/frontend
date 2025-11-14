@@ -13,10 +13,10 @@ interface InventoryHealthTableProps {
 }
 
 // Helper functions for formatting
-function formatNumber(val: any): string {
-  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '0';
+function formatNumber(val: any): Number {
+  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return 0;
   const num = Number(val);
-  return num.toLocaleString();
+  return num;
 }
 
 function formatDecimal(val: any, digits = 2): string {
@@ -24,7 +24,6 @@ function formatDecimal(val: any, digits = 2): string {
   const num = Number(val);
   return num.toFixed(digits);
 }
-
 export default function InventoryHealthTable({ 
   salesDays = 30,
   reorderCoverDays = 45,
