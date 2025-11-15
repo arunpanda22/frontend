@@ -75,6 +75,17 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
       : `${sign}${symbol}${formattedNumber}`;
   }, [currencies, primaryCurrency, defaultMarketplace]);
 
+  const getCurrencySymbol = useCallback((marketplaceId?: string): string => {
+    const targetMarketplace =
+      marketplaceId || defaultMarketplace || Object.keys(currencies)[0];
+
+    const currencyInfo =
+      currencies[targetMarketplace]?.currency_info || primaryCurrency;
+
+    return currencyInfo?.symbol ?? '$';
+  }, [currencies, primaryCurrency, defaultMarketplace]);
+
+
   /** 💲 New formatter: Currency without decimals */
   const formatCurrencyNoDecimal = useCallback((value: number, marketplaceId?: string): string => {
     if (isNaN(value) || value === null || value === undefined) return '0';
@@ -111,9 +122,9 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     return `${value.toFixed(2)}%`;
   }, []);
 
-  const formatPercentageNoDecimal = useCallback((value: number): string => {
-    if (isNaN(value) || value === null || value === undefined) return '0%';
-    return `${value.toFixed()}%`;
+  const formatPercentageNoDecimal = useCallback((value: number): number => {
+    if (isNaN(value) || value === null || value === undefined) return 0;
+    return Math.round(value);
   }, []);
 
   /** +5.3% / -2.1% */
@@ -129,6 +140,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     isLoading,
     error,
     formatCurrency,
+    getCurrencySymbol,
     formatCurrencyNoDecimal, // 👈 Added here
     formatNumber,
     formatPercentage,

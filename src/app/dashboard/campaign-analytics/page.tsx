@@ -1,8 +1,6 @@
 "use client";
 import React from "react";
 import CampaignMetricsCardGrid from "./components/CampaignMetricsCardGrid"; // Import the new component
-
-
 import AdsTimelineChart from "./components/AdsTimelineChart";
 import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { DateRangeProvider, useDateRange } from "@/lib/context/DateRangeContext";
@@ -75,7 +73,7 @@ const CampaignPerformancePage = () => {
           <CampaignAdsSummary 
             startDate={dateRange.startDate}
             endDate={dateRange.endDate}
-            period={dateRange.preset || '30d'}
+            period={dateRange.preset || 'this month'}
           />
         </div>
         {/* <CampaignTablePage /> */}

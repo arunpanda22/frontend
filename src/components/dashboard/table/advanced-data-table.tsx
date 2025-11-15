@@ -34,7 +34,7 @@ export interface ColumnDefinition {
   minWidth?: number
   maxWidth?: number
   pinned?: "left" | "right" | null
-  autoFitHeader?: boolean // New option to enable auto-fit for specific columns
+  autoFitHeader?: boolean
 }
 
 export interface TableData {
@@ -64,15 +64,8 @@ interface AdvancedDataTableProps {
   showCheckboxColumn?: boolean
   rowsPerPage?: number
   initialSort?: SortState[]
-  autoFitHeaders?: boolean // Global option to enable auto-fit for all columns
-}
-
-interface FilterDropdownProps {
-  column: ColumnDefinition
-  filter: any
-  onFilter: (field: string, type: string, operator: string, value: any) => void
-  onClearFilter: (field: string) => void
-  data: TableData[]
+  autoFitHeaders?: boolean
+  showExportCard?: boolean // New prop to control export card visibility
 }
 
 interface CellRendererProps {
@@ -87,27 +80,17 @@ interface CellRendererProps {
   rowData: TableData
 }
 
-// Utility function to calculate optimal column width based on header text
 const calculateOptimalHeaderWidth = (headerText: string): number => {
-  // Component widths in the header:
-  // - GripVertical icon: ~16px (hidden by default but takes space on hover)
-  // - Header text: ~9px per character
-  // - 3-dot menu button: ~28px
-  // - Gap between elements: ~12px
-  // - Padding (px-4 = 16px on each side): 32px
-  // - Resize handle hover area: ~6px
-  
   const gripIconWidth = 16;
   const menuButtonWidth = 28;
   const gapWidth = 8;
-  const paddingWidth = 16; // 16px left + 16px right
+  const paddingWidth = 16;
   const resizeHandleWidth = 6;
   const charWidth = 9;
   
   const textWidth = headerText.length * charWidth;
   const totalWidth = gripIconWidth + textWidth + gapWidth + menuButtonWidth + paddingWidth + resizeHandleWidth;
   
-  // Ensure minimum width and round up to nearest 5px for cleaner numbers
   return Math.max(120, Math.ceil(totalWidth / 5) * 5);
 };
 
@@ -194,7 +177,7 @@ const CellRenderer = memo(function CellRenderer({
           type={column.type === "number" ? "number" : column.type === "date" ? "date" : "text"}
           value={editValue}
           onChange={(e) => onEditValueChange(e.target.value)}
-          className="h-8 text-sm flex-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 rounded-md"
+          className="h-8 text-sm flex-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white border-slate-200 rounded-md"
           autoFocus
           onKeyDown={handleKeyDown}
         />
@@ -334,7 +317,6 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80 p-0 bg-white border-slate-200 shadow-xl rounded-lg" align="end">
         <div className="p-5 space-y-5 bg-white">
-          {/* Sort Section */}
           {column.sortable !== false && (
             <div className="space-y-3">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sort Options</label>
@@ -350,7 +332,6 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
             </div>
           )}
 
-          {/* Filter Section */}
           {column.filterable !== false && (
             <>
               <div className="h-px bg-slate-200"></div>
@@ -404,7 +385,6 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
             </>
           )}
 
-          {/* Pin Section */}
           <div className="h-px bg-slate-200"></div>
           <div className="space-y-3">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pin Column</label>
@@ -468,24 +448,20 @@ export function AdvancedDataTable({
   showCheckboxColumn = true,
   rowsPerPage = 10,
   initialSort = [],
-  autoFitHeaders = false // Default to false for backward compatibility
+  autoFitHeaders = false,
+  showExportCard = true // Default to true for backward compatibility
 }: AdvancedDataTableProps) {
-  // Process columns with auto-fit widths
   const processedColumns = useMemo(() => {
     return columns.map(col => {
-      // Check if auto-fit should be applied (either globally or per-column)
       const shouldAutoFit = autoFitHeaders || col.autoFitHeader;
       
-      // If width is already explicitly set and auto-fit is not enabled, use the provided width
       if (!shouldAutoFit && col.width !== undefined) {
         return col;
       }
       
-      // Calculate optimal width if auto-fit is enabled
       if (shouldAutoFit) {
         const calculatedWidth = calculateOptimalHeaderWidth(col.headerName);
         
-        // Respect minWidth and maxWidth constraints
         let finalWidth = calculatedWidth;
         if (col.minWidth !== undefined) {
           finalWidth = Math.max(finalWidth, col.minWidth);
@@ -500,7 +476,6 @@ export function AdvancedDataTable({
         };
       }
       
-      // Default width if nothing is specified
       return {
         ...col,
         width: col.width || 240
@@ -521,14 +496,12 @@ export function AdvancedDataTable({
   const minVisibleRows = rowsPerPage
   const containerRef = useRef<HTMLDivElement>(null)
   
-  // Calculate container height based on rowsPerPage: header (48px) + rows (44px each) + padding
   const containerHeight = useMemo(() => {
-    return 48 + (minVisibleRows * 44) + 16 // 16px for padding
+    return 48 + (minVisibleRows * 44) + 28
   }, [minVisibleRows])
   
   const checkboxColumnWidth = showCheckboxColumn ? 80 : 0
 
-  // Column resizing functionality
   const initialWidths = useMemo(
     () =>
       Object.fromEntries(
@@ -545,7 +518,6 @@ export function AdvancedDataTable({
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(initialWidths)
   const resizingRef = useRef<{ field: string; startX: number; startWidth: number } | null>(null)
 
-  // Keep widths in sync when columns change
   useEffect(() => {
     setColumnWidths(initialWidths)
   }, [initialWidths])
@@ -591,7 +563,6 @@ export function AdvancedDataTable({
     }
   }, [internalColumns])
 
-  // Update internal columns when columns prop changes
   useEffect(() => {
     setInternalColumns(processedColumns)
   }, [processedColumns])
@@ -616,7 +587,6 @@ export function AdvancedDataTable({
     const actualData = paginationData.currentPageData
     const emptyRowsNeeded = Math.max(0, minVisibleRows - actualData.length)
     
-    // Add empty rows to always show the specified number of rows
     const emptyRows = Array(emptyRowsNeeded).fill(null).map((_, index) => ({
       __isEmpty: true,
       __emptyIndex: index
@@ -688,7 +658,7 @@ export function AdvancedDataTable({
       })
     })
 
-    // Apply sorts
+    // Apply sorts - FIXED: Only one sort at a time
     if (sorts.length > 0) {
       result.sort((a, b) => {
         for (const sort of sorts) {
@@ -716,17 +686,18 @@ export function AdvancedDataTable({
     return [...pinnedColumns.left, ...pinnedColumns.center, ...pinnedColumns.right]
   }, [pinnedColumns])
 
+  // FIXED: Clear previous sort when sorting a new column
   const handleSort = useCallback((field: string) => {
     setSorts((prev) => {
       const existingSort = prev.find((s) => s.field === field)
       if (existingSort) {
         if (existingSort.direction === "asc") {
-          return prev.map((s) => (s.field === field ? { ...s, direction: "desc" as const } : s))
+          return [{ field, direction: "desc" as const }]
         } else {
-          return prev.filter((s) => s.field !== field)
+          return []
         }
       } else {
-        return [...prev, { field, direction: "asc" as const }]
+        return [{ field, direction: "asc" as const }]
       }
     })
   }, [])
@@ -808,20 +779,68 @@ export function AdvancedDataTable({
     setHasChanges(true)
   }, [data, selectedRows, onDataChange])
 
+  // FIXED: Properly escape CSV values
+  const escapeCSV = (value: any): string => {
+    if (value === null || value === undefined) return ""
+    const str = String(value)
+    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+      return `"${str.replace(/"/g, '""')}"`
+    }
+    return str
+  }
+
   const exportData = useCallback(
     (format: "csv" | "excel") => {
-      const exportData = filteredData
-      const headers = internalColumns.map((col) => col.headerName).join(",")
-      const rows = exportData.map((row) => internalColumns.map((col) => row[col.field] || "").join(",")).join("\n")
+      if (format === "excel") {
+        const htmlContent = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="utf-8">
+            <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Sheet1</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+          </head>
+          <body>
+            <table>
+              <thead>
+                <tr>
+                  ${internalColumns.map((col) => `<th>${col.headerName}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredData
+                  .map(
+                    (row) =>
+                      `<tr>${internalColumns.map((col) => `<td>${row[col.field] ?? ""}</td>`).join("")}</tr>`
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `
+        
+        const blob = new Blob([htmlContent], { type: "application/vnd.ms-excel" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `export.xls`
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        const headers = internalColumns.map((col) => escapeCSV(col.headerName)).join(",")
+        const rows = filteredData
+          .map((row) => internalColumns.map((col) => escapeCSV(row[col.field])).join(","))
+          .join("\n")
 
-      const csvContent = `${headers}\n${rows}`
-      const blob = new Blob([csvContent], { type: "text/csv" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `export.${format === "excel" ? "csv" : "csv"}`
-      a.click()
-      URL.revokeObjectURL(url)
+        const csvContent = `${headers}\n${rows}`
+        const blob = new Blob([csvContent], { type: "text/csv" })
+        
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `export.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
     },
     [filteredData, internalColumns],
   )
@@ -835,7 +854,6 @@ export function AdvancedDataTable({
     [internalColumns, onColumnsChange],
   )
 
-  // Calculate left offsets for pinned columns using dynamic widths
   const getLeftOffset = useCallback((column: ColumnDefinition) => {
     if (column.pinned !== "left") return undefined
     
@@ -849,7 +867,6 @@ export function AdvancedDataTable({
     return offset
   }, [pinnedColumns.left, checkboxColumnWidth, columnWidths])
 
-  // Calculate right offsets for pinned columns using dynamic widths
   const getRightOffset = useCallback((column: ColumnDefinition) => {
     if (column.pinned !== "right") return undefined
     
@@ -865,63 +882,64 @@ export function AdvancedDataTable({
 
   return (
     <div className={cn("w-full space-y-6 bg-slate-50", className)}>
-      <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
-        <div className="flex items-center gap-4">
-          {selectedRows.size > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={deleteSelectedRows}
-              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete ({selectedRows.size})
-            </Button>
-          )}
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-1 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
-            <div>
-              <div className="text-lg font-bold text-slate-800">
-                {filteredData.length.toLocaleString()}{" "}
-                <span className="text-sm font-medium text-slate-500">records</span>
-              </div>
-              <div className="text-xs text-slate-500">
-                {selectedRows.size > 0 && `${selectedRows.size} selected • `}
-                Page {currentPage} of {paginationData.totalPages || 1} • Showing {rowsPerPage} rows
+      {showExportCard && (
+        <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="flex items-center gap-4">
+            {selectedRows.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={deleteSelectedRows}
+                className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete ({selectedRows.size})
+              </Button>
+            )}
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-1 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
+              <div>
+                <div className="text-lg font-bold text-slate-800">
+                  {filteredData.length.toLocaleString()}{" "}
+                  <span className="text-sm font-medium text-slate-500">records</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  {selectedRows.size > 0 && `${selectedRows.size} selected • `}
+                  Page {currentPage} of {paginationData.totalPages || 1} • Showing {rowsPerPage} rows
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Data
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-white border-slate-200 shadow-lg rounded-lg">
-              <DropdownMenuItem onClick={() => exportData("csv")} className="hover:bg-slate-50">
-                Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportData("excel")} className="hover:bg-slate-50">
-                Export as Excel
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Data
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-white border-slate-200 shadow-lg rounded-lg">
+                <DropdownMenuItem onClick={() => exportData("csv")} className="hover:bg-slate-50">
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportData("excel")} className="hover:bg-slate-50">
+                  Export for Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-auto" style={{ height: `${containerHeight}px` }}>
           <div className="relative">
             <table className="table-fixed w-full border-collapse min-w-full">
-              {/* Bind live column widths to all rows using colgroup */}
               <colgroup>
                 {showCheckboxColumn && <col style={{ width: checkboxColumnWidth }} />}
                 {orderedColumns.map((col) => (
@@ -990,7 +1008,6 @@ export function AdvancedDataTable({
                           </div>
                         </div>
 
-                        {/* Resize handle */}
                         <div
                           role="separator"
                           aria-orientation="vertical"

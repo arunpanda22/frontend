@@ -1,39 +1,46 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from 'react'
-import { Box, Typography } from '@mui/material'
-import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard'
-import { AdvancedDataTable, type ColumnDefinition, type TableData  } from '@/components/dashboard/table/advanced-data-table'
-import { useCurrency } from '@/lib/context/CurrencyContext'
-
+import { useMemo, useState } from "react";
+import { Box, Typography } from "@mui/material";
+import { useAsinPerformanceData } from "@/lib/hooks/queries/use-dashboard";
+import {
+  AdvancedDataTable,
+  type ColumnDefinition,
+  type TableData,
+} from "@/components/dashboard/table/advanced-data-table";
+import { useCurrency } from "@/lib/context/CurrencyContext";
 
 interface AsinPerformanceTableProps {
   startDate: string;
   endDate: string;
-  focusLevel?: 'high' | 'medium' | 'low' | 'all';
+  focusLevel?: "high" | "medium" | "low" | "all";
 }
 
-export default function AsinPerformanceTable({ 
-  startDate, 
-  endDate, 
-  focusLevel = 'all' 
+export default function AsinPerformanceTable({
+  startDate,
+  endDate,
+  focusLevel = "all",
 }: AsinPerformanceTableProps) {
-  // Calculate period based on date range
-  const { formatPercentage, formatCurrencyNoDecimal, formatPercentageNoDecimal } = useCurrency();
+  const { formatPercentage, getCurrencySymbol, formatPercentageNoDecimal } =
+    useCurrency();
+  const currency = getCurrencySymbol();
   const period = useMemo(() => {
-    if (!startDate || !endDate) return '30d';
-    
+    // Calculate period based on date range
+    if (!startDate || !endDate) return "30d";
+
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    
+    const diffDays = Math.ceil(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
     // Map days to period format
-    if (diffDays <= 7) return '7d';
-    if (diffDays <= 14) return '14d';
-    if (diffDays <= 30) return '30d';
-    if (diffDays <= 60) return '60d';
-    if (diffDays <= 90) return '90d';
-    return 'custom';
+    if (diffDays <= 7) return "7d";
+    if (diffDays <= 14) return "14d";
+    if (diffDays <= 30) return "30d";
+    if (diffDays <= 60) return "60d";
+    if (diffDays <= 90) return "90d";
+    return "custom";
   }, [startDate, endDate]);
 
   // Fetch ASIN performance data from API with date range
@@ -41,153 +48,171 @@ export default function AsinPerformanceTable({
     start_date: startDate,
     end_date: endDate,
     period: period,
-    focus_level: focusLevel
+    focus_level: focusLevel,
   });
 
   // State for managing table columns - now simplified with auto-fit
-  const initialColumns: ColumnDefinition[] = useMemo(() => [
-    {
-      field: 'asin',
-      headerName: 'ASIN',
-      type: 'text',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      width: 160,  
-      minWidth: 220,
-      pinned: 'left'
-    },
-    {
-      field: 'product_name',
-      headerName: 'Name',
-      type: 'text',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      minWidth: 350,
-      maxWidth: 600,
-      pinned: 'left'
-    },
-    {
-      field: 'total_quantity',
-      headerName: 'Total Quantity',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true  // Let the table auto-fit this column
-    },
-    {
-      field: 'total_sales',
-      headerName: 'Total Sales (₹)',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'sales_asp',
-      headerName: 'Sales ASP (₹)',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'buybox',
-      headerName: 'Buy Box % ',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'organic_sales',
-      headerName: 'Organic Sales (₹)',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'conversion',
-      headerName: 'Conversion %',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'acos',
-      headerName: 'ACOS %  ',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'tacos',
-      headerName: 'TACOS %  ',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'replacement_rate',
-      headerName: 'Replacement Rate %',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    },
-    {
-      field: 'return_rate',
-      headerName: 'Return Rate %',
-      type: 'number',
-      editable: false,
-      sortable: true,
-      filterable: true,
-      autoFitHeader: true
-    }
-  ], []);
+  const initialColumns: ColumnDefinition[] = useMemo(
+    () => [
+      {
+        field: "asin",
+        headerName: "ASIN",
+        type: "text",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        width: 160,
+        minWidth: 220,
+        pinned: "left",
+      },
+      {
+        field: "product_name",
+        headerName: "Name",
+        type: "text",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        minWidth: 350,
+        maxWidth: 600,
+        pinned: "left",
+      },
+      {
+        field: "total_quantity",
+        headerName: "Total Quantity",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true, // Let the table auto-fit this column
+      },
+      {
+        field: "total_sales",
+        headerName:` Total Sales (${currency})`,
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "ads_sales",
+        headerName:` Ads Sales (${currency})`,
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "sales_asp",
+        headerName: `Sales ASP  (${currency})`,
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "buybox",
+        headerName: "Buy Box % ",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "organic_sales",
+        headerName: `Organic Sales %`,
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "conversion",
+        headerName: "Conversion %",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "acos",
+        headerName: "ACOS %  ",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "tacos",
+        headerName: "TACOS %  ",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "replacement_rate",
+        headerName: "Replacement Rate %",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
+        field: "return_rate",
+        headerName: "Return Rate %",
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+    ],
+    []
+  );
 
-  const [tableColumns, setTableColumns] = useState<ColumnDefinition[]>(initialColumns);
+  const [tableColumns, setTableColumns] =
+    useState<ColumnDefinition[]>(initialColumns);
 
   // Transform API data - updated to match new service structure
-  const asinData: TableData[] = useMemo(() => {    
+  const asinData: TableData[] = useMemo(() => {
     const rawData = asinSummary?.data?.asin_summary;
-    
+
     if (!rawData || !Array.isArray(rawData)) {
-      console.log('No valid asin_summary data found');
+      console.log("No valid asin_summary data found");
       return [];
     }
-    
+
     return rawData.map((item: any) => {
       // Handle nested json property if it exists, otherwise use item directly
       const actualItem = item.json || item;
-      
+
       return {
-        asin: actualItem.asin || '',
-        product_name: actualItem.product_name || '',
-        image_url: actualItem.image_url || '',
+        asin: actualItem.asin || "",
+        product_name: actualItem.product_name || "",
+        image_url: actualItem.image_url || "",
         total_quantity: actualItem.total_units || 0,
-        total_sales: formatCurrencyNoDecimal(actualItem.total_sales) || 0,
-        sales_asp: formatCurrencyNoDecimal(actualItem.asp) || 0,
+        total_sales: actualItem.total_sales || 0,
+        ads_sales: actualItem.total_ad_sales || 0,
+        sales_asp: actualItem.asp || 0,
         buybox: actualItem.buy_box_percentage || 0,
-        organic_sales: formatPercentageNoDecimal(((actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0))*100 / (actualItem.total_sales || 0)),
+        organic_sales: formatPercentageNoDecimal(
+          (((actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0)) *
+            100) /
+            (actualItem.total_sales || 0)
+        ),
         conversion: formatPercentage(actualItem.conversion_rate) || 0,
         acos: formatPercentage(actualItem.acos_percent) || "-",
-        tacos:  formatPercentage(actualItem.tacos_percent) || "-",
-        replacement_rate:  formatPercentage(actualItem.replacement_rate)  || "-",
+        tacos: formatPercentage(actualItem.tacos_percent) || "-",
+        replacement_rate: formatPercentage(actualItem.replacement_rate) || "-",
         return_rate: formatPercentage(actualItem.return_rate) || "-",
       };
     });
@@ -200,9 +225,9 @@ export default function AsinPerformanceTable({
 
   // Format date range for display
   const dateRangeDisplay = useMemo(() => {
-    if (!startDate || !endDate) return '';
-    const start = new Date(startDate).toLocaleDateString('en-GB');
-    const end = new Date(endDate).toLocaleDateString('en-GB');
+    if (!startDate || !endDate) return "";
+    const start = new Date(startDate).toLocaleDateString("en-GB");
+    const end = new Date(endDate).toLocaleDateString("en-GB");
     return `${start} - ${end}`;
   }, [startDate, endDate]);
 
@@ -250,7 +275,7 @@ export default function AsinPerformanceTable({
               Failed to load ASIN performance data
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {error?.message || 'An error occurred while fetching data'}
+              {error?.message || "An error occurred while fetching data"}
             </Typography>
           </div>
         </div>
@@ -281,10 +306,15 @@ export default function AsinPerformanceTable({
               No data found for the selected date range: {dateRangeDisplay}
             </Typography>
             {/* Debug info in development */}
-            {process.env.NODE_ENV === 'development' && (
-              <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            {process.env.NODE_ENV === "development" && (
+              <Box sx={{ mt: 2, p: 2, bgcolor: "grey.100", borderRadius: 1 }}>
                 <Typography variant="caption" component="pre">
-                  Debug: {JSON.stringify({ startDate, endDate, period, asinSummary }, null, 2)}
+                  Debug:{" "}
+                  {JSON.stringify(
+                    { startDate, endDate, period, asinSummary },
+                    null,
+                    2
+                  )}
                 </Typography>
               </Box>
             )}
@@ -316,7 +346,7 @@ export default function AsinPerformanceTable({
           </div>
         </div>
       </div>
-      
+
       {/* Table Content */}
       <div className="p-4 md:p-6 flex-1 min-h-0">
         <AdvancedDataTable
@@ -324,16 +354,16 @@ export default function AsinPerformanceTable({
           columns={tableColumns}
           onDataChange={(newData) => {
             // Handle data changes if needed
-            console.log('Data changed:', newData);
+            console.log("Data changed:", newData);
           }}
           onColumnsChange={setTableColumns}
           showCheckboxColumn={false}
           className="w-full h-full"
           initialSort={[
             {
-              field: 'total_sales', 
-              direction: 'desc' 
-            }
+              field: "total_sales",
+              direction: "desc",
+            },
           ]}
         />
       </div>

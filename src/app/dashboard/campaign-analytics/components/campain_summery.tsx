@@ -19,15 +19,23 @@ export default function CampaignAdsSummary({
   period = '30d' 
 }: CampaignAdsSummaryProps = {}) {
 
-  const { formatCurrency, formatNumber, formatPercentage, formatCurrencyNoDecimal } = useCurrency();
+  const { getCurrencySymbol , formatNumber } = useCurrency();
+  const currency = getCurrencySymbol();
 
   // Fetch real campaign data from API using provided date range
-  const dateParams = useMemo(() => ({
-    start_date: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end_date: endDate || new Date().toISOString().split('T')[0],
-    period,
-    focus_level: 'all' as const
-  }), [startDate, endDate, period]);
+  const dateParams = useMemo(() => {
+    const apiPeriod = period === "this month" ? "current_month" : period;
+    return {
+      start_date:
+        startDate ||
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+      end_date: endDate || new Date().toISOString().split("T")[0],
+      period: apiPeriod,
+      focus_level: "all" as const,
+    };
+  }, [startDate, endDate, period]);
 
   const { data: apiCampaignData, isLoading: loading, error } = useCampaignSummaryWithParams(dateParams);
 
@@ -66,7 +74,7 @@ export default function CampaignAdsSummary({
     },
     {
       field: 'ctr_percent',
-      headerName: 'CTR%',
+      headerName: 'CTR %',
       type: 'number',
       editable: false,
       sortable: true,
@@ -74,9 +82,10 @@ export default function CampaignAdsSummary({
       width: 180,
       minWidth: 180
     },
+
     {
       field: 'ad_cost',
-      headerName: 'Ad Cost',
+      headerName: `Ad Cost (${currency})`,
       type: 'number',
       editable: false,
       sortable: true,
@@ -86,7 +95,7 @@ export default function CampaignAdsSummary({
     },
     {
       field: 'cost_per_click',
-      headerName: 'Cost/Click',
+      headerName: `Cost/Click (${currency})`,
       type: 'number',
       editable: false,
       sortable: true,
@@ -106,7 +115,7 @@ export default function CampaignAdsSummary({
     },
     {
       field: 'sales',
-      headerName: 'Sales',
+      headerName: `Sales (${currency})`,
       type: 'number',
       editable: false,
       sortable: true,
@@ -116,7 +125,7 @@ export default function CampaignAdsSummary({
     },
     {
       field: 'acos_percent',
-      headerName: 'ACOS%',
+      headerName: 'ACOS %',
       type: 'number',
       editable: false,
       sortable: true,
@@ -124,7 +133,7 @@ export default function CampaignAdsSummary({
       width: 200,
       minWidth: 200
     }
-  ], []);
+  ], [currency]);
 
   const [columns, setColumns] = useState<ColumnDefinition[]>(tableColumns);
 
@@ -141,12 +150,12 @@ export default function CampaignAdsSummary({
         campaign_name: campaign.campaign_name || '',
         impressions: formatNumber(campaign.impressions),
         clicks: formatNumber(campaign.clicks),
-        ctr_percent: formatPercentage(campaign.ctr_percent),
-        ad_cost: formatCurrencyNoDecimal(campaign.ad_cost),
-        cost_per_click: formatCurrency(campaign.cost_per_click),
+        ctr_percent: (campaign.ctr_percent),
+        ad_cost: campaign.ad_cost,
+        cost_per_click: campaign.cost_per_click,
         units_sold: formatNumber(campaign.purchases),
-        sales: formatCurrencyNoDecimal(campaign.sales),
-        acos_percent: formatPercentage(campaign.acos_percent),
+        sales: campaign.sales,
+        acos_percent: campaign.acos_percent,
         // Store raw values for sorting/filtering if needed
         _raw_impressions: campaign.impressions || 0,
         _raw_clicks: campaign.clicks || 0,
