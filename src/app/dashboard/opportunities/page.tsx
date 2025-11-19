@@ -17,6 +17,7 @@ import { useSQPOpportunities } from "@/lib/hooks/use-sqp-opportunities";
 import { SQPOpportunitiesDrawer } from "./components/SQPOpportunitiesDrawer";
 import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer";
 import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
+import { AsinSuggestDrawer } from "./components/AsinSuggestDrawer";
 import toast, { Toaster } from "react-hot-toast";
 
 // Opportunities metadata
@@ -30,7 +31,7 @@ const OPPORTUNITIES = [
     color: "from-blue-500 to-blue-600",
     bgColor: "from-blue-50 to-blue-100",
     borderColor: "border-blue-200",
-    disabled: false, // Enable dedup
+    disabled: false,
   },
   {
     id: "sqp",
@@ -68,13 +69,13 @@ const OPPORTUNITIES = [
   {
     id: "asin",
     name: "ASINSuggest",
-    headline: "Get AI-Powered Keyword Recommendations for Any ASIN — Even Competitors.",
+    headline: "Get Amazon ads Keyword Recommendations for Any ASIN",
     description: "Unlock Amazon-backed suggestions for profitable targeting.",
     icon: Target,
     color: "from-pink-500 to-pink-600",
     bgColor: "from-pink-50 to-pink-100",
     borderColor: "border-pink-200",
-    disabled: true,
+    disabled: false, // Now enabled
   },
   {
     id: "rivalasin",
@@ -138,6 +139,8 @@ export default function OpportunitiesPage() {
       setSelectedOpportunity(opportunityId);
     } else if (opportunityId === "dedup") {
       setSelectedOpportunity("dedup");
+    } else if (opportunityId === "asin") {
+      setSelectedOpportunity("asin");
     } else {
       // Placeholder for other opportunities
       console.log(`Clicked on: ${opportunityId}`);
@@ -182,6 +185,13 @@ export default function OpportunitiesPage() {
 
       {selectedOpportunity === "dedup" && (
         <DedupOpportunitiesDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+        />
+      )}
+
+      {selectedOpportunity === "asin" && (
+        <AsinSuggestDrawer
           isOpen={true}
           onClose={closeDrawer}
         />
