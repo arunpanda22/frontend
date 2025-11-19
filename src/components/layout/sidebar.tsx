@@ -8,7 +8,7 @@ import { RiArrowRightDoubleLine, RiArrowLeftDoubleLine } from "react-icons/ri"
 import { useAuth } from '@/lib/context/AuthContext'
 import { usePermissions } from '@/lib/hooks/usePermissions'
 import { useSidebar } from '@/components/layout/layout-wrapper'
-import { ROUTES, TOOL_CATEGORIES, RouteConfig } from '@/config/routes.config'
+import { ROUTES, TOOL_CATEGORIES, DASHBOARD_CATEGORIES, RouteConfig } from '@/config/routes.config'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -16,6 +16,7 @@ export function Sidebar() {
   const { canAccess, isLoadingPermissions } = usePermissions()
   const { isCollapsed, setIsCollapsed } = useSidebar()
   const [isDashboardOpen, setIsDashboardOpen] = useState(true)
+  const [isAdOptimusOpen, setIsAdOptimusOpen] = useState(true)
   const [isToolsOpen, setIsToolsOpen] = useState(false)
 
   // Force refresh sidebar when impersonation state changes
@@ -56,12 +57,21 @@ export function Sidebar() {
   }
 
   /**
-   * Get accessible dashboard routes
+   * Get accessible dashboard routes (Core Analytics only)
    */
   const accessibleDashboard = useMemo(() => {
-    const dashboardCategory = ROUTES.find(r => r.category === 'dashboard')
-    if (!dashboardCategory) return []
-    return filterAccessibleRoutes(dashboardCategory.children)
+    const coreCategory = DASHBOARD_CATEGORIES.find(c => c.name === 'Core Analytics')
+    if (!coreCategory) return []
+    return filterAccessibleRoutes(coreCategory.routes)
+  }, [userProfile, isLoadingPermissions, impersonationActive])
+
+  /**
+   * Get accessible AdOptimus routes
+   */
+  const accessibleAdOptimus = useMemo(() => {
+    const adoptimusCategory = DASHBOARD_CATEGORIES.find(c => c.name === 'AdOptimus')
+    if (!adoptimusCategory) return []
+    return filterAccessibleRoutes(adoptimusCategory.routes)
   }, [userProfile, isLoadingPermissions, impersonationActive])
 
   /**
@@ -180,7 +190,7 @@ export function Sidebar() {
           <div className="flex-1 overflow-y-auto scrollbar-custom">
             <nav className="p-2 space-y-1">
               
-              {/* Dashboard Section - Only show if user has accessible dashboard routes */}
+              {/* Dashboard Section - Core Analytics */}
               {accessibleDashboard.length > 0 && (
                 <div>
                   <button
@@ -215,6 +225,41 @@ export function Sidebar() {
                 </div>
               )}
 
+              {/* AdOptimus Section */}
+              {accessibleAdOptimus.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setIsAdOptimusOpen(!isAdOptimusOpen)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white rounded-md transition-colors"
+                  >
+                    <span>AdOptimus</span>
+                    {isAdOptimusOpen ? (
+                      <ChevronDownIcon className="h-4 w-4" />
+                    ) : (
+                      <ChevronRightIcon className="h-4 w-4" />
+                    )}
+                  </button>
+                  
+                  {isAdOptimusOpen && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {accessibleAdOptimus.map((route) => (
+                        <Link
+                          key={route.href}
+                          href={route.href}
+                          className={`block px-3 py-2 text-sm rounded-md transition-colors ${
+                            pathname === route.href
+                              ? 'bg-gray-800 text-white border-l-2 border-yellow-400'
+                              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                          }`}
+                        >
+                          <div className="font-medium">{route.name}</div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Tools Section - Only show if user has accessible tools */}
               {accessibleToolCategories.length > 0 && (
                 <div className="pt-2">
@@ -226,7 +271,7 @@ export function Sidebar() {
                     {isToolsOpen ? (
                       <ChevronDownIcon className="h-4 w-4" />
                     ) : (
-                      <ChevronRightIcon className="h-4 w-4" />
+                      <ChevronRightIcon className="h-4 w-5" />
                     )}
                   </button>
 

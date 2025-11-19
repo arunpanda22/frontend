@@ -30,10 +30,10 @@ export interface RouteCategory {
 }
 
 /**
- * Dashboard Routes
+ * Dashboard Routes - Core Analytics
  * Requires seller account connection for data display
  */
-const DASHBOARD_ROUTES: RouteConfig[] = [
+const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
   {
     name: 'Command Center',
     href: '/dashboard/command-center',
@@ -70,12 +70,19 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
-    name: 'Market Funnel Insights',
+    name: 'Market Funnel Insights',
     href: '/dashboard/market-funnel-insights',
     description: 'Analyze search query performance data',
     permission: 'view_sqp_performance',
     requiresSellerAccount: true,
   },
+]
+
+/**
+ * Dashboard Routes - AdOptimus Suite
+ * Advanced advertising optimization tools
+ */
+const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
   {
     name: 'Ads Optimizer',
     href: '/dashboard/ads-optimizer',
@@ -89,6 +96,28 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     description: 'Automated Bid Management for Maximum ROI',
     permission: 'access_oppurtunities',
     requiresSellerAccount: true,
+  },
+]
+
+/**
+ * All Dashboard Routes Combined
+ */
+const DASHBOARD_ROUTES: RouteConfig[] = [
+  ...DASHBOARD_CORE_ROUTES,
+  ...DASHBOARD_ADOPTIMUS_ROUTES,
+]
+
+/**
+ * Dashboard Categories for Sidebar Organization
+ */
+export const DASHBOARD_CATEGORIES = [
+  {
+    name: 'Core Analytics',
+    routes: DASHBOARD_CORE_ROUTES,
+  },
+  {
+    name: 'AdOptimus',
+    routes: DASHBOARD_ADOPTIMUS_ROUTES,
   },
 ]
 
