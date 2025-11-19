@@ -1,47 +1,70 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Info, Zap, Target, TrendingUp, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { useInvokeAdsOptimizer } from '@/lib/hooks/queries/use-ads-optimizer';
-import { useAdsOptimizerStore } from '@/lib/hooks/use-ads-optimizer-store';
-import type { AdsOptimizerRequest } from './lib/types';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Info,
+  Zap,
+  Target,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Clock,
+  Package,
+} from "lucide-react";
+import { useInvokeAdsOptimizer } from "@/lib/hooks/queries/use-ads-optimizer";
+import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
+import type { AdsOptimizerRequest } from "./lib/types";
+
 export default function AdsOptimizerPage() {
   const router = useRouter();
   const { mutate: invokeOptimizer, isPending, error } = useInvokeAdsOptimizer();
-  const setOptimizationData = useAdsOptimizerStore(state => state.setOptimizationData);
+  const setOptimizationData = useAdsOptimizerStore(
+    (state) => state.setOptimizationData
+  );
 
   const [isCombined, setIsCombined] = useState(true);
   const [targetAcos, setTargetAcos] = useState({
     combined: 25,
     sp: 20,
     sb: 30,
-    sd: 40
+    sd: 40,
   });
-  const [mode, setMode] = useState<'Sales Optimisation' | 'ACOS Optimisation' | 'Balanced Optimisation'>('Balanced Optimisation');
+  const [mode, setMode] = useState<
+    "Sales Optimisation" | "ACOS Optimisation" | "Balanced Optimisation"
+  >("Balanced Optimisation");
   const [showMultipliers, setShowMultipliers] = useState(false);
   const [multipliers, setMultipliers] = useState({
     brand: 0.5,
     competitor: 1.3,
     product_target: 1.1,
     new_launch: 2.0,
-    recent_start: 1.5
+    recent_start: 1.5,
   });
 
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  // New toggle states
+  const [dayParting, setDayParting] = useState(false);
+  const [inventoryAwareBidding, setInventoryAwareBidding] = useState(false);
+
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
 
   const resetToDefaults = () => {
     setIsCombined(true);
     setTargetAcos({ combined: 25, sp: 20, sb: 30, sd: 40 });
-    setMode('Balanced Optimisation');
+    setMode("Balanced Optimisation");
     setMultipliers({
       brand: 0.5,
       competitor: 1.3,
       product_target: 1.1,
       new_launch: 2.0,
-      recent_start: 1.5
+      recent_start: 1.5,
     });
     setShowMultipliers(false);
+    setDayParting(false);
+    setInventoryAwareBidding(false);
     setValidationErrors({});
   };
 
@@ -50,17 +73,17 @@ export default function AdsOptimizerPage() {
 
     if (isCombined) {
       if (targetAcos.combined <= 0 || targetAcos.combined > 100) {
-        errors.combined = 'Target ACOS must be between 0 and 100';
+        errors.combined = "Target ACOS must be between 0 and 100";
       }
     } else {
       if (targetAcos.sp <= 0 || targetAcos.sp > 100) {
-        errors.sp = 'SP ACOS must be between 0 and 100';
+        errors.sp = "SP ACOS must be between 0 and 100";
       }
       if (targetAcos.sb <= 0 || targetAcos.sb > 100) {
-        errors.sb = 'SB ACOS must be between 0 and 100';
+        errors.sb = "SB ACOS must be between 0 and 100";
       }
       if (targetAcos.sd <= 0 || targetAcos.sd > 100) {
-        errors.sd = 'SD ACOS must be between 0 and 100';
+        errors.sd = "SD ACOS must be between 0 and 100";
       }
     }
 
@@ -75,12 +98,14 @@ export default function AdsOptimizerPage() {
 
     // Convert ACOS percentages to decimals (25% -> 0.25)
     const acosDecimal = isCombined ? targetAcos.combined / 100 : null;
-    
+
     const payload: AdsOptimizerRequest = {
       target_acos_sp: isCombined ? acosDecimal! : targetAcos.sp / 100,
       target_acos_sb: isCombined ? acosDecimal! : targetAcos.sb / 100,
       target_acos_sd: isCombined ? acosDecimal! : targetAcos.sd / 100,
       mode,
+      // day_parting: dayParting,
+      // inventory_aware_bidding: inventoryAwareBidding,
       // Only include multipliers if the section was opened
       ...(showMultipliers && {
         brand: multipliers.brand,
@@ -88,27 +113,42 @@ export default function AdsOptimizerPage() {
         product_target: multipliers.product_target,
         new_launch: multipliers.new_launch,
         recent_start: multipliers.recent_start,
-      })
+      }),
     };
 
     invokeOptimizer(payload, {
       onSuccess: (data) => {
         setOptimizationData(data);
-        router.push('/dashboard/ads-optimizer/results');
+        router.push("/dashboard/ads-optimizer/results");
       },
       onError: (error: any) => {
         // Handle API validation errors
         if (error?.response?.data?.details) {
           setValidationErrors(error.response.data.details);
         }
-      }
+      },
     });
   };
 
-  const modes: Array<{value: typeof mode, label: string, tooltip: string}> = [
-    { value: 'ACOS Optimisation', label: 'ACOS Optimized', tooltip: 'Focuses on achieving your target ACOS with aggressive bid adjustments' },
-    { value: 'Balanced Optimisation', label: 'Balanced', tooltip: 'Balances between ACOS targets and sales volume for sustainable growth' },
-    { value: 'Sales Optimisation', label: 'Sales Maximized', tooltip: 'Prioritizes sales volume while loosely maintaining ACOS thresholds' }
+  const modes: Array<{ value: typeof mode; label: string; tooltip: string }> = [
+    {
+      value: "ACOS Optimisation",
+      label: "ACOS Optimized",
+      tooltip:
+        "Focuses on achieving your target ACOS with aggressive bid adjustments",
+    },
+    {
+      value: "Balanced Optimisation",
+      label: "Balanced",
+      tooltip:
+        "Balances between ACOS targets and sales volume for sustainable growth",
+    },
+    {
+      value: "Sales Optimisation",
+      label: "Sales Maximized",
+      tooltip:
+        "Prioritizes sales volume while loosely maintaining ACOS thresholds",
+    },
   ];
 
   return (
@@ -120,35 +160,53 @@ export default function AdsOptimizerPage() {
             <div className="text-blue-200 text-sm font-medium mb-3 tracking-wide uppercase">
               AI-Powered Amazon Optimization
             </div>
-            
+
             <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
               Automated Bid Management for Maximum ROI
             </h1>
-            
+
             <p className="text-xl text-blue-100 mb-8 leading-relaxed">
-              Stop wasting hours adjusting bids manually. Our AI <strong>automatically optimizes</strong> Sponsored Products, Brands, and Display campaigns to maximize revenue and minimize ACOS—in real time.
+              Stop wasting hours adjusting bids manually. Our AI{" "}
+              <strong>automatically optimizes</strong> Sponsored Products,
+              Brands, and Display campaigns to maximize revenue and minimize
+              ACOS—in real time.
             </p>
 
             <div className="space-y-4 mb-10">
               <div className="flex items-start gap-3">
                 <Zap className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-lg">Real-Time Optimization</h3>
-                  <p className="text-blue-100 text-sm">Advanced machine learning handles bid recalibration and budget shifts automatically</p>
+                  <h3 className="font-semibold text-lg">
+                    Real-Time Optimization
+                  </h3>
+                  <p className="text-blue-100 text-sm">
+                    Advanced machine learning handles bid recalibration and
+                    budget shifts automatically
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Target className="w-6 h-6 text-green-300 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-lg">Hit Your Target ACOS</h3>
-                  <p className="text-blue-100 text-sm">Set your goals and let AI handle campaign creation, negations, and placement tuning</p>
+                  <h3 className="font-semibold text-lg">
+                    Hit Your Target ACOS
+                  </h3>
+                  <p className="text-blue-100 text-sm">
+                    Set your goals and let AI handle campaign creation,
+                    negations, and placement tuning
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <TrendingUp className="w-6 h-6 text-purple-300 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-lg">Save 15+ Hours Weekly</h3>
-                  <p className="text-blue-100 text-sm">Focus on strategy while automation handles the tedious bid adjustments</p>
+                  <h3 className="font-semibold text-lg">
+                    Save 15+ Hours Weekly
+                  </h3>
+                  <p className="text-blue-100 text-sm">
+                    Focus on strategy while automation handles the tedious bid
+                    adjustments
+                  </p>
                 </div>
               </div>
             </div>
@@ -161,7 +219,9 @@ export default function AdsOptimizerPage() {
                   </div>
                 </div>
                 <h4 className="font-semibold mb-1">Trusted by</h4>
-                <p className="text-blue-100 text-sm">80+ Amazon Sellers & Agencies</p>
+                <p className="text-blue-100 text-sm">
+                  80+ Amazon Sellers & Agencies
+                </p>
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -179,7 +239,9 @@ export default function AdsOptimizerPage() {
                   </div>
                 </div>
                 <h4 className="font-semibold mb-1">Over $50M+</h4>
-                <p className="text-blue-100 text-sm">in Ad Spend Managed Automatically</p>
+                <p className="text-blue-100 text-sm">
+                  in Ad Spend Managed Automatically
+                </p>
               </div>
             </div>
           </div>
@@ -189,13 +251,16 @@ export default function AdsOptimizerPage() {
         <div className="lg:col-span-2 xl:col-span-2 px-12 flex items-center justify-center overflow-y-auto">
           <div className="w-full max-w-l">
             <div className="bg-white rounded-2xl shadow-xl p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Configure Optimizer</h2>
-              
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Configure Optimizer
+              </h2>
+
               {/* Global Error Display */}
               {error && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-800">
-                    {(error as any)?.response?.data?.error || 'Failed to start optimization. Please try again.'}
+                    {(error as any)?.response?.data?.error ||
+                      "Failed to start optimization. Please try again."}
                   </p>
                 </div>
               )}
@@ -205,7 +270,9 @@ export default function AdsOptimizerPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <label className="text-sm font-semibold text-gray-700">Target ACOS (%)</label>
+                      <label className="text-sm font-semibold text-gray-700">
+                        Target ACOS (%)
+                      </label>
                       <div className="group relative">
                         <Info size={14} className="text-gray-400 cursor-help" />
                         <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-10 pointer-events-none">
@@ -216,15 +283,37 @@ export default function AdsOptimizerPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs ${!isCombined ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>Individual</span>
+                      <span
+                        className={`text-xs ${
+                          !isCombined
+                            ? "text-gray-900 font-medium"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        Individual
+                      </span>
                       <button
                         type="button"
                         onClick={() => setIsCombined(!isCombined)}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${isCombined ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${
+                          isCombined ? "bg-blue-600" : "bg-gray-300"
+                        }`}
                       >
-                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${isCombined ? 'translate-x-5' : 'translate-x-0'}`} />
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                            isCombined ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
                       </button>
-                      <span className={`text-xs ${isCombined ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>Combined</span>
+                      <span
+                        className={`text-xs ${
+                          isCombined
+                            ? "text-gray-900 font-medium"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        Combined
+                      </span>
                     </div>
                   </div>
 
@@ -237,58 +326,90 @@ export default function AdsOptimizerPage() {
                           max="100"
                           step="0.1"
                           value={targetAcos.combined}
-                          onChange={(e) => setTargetAcos({ ...targetAcos, combined: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) =>
+                            setTargetAcos({
+                              ...targetAcos,
+                              combined: parseFloat(e.target.value) || 0,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="%"
                         />
                       </div>
                       {validationErrors.combined && (
-                        <p className="mt-1 text-xs text-red-600">{validationErrors.combined}</p>
+                        <p className="mt-1 text-xs text-red-600">
+                          {validationErrors.combined}
+                        </p>
                       )}
                     </div>
                   ) : (
                     <div>
                       <div className="flex justify-between bg-gray-100 p-3 rounded-lg gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-800 w-8">SP:</span>
+                          <span className="text-xs font-medium text-gray-800 w-8">
+                            SP:
+                          </span>
                           <input
                             type="number"
                             min="0"
                             max="100"
                             step="0.1"
                             value={targetAcos.sp}
-                            onChange={(e) => setTargetAcos({ ...targetAcos, sp: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) =>
+                              setTargetAcos({
+                                ...targetAcos,
+                                sp: parseFloat(e.target.value) || 0,
+                              })
+                            }
                             className="flex-1 px-3 py-2 w-16 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-800 w-8">SB:</span>
+                          <span className="text-xs font-medium text-gray-800 w-8">
+                            SB:
+                          </span>
                           <input
                             type="number"
                             min="0"
                             max="100"
                             step="0.1"
                             value={targetAcos.sb}
-                            onChange={(e) => setTargetAcos({ ...targetAcos, sb: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) =>
+                              setTargetAcos({
+                                ...targetAcos,
+                                sb: parseFloat(e.target.value) || 0,
+                              })
+                            }
                             className="flex-1 px-3 py-2 w-16 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-800 w-8">SD:</span>
+                          <span className="text-xs font-medium text-gray-800 w-8">
+                            SD:
+                          </span>
                           <input
                             type="number"
                             min="0"
                             max="100"
                             step="0.1"
                             value={targetAcos.sd}
-                            onChange={(e) => setTargetAcos({ ...targetAcos, sd: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) =>
+                              setTargetAcos({
+                                ...targetAcos,
+                                sd: parseFloat(e.target.value) || 0,
+                              })
+                            }
                             className="flex-1 px-3 py-2 w-16 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                       </div>
-                      {(validationErrors.sp || validationErrors.sb || validationErrors.sd) && (
+                      {(validationErrors.sp ||
+                        validationErrors.sb ||
+                        validationErrors.sd) && (
                         <p className="mt-1 text-xs text-red-600">
-                          {validationErrors.sp || validationErrors.sb || validationErrors.sd}
+                          {validationErrors.sp ||
+                            validationErrors.sb ||
+                            validationErrors.sd}
                         </p>
                       )}
                     </div>
@@ -297,7 +418,9 @@ export default function AdsOptimizerPage() {
 
                 {/* Optimization Mode */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Mode</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Mode
+                  </label>
                   <div className="grid grid-cols-3 gap-2">
                     {modes.map((modeOption) => (
                       <div key={modeOption.value} className="relative group">
@@ -306,8 +429,8 @@ export default function AdsOptimizerPage() {
                           onClick={() => setMode(modeOption.value)}
                           className={`w-full h-full px-2 py-2 text-xs rounded-lg font-medium transition-all ${
                             mode === modeOption.value
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              ? "bg-blue-600 text-white shadow-md"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                           }`}
                         >
                           {modeOption.label}
@@ -319,6 +442,84 @@ export default function AdsOptimizerPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Day Parting Toggle */}
+                  {/* Day Parting Toggle */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex flex-col items-center justify-center">
+                      <label className="text-sm font-semibold text-gray-700 mb-1">
+                        Day Parting
+                      </label>
+
+                      {/* Toggle with tooltip */}
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => setDayParting(!dayParting)}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${
+                            dayParting ? "bg-blue-600" : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                              dayParting ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+
+                        {/* Tooltip */}
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block z-20">
+                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-48 text-center shadow-lg">
+                            Automatically adjust bids during peak conversion
+                            hours
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Inventory Aware Bidding Toggle */}
+                  {/* Inventory Aware Bidding Toggle */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex flex-col items-center justify-center">
+                      <label className="text-sm font-semibold text-gray-700 mb-1">
+                        Inventory Aware Bidding
+                      </label>
+
+                      {/* Toggle with tooltip */}
+                      <div className="relative group">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setInventoryAwareBidding(!inventoryAwareBidding)
+                          }
+                          className={`relative w-11 h-6 rounded-full transition-colors ${
+                            inventoryAwareBidding
+                              ? "bg-blue-600"
+                              : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                              inventoryAwareBidding
+                                ? "translate-x-5"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+
+                        {/* Tooltip */}
+                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover:block z-20">
+                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-48 text-center shadow-lg">
+                            Reduce bids when inventory is low to prevent
+                            stockouts
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -335,77 +536,118 @@ export default function AdsOptimizerPage() {
                         <Info size={14} className="text-gray-400 cursor-help" />
                         <div className="absolute left-0 top-full mt-2 hidden group-hover:block z-10 pointer-events-none">
                           <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 w-48 whitespace-normal">
-                            Adjust bid multipliers for different campaign types. Defaults are used if not specified.
+                            Adjust bid multipliers for different campaign types.
+                            Defaults are used if not specified.
                           </div>
                         </div>
                       </div>
                     </div>
-                    {showMultipliers ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    {showMultipliers ? (
+                      <ChevronUp size={18} />
+                    ) : (
+                      <ChevronDown size={18} />
+                    )}
                   </button>
-                  
+
                   {showMultipliers && (
                     <div className="mt-3 space-y-2 bg-gray-50 p-3 rounded-lg">
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-gray-800 w-20">Brand</span>
+                          <span className="text-xs font-medium text-gray-800 w-20">
+                            Brand
+                          </span>
                           <input
                             type="number"
                             min="0.1"
                             max="5.0"
                             step="0.1"
                             value={multipliers.brand}
-                            onChange={(e) => setMultipliers({ ...multipliers, brand: parseFloat(e.target.value) || 0.1 })}
+                            onChange={(e) =>
+                              setMultipliers({
+                                ...multipliers,
+                                brand: parseFloat(e.target.value) || 0.1,
+                              })
+                            }
                             className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-gray-600 w-20">Competitor</span>
+                          <span className="text-xs font-medium text-gray-600 w-20">
+                            Competitor
+                          </span>
                           <input
                             type="number"
                             min="0.1"
                             max="5.0"
                             step="0.1"
                             value={multipliers.competitor}
-                            onChange={(e) => setMultipliers({ ...multipliers, competitor: parseFloat(e.target.value) || 0.1 })}
+                            onChange={(e) =>
+                              setMultipliers({
+                                ...multipliers,
+                                competitor: parseFloat(e.target.value) || 0.1,
+                              })
+                            }
                             className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-gray-600 w-20">Product</span>
+                          <span className="text-xs font-medium text-gray-600 w-20">
+                            Product
+                          </span>
                           <input
                             type="number"
                             min="0.1"
                             max="5.0"
                             step="0.1"
                             value={multipliers.product_target}
-                            onChange={(e) => setMultipliers({ ...multipliers, product_target: parseFloat(e.target.value) || 0.1 })}
+                            onChange={(e) =>
+                              setMultipliers({
+                                ...multipliers,
+                                product_target:
+                                  parseFloat(e.target.value) || 0.1,
+                              })
+                            }
                             className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-gray-600 w-20">New Launch</span>
+                          <span className="text-xs font-medium text-gray-600 w-20">
+                            New Launch
+                          </span>
                           <input
                             type="number"
                             min="0.1"
                             max="5.0"
                             step="0.1"
                             value={multipliers.new_launch}
-                            onChange={(e) => setMultipliers({ ...multipliers, new_launch: parseFloat(e.target.value) || 0.1 })}
+                            onChange={(e) =>
+                              setMultipliers({
+                                ...multipliers,
+                                new_launch: parseFloat(e.target.value) || 0.1,
+                              })
+                            }
                             className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-medium text-gray-600 w-20">Recent Start</span>
+                        <span className="text-xs font-medium text-gray-600 w-20">
+                          Recent Start
+                        </span>
                         <input
                           type="number"
                           min="0.1"
                           max="5.0"
                           step="0.1"
                           value={multipliers.recent_start}
-                          onChange={(e) => setMultipliers({ ...multipliers, recent_start: parseFloat(e.target.value) || 0.1 })}
+                          onChange={(e) =>
+                            setMultipliers({
+                              ...multipliers,
+                              recent_start: parseFloat(e.target.value) || 0.1,
+                            })
+                          }
                           className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
@@ -428,7 +670,7 @@ export default function AdsOptimizerPage() {
                       <span>Starting Optimization...</span>
                     </>
                   ) : (
-                    'Start Optimization'
+                    "Start Optimization"
                   )}
                 </button>
                 <button

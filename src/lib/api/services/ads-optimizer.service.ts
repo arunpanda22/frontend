@@ -12,6 +12,12 @@ class AdsOptimizerService {
     );
     return res.data;
   }
+
+  async pushOptimizations(payload: any) {
+    const res = await apiClient.post("/api/v1/ads-optimizer/push/", payload);
+    return res.data;
+  }
+
 }
 
 export const adsOptimizerService = new AdsOptimizerService();

@@ -76,6 +76,20 @@ const DASHBOARD_ROUTES: RouteConfig[] = [
     permission: 'view_sqp_performance',
     requiresSellerAccount: true,
   },
+  {
+    name: 'Ads Optimizer',
+    href: '/dashboard/ads-optimizer',
+    description: 'Automated Bid Management for Maximum ROI',
+    permission: 'access_ads_optimizer',
+    requiresSellerAccount: true,
+  },
+  {
+    name: 'Opportunity Optimizer',
+    href: '/dashboard/opportunities',
+    description: 'Automated Bid Management for Maximum ROI',
+    permission: 'access_oppurtunities',
+    requiresSellerAccount: true,
+  },
 ]
 
 /**

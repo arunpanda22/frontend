@@ -164,7 +164,13 @@ const CellRenderer = memo(function CellRenderer({
     if (column.editable) onEdit(value)
   }, [column.editable, onEdit, value])
 
-  const displayValue = column.type === "date" && value ? new Date(value).toLocaleDateString() : String(value || "")
+  const displayValue = column.type === "date" && value 
+    ? new Date(value).toLocaleDateString() 
+    : value === 0 || value === "0" || value === 0.0
+      ? String(value)
+      : value === "" || value === null || value === undefined
+        ? "-"
+        : String(value)
 
   const isNameColumn = column.field.toLowerCase() === "name" || 
                      column.field.toLowerCase() === "product_name" || 
@@ -289,7 +295,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
     ? currentSort.direction === "asc"
       ? "Sort Descending"
       : "Remove Sort"
-    : "Sort Ascending"
+    : "Sort Ascending"  
 
   const getSortIcon = currentSort ? (
     currentSort.direction === "asc" ? (

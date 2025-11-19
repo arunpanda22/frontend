@@ -21,7 +21,7 @@ interface ColumnMapping {
 
 const COLUMN_MAPPINGS: ColumnMapping = {
   // Budget optimizations (SP, SB, SD)
-  budget: [
+  sp_budget: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', width: 160 },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
@@ -36,9 +36,39 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'CPC', headerName: 'CPC', type: 'number', editable: false, width: 100, autoFitHeader: true },
     { field: 'sales_30d', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 140, autoFitHeader: true },
   ],
+  sb_budget: [
+    { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', width: 160 },
+    { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'dynamic_bidding', headerName: 'Bidding Strategy', type: 'text', editable: false, width: 160, autoFitHeader: true },
+    { field: 'ACOS', headerName: 'ACOS (%)', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'campaign_budget_amount', headerName: 'Daily Budget', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'New Budget', headerName: 'Revised Daily Budget', type: 'number', editable: true, width: 160, autoFitHeader: true },
+    { field: 'Budget Change (%)', headerName: 'Budget Change (%)', type: 'text', editable: false, width: 160, autoFitHeader: true },
+    { field: 'cost', headerName: 'Spend', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'clicks', headerName: 'Clicks', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'CPC', headerName: 'CPC', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'sales', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 140, autoFitHeader: true },
+  ],
+  sd_budget: [
+    { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', width: 160 },
+    { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
+    // { field: 'dynamic_bidding', headerName: 'Bidding Strategy', type: 'text', editable: false, width: 160, autoFitHeader: true },
+    { field: 'ACOS', headerName: 'ACOS (%)', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'campaign_budget_amount', headerName: 'Daily Budget', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'New Budget', headerName: 'Revised Daily Budget', type: 'number', editable: true, width: 160, autoFitHeader: true },
+    { field: 'Budget Change (%)', headerName: 'Budget Change (%)', type: 'text', editable: false, width: 160, autoFitHeader: true },
+    { field: 'cost', headerName: 'Spend', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'clicks', headerName: 'Clicks', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'CPC', headerName: 'CPC', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'sales', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 140, autoFitHeader: true },
+  ],
       
   // Bid optimizations (SP, SB, SD)
-  bid: [
+  sp_bid: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
@@ -56,13 +86,49 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'campaign_budget_amount', headerName: 'Daily Budget', type: 'number', editable: false, width: 140, autoFitHeader: true },
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
     { field: 'keyword_bid', headerName: 'Present Bid', type: 'number', editable: false, width: 130, autoFitHeader: true },
-    // Note: field names containing spaces are included exactly as in your payload
     { field: 'New bid', headerName: 'Revised Bid', type: 'number', editable: true, width: 150, autoFitHeader: true },
     { field: 'Bid Change (%)', headerName: 'Bid Change (%)', type: 'text', editable: false, width: 140, autoFitHeader: true }
   ],
+  sb_bid: [
+    { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'ad_group_name', headerName: 'Ad Group Name', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'keyword_text', headerName: 'Keyword', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'targeting_expression', headerName: 'Targeting', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'match_type', headerName: 'Match Type', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'impressions', headerName: 'Impressions', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'clicks', headerName: 'Clicks', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'cost', headerName: 'Cost', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'CPC', headerName: 'CPC', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'purchases', headerName: 'Orders (30d)', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'sales', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'ACOS', headerName: 'ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'campaign_budget_amount', headerName: 'Daily Budget', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'keyword_bid', headerName: 'Present Bid', type: 'number', editable: false, width: 130, autoFitHeader: true },
+    { field: 'New bid', headerName: 'Revised Bid', type: 'number', editable: true, width: 150, autoFitHeader: true },
+    { field: 'Bid Change (%)', headerName: 'Bid Change (%)', type: 'text', editable: false, width: 140, autoFitHeader: true }
+  ],
+  sd_bid: [
+    { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'ad_group_name', headerName: 'Ad Group Name', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'targeting_expression', headerName: 'Targeting', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'impressions', headerName: 'Impressions', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'clicks', headerName: 'Clicks', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'cost', headerName: 'Cost', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'cpc', headerName: 'CPC', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'purchases', headerName: 'Orders (30d)', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'sales', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'acos', headerName: 'ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'bid', headerName: 'Present Bid', type: 'number', editable: false, width: 130, autoFitHeader: true },
+    { field: 'ideal bid', headerName: 'Revised Bid', type: 'number', editable: true, width: 150, autoFitHeader: true },
+  ],
 
-  // Placement optimizations
-  placement: [
+  // SP Placement optimizations
+  sp_placement: [
     { field: 'ASIN_Derived', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'placement_classification', headerName: 'Placement', type: 'text', editable: false, autoFitHeader: true },
@@ -73,11 +139,40 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'sales_30d', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 140, autoFitHeader: true },
     { field: 'purchases_30d', headerName: 'Orders (30d)', type: 'number', editable: false, width: 130, autoFitHeader: true },
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
-    { field: 'Percentage', headerName: 'Bid Adjustment (%)', type: 'number', editable: false, width: 160, autoFitHeader: true }
+    { field: 'Percentage', headerName: 'Bid Adjustment (%)', type: 'number', editable: true, width: 180, autoFitHeader: true },
+  ],
+
+  // SB Placement optimizations
+  sb_placement: [
+    { field: 'ASIN_Derived', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'placement_classification', headerName: 'Placement', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'impressions', headerName: 'Impressions', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'clicks', headerName: 'Clicks', type: 'number', editable: false, width: 100, autoFitHeader: true },
+    { field: 'cost', headerName: 'Cost', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'sales', headerName: 'Revenue', type: 'number', editable: false, width: 140, autoFitHeader: true },
+    { field: 'purchases', headerName: 'Orders', type: 'number', editable: false, width: 130, autoFitHeader: true },
+    { field: 'units_sold', headerName: 'Units Sold', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
+    { field: 'Percentage', headerName: 'Bid Adjustment (%)', type: 'number', editable: true, width: 180, autoFitHeader: true },
   ],
 
   // New campaign suggestions
-  new_campaigns: [
+  sp_new_campaigns: [
+    { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'Campaign Name', headerName: 'Campaign Name', type: 'text', editable: true, autoFitHeader: true },
+    // { field: 'Campaign Budget', headerName: 'Daily Budget', type: 'number', editable: true, width: 160, autoFitHeader: true },
+    { field: 'Targeting', headerName: 'Target', type: 'text', editable: false, width: 250, autoFitHeader: true },
+    { field: 'match_type', headerName: 'Match Type', type: 'text', editable: false, width: 130, autoFitHeader: true },
+    { field: 'Bid', headerName: 'Bid', type: 'number', editable: true, width: 120, autoFitHeader: true },
+    { field: 'Campaign Budget', headerName: 'Campaign Budget', type: 'number', editable: true, width: 120, autoFitHeader: true },
+    { field: 'Bidding Strategy', headerName: 'Bidding Strategy', type: 'text', editable: true, width: 120, autoFitHeader: true },
+    { field: 'Top of Search Amazon', headerName: 'Top of Search Amazon', type: 'number', editable: true, width: 120, autoFitHeader: true },
+    { field: 'Rest of Search Amazon', headerName: 'Rest of Search Amazon', type: 'number', editable: true, width: 120, autoFitHeader: true },
+    { field: 'Product Pages Amazon', headerName: 'Product Pages Amazon', type: 'number', editable: true, width: 120, autoFitHeader: true },
+  ],
+  sb_new_campaigns: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'Campaign Name', headerName: 'Campaign Name', type: 'text', editable: true, autoFitHeader: true },
     { field: 'Campaign Budget', headerName: 'Daily Budget', type: 'number', editable: true, width: 160, autoFitHeader: true },
@@ -88,7 +183,7 @@ const COLUMN_MAPPINGS: ColumnMapping = {
   ],
 
   // Negative keywords
-  negatives: [
+  sp_negatives: [
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_id', headerName: 'Campaign ID', type: 'text', editable: false, autoFitHeader: true },
     { field: 'ad_group_name', headerName: 'Ad Group', type: 'text', editable: false, width: 250, autoFitHeader: true },
@@ -96,18 +191,34 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'search_term', headerName: 'Search Term', type: 'text', editable: false, width: 250, autoFitHeader: true },
 
   ],
+  sb_negatives: [
+    { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
+    { field: 'campaign_id', headerName: 'Campaign ID', type: 'text', editable: false, autoFitHeader: true },
+    { field: 'ad_group_name', headerName: 'Ad Group', type: 'text', editable: false, width: 250, autoFitHeader: true },
+    { field: 'ad_group_id', headerName: 'Ad Group ID', type: 'text', editable: false, width: 250, autoFitHeader: true },
+    { field: 'query', headerName: 'Search Term', type: 'text', editable: false, width: 250, autoFitHeader: true },
+
+  ],
 };
 
 // Helper to get column config based on category key
 const getColumnsForCategory = (categoryKey: string): ColumnDefinition[] => {
-  if (categoryKey.includes('budget')) return COLUMN_MAPPINGS.budget;
-  if (categoryKey.includes('bid')) return COLUMN_MAPPINGS.bid;
-  if (categoryKey.includes('placement')) return COLUMN_MAPPINGS.placement;
-  if (categoryKey.includes('new_campaigns')) return COLUMN_MAPPINGS.new_campaigns;
-  if (categoryKey.includes('negatives')) return COLUMN_MAPPINGS.negatives;
+  if (categoryKey === 'sp_budget') return COLUMN_MAPPINGS.sp_budget;
+  if (categoryKey === 'sb_budget') return COLUMN_MAPPINGS.sb_budget;
+  if (categoryKey === 'sd_budget') return COLUMN_MAPPINGS.sd_budget;
+  if (categoryKey === 'sp_bid') return COLUMN_MAPPINGS.sp_bid;
+  if (categoryKey === 'sb_bid') return COLUMN_MAPPINGS.sb_bid;
+  if (categoryKey === 'sd_bid') return COLUMN_MAPPINGS.sd_bid;
+  if (categoryKey === 'sp_placement') return COLUMN_MAPPINGS.sp_placement;
+  if (categoryKey === 'sb_placement') return COLUMN_MAPPINGS.sb_placement;
+  if (categoryKey === 'sp_new_campaigns') return COLUMN_MAPPINGS.sp_new_campaigns;
+  if (categoryKey === 'sb_new_campaigns') return COLUMN_MAPPINGS.sb_new_campaigns;
+  if (categoryKey === 'sp_negatives') return COLUMN_MAPPINGS.sp_negatives;
+  if (categoryKey === 'sb_negatives') return COLUMN_MAPPINGS.sb_negatives;
   return [];
 };
 
+// ==================== VALIDATION ====================
 // ==================== VALIDATION ====================
 
 interface ValidationError {
@@ -125,56 +236,182 @@ const validateOptimizationData = (
   data.forEach((row, index) => {
     // Budget validations
     if (categoryKey.includes('budget')) {
-      const newBudget = Number(row['New Budget']);
-      if (newBudget !== undefined && (isNaN(newBudget) || newBudget < 0)) {
-        errors.push({ row: index, field: 'New Budget', message: 'Must be a positive number' });
-      }
-      if (newBudget !== undefined && newBudget < 1) {
-        errors.push({ row: index, field: 'New Budget', message: 'Budget must be at least $1' });
+      const rawBudget = row['New Budget'];
+      // Check if the field has a value before converting to number
+      if (rawBudget !== undefined && rawBudget !== null && rawBudget !== '') {
+        const newBudget = Number(rawBudget);
+        if (isNaN(newBudget) || newBudget < 0) {
+          errors.push({ row: index, field: 'New Budget', message: 'Must be a positive number' });
+        } else if (newBudget < 1) {
+          errors.push({ row: index, field: 'New Budget', message: 'Budget must be at least $1' });
+        }
       }
     }
 
-    // Bid validations
+    // Bid validations - Handle different field names
     if (categoryKey.includes('bid')) {
-      const recommendedBid = Number(row['recommended_bid']);
-      if (recommendedBid !== undefined && (isNaN(recommendedBid) || recommendedBid < 0)) {
-        errors.push({ row: index, field: 'recommended_bid', message: 'Must be a positive number' });
+      let rawBidValue: any;
+      let bidFieldName: string;
+
+      // SP and SB use 'New bid', SD uses 'ideal bid'
+      if (categoryKey === 'sd_bid') {
+        rawBidValue = row['ideal bid'];
+        bidFieldName = 'ideal bid';
+      } else {
+        rawBidValue = row['New bid'];
+        bidFieldName = 'New bid';
       }
-      if (recommendedBid !== undefined && recommendedBid < 0.02) {
-        errors.push({ row: index, field: 'recommended_bid', message: 'Bid must be at least $0.02' });
+
+      if (rawBidValue !== undefined && rawBidValue !== null && rawBidValue !== '') {
+        const bidValue = Number(rawBidValue);
+        if (isNaN(bidValue) || bidValue < 0) {
+          errors.push({ row: index, field: bidFieldName, message: 'Must be a positive number' });
+        } else if (bidValue < 0.02) {
+          errors.push({ row: index, field: bidFieldName, message: 'Bid must be at least $0.02' });
+        }
       }
     }
 
     // Placement validations
     if (categoryKey.includes('placement')) {
-      const adjustment = Number(row['recommended_adjustment']);
-      if (adjustment !== undefined && (isNaN(adjustment) || adjustment < -99 || adjustment > 900)) {
-        errors.push({ 
-          row: index, 
-          field: 'recommended_adjustment', 
-          message: 'Must be between -99% and 900%' 
-        });
+      const rawAdjustment = row['Percentage'];
+      if (rawAdjustment !== undefined && rawAdjustment !== null && rawAdjustment !== '') {
+        const adjustment = Number(rawAdjustment);
+        if (isNaN(adjustment) || adjustment < -99 || adjustment > 900) {
+          errors.push({ 
+            row: index, 
+            field: 'Percentage', 
+            message: 'Must be between -99% and 900%' 
+          });
+        }
       }
     }
 
     // New campaign validations
     if (categoryKey.includes('new_campaigns')) {
-      const budget = Number(row['recommended_budget']);
-      const bid = Number(row['recommended_bid']);
+      const rawBudget = row['Campaign Budget'];
+      if (rawBudget !== undefined && rawBudget !== null && rawBudget !== '') {
+        const budget = Number(rawBudget);
+        if (isNaN(budget) || budget < 1) {
+          errors.push({ row: index, field: 'Campaign Budget', message: 'Budget must be at least $1' });
+        }
+      }
       
-      if (budget !== undefined && (isNaN(budget) || budget < 1)) {
-        errors.push({ row: index, field: 'recommended_budget', message: 'Budget must be at least $1' });
+      const rawBid = row['Bid'];
+      if (rawBid !== undefined && rawBid !== null && rawBid !== '') {
+        const bid = Number(rawBid);
+        if (isNaN(bid) || bid < 0.02) {
+          errors.push({ row: index, field: 'Bid', message: 'Bid must be at least $0.02' });
+        }
       }
-      if (bid !== undefined && (isNaN(bid) || bid < 0.02)) {
-        errors.push({ row: index, field: 'recommended_bid', message: 'Bid must be at least $0.02' });
+      
+      if (!row['Campaign Name'] || String(row['Campaign Name']).trim() === '') {
+        errors.push({ row: index, field: 'Campaign Name', message: 'Campaign name is required' });
       }
-      if (!row['suggested_name'] || String(row['suggested_name']).trim() === '') {
-        errors.push({ row: index, field: 'suggested_name', message: 'Campaign name is required' });
+
+
+    }
+
+    // Negative keywords validations
+    if (categoryKey.includes('negatives')) {
+      // SP uses 'search_term', SB uses 'query'
+      const searchTermField = categoryKey === 'sp_negatives' ? 'search_term' : 'query';
+      const searchTerm = row[searchTermField];
+      
+      if (!searchTerm || String(searchTerm).trim() === '') {
+        errors.push({ 
+          row: index, 
+          field: searchTermField === 'search_term' ? 'Search Term' : 'Query', 
+          message: 'Search term is required' 
+        });
+      }
+
+      if (!row['campaign_id']) {
+        errors.push({ row: index, field: 'campaign_id', message: 'Campaign ID is required' });
+      }
+
+      if (!row['ad_group_id']) {
+        errors.push({ row: index, field: 'ad_group_id', message: 'Ad Group ID is required' });
       }
     }
   });
 
   return errors;
+};
+
+// Helper function to check if a value is empty/null/undefined
+const isEmpty = (value: any): boolean => {
+  return value === undefined || value === null || value === '';
+};
+
+// Enhanced validation with specific field mappings
+const FIELD_VALIDATIONS: Record<string, {
+  minValue?: number;
+  maxValue?: number;
+  required?: boolean;
+  allowedValues?: string[];
+  customMessage?: string;
+}> = {
+  // Budget fields
+  'New Budget': {
+    minValue: 1,
+    customMessage: 'Budget must be at least $1'
+  },
+  
+  // Bid fields
+  'New bid': {
+    minValue: 0.02,
+    customMessage: 'Bid must be at least $0.02'
+  },
+  'ideal bid': {
+    minValue: 0.02,
+    customMessage: 'Bid must be at least $0.02'
+  },
+  'Bid': {
+    minValue: 0.02,
+    customMessage: 'Bid must be at least $0.02'
+  },
+  
+  // Placement fields
+  'Percentage': {
+    minValue: -99,
+    maxValue: 900,
+    customMessage: 'Must be between -99% and 900%'
+  },
+  
+  // Campaign fields
+  'Campaign Budget': {
+    minValue: 1,
+    customMessage: 'Campaign budget must be at least $1'
+  },
+  'Campaign Name': {
+    required: true,
+    customMessage: 'Campaign name is required'
+  },
+  
+  // Placement adjustments
+  'Top of Search Amazon': {
+    minValue: 0,
+    maxValue: 900,
+    customMessage: 'Must be between 0% and 900%'
+  },
+  'Rest of Search Amazon': {
+    minValue: 0,
+    maxValue: 900,
+    customMessage: 'Must be between 0% and 900%'
+  },
+  'Product Pages Amazon': {
+    minValue: 0,
+    maxValue: 900,
+    customMessage: 'Must be between 0% and 900%'
+  },
+  
+  // Bidding strategy
+  'Bidding Strategy': {
+    allowedValues: ['Dynamic bids - down only', 'Dynamic bids - up and down', 'Fixed bids'],
+    customMessage: 'Must be a valid bidding strategy'
+  },
+
 };
 
 // ==================== UNIQUE KEY GENERATION ====================
@@ -308,7 +545,7 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{categoryTitle}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {/* {tableData.length} optimization{tableData.length !== 1 ? 's' : ''} • Edit recommended values */}
+              {tableData.length} optimization{tableData.length !== 1 ? 's' : ''}
             </p>
           </div>
           
@@ -353,7 +590,6 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
             columns={columns}
             onDataChange={setTableData}
             rowsPerPage={10}
-            showExportCard={false} 
             showCheckboxColumn={true}
             className="h-full"
           />
@@ -369,7 +605,6 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
           </button>
           
           <div className="flex items-center gap-3">
-
             <button
               onClick={handleSave}
               disabled={isPushing}
