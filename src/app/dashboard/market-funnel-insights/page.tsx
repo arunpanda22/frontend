@@ -105,7 +105,7 @@ export default function ASINSearchQueryPerformance() {
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
         <div className="text-center">
           <FaSpinner className="animate-spin text-4xl text-blue-500 mb-4" />
-          <p className="text-lg text-gray-600">Loading SQP data...</p>
+          <p className="text-lg text-gray-600">Loading insights...</p>
         </div>
       </div>
     );

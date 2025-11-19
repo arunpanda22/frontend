@@ -256,12 +256,12 @@ export default function ProfileDropdown() {
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                                 isCurrent ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-700'
                               }`}>
-                                {seller.display_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                {seller.username.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium text-gray-900 truncate">
-                                    {seller.display_name}
+                                    {seller.username}
                                   </p>
                                   {isCurrent && (
                                     <span className="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full font-semibold flex-shrink-0">

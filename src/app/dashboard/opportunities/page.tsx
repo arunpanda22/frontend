@@ -15,20 +15,22 @@ import {
 } from "lucide-react";
 import { useSQPOpportunities } from "@/lib/hooks/use-sqp-opportunities";
 import { SQPOpportunitiesDrawer } from "./components/SQPOpportunitiesDrawer";
+import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer";
+import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
 import toast, { Toaster } from "react-hot-toast";
 
 // Opportunities metadata
 const OPPORTUNITIES = [
   {
     id: "dedup",
-    name: "DedupliCheck",
+    name: "DedupCheck",
     headline: "Instantly Detect Duplicate Keywords Across All Campaigns & Match Types.",
     description: "Eliminate overlap. Improve efficiency. Maximize ad clarity.",
     icon: Copy,
     color: "from-blue-500 to-blue-600",
     bgColor: "from-blue-50 to-blue-100",
     borderColor: "border-blue-200",
-    disabled: true,
+    disabled: false, // Enable dedup
   },
   {
     id: "sqp",
@@ -39,7 +41,7 @@ const OPPORTUNITIES = [
     color: "from-green-500 to-green-600",
     bgColor: "from-green-50 to-green-100",
     borderColor: "border-green-200",
-    disabled: false, // Enable SQP
+    disabled: false,
   },
   {
     id: "competitor",
@@ -79,11 +81,11 @@ const OPPORTUNITIES = [
     name: "RivalASIN Finder",
     headline: "Uncover Your Amazon-Defined Direct Competitors in One Click.",
     description: "Analyze, benchmark, and optimize against the exact ASINs competing for your customers.",
-    icon: Search, 
+    icon: Search,
     color: "from-indigo-500 to-indigo-600",
     bgColor: "from-indigo-50 to-indigo-100",
     borderColor: "border-indigo-200",
-    disabled: true, 
+    disabled: true,
   },
   {
     id: "ngram-positive",
@@ -94,18 +96,18 @@ const OPPORTUNITIES = [
     color: "from-teal-500 to-teal-600",
     bgColor: "from-teal-50 to-teal-100",
     borderColor: "border-teal-200",
-    disabled: true,
+    disabled: false,
   },
   {
     id: "ngram-negative",
-    name: "N-Gram Filter AI",
+    name: "N-Gram Filter",
     headline: "Identify Wasteful Words Causing Spend Leakage — Negate in One Click.",
     description: "Cut inefficiency. Protect your budget. Improve ROAS instantly.",
     icon: Filter,
     color: "from-red-500 to-red-600",
     bgColor: "from-red-50 to-red-100",
     borderColor: "border-red-200",
-    disabled: true,
+    disabled: false,
   },
 ];
 
@@ -132,13 +134,17 @@ export default function OpportunitiesPage() {
         return;
       }
       setSelectedOpportunity("sqp");
+    } else if (opportunityId === "ngram-positive" || opportunityId === "ngram-negative") {
+      setSelectedOpportunity(opportunityId);
+    } else if (opportunityId === "dedup") {
+      setSelectedOpportunity("dedup");
     } else {
       // Placeholder for other opportunities
       console.log(`Clicked on: ${opportunityId}`);
     }
   };
 
-  const closeSQPDrawer = () => {
+  const closeDrawer = () => {
     setSelectedOpportunity(null);
   };
 
@@ -147,14 +153,37 @@ export default function OpportunitiesPage() {
       {/* Toast Container */}
       <Toaster />
 
-      {/* SQP Opportunities Drawer */}
+      {/* Drawers */}
       {selectedOpportunity === "sqp" && sqpData && (
         <SQPOpportunitiesDrawer
           isOpen={true}
-          onClose={closeSQPDrawer}
+          onClose={closeDrawer}
           data={sqpData.search_queries}
           topAsins={sqpData.top_asins}
           metadata={sqpData.metadata}
+        />
+      )}
+
+      {selectedOpportunity === "ngram-positive" && (
+        <NgramOpportunitiesDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+          type="positive"
+        />
+      )}
+
+      {selectedOpportunity === "ngram-negative" && (
+        <NgramOpportunitiesDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+          type="negative"
+        />
+      )}
+
+      {selectedOpportunity === "dedup" && (
+        <DedupOpportunitiesDrawer
+          isOpen={true}
+          onClose={closeDrawer}
         />
       )}
 
