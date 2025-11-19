@@ -7,10 +7,10 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   ArrowLeft,
   AlertCircle,
-  ChevronRight,
   Edit3,
   Send,
   Save,
+  CheckCircle2,
 } from "lucide-react";
 import { adsOptimizerQueryKeys } from "@/lib/hooks/queries/use-ads-optimizer";
 import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
@@ -116,11 +116,11 @@ export default function AdsOptimizerResultsPage() {
     getCategoryData,
     updateCategory,
     isCategoryDirty,
-    clearCategoryEdits,
     getDirtyCount,
     markCategoryAsPushed,
     isCategoryPushed,
     getAvailableCategories,
+    getCategoryCount,
   } = useAdsOptimizerStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -144,7 +144,6 @@ export default function AdsOptimizerResultsPage() {
   const { pushCategory, pushAll } = usePushOptimizations();
 
   useEffect(() => {
-    // Try to get data from query cache
     const cachedData = queryClient.getQueryData<AdsOptimizerResponse>(
       adsOptimizerQueryKeys.results()
     );
@@ -153,7 +152,6 @@ export default function AdsOptimizerResultsPage() {
       setOptimizationData(cachedData);
       setIsLoading(false);
     } else if (!optimizationData) {
-      // No data available, redirect back to form
       router.push("/dashboard/ads-optimizer");
     } else {
       setIsLoading(false);
@@ -165,13 +163,11 @@ export default function AdsOptimizerResultsPage() {
     if (!optimizationData) return null;
 
     const totalOptimizations = OPTIMIZATION_CATEGORIES.reduce((sum, cat) => {
-      const data = getCategoryData(cat.key);
-      return sum + (Array.isArray(data) ? data.length : 0);
+      return sum + getCategoryCount(cat.key);
     }, 0);
 
     const categoriesWithData = OPTIMIZATION_CATEGORIES.filter((cat) => {
-      const data = getCategoryData(cat.key);
-      return Array.isArray(data) && data.length > 0;
+      return getCategoryCount(cat.key) > 0;
     }).length;
 
     return {
@@ -208,11 +204,7 @@ export default function AdsOptimizerResultsPage() {
 
     try {
       console.log("Pushing data for category:", categoryKey, data);
-
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // After successful push, mark category as pushed (removes from view)
       markCategoryAsPushed(categoryKey);
 
       toast.success(
@@ -236,8 +228,7 @@ export default function AdsOptimizerResultsPage() {
 
   // Handle direct push without editing
   const handleDirectPush = async (categoryKey: keyof AdsOptimizerResponse) => {
-    const data = getCategoryData(categoryKey);
-    const count = Array.isArray(data) ? data.length : 0;
+    const count = getCategoryCount(categoryKey);
 
     setConfirmDialog({
       isOpen: true,
@@ -252,13 +243,10 @@ export default function AdsOptimizerResultsPage() {
 
         try {
           await pushCategory(categoryKey as any);
-          toast.success(
-            `Successfully pushed ${count} optimizations!`,
-            {
-              id: toastId,
-              duration: 3000,
-            }
-          );
+          toast.success(`Successfully pushed ${count} optimizations!`, {
+            id: toastId,
+            duration: 3000,
+          });
         } catch (error) {
           toast.error("Failed to push optimizations", {
             id: toastId,
@@ -304,6 +292,94 @@ export default function AdsOptimizerResultsPage() {
     });
   };
 
+  // Render a single optimization card
+  const renderOptimizationCard = (category: OptimizationCategory) => {
+    const count = getCategoryCount(category.key);
+    const isEmpty = count === 0;
+    const isDirty = isCategoryDirty(category.key);
+    const isPushing = pushingCategory === category.key;
+    const isPushed = isCategoryPushed(category.key);
+
+    return (
+      <div
+        key={category.key}
+        className={`bg-white rounded-lg border transition-all duration-300 p-5 flex flex-col ${
+          isPushed || isEmpty
+            ? "border-gray-200 opacity-60"
+            : "border-gray-200 hover:border-blue-300 hover:shadow-lg"
+        }`}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center text-xl">
+            {category.icon}
+          </div>
+          <div className="flex items-center gap-2">
+            {isPushed && (
+              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded flex items-center gap-1">
+                <CheckCircle2 className="w-2.5 h-2.5" />
+                Pushed
+              </span>
+            )}
+            {isDirty && !isPushed && (
+              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded flex items-center gap-1">
+                <Save className="w-2.5 h-2.5" />
+                Edited
+              </span>
+            )}
+          </div>
+        </div>
+
+        <h3 className="text-base font-semibold text-gray-900 mb-1.5">
+          {category.title}
+        </h3>
+        <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+          {category.description}
+        </p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div
+            className={`px-2.5 py-1 rounded text-xs font-medium border ${
+              isEmpty
+                ? "bg-gray-50 text-gray-500 border-gray-200"
+                : "bg-blue-50 text-blue-700 border-blue-200"
+            }`}
+          >
+            {count} {count === 1 ? "item" : "items"}
+          </div>
+        </div>
+
+        <div className="mt-auto flex items-center justify-end gap-2">
+          <button
+            onClick={() => setSelectedCategory(category.key)}
+            disabled={isEmpty || isPushed}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500"
+          >
+            <Edit3 className="w-3 h-3" />
+            Edit
+          </button>
+
+          <button
+            onClick={() => handleDirectPush(category.key)}
+            disabled={isPushing || isEmpty || isPushed}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPushing ? (
+              <>
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Pushing...
+              </>
+            ) : (
+              <>
+                <Send className="w-3 h-3" />
+                Push
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -347,10 +423,8 @@ export default function AdsOptimizerResultsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Toast Container */}
       <Toaster />
 
-      {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
@@ -436,8 +510,7 @@ export default function AdsOptimizerResultsPage() {
                   {OPTIMIZATION_CATEGORIES.filter((c) =>
                     c.key.startsWith("sp_")
                   ).reduce((sum, cat) => {
-                    const data = getCategoryData(cat.key);
-                    return sum + (Array.isArray(data) ? data.length : 0);
+                    return sum + getCategoryCount(cat.key);
                   }, 0)}{" "}
                   total optimizations
                 </p>
@@ -446,76 +519,7 @@ export default function AdsOptimizerResultsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {OPTIMIZATION_CATEGORIES.filter((c) =>
                 c.key.startsWith("sp_")
-              ).map((category) => {
-                const data = getCategoryData(category.key);
-                const count = Array.isArray(data) ? data.length : 0;
-                const isEmpty = count === 0;
-                const isDirty = isCategoryDirty(category.key);
-                const isPushing = pushingCategory === category.key;
-                const isPushed = isCategoryPushed(category.key);
-
-                // if (isPushed || isEmpty) return null;
-
-                return (
-                  <div
-                    key={category.key}
-                    className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300 p-5 group flex flex-col"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center text-xl transition-transform duration-300">
-                        {category.icon}
-                      </div>
-                      {isDirty && (
-                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded flex items-center gap-1">
-                          <Save className="w-2.5 h-2.5" />
-                          Edited
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-base font-semibold text-gray-900 mb-1.5">
-                      {category.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                      {category.description}
-                    </p>
-
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="px-2.5 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        {count} {count === 1 ? "item" : "items"}
-                      </div>
-                    </div>
-
-                    <div className="mt-auto flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setSelectedCategory(category.key)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleDirectPush(category.key)}
-                        disabled={isPushing}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isPushing ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Pushing...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3 h-3" />
-                            Push
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              ).map(renderOptimizationCard)}
             </div>
           </div>
 
@@ -533,8 +537,7 @@ export default function AdsOptimizerResultsPage() {
                   {OPTIMIZATION_CATEGORIES.filter((c) =>
                     c.key.startsWith("sb_")
                   ).reduce((sum, cat) => {
-                    const data = getCategoryData(cat.key);
-                    return sum + (Array.isArray(data) ? data.length : 0);
+                    return sum + getCategoryCount(cat.key);
                   }, 0)}{" "}
                   total optimizations
                 </p>
@@ -543,77 +546,7 @@ export default function AdsOptimizerResultsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {OPTIMIZATION_CATEGORIES.filter((c) =>
                 c.key.startsWith("sb_")
-              ).map((category) => {
-                const data = getCategoryData(category.key);
-                const count = Array.isArray(data) ? data.length : 0;
-                const isEmpty = count === 0;
-                const isDirty = isCategoryDirty(category.key);
-                const isPushing = pushingCategory === category.key;
-                const isPushed = isCategoryPushed(category.key);
-
-                // if (isPushed || isEmpty) return null;
-
-                return (
-                  <div
-                    key={category.key}
-                    className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300 p-5 group flex flex-col"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center text-xl transition-transform duration-300">
-                        {category.icon}
-                      </div>
-
-                      {isDirty && (
-                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded flex items-center gap-1">
-                          <Save className="w-2.5 h-2.5" />
-                          Edited
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-base font-semibold text-gray-900 mb-1.5">
-                      {category.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                      {category.description}
-                    </p>
-
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="px-2.5 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        {count} {count === 1 ? "item" : "items"}
-                      </div>
-                    </div>
-
-                    <div className="mt-auto flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setSelectedCategory(category.key)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleDirectPush(category.key)}
-                        disabled={isPushing}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isPushing ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Pushing...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3 h-3" />
-                            Push
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              ).map(renderOptimizationCard)}
             </div>
           </div>
 
@@ -631,8 +564,7 @@ export default function AdsOptimizerResultsPage() {
                   {OPTIMIZATION_CATEGORIES.filter((c) =>
                     c.key.startsWith("sd_")
                   ).reduce((sum, cat) => {
-                    const data = getCategoryData(cat.key);
-                    return sum + (Array.isArray(data) ? data.length : 0);
+                    return sum + getCategoryCount(cat.key);
                   }, 0)}{" "}
                   total optimizations
                 </p>
@@ -641,83 +573,13 @@ export default function AdsOptimizerResultsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {OPTIMIZATION_CATEGORIES.filter((c) =>
                 c.key.startsWith("sd_")
-              ).map((category) => {
-                const data = getCategoryData(category.key);
-                const count = Array.isArray(data) ? data.length : 0;
-                const isEmpty = count === 0;
-                const isDirty = isCategoryDirty(category.key);
-                const isPushing = pushingCategory === category.key;
-                const isPushed = isCategoryPushed(category.key);
-
-                // if (isPushed || isEmpty) return null;
-
-                return (
-                  <div
-                    key={category.key}
-                    className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-300 p-5 group flex flex-col"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center text-xl transition-transform duration-300">
-                        {category.icon}
-                      </div>
-                      {isDirty && (
-                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded flex items-center gap-1">
-                          <Save className="w-2.5 h-2.5" />
-                          Edited
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-base font-semibold text-gray-900 mb-1.5">
-                      {category.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                      {category.description}
-                    </p>
-
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="px-2.5 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        {count} {count === 1 ? "item" : "items"}
-                      </div>
-                    </div>
-
-                    <div className="mt-auto flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setSelectedCategory(category.key)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleDirectPush(category.key)}
-                        disabled={isPushing}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isPushing ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Pushing...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3 h-3" />
-                            Push
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              ).map(renderOptimizationCard)}
             </div>
           </div>
         </div>
 
         {/* Push All Button */}
         <div className="mt-8 flex items-center justify-between">
-          {/* Back Button */}
           <button
             onClick={() => router.push("/dashboard/command-center")}
             className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-100 transition-colors"
@@ -726,7 +588,6 @@ export default function AdsOptimizerResultsPage() {
             Back to Command Center
           </button>
 
-          {/* Push All Button */}
           <button
             onClick={handlePushAll}
             disabled={

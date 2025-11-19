@@ -11,7 +11,7 @@ interface AdsOptimizerStore {
   // Track which categories have unsaved changes
   dirtyCategories: Set<keyof AdsOptimizerResponse>;
   
-  // Track which categories have been pushed (to hide them)
+  // Track which categories have been pushed
   pushedCategories: Set<keyof AdsOptimizerResponse>;
   
   // Set initial optimization data from API
@@ -36,11 +36,12 @@ interface AdsOptimizerStore {
   // Clear edits for a specific category (after successful push)
   clearCategoryEdits: (category: keyof AdsOptimizerResponse) => void;
   
-  // Mark category as pushed and remove from store
+  // Mark category as pushed
   markCategoryAsPushed: (category: keyof AdsOptimizerResponse) => void;
   
   // Check if category has been pushed
   isCategoryPushed: (category: keyof AdsOptimizerResponse) => boolean;
+  
   
   // Reset all edits
   resetEdits: () => void;
@@ -56,6 +57,9 @@ interface AdsOptimizerStore {
   
   // Reset pushed categories (for new optimization run)
   resetPushedCategories: () => void;
+  
+  // Get count of items in a category
+  getCategoryCount: (category: keyof AdsOptimizerResponse) => number;
 }
 
 export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
@@ -68,7 +72,7 @@ export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
     optimizationData: data,
     editedData: {},
     dirtyCategories: new Set(),
-    pushedCategories: new Set() // Reset pushed categories on new data
+    pushedCategories: new Set()
   }),
   
   updateCategory: (category, data) => set((state) => {
@@ -86,11 +90,6 @@ export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
   
   getCategoryData: (category) => {
     const state = get();
-    
-    // If category has been pushed, return undefined (hide it)
-    if (state.pushedCategories.has(category)) {
-      return undefined;
-    }
     
     // Return edited data if exists, otherwise return original
     return state.editedData[category] ?? state.optimizationData?.[category];
@@ -146,21 +145,10 @@ export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
     const newDirtyCategories = new Set(state.dirtyCategories);
     newDirtyCategories.delete(category);
     
-    // CRITICAL FIX: Remove from original optimizationData as well
-    const newOptimizationData = state.optimizationData 
-      ? { ...state.optimizationData }
-      : null;
-    
-    if (newOptimizationData && category in newOptimizationData) {
-      // Set to empty array to effectively remove the data
-      (newOptimizationData as any)[category] = [];
-    }
-    
     return {
       pushedCategories: newPushedCategories,
       editedData: newEditedData,
       dirtyCategories: newDirtyCategories,
-      optimizationData: newOptimizationData,
     };
   }),
   
@@ -196,4 +184,10 @@ export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
   resetPushedCategories: () => set({ 
     pushedCategories: new Set() 
   }),
+  
+  getCategoryCount: (category) => {
+    const state = get();
+    const data = state.editedData[category] ?? state.optimizationData?.[category];
+    return Array.isArray(data) ? data.length : 0;
+  },
 }));

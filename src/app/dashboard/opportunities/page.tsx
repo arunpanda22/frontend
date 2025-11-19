@@ -21,7 +21,7 @@ import toast, { Toaster } from "react-hot-toast";
 const OPPORTUNITIES = [
   {
     id: "dedup",
-    name: "DedupliCheck AI",
+    name: "DedupliCheck",
     headline: "Instantly Detect Duplicate Keywords Across All Campaigns & Match Types.",
     description: "Eliminate overlap. Improve efficiency. Maximize ad clarity.",
     icon: Copy,
@@ -32,7 +32,7 @@ const OPPORTUNITIES = [
   },
   {
     id: "sqp",
-    name: "SQP Advantage AI",
+    name: "SQP Advantage",
     headline: "Discover Keywords That Outsell the Market — Your Competitive Conversion Edge.",
     description: "Find the terms where you outperform the entire category.",
     icon: TrendingUp,
@@ -43,7 +43,7 @@ const OPPORTUNITIES = [
   },
   {
     id: "competitor",
-    name: "CompetiRank AI",
+    name: "CompetiRank",
     headline: "See the Keywords Your Competitors Dominate — And Take Their Market Share.",
     description: "Reverse-engineer their rankings. Outrank them with precision.",
     icon: Search,
@@ -54,7 +54,7 @@ const OPPORTUNITIES = [
   },
   {
     id: "similar",
-    name: "KeywordCluster AI",
+    name: "KeywordCluster",
     headline: "Enter One Keyword. Get Every Related Variant Instantly.",
     description: "Build deep keyword clusters for ads, ranking, and listing optimization.",
     icon: Grid3x3,
@@ -65,7 +65,7 @@ const OPPORTUNITIES = [
   },
   {
     id: "asin",
-    name: "ASINSuggest AI",
+    name: "ASINSuggest",
     headline: "Get AI-Powered Keyword Recommendations for Any ASIN — Even Competitors.",
     description: "Unlock Amazon-backed suggestions for profitable targeting.",
     icon: Target,
@@ -75,8 +75,19 @@ const OPPORTUNITIES = [
     disabled: true,
   },
   {
+    id: "rivalasin",
+    name: "RivalASIN Finder",
+    headline: "Uncover Your Amazon-Defined Direct Competitors in One Click.",
+    description: "Analyze, benchmark, and optimize against the exact ASINs competing for your customers.",
+    icon: Search, 
+    color: "from-indigo-500 to-indigo-600",
+    bgColor: "from-indigo-50 to-indigo-100",
+    borderColor: "border-indigo-200",
+    disabled: true, 
+  },
+  {
     id: "ngram-positive",
-    name: "N-Gram Booster AI",
+    name: "N-Gram Booster",
     headline: "Extract the Winning Phrases Behind Your Best-Performing Keywords.",
     description: "Find thematic winning patterns to scale profitable keywords.",
     icon: Sparkles,
@@ -301,7 +312,7 @@ export default function OpportunitiesPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {OPPORTUNITIES.filter((o) =>
-                ["dedup", "competitor", "similar", "asin"].includes(o.id)
+                ["dedup", "competitor", "similar", "asin", "rivalasin"].includes(o.id)
               ).map((opportunity) => {
                 const Icon = opportunity.icon;
                 const isHovered = hoveredCard === opportunity.id;
