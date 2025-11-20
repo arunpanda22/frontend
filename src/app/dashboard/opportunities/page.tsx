@@ -31,6 +31,7 @@ const OPPORTUNITIES = [
     color: "from-blue-500 to-blue-600",
     bgColor: "from-blue-50 to-blue-100",
     borderColor: "border-blue-200",
+    buttonText: "Find Duplicates",
     disabled: false,
   },
   {
@@ -42,7 +43,20 @@ const OPPORTUNITIES = [
     color: "from-green-500 to-green-600",
     bgColor: "from-green-50 to-green-100",
     borderColor: "border-green-200",
+    buttonText: "Discover Winners",
     disabled: false,
+  },
+  {
+    id: "asin",
+    name: "ASINSuggest",
+    headline: "Get Amazon ads Keyword Recommendations for Any ASIN",
+    description: "Unlock Amazon-backed suggestions for profitable targeting.",
+    icon: Target,
+    color: "from-pink-500 to-pink-600",
+    bgColor: "from-pink-50 to-pink-100",
+    borderColor: "border-pink-200",
+    buttonText: "Get Suggestions",
+    disabled: false, // Now enabled
   },
   {
     id: "competitor",
@@ -53,6 +67,8 @@ const OPPORTUNITIES = [
     color: "from-purple-500 to-purple-600",
     bgColor: "from-purple-50 to-purple-100",
     borderColor: "border-purple-200",
+    // buttonText: "Analyze Competitors",
+    buttonText: "Coming soon",
     disabled: true,
   },
   {
@@ -64,18 +80,9 @@ const OPPORTUNITIES = [
     color: "from-orange-500 to-orange-600",
     bgColor: "from-orange-50 to-orange-100",
     borderColor: "border-orange-200",
+    // buttonText: "Build Clusters",
+    buttonText: "Coming soon",
     disabled: true,
-  },
-  {
-    id: "asin",
-    name: "ASINSuggest",
-    headline: "Get Amazon ads Keyword Recommendations for Any ASIN",
-    description: "Unlock Amazon-backed suggestions for profitable targeting.",
-    icon: Target,
-    color: "from-pink-500 to-pink-600",
-    bgColor: "from-pink-50 to-pink-100",
-    borderColor: "border-pink-200",
-    disabled: false, // Now enabled
   },
   {
     id: "rivalasin",
@@ -86,6 +93,8 @@ const OPPORTUNITIES = [
     color: "from-indigo-500 to-indigo-600",
     bgColor: "from-indigo-50 to-indigo-100",
     borderColor: "border-indigo-200",
+    // buttonText: "Find Rivals",
+    buttonText: "Coming soon",
     disabled: true,
   },
   {
@@ -97,6 +106,7 @@ const OPPORTUNITIES = [
     color: "from-teal-500 to-teal-600",
     bgColor: "from-teal-50 to-teal-100",
     borderColor: "border-teal-200",
+    buttonText: "Boost Keywords",
     disabled: false,
   },
   {
@@ -108,6 +118,7 @@ const OPPORTUNITIES = [
     color: "from-red-500 to-red-600",
     bgColor: "from-red-50 to-red-100",
     borderColor: "border-red-200",
+    buttonText: "Filter Waste",
     disabled: false,
   },
 ];
@@ -325,7 +336,7 @@ export default function OpportunitiesPage() {
                           }
                         `}
                       >
-                        {opportunity.disabled ? "Coming Soon" : "Launch Tool"}
+                         {opportunity.buttonText}
                       </button>
                     </div>
                   </div>
@@ -423,7 +434,7 @@ export default function OpportunitiesPage() {
                           }
                         `}
                       >
-                        {opportunity.disabled ? "Coming Soon" : "Launch Tool"}
+                         {opportunity.buttonText}
                       </button>
                     </div>
                   </div>

@@ -278,7 +278,7 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
         )}
 
         {/* Summary Metrics */}
-        {data && (
+        {/* {data && (
           <div className="px-6 py-4 bg-gradient-to-r from-pink-500 to-pink-600 text-white">
             <div className="grid grid-cols-4 gap-6">
               <div className="flex items-center gap-3">
@@ -329,7 +329,7 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Table Content */}
         <div className="flex-1 overflow-auto p-2">
