@@ -222,7 +222,6 @@ export default function OpportunitiesPage() {
             </div>
 
             <div className="text-right">
-              <div className="text-sm text-gray-500">AI-Powered Insights</div>
               <div className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Unlock Your Potential
               </div>
@@ -239,7 +238,7 @@ export default function OpportunitiesPage() {
             Discover Your Next Competitive Advantage
           </h2>
           <p className="text-blue-50 text-sm leading-relaxed">
-            Explore AI-powered tools designed to identify hidden opportunities,
+            Explore advanced tools designed to identify hidden opportunities,
             eliminate waste, and maximize your Amazon advertising ROI. Each tool
             provides actionable insights to help you dominate your market.
           </p>
