@@ -24,7 +24,7 @@ const DashboardContent = () => {
 
   // Access the date range context
   const { dateRange, updateCustomDates } = useDateRange();
-  const { formatCurrency, formatNumber, formatPercentage, formatChange } = useCurrency();
+  const { formatCurrency, formatNumber, formatCurrencyNoDecimal , formatPercentage, formatChange } = useCurrency();
 
   // Convert context date range to FilterBar format
   const filterBarDateRange = {
@@ -118,7 +118,7 @@ const DashboardContent = () => {
     return [
       {
         title: "Total Revenue",
-        value: formatNumber(current["Total Sales"]),
+        value: formatCurrencyNoDecimal(current["Total Sales"]),
         icon: DollarSign,
         change: `${formatChange(changes["Total Sales"])}`,
         changeType: changes["Total Sales"] >= 0 ? "increase" : "decrease",
