@@ -152,7 +152,8 @@ export default function AdsOptimizerPage() {
         </div>
 
         {/* Right Form Section */}
-        <div className="lg:col-span-2 xl:col-span-2 xl:py-12 xl:pr-12 lg:py-12 lg:pr-12 p-12 flex items-center justify-center overflow-y-auto">
+        <div className="p-12 md:p-12 lg:py-12 lg:pr-12 xl:py-12 xl:pr-12 xl:pl-0 lg:pl-0 flex items-center justify-center overflow-y-auto lg:col-span-2 xl:col-span-2">
+
           <div className="w-full max-w-l">
             <div className="bg-white rounded-2xl shadow-xl p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Configure Optimizer</h2>
