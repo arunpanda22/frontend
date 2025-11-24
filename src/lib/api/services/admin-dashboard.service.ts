@@ -58,8 +58,8 @@ export interface AdminUser {
   created_at: string
   updated_at?: string
   current_role: CurrentRole | null
-  managed_agencies?: ManagedAgencyAssignment[]  // Add this
-  managed_agencies_count?: number  // Add this
+  managed_agencies?: ManagedAgencyAssignment[]  
+  managed_agencies_count?: number  
 }
 
 export interface UpdateUserRequest {
@@ -95,6 +95,7 @@ export interface UserRolesResponse {
   current_role: CurrentRole | null
   role_history: RoleHistoryItem[]
   is_superuser: boolean
+  reports_enabled: boolean
 }
 
 export interface Permission {
@@ -549,6 +550,17 @@ export const adminDashboardService = {
   async getUserRoles(userId: number) {
     const res = await apiClient.get<UserRolesResponse>(
       `/api/v1/rbac-admin/users/${userId}/roles/`
+    )
+    return res.data
+  },
+
+  async toggleReportsForUser(userId: number, reportsEnabled: boolean) {
+    const res = await apiClient.patch<{ 
+      success: boolean
+      message: string 
+    }>(
+      `/api/v1/rbac-admin/users/${userId}/reports-toggle/`,
+      { reports_enabled: reportsEnabled }
     )
     return res.data
   },

@@ -2,7 +2,10 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { useAdminUsers, useAdminQueryRefresh } from '@/lib/hooks/queries/use-admin'
+import { useAdminUsers, useAdminQueryRefresh, adminQueryKeys } from '@/lib/hooks/queries/use-admin'
+import { adminDashboardService } from '@/lib/api/services/admin-dashboard.service'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
@@ -10,6 +13,12 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showRefreshSuccess, setShowRefreshSuccess] = useState(false)
+  
+  const queryClient = useQueryClient()
+  const queryKey = useMemo(
+    () => [...adminQueryKeys.users, { search, page, role_name: roleFilter || undefined }],
+    [search, page, roleFilter]
+  )
   
   const usersQuery = useAdminUsers({ 
     search, 
@@ -42,6 +51,34 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleToggleReports = async (userId: number, currentEnabled: boolean) => {
+    const previousData = queryClient.getQueryData(queryKey)
+    
+    // Optimistically update UI
+    queryClient.setQueryData(queryKey, (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        results: old.results.map((user: any) =>
+          user.id === userId
+            ? { ...user, reports_enabled: !currentEnabled }
+            : user
+        )
+      }
+    })
+
+    try {
+      await adminDashboardService.toggleReportsForUser(userId, !currentEnabled)
+      toast.success(`Reports ${!currentEnabled ? 'enabled' : 'disabled'}`)
+    } catch (error: any) {
+      // Revert on failure
+      queryClient.setQueryData(queryKey, previousData)
+      toast.error('Failed to toggle reports', {
+        description: error?.response?.data?.error || 'An unexpected error occurred'
+      })
+    }
+  }
+
   const getRoleBadgeColor = (roleCode: string) => {
     const colors: Record<string, string> = {
       super_admin: 'bg-red-100 text-red-800 border-red-200',
@@ -53,25 +90,9 @@ export default function AdminUsersPage() {
     return colors[roleCode] || 'bg-gray-100 text-gray-600 border-gray-200'
   }
 
-  const formatRoleDisplay = (currentRole: any) => {
-    if (!currentRole) return 'No role'
-    
-    let display = currentRole.role_name
-    
-    if (currentRole.agency_name) {
-      display += ` @ ${currentRole.agency_name}`
-    }
-    
-    if (currentRole.parent_seller_email) {
-      display += ` (under ${currentRole.parent_seller_email})`
-    }
-    
-    return display
-  }
-
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header - unchanged */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">User Management</h1>
@@ -109,7 +130,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters - unchanged */}
       <div className="bg-white border border-gray-200 rounded-md p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
@@ -165,6 +186,9 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Current Role
                 </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Reports
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -173,7 +197,7 @@ export default function AdminUsersPage() {
             <tbody className="bg-white divide-y divide-gray-100">
               {usersQuery.isLoading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                       Loading users...
@@ -182,7 +206,7 @@ export default function AdminUsersPage() {
                 </tr>
               ) : usersQuery.isError ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center">
+                  <td colSpan={5} className="px-4 py-8 text-center">
                     <div className="text-sm text-red-600">Failed to load users</div>
                     {(usersQuery.error as any)?.response?.status === 403 && (
                       <div className="text-xs text-gray-600 mt-1">
@@ -193,7 +217,7 @@ export default function AdminUsersPage() {
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
                     No users found
                   </td>
                 </tr>
@@ -241,6 +265,27 @@ export default function AdminUsersPage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => handleToggleReports(user.id, user.reports_enabled)}
+                        className={`
+                          relative inline-flex items-center h-5 w-9 rounded-full transition-colors duration-200 ease-in-out
+                          focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+                          ${user.reports_enabled ? 'bg-green-600' : 'bg-gray-300'}
+                          cursor-pointer hover:opacity-80
+                        `}
+                        title={user.reports_enabled ? 'Disable reports' : 'Enable reports'}
+                      >
+                        <span
+                          className={`
+                            inline-block w-4 h-4 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out
+                            ${user.reports_enabled ? 'translate-x-4' : 'translate-x-0.5'}
+                          `}
+                        />
+                      </button>
+                    </div>
+                  </td>
                     <td className="px-4 py-3 text-right text-sm">
                       <Link 
                         href={`/admin/users/${user.id}`} 
@@ -256,7 +301,7 @@ export default function AdminUsersPage() {
           </table>
         </div>
         
-        {/* Pagination */}
+        {/* Pagination - unchanged */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">
@@ -286,7 +331,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Role Legend */}
+      {/* Role Legend - unchanged */}
       <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
         <h3 className="text-sm font-medium text-gray-900 mb-3">Role Hierarchy</h3>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
