@@ -38,6 +38,7 @@ export const dashboardQueryKeys = {
   organicSales: (options: any) => ['dashboard', 'organic-sales', options] as const,
   returnReplacementRates: (options: any) => ['dashboard', 'return-replacement-rates', options] as const,
   salesContribution: (startDate: string, endDate: string) => ['dashboard', 'sales-contribution', startDate, endDate] as const,
+  xrayData: (options: any) => ['dashboard', 'xray-data', options] as const,
 }
 
 // Placement Data Hook
@@ -251,6 +252,19 @@ export function useSalesContributionByCategory(options: {
   })
 }
 
+// Campaign X-Ray Data Hook
+export function useCampaignXrayData(options: {
+  campaign_names?: string[]
+  focus_level?: 'high' | 'medium' | 'low' | 'all'
+}) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.xrayData(options),
+    queryFn: () => dashboardService.getXrayData(options),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  })
+}
+
 // Utility hook for manual refresh
 export function useDashboardQueryRefresh() {
   const queryClient = useQueryClient()
@@ -311,7 +325,11 @@ export function useDashboardQueryRefresh() {
     refreshSalesContribution: async (startDate: string, endDate: string) => {
     await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.salesContribution(startDate, endDate) })
     return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.salesContribution(startDate, endDate) })
-  },
+    },
+    refreshXrayData: async (options: any) => {
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.xrayData(options) })
+      return queryClient.refetchQueries({ queryKey: dashboardQueryKeys.xrayData(options) })
+    },
     refreshAll: async () => {
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       return queryClient.refetchQueries({ queryKey: ['dashboard'] })

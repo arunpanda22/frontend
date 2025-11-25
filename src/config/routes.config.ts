@@ -97,6 +97,13 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
     permission: 'access_oppurtunities',
     requiresSellerAccount: true,
   },
+  {
+    name: 'Campaign Xray',
+    href: '/dashboard/campaign-xray',
+    description: 'Track and analyze campaign data',
+    permission: 'view_campaign_xray',
+    requiresSellerAccount: true,
+  },
 ]
 
 /**

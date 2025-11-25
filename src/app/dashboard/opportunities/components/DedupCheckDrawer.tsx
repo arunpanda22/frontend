@@ -151,7 +151,7 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+        <div className="flex items-center justify-between p-4 border-b border-deep-space-200 bg-gradient-to-r from-deep-space-50 to-deep-space-100">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">DedupCheck</h2>
             <p className="text-sm text-gray-600 mt-1">
@@ -161,14 +161,14 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-deep-space-100 rounded-lg"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Input Form */}
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <div className="px-6 py-4 bg-deep-space-50 border-b border-deep-space-200">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -180,7 +180,7 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
                   value={asinInput}
                   onChange={(e) => setAsinInput(e.target.value)}
                   placeholder="e.g., B0DGT5J8SD"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-deep-space-300 rounded-lg focus:ring-2 focus:ring-deep-space-500 focus:border-deep-space-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Enter the ASIN to check for duplicates
@@ -196,7 +196,7 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
                   value={keywordsInput}
                   onChange={(e) => setKeywordsInput(e.target.value)}
                   placeholder="e.g., wooden toys, wooden toys for kids, toys"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-deep-space-300 rounded-lg focus:ring-2 focus:ring-deep-space-500 focus:border-deep-space-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Enter comma-separated keywords to check
@@ -210,7 +210,7 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
               className={`px-6 py-2 rounded-lg font-semibold text-white transition-all ${
                 isLoading
                   ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg"
+                  : "bg-gradient-to-r from-deep-space-500 to-deep-space-600 hover:shadow-lg"
               }`}
             >
               {isLoading ? (
@@ -240,7 +240,7 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
 
         {/* Summary Metrics */}
         {data && (
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+          <div className="px-6 py-4 bg-gradient-to-r from-deep-space-500 to-deep-space-600 text-white">
             <div className="grid grid-cols-2 gap-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">

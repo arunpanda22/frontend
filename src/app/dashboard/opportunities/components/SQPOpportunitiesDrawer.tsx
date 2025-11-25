@@ -222,7 +222,7 @@ export const SQPOpportunitiesDrawer: React.FC<SQPOpportunitiesDrawerProps> = ({
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-teal-50">
+        <div className="flex items-center justify-between p-4 border-b border-deep-space-200 bg-gradient-to-r from-deep-space-50 to-deep-space-100">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
               SQP Advantage Opportunities
@@ -236,14 +236,14 @@ export const SQPOpportunitiesDrawer: React.FC<SQPOpportunitiesDrawerProps> = ({
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-deep-space-100 rounded-lg"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Metrics Summary */}
-        <div className="px-6 py-4 bg-gradient-to-r from-green-500 to-teal-500 text-white">
+        <div className="px-6 py-4 bg-gradient-to-r from-deep-space-500 to-deep-space-600 text-white">
           <div className="grid grid-cols-3 gap-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">

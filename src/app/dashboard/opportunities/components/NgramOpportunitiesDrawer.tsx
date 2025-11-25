@@ -344,11 +344,11 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
 
   const isPositive = type === "positive";
   const headerColor = isPositive 
-    ? "from-teal-50 to-green-50" 
-    : "from-red-50 to-orange-50";
+    ? "from-deep-space-50 to-deep-space-100" 
+    : "from-deep-space-100 to-deep-space-200";
   const gradientColor = isPositive
-    ? "from-teal-500 to-green-500"
-    : "from-red-500 to-orange-500";
+    ? "from-deep-space-500 to-deep-space-600"
+    : "from-deep-space-600 to-deep-space-700";
   const iconBgColor = isPositive
     ? "bg-white/20"
     : "bg-white/20";
@@ -364,7 +364,7 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className={`flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r ${headerColor}`}>
+        <div className={`flex items-center justify-between p-4 border-b border-deep-space-200 bg-gradient-to-r ${headerColor}`}>
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
               {isPositive ? "N-Gram Booster" : "N-Gram Filter AI"}
@@ -378,14 +378,14 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-deep-space-100 rounded-lg"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Target ACOS Form */}
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <div className="px-6 py-4 bg-deep-space-50 border-b border-deep-space-200">
           <form onSubmit={handleSubmit} className="flex items-end gap-4">
             <div className="flex-1 max-w-xs">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -399,7 +399,7 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
                 value={targetAcos}
                 onChange={(e) => setTargetAcos(e.target.value)}
                 placeholder="e.g., 0.20 for 20%"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 border border-deep-space-300 rounded-lg focus:ring-2 focus:ring-deep-space-500 focus:border-deep-space-500"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Enter value between 0 and 1 (e.g., 0.20 = 20%)

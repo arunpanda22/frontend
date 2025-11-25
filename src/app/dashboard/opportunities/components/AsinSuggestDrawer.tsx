@@ -197,7 +197,7 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-pink-50 to-pink-100">
+        <div className="flex items-center justify-between p-4 border-b border-deep-space-200 bg-gradient-to-r from-deep-space-50 to-deep-space-100">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">ASINSuggest</h2>
             <p className="text-sm text-gray-600 mt-1">
@@ -207,61 +207,61 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-deep-space-100 rounded-lg"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Input Form */}
-        <div className="px-6 py-5 bg-gray-50 border-b border-gray-200">
-  <form onSubmit={handleSubmit} className="space-y-4">
-    <div className="flex flex-col md:flex-row md:items-end gap-4">
+        <div className="px-6 py-5 bg-deep-space-50 border-b border-deep-space-200">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-end gap-4">
 
-      {/* ASIN INPUT */}
-      <div className="flex-1 items-center md:max-w-xs">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          ASIN
-        </label>
-        <input
-          type="text"
-          value={asinInput}
-          onChange={(e) => setAsinInput(e.target.value)}
-          placeholder="e.g., B0DGT5J8SD"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          Enter an ASIN to get Amazon-backed keyword recommendations
-        </p>
-      </div>
+              {/* ASIN INPUT */}
+              <div className="flex-1 items-center md:max-w-xs">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ASIN
+                </label>
+                <input
+                  type="text"
+                  value={asinInput}
+                  onChange={(e) => setAsinInput(e.target.value)}
+                  placeholder="e.g., B0DGT5J8SD"
+                  className="w-full px-4 py-2 border border-deep-space-300 rounded-lg focus:ring-2 focus:ring-deep-space-500 focus:border-deep-space-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter an ASIN to get Amazon-backed keyword recommendations
+                </p>
+              </div>
 
-      {/* SUBMIT BUTTON */}
-      <div className="flex-1 h-full ">
-        <button
-          type="submit"
-          disabled={isLoading}
-          className={`px-6 py-2 rounded-lg font-semibold text-white transition-all flex items-center gap-2 ${
-            isLoading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-pink-500 to-pink-600 hover:shadow-lg"
-          }`}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4" />
-              Get Recommendations
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  </form>
-</div>
+              {/* SUBMIT BUTTON */}
+              <div className="flex-1 h-full ">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`px-6 py-2 rounded-lg font-semibold text-white transition-all flex items-center gap-2 ${
+                    isLoading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-deep-space-500 to-deep-space-600 hover:shadow-lg"
+                  }`}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Get Recommendations
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
 
 
         {/* Error State */}
@@ -279,7 +279,7 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
 
         {/* Summary Metrics */}
         {/* {data && (
-          <div className="px-6 py-4 bg-gradient-to-r from-pink-500 to-pink-600 text-white">
+          <div className="px-6 py-4 bg-gradient-to-r from-deep-space-500 to-deep-space-600 text-white">
             <div className="grid grid-cols-4 gap-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
@@ -365,4 +365,5 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
         </div>
       </div>
     </>
-  )};
+  );
+};

@@ -58,6 +58,34 @@ const config = {
                 DEFAULT: '#ff9900',
                 dark: '#e88b00'
             },
+            // Deep Space Blue - Palette 1 (Primary Brand Color)
+            'deep-space': {
+                50: '#E7F5FE',
+                100: '#CFECFC',
+                200: '#9ED8FA',
+                300: '#6EC5F7',
+                400: '#3DB1F5',
+                500: '#0D9EF2',  // Main brand color
+                600: '#0A7EC2',
+                700: '#085F91',
+                800: '#053F61',
+                900: '#032030',
+                950: '#021622',
+            },
+            // Aqua Breeze - Palette 2 (Accent/Secondary)
+            'aqua': {
+                50: '#E9FAFC',
+                100: '#D3F5F8',
+                200: '#A6EBF2',
+                300: '#7AE2EB',
+                400: '#4ED8E4',
+                500: '#21CEDE',  // Main aqua color
+                600: '#1BA5B1',
+                700: '#147C85',
+                800: '#0D5259',
+                900: '#07292C',
+                950: '#051D1F',
+            },
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -97,7 +125,5 @@ const config = {
   },
   plugins: [animatePlugin, require("tailwindcss-animate")],
 } satisfies Config
-
-
 
 export default config
