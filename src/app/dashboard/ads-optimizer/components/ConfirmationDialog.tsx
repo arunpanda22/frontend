@@ -40,9 +40,9 @@ export function ConfirmationDialog({
       confirmButton: "bg-orange-600 hover:bg-orange-700",
     },
     info: {
-      icon: <CheckCircle className="w-12 h-12 text-blue-600" />,
-      iconBg: "bg-blue-100",
-      confirmButton: "bg-blue-600 hover:bg-blue-700",
+      icon: <CheckCircle className="w-12 h-12 text-powder-blue-700" />,
+      iconBg: "bg-powder-blue-100",
+      confirmButton: "bg-powder-blue-700 hover:bg-powder-blue-800",
     },
   };
 
@@ -64,17 +64,17 @@ export function ConfirmationDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 z-0"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-0"
         onClick={isProcessing ? undefined : onClose}
       />
 
       {/* Dialog */}
-      <div className="relative z-10 bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4">
+      <div className="relative z-10 bg-gradient-to-b from-powder-blue-50 to-white rounded-2xl shadow-2xl max-w-md w-full mx-4 border-2 border-powder-blue-200">
         {/* Close button */}
         <button
           onClick={onClose}
           disabled={isProcessing}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          className="absolute top-4 right-4 text-gray-400 hover:text-powder-blue-600 transition-colors disabled:opacity-50"
         >
           <X className="w-5 h-5" />
         </button>
@@ -82,7 +82,7 @@ export function ConfirmationDialog({
         {/* Content */}
         <div className="p-6">
           {/* Icon */}
-          <div className={`w-16 h-16 ${styles.iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+          <div className={`w-16 h-16 ${styles.iconBg} rounded-full flex items-center justify-center mx-auto mb-4 border-2 ${variant === 'info' ? 'border-powder-blue-300' : variant === 'warning' ? 'border-orange-300' : 'border-red-300'}`}>
             {styles.icon}
           </div>
 
@@ -101,7 +101,7 @@ export function ConfirmationDialog({
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2.5 bg-white hover:bg-powder-blue-50 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-powder-blue-300"
             >
               {cancelText}
             </button>

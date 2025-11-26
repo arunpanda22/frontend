@@ -11,6 +11,18 @@ import {
   Send,
   Save,
   CheckCircle2,
+  DollarSign,
+  Tag,
+  Monitor,
+  Target,
+  Award,
+  Palette,
+  MapPin,
+  Pin,
+  Sparkles,
+  Star,
+  XCircle,
+  StopCircle,
 } from "lucide-react";
 import { adsOptimizerQueryKeys } from "@/lib/hooks/queries/use-ads-optimizer";
 import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
@@ -25,85 +37,73 @@ const OPTIMIZATION_CATEGORIES: OptimizationCategory[] = [
     key: "sp_budget",
     title: "SP Budget Adjustments",
     description: "Optimize Sponsored Products campaign budgets",
-    icon: "💰",
-    color: "from-blue-500 to-blue-600",
+    icon: "DollarSign",
   },
   {
     key: "sb_budget",
     title: "SB Budget Adjustments",
     description: "Optimize Sponsored Brands campaign budgets",
-    icon: "🏷️",
-    color: "from-purple-500 to-purple-600",
+    icon: "Tag",
   },
   {
     key: "sd_budget",
     title: "SD Budget Adjustments",
     description: "Optimize Sponsored Display campaign budgets",
-    icon: "📺",
-    color: "from-pink-500 to-pink-600",
+    icon: "Monitor",
   },
   {
     key: "sp_bid",
     title: "SP Bid Optimizations",
     description: "Adjust Sponsored Products keyword bids",
-    icon: "🎯",
-    color: "from-green-500 to-green-600",
+    icon: "Target",
   },
   {
     key: "sb_bid",
     title: "SB Bid Optimizations",
     description: "Adjust Sponsored Brands keyword bids",
-    icon: "🎪",
-    color: "from-indigo-500 to-indigo-600",
+    icon: "Award",
   },
   {
     key: "sd_bid",
     title: "SD Bid Optimizations",
     description: "Adjust Sponsored Display target bids",
-    icon: "🎨",
-    color: "from-teal-500 to-teal-600",
+    icon: "Palette",
   },
   {
     key: "sp_placement",
     title: "SP Placement Adjustments",
     description: "Optimize Sponsored Products placement modifiers",
-    icon: "📍",
-    color: "from-orange-500 to-orange-600",
+    icon: "MapPin",
   },
   {
     key: "sb_placement",
     title: "SB Placement Adjustments",
     description: "Optimize Sponsored Brands placement modifiers",
-    icon: "📌",
-    color: "from-red-500 to-red-600",
+    icon: "Pin",
   },
   {
     key: "sp_new_campaigns",
     title: "SP New Campaign Suggestions",
     description: "Create new Sponsored Products campaigns",
-    icon: "✨",
-    color: "from-cyan-500 to-cyan-600",
+    icon: "Sparkles",
   },
   {
     key: "sb_new_campaigns",
     title: "SB New Campaign Suggestions",
     description: "Create new Sponsored Brands campaigns",
-    icon: "🌟",
-    color: "from-violet-500 to-violet-600",
+    icon: "Star",
   },
   {
     key: "sp_negatives",
     title: "SP Negative Keywords",
     description: "Add negative keywords to Sponsored Products",
-    icon: "🚫",
-    color: "from-gray-500 to-gray-600",
+    icon: "XCircle",
   },
   {
     key: "sb_negatives",
     title: "SB Negative Keywords",
     description: "Add negative keywords to Sponsored Brands",
-    icon: "⛔",
-    color: "from-slate-500 to-slate-600",
+    icon: "StopCircle",
   },
 ];
 
@@ -292,7 +292,26 @@ export default function AdsOptimizerResultsPage() {
     });
   };
 
-  // Render a single optimization card
+  const getIconComponent = (iconName: string) => {
+    const icons: { [key: string]: any } = {
+      DollarSign,
+      Tag,
+      Monitor,
+      Target,
+      Award,
+      Palette,
+      MapPin,
+      Pin,
+      Sparkles,
+      Star,
+      XCircle,
+      StopCircle,
+    };
+    const IconComponent = icons[iconName];
+    return IconComponent ? <IconComponent className="w-5 h-5" /> : null;
+  };
+
+  // Updated renderOptimizationCard function
   const renderOptimizationCard = (category: OptimizationCategory) => {
     const count = getCategoryCount(category.key);
     const isEmpty = count === 0;
@@ -303,56 +322,52 @@ export default function AdsOptimizerResultsPage() {
     return (
       <div
         key={category.key}
-        className={`bg-white rounded-lg border transition-all duration-300 p-5 flex flex-col ${
+        className={`bg-white rounded-2xl border-2 transition-all duration-300 p-6 flex flex-col ${
           isPushed || isEmpty
-            ? "border-gray-200 opacity-60"
-            : "border-gray-200 hover:border-blue-300 hover:shadow-lg"
+            ? "border-powder-blue-200 opacity-50"
+            : "border-powder-blue-200 hover:border-powder-blue-500 hover:shadow-xl"
         }`}
       >
-        <div className="flex items-start justify-between mb-3">
-          <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center text-xl">
-            {category.icon}
+        <div className="flex items-start justify-between mb-4">
+          <div className="w-12 h-12 rounded-xl bg-powder-blue-600 flex items-center justify-center text-white">
+            {getIconComponent(category.icon)}
           </div>
           <div className="flex items-center gap-2">
             {isPushed && (
-              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded flex items-center gap-1">
-                <CheckCircle2 className="w-2.5 h-2.5" />
+              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
                 Pushed
               </span>
             )}
             {isDirty && !isPushed && (
-              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded flex items-center gap-1">
-                <Save className="w-2.5 h-2.5" />
+              <span className="px-2 py-1 bg-powder-blue-100 border border-powder-blue-400 text-gray-900 text-xs font-semibold rounded-full flex items-center gap-1">
+                <Save className="w-3 h-3" />
                 Edited
               </span>
             )}
           </div>
         </div>
 
-        <h3 className="text-base font-semibold text-gray-900 mb-1.5">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">
           {category.title}
         </h3>
-        <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-          {category.description}
-        </p>
 
-        <div className="flex items-center justify-between mb-4">
-          <div
-            className={`px-2.5 py-1 rounded text-xs font-medium border ${
-              isEmpty
-                ? "bg-gray-50 text-gray-500 border-gray-200"
-                : "bg-blue-50 text-blue-700 border-blue-200"
-            }`}
-          >
-            {count} {count === 1 ? "item" : "items"}
+        <div className="mb-4">
+          <div className="text-3xl font-bold text-gray-900">{count}</div>
+          <div className="text-sm text-gray-600">
+            optimization{count !== 1 ? "s" : ""}
           </div>
         </div>
+
+        <p className="text-sm text-gray-700 mb-5 leading-relaxed flex-grow">
+          {category.description}
+        </p>
 
         <div className="mt-auto flex items-center justify-end gap-2">
           <button
             onClick={() => setSelectedCategory(category.key)}
             disabled={isEmpty || isPushed}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-powder-blue-600 hover:bg-powder-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-powder-blue-600"
           >
             <Edit3 className="w-3 h-3" />
             Edit
@@ -361,7 +376,7 @@ export default function AdsOptimizerResultsPage() {
           <button
             onClick={() => handleDirectPush(category.key)}
             disabled={isPushing || isEmpty || isPushed}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPushing ? (
               <>
@@ -384,7 +399,7 @@ export default function AdsOptimizerResultsPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="fixed top-0 left-0 right-0 z-50">
-          <div className="h-1 bg-blue-600 animate-pulse"></div>
+          <div className="h-1 bg-[#7BA7C7] animate-pulse"></div>
         </div>
 
         <div className="blur-sm pointer-events-none p-8">
@@ -401,8 +416,8 @@ export default function AdsOptimizerResultsPage() {
         <div className="fixed inset-0 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md text-center">
             <div className="w-16 h-16 mx-auto mb-4 relative">
-              <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 border-4 border-[#D4E5F1] rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-[#7BA7C7] rounded-full border-t-transparent animate-spin"></div>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               Analyzing Your Campaigns
@@ -454,16 +469,16 @@ export default function AdsOptimizerResultsPage() {
             {stats && (
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-700">
                     Total Optimizations
                   </div>
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-2xl font-bold text-powder-blue-800">
                     {stats.totalOptimizations}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-gray-500">Categories</div>
-                  <div className="text-2xl font-bold text-purple-600">
+                  <div className="text-sm text-gray-700">Categories</div>
+                  <div className="text-2xl font-bold text-powder-blue-800">
                     {stats.categoriesWithData}
                   </div>
                 </div>
@@ -499,7 +514,7 @@ export default function AdsOptimizerResultsPage() {
           {/* Sponsored Products */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-300 to-powder-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">SP</span>
               </div>
               <div>
@@ -526,7 +541,7 @@ export default function AdsOptimizerResultsPage() {
           {/* Sponsored Brands */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-300 to-powder-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">SB</span>
               </div>
               <div>
@@ -553,7 +568,7 @@ export default function AdsOptimizerResultsPage() {
           {/* Sponsored Display */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-300 to-powder-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">SD</span>
               </div>
               <div>
@@ -601,8 +616,8 @@ export default function AdsOptimizerResultsPage() {
         </div>
 
         {/* Info Footer */}
-        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <p className="text-sm text-blue-900 text-center">
+        <div className="mt-8 p-4 bg-[#E8F1F8] border border-[#A8C5DD] rounded-xl">
+          <p className="text-sm text-[#2D5573] text-center">
             💡 <strong>Tip:</strong> Click "Edit" to review and modify
             recommendations, or "Push" to apply them directly. Edited changes
             are saved locally until you push them.

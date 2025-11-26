@@ -216,7 +216,7 @@ export interface OptimizationCategory {
   title: string;
   description: string;
   icon: string;
-  color: string;
+  // color: string;
 }
 
 export type OptimizationKey = Exclude<keyof AdsOptimizerResponse, "errors">;
