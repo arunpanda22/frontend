@@ -319,14 +319,14 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
     return (
       <div className="flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-gray-700">
             {MONTHS[monthDate.getMonth()]} {monthDate.getFullYear()}
           </h3>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-2">
           {DAYS.map((day) => (
-            <div key={day} className="h-10 flex items-center justify-center text-xs font-medium text-slate-500">
+            <div key={day} className="h-10 flex items-center justify-center text-xs font-medium text-gray-500">
               {day}
             </div>
           ))}
@@ -350,12 +350,12 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
                 disabled={isDisabled}
                 className={`
                   h-10 w-10 text-sm rounded-lg transition-all duration-200 relative
-                  ${!isCurrentMonthDate ? 'text-slate-400' : 'text-slate-900'}
-                  ${isDisabled ? 'text-slate-300 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer'}
-                  ${rangeStart || rangeEnd ? 'bg-blue-500 text-white font-semibold hover:bg-blue-600' : ''}
-                  ${inRange && !rangeStart && !rangeEnd ? 'bg-blue-100 text-blue-700' : ''}
-                  ${isToday && !rangeStart && !rangeEnd && !inRange ? 'bg-slate-100 font-semibold ring-2 ring-blue-400' : ''}
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                  ${!isCurrentMonthDate ? 'text-gray-400' : 'text-gray-700'}
+                  ${isDisabled ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-powder-blue-100 cursor-pointer'}
+                  ${rangeStart || rangeEnd ? 'bg-powder-blue-600 text-white font-semibold hover:bg-powder-blue-700' : ''}
+                  ${inRange && !rangeStart && !rangeEnd ? 'bg-powder-blue-100 text-powder-blue-700' : ''}
+                  ${isToday && !rangeStart && !rangeEnd && !inRange ? 'bg-powder-blue-50 font-semibold ring-2 ring-powder-blue-400' : ''}
+                  focus:outline-none focus:ring-2 focus:ring-powder-blue-500 focus:ring-offset-2
                 `}
               >
                 {date.getDate()}
@@ -368,12 +368,12 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-w-4xl w-full">
+    <div className="bg-white border border-powder-blue-200 rounded-xl shadow-xl overflow-hidden max-w-4xl w-full">
       <div className="flex">
         {/* Preset Ranges Sidebar */}
-        <div className="w-56 border-r border-slate-200 bg-slate-50 p-4">
+        <div className="w-56 border-r border-powder-blue-200 bg-powder-blue-50 p-4">
           <div className="mb-4">
-            <h3 className="text-sm font-semibold text-slate-900">Quick Select</h3>
+            <h3 className="text-sm font-semibold text-gray-700">Quick Select</h3>
           </div>
           <div className="space-y-1">
             {PRESET_RANGES.map((preset) => (
@@ -383,8 +383,8 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
                 className={`
                   w-full text-left px-3 py-2 text-sm rounded-lg transition-colors duration-200
                   ${activePreset === preset.label 
-                    ? 'bg-blue-100 text-blue-700 font-medium border border-blue-200' 
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-powder-blue-200 text-powder-blue-800 font-medium border border-powder-blue-300' 
+                    : 'text-gray-600 hover:bg-powder-blue-100'
                   }
                 `}
               >
@@ -395,7 +395,7 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
             {/* Clear Selection Button */}
             <button
               onClick={handleClear}
-              className="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors duration-200 text-red-600 hover:bg-red-50 border-t border-slate-200 mt-4 pt-4"
+              className="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors duration-200 text-red-600 hover:bg-red-50 border-t border-powder-blue-200 mt-4 pt-4"
             >
               Clear Selection
             </button>
@@ -408,14 +408,14 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
           <div className="flex items-center justify-between mb-6">
             <button 
               onClick={() => navigateMonth("prev")} 
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-powder-blue-50 rounded-lg transition-colors"
             >
-              <ChevronLeft className="h-5 w-5 text-slate-600" />
+              <ChevronLeft className="h-5 w-5 text-gray-600" />
             </button>
 
-            <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
-              <Calendar className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">
+            <div className="flex items-center gap-3 px-4 py-2 bg-powder-blue-100 rounded-lg border border-powder-blue-200">
+              <Calendar className="h-4 w-4 text-powder-blue-600" />
+              <span className="text-sm font-medium text-powder-blue-800">
                 {tempRange.startDate && tempRange.endDate
                   ? `${formatDate(tempRange.startDate)} - ${formatDate(tempRange.endDate)}`
                   : tempRange.startDate
@@ -426,9 +426,9 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
 
             <button 
               onClick={() => navigateMonth("next")} 
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-powder-blue-50 rounded-lg transition-colors"
             >
-              <ChevronRight className="h-5 w-5 text-slate-600" />
+              <ChevronRight className="h-5 w-5 text-gray-600" />
             </button>
           </div>
 
@@ -439,17 +439,17 @@ export function AdvancedDatePicker({ onDateChange, onApply, onClear, className, 
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-powder-blue-200">
             <button 
               onClick={handleCancel}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-powder-blue-300 rounded-lg hover:bg-powder-blue-50 transition-colors"
             >
               Cancel
             </button>
             <button 
               onClick={handleApply}
               disabled={!tempRange.startDate || !tempRange.endDate}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-powder-blue-600 rounded-lg hover:bg-powder-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               Apply
             </button>

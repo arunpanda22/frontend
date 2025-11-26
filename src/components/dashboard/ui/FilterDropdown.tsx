@@ -33,15 +33,17 @@ export function FilterDropdown({
   );
   const [isOpen, setIsOpen] = useState(false);
 
+  // Sync local state with parent's selected items when they change
+  useEffect(() => {
+    setLocalSelected(new Set(initialSelected));
+  }, [initialSelected]);
+
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
     return items.filter((item) =>
       item.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [items, searchQuery]);
-
-  // REMOVED: The problematic useEffect that was auto-selecting filtered items
-  // This was causing all filtered items to be selected when typing
 
   const handleSelectAll = () => {
     if (localSelected.size === items.length) {

@@ -21,6 +21,7 @@ import type {
 
 // Query keys for consistent caching
 export const dashboardQueryKeys = {
+  all: ['dashboard'] as const,
   placement: (startDate: string, endDate: string) => ['dashboard', 'placement', startDate, endDate] as const,
   inventoryHealth: (options?: any) => ['dashboard', 'inventory-health', options] as const,
   inventoryStats: (options?: any) => ['dashboard', 'inventory-stats', options] as const,
@@ -38,8 +39,18 @@ export const dashboardQueryKeys = {
   organicSales: (options: any) => ['dashboard', 'organic-sales', options] as const,
   returnReplacementRates: (options: any) => ['dashboard', 'return-replacement-rates', options] as const,
   salesContribution: (startDate: string, endDate: string) => ['dashboard', 'sales-contribution', startDate, endDate] as const,
-  xrayData: (options: any) => ['dashboard', 'xray-data', options] as const,
-}
+  xrayData: (options: { campaign_names?: string[]; focus_level?: string }) => {
+    const sortedCampaigns = options.campaign_names 
+      ? [...options.campaign_names].sort().join(',')
+      : 'none';
+    return [
+      'dashboard', 
+      'xray-data', 
+      options.focus_level || 'all',
+      sortedCampaigns
+    ] as const;
+  },
+};
 
 // Placement Data Hook
 export function usePlacementData(startDate: string, endDate: string, enabled = true) {
@@ -257,9 +268,25 @@ export function useCampaignXrayData(options: {
   campaign_names?: string[]
   focus_level?: 'high' | 'medium' | 'low' | 'all'
 }) {
+  console.log('useCampaignXrayData called with:', options);
+  
+  // Sort campaign names for consistent query key
+  const sortedCampaigns = options.campaign_names 
+    ? [...options.campaign_names].sort() 
+    : [];
+  
   return useQuery({
-    queryKey: dashboardQueryKeys.xrayData(options),
-    queryFn: () => dashboardService.getXrayData(options),
+    queryKey: [
+      'dashboard', 
+      'xray', 
+      options.focus_level || 'all',
+      // Use JSON.stringify for proper array comparison or spread sorted array
+      sortedCampaigns.length > 0 ? sortedCampaigns.join(',') : 'none'
+    ],
+    queryFn: () => {
+      console.log('Query function executing with campaigns:', options.campaign_names);
+      return dashboardService.getXrayData(options);
+    },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
   })

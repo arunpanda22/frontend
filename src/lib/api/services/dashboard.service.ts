@@ -780,10 +780,13 @@ export const dashboardService = {
       focus_level: options.focus_level || "all",
     };
 
+    // FIXED: Use 'campaigns' (not 'campaign_names') as the parameter name
     // Send campaign names as comma-separated string
     if (options.campaign_names && options.campaign_names.length > 0) {
-      params.campaign_names = options.campaign_names.join(",");
+      params.campaigns = options.campaign_names.join(",");
     }
+
+    console.log("Request params:", params);
 
     const res = await apiClient.get<XrayDataResponse>(
       "/api/v1/dashboard-api/xray-data/",

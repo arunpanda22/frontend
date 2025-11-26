@@ -28,9 +28,9 @@ const OPPORTUNITIES = [
     headline: "Instantly Detect Duplicate Keywords Across All Campaigns & Match Types.",
     description: "Eliminate overlap. Improve efficiency. Maximize ad clarity.",
     icon: Copy,
-    color: "from-deep-space-500 to-deep-space-600",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Find Duplicates",
     disabled: false,
   },
@@ -40,9 +40,9 @@ const OPPORTUNITIES = [
     headline: "Discover Keywords That Outsell the Market — Your Competitive Conversion Edge.",
     description: "Find the terms where you outperform the entire category.",
     icon: TrendingUp,
-    color: "from-deep-space-600 to-deep-space-700",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-300",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-300",
     buttonText: "Discover Winners",
     disabled: false,
   },
@@ -52,9 +52,9 @@ const OPPORTUNITIES = [
     headline: "Get Amazon ads Keyword Recommendations for Any ASIN",
     description: "Unlock Amazon-backed suggestions for profitable targeting.",
     icon: Target,
-    color: "deep-space-500",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Get Suggestions",
     disabled: false,
   },
@@ -64,9 +64,9 @@ const OPPORTUNITIES = [
     headline: "See the Keywords Your Competitors Dominate — And Take Their Market Share.",
     description: "Reverse-engineer their rankings. Outrank them with precision.",
     icon: Search,
-    color: "from-deep-space-500 to-deep-space-600",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Coming soon",
     disabled: true,
   },
@@ -76,9 +76,9 @@ const OPPORTUNITIES = [
     headline: "Enter One Keyword. Get Every Related Variant Instantly.",
     description: "Build deep keyword clusters for ads, ranking, and listing optimization.",
     icon: Grid3x3,
-    color: "from-deep-space-500 to-deep-space-600",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Coming soon",
     disabled: true,
   },
@@ -88,9 +88,9 @@ const OPPORTUNITIES = [
     headline: "Uncover Your Amazon-Defined Direct Competitors in One Click.",
     description: "Analyze, benchmark, and optimize against the exact ASINs competing for your customers.",
     icon: Search,
-    color: "from-deep-space-500 to-deep-space-600",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Coming soon",
     disabled: true,
   },
@@ -100,9 +100,9 @@ const OPPORTUNITIES = [
     headline: "Extract the Winning Phrases Behind Your Best-Performing Keywords.",
     description: "Find thematic winning patterns to scale profitable keywords.",
     icon: Sparkles,
-    color: "from-deep-space-400 to-deep-space-600",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Boost Keywords",
     disabled: false,
   },
@@ -112,9 +112,9 @@ const OPPORTUNITIES = [
     headline: "Identify Wasteful Words Causing Spend Leakage — Negate in One Click.",
     description: "Cut inefficiency. Protect your budget. Improve ROAS instantly.",
     icon: Filter,
-    color: "from-deep-space-600 to-deep-space-700",
-    bgColor: "from-deep-space-50 to-deep-space-100",
-    borderColor: "border-deep-space-200",
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
     buttonText: "Filter Waste",
     disabled: false,
   },
@@ -160,7 +160,7 @@ export default function OpportunitiesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-deep-space-50 via-white to-deep-space-100">
+    <div className="min-h-screen bg-gradient-to-br from-powder-blue-50 via-white to-powder-blue-100">
       {/* Toast Container */}
       <Toaster />
 
@@ -206,20 +206,17 @@ export default function OpportunitiesPage() {
       )}
 
       {/* Header */}
-      <div className="bg-white border-b border-deep-space-50 sticky top-0 z-40 shadow-sm">
+      <div className="bg-white border-b border-powder-blue-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-gray-900">
                 Growth Opportunities
               </h1>
-              <span className="px-3 py-1 bg-deep-space-100 text-deep-space-700 text-xs font-semibold rounded-full">
-                {OPPORTUNITIES.length} Tools Available
-              </span>
             </div>
 
             <div className="text-right">
-              <div className="text-lg font-bold bg-gradient-to-r from-deep-space-500 to-deep-space-700 bg-clip-text text-transparent">
+              <div className="text-lg font-bold text-powder-blue-600">
                 Unlock Your Potential
               </div>
             </div>
@@ -230,11 +227,11 @@ export default function OpportunitiesPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Intro Section */}
-        <div className="mb-8 p-6 rounded-2xl shadow-lg text-black">
-          <h2 className="text-2xl font-bold mb-2">
+        <div className="mb-8 p-6 bg-gradient-to-r from-powder-blue-50 to-powder-blue-100 rounded-2xl shadow-lg border border-powder-blue-200">
+          <h2 className="text-2xl font-bold text-powder-blue-900 mb-2">
             Discover Your Next Competitive Advantage
           </h2>
-          <p className="text-black text-sm leading-relaxed">
+          <p className="text-powder-blue-800 text-sm leading-relaxed">
             Explore advanced tools designed to identify hidden opportunities,
             eliminate waste, and maximize your Amazon advertising ROI. Each tool
             provides actionable insights to help you dominate your market.
@@ -246,7 +243,7 @@ export default function OpportunitiesPage() {
           {/* InsightScale Section */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-deep-space-500 to-deep-space-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-400 to-powder-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -279,7 +276,7 @@ export default function OpportunitiesPage() {
                       ${
                         opportunity.disabled
                           ? "opacity-60 cursor-not-allowed"
-                          : "hover:shadow-xl hover:border-deep-space-400 cursor-pointer"
+                          : "hover:shadow-xl hover:border-powder-blue-400 cursor-pointer"
                       }
                       ${isHovered && !opportunity.disabled ? "scale-105" : ""}
                       relative overflow-hidden
@@ -303,7 +300,7 @@ export default function OpportunitiesPage() {
                             : ""
                         }`}
                       >
-                        <Icon className="w-7 h-7 text-deep-space-600" />
+                        <Icon className="w-7 h-7 text-powder-blue-600" />
                       </div>
                     </div>
 
@@ -328,7 +325,7 @@ export default function OpportunitiesPage() {
                           ${
                             opportunity.disabled
                               ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                              : `bg-gradient-to-r ${opportunity.color} text-white hover:shadow-lg`
+                              : `${opportunity.color} text-white hover:shadow-lg hover:bg-powder-blue-700`
                           }
                         `}
                       >
@@ -344,7 +341,7 @@ export default function OpportunitiesPage() {
           {/* ScaleFinder Section */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-deep-space-400 to-deep-space-500 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-400 to-powder-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Search className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -377,7 +374,7 @@ export default function OpportunitiesPage() {
                       ${
                         opportunity.disabled
                           ? "opacity-60 cursor-not-allowed"
-                          : "hover:shadow-xl hover:border-deep-space-400 cursor-pointer"
+                          : "hover:shadow-xl hover:border-powder-blue-400 cursor-pointer"
                       }
                       ${isHovered && !opportunity.disabled ? "scale-105" : ""}
                       relative overflow-hidden
@@ -401,7 +398,7 @@ export default function OpportunitiesPage() {
                             : ""
                         }`}
                       >
-                        <Icon className="w-7 h-7 text-deep-space-600" />
+                        <Icon className="w-7 h-7 text-powder-blue-600" />
                       </div>
                     </div>
 
@@ -426,7 +423,7 @@ export default function OpportunitiesPage() {
                           ${
                             opportunity.disabled
                               ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                              : `bg-gradient-to-r ${opportunity.color} text-white hover:shadow-lg`
+                              : `${opportunity.color} text-white hover:shadow-lg hover:bg-powder-blue-700`
                           }
                         `}
                       >
@@ -444,7 +441,7 @@ export default function OpportunitiesPage() {
         <div className="mt-8">
           <button
             onClick={() => router.push("/dashboard/command-center")}
-            className="flex items-center gap-2 px-5 py-3 bg-white border border-deep-space-300 text-gray-700 rounded-lg shadow-sm hover:bg-deep-space-50 transition-colors"
+            className="flex items-center gap-2 px-5 py-3 bg-white border border-powder-blue-300 text-gray-700 rounded-lg shadow-sm hover:bg-powder-blue-50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             Back to Command Center
@@ -452,8 +449,8 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Info Footer */}
-        <div className="mt-8 p-4 bg-deep-space-50 border border-deep-space-200 rounded-xl">
-          <p className="text-sm text-deep-space-900 text-center">
+        <div className="mt-8 p-4 bg-powder-blue-50 border border-powder-blue-200 rounded-xl">
+          <p className="text-sm text-powder-blue-900 text-center">
             💡 <strong>Note:</strong> These tools are being rolled out
             progressively. Check back soon as we activate each AI-powered
             feature to help you optimize your campaigns.
