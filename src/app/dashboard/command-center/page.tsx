@@ -73,41 +73,32 @@ const DashboardContent = () => {
           title: "Total Revenue",
           value: "Loading...",
           icon: DollarSign,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "blue",
+          bgColor: "bg-powder-blue-100",
         },
         {
           title: "Units Sold",
           value: "Loading...",
           icon: Package,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "green",
+          bgColor: "bg-powder-blue-200",
         },
         {
           title: "AOV",
           value: "Loading...",
           icon: ShoppingCart,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "purple",
+      
+          bgColor: "bg-powder-blue-100",
         },
         {
           title: "TACOS",
           value: "Loading...",
           icon: PercentIcon,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "orange",
+          bgColor: "bg-powder-blue-200",
         },
         {
           title: "ACOS",
           value: "Loading...",
           icon: PercentIcon,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "red",
+          bgColor: "bg-powder-blue-100",
         },
       ];
     }
@@ -122,7 +113,7 @@ const DashboardContent = () => {
         icon: DollarSign,
         // change: `${formatChange(changes["Total Sales"])}`,
         // changeType: changes["Total Sales"] >= 0 ? "increase" : "decrease",
-        bgColor: "blue",
+        bgColor: "bg-powder-blue-100",
       },
       {
         title: "Units Sold",
@@ -130,7 +121,7 @@ const DashboardContent = () => {
         icon: Package,
         // change: `${formatChange(changes["Total Orders"])} `,
         // changeType: changes["Total Orders"] >= 0 ? "increase" : "decrease",
-        bgColor: "green",
+        bgColor: "bg-powder-blue-200",
       },
       {
         title: "AOV",
@@ -138,7 +129,7 @@ const DashboardContent = () => {
         icon: ShoppingCart,
         // change: `${formatChange(changes["AOV"])} `,
         // changeType: changes["AOV"] >= 0 ? "increase" : "decrease",
-        bgColor: "purple",
+        bgColor: "bg-powder-blue-100",
       },
       {
         title: "TACOS",
@@ -146,7 +137,7 @@ const DashboardContent = () => {
         icon: PercentIcon,
         // change: `${formatChange(changes["TACOS"])}`,
         // changeType: changes["TACOS"] >= 0 ? "decrease" : "increase", 
-        bgColor: "orange",
+        bgColor: "bg-powder-blue-200",
       },
       {
         title: "ACOS",
@@ -154,7 +145,7 @@ const DashboardContent = () => {
         icon: PercentIcon,
         // change: `${formatChange(changes["ACOS"])}`,
         // changeType: changes["ACOS"] >= 0 ? "decrease" : "increase", 
-        bgColor: "red",
+        bgColor: "bg-powder-blue-100",
       },
     ];
   };

@@ -22,7 +22,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
   const { dateRange } = useDateRange();
 
   // Access the currency context
-  const { formatCurrency, formatNumber, formatCurrencyNoDecimal, formatPercentage, isLoading: isCurrencyLoading, error: currencyError } = useCurrency();
+  const { formatCurrency, formatNumber, formatCurrencyNoDecimal, formatPercentage, error: currencyError } = useCurrency();
 
   // Fetch campaign metrics data using the hook
   const {
@@ -60,7 +60,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
           icon: Eye,
           // change: "Loading...",
           // changeType: "increase",
-          bgColor: "blue",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "Clicks",
@@ -68,71 +68,55 @@ const CampaignMetricsCardGrid: React.FC = () => {
           icon: MousePointer,
           // change: "Loading...",
           // changeType: "increase",
-          bgColor: "green",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "CTR",
           value: "Loading...",
           icon: Target,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "purple",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "CPC",
           value: "Loading...",
           icon: DollarSign,
-          change: "Loading...",
-          changeType: "decrease",
-          bgColor: "orange",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "Ad Costs",
           value: "Loading...",
           icon: TrendingDown,
-          change: "Loading...",
-          changeType: "decrease",
-          bgColor: "red",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "Orders",
           value: "Loading...",
           icon: Package,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "indigo",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "CVR",
           value: "Loading...",
           icon: TrendingUp,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "pink",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "Ad Sales",
           value: "Loading...",
           icon: ShoppingCart,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "yellow",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "ACOS",
           value: "Loading...",
           icon: PercentIcon,
-          change: "Loading...",
-          changeType: "decrease",
-          bgColor: "red",
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "Ad Sales %",
           value: "Loading...",
           icon: BarChart3,
-          change: "Loading...",
-          changeType: "increase",
-          bgColor: "blue",
+          bgColor: "bg-jungle-teal-100",
         },
       ];
     }
@@ -147,7 +131,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: Eye,
         // change: `${formatChange(changes.Impressions)}`,
         // changeType: changes.Impressions >= 0 ? "increase" : "decrease",
-        bgColor: "blue",
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "Clicks",
@@ -155,7 +139,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: MousePointer,
         // change: `${formatChange(changes.Clicks)}`,
         // changeType: changes.Clicks >= 0 ? "increase" : "decrease",
-        bgColor: "green",
+        bgColor: "bg-jungle-teal-300",
       },
       {
         title: "CTR",
@@ -163,7 +147,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: Target,
         // change: `${formatChange(changes.CTR)}`,
         // changeType: changes.CTR >= 0 ? "increase" : "decrease",
-        bgColor: "purple",
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "CPC",
@@ -171,7 +155,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: DollarSign,
         // change: `${formatChange(changes.CPC)}`,
         // changeType: changes.CPC >= 0 ? "decrease" : "increase", // Lower CPC is better
-        bgColor: "orange",
+        bgColor: "bg-jungle-teal-300",
       },
       {
         title: "Ad Costs",
@@ -179,7 +163,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: TrendingDown,
         // change: `${formatChange(changes["Ad Costs"])}`,
         // changeType: changes["Ad Costs"] >= 0 ? "decrease" : "increase", // Lower costs might be better
-        bgColor: "red",
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "Orders",
@@ -187,7 +171,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: Package,
         // change: `${formatChange(changes.Orders)}`,
         // changeType: changes.Orders >= 0 ? "increase" : "decrease",
-        bgColor: "indigo",
+        bgColor: "bg-jungle-teal-300",
       },
       {
         title: "CVR",
@@ -195,7 +179,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: TrendingUp,
         // change: `${formatChange(changes.CVR)}`,
         // changeType: changes.CVR >= 0 ? "increase" : "decrease",
-        bgColor: "pink",
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "Ad Sales",
@@ -203,7 +187,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: ShoppingCart,
         // change: `${formatChange(changes["Ads Sales"])}`,
         // changeType: changes["Ads Sales"] >= 0 ? "increase" : "decrease",
-        bgColor: "yellow",
+        bgColor: "bg-jungle-teal-300",
       },
       {
         title: "ACOS",
@@ -211,7 +195,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: PercentIcon,
         // change: `${formatChange(changes.ACOS, "")}`,
         // changeType: changes.ACOS >= 0 ? "decrease" : "increase", // Lower ACOS is better
-        bgColor: "red",
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "Ad Sales %",
@@ -219,7 +203,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
         icon: BarChart3,
         // change: `${formatChange(changes["Ads Sales %"])}`,
         // changeType: changes["Ads Sales %"] >= 0 ? "increase" : "decrease",
-        bgColor: "blue",
+        bgColor: "bg-jungle-teal-300",
       },
     ];
   };

@@ -362,12 +362,8 @@ export interface XrayDataItem {
   "CVR%": number;
   "ACOS%": number;
   CPA: number;
-  sales_30d: number;
-  purchases_30d: number;
-  sales_by_asin_total_order_items: number;
-  traffic_by_asin_sessions: number;
-  traffic_by_asin_mobile_app_sessions: number;
-  "Conversion%": number;
+  sales_1d: number;
+  purchases_1d: number;
 }
 
 export interface XrayDataResponse {

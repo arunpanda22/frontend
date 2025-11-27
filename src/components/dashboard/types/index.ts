@@ -6,15 +6,8 @@ export interface MetricsCardProps {
   icon: LucideIcon;
   change?: string;
   changeType?: "increase" | "decrease";
-  bgColor?:
-    | "blue"
-    | "green" 
-    | "purple"
-    | "orange"
-    | "red"
-    | "indigo"
-    | "pink"
-    | "yellow";
+  bgColor?: string;
+  color?: string;
   className?: string;
   showTrendButton?: boolean;  // Changed from 'false' to 'boolean'
   trendData?: any;  // You can make this more specific based on your chart data structure

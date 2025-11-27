@@ -188,7 +188,7 @@ const TrendsChart = () => {
     <div className="w-full space-y-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Trends Analysis</h1>
+        {/* <h1 className="text-3xl font-bold text-gray-900">Trends Analysis</h1> */}
         <p className="text-gray-600 mt-2">
           {period === '30' ? 'Daily trends over the last 30 days' : 'Weekly trends over the last 90 days'}
         </p>

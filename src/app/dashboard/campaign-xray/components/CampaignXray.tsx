@@ -52,8 +52,8 @@ const KPI_OPTIONS = [
   { id: 'cvr', title: 'CVR %', keys: ['CVR%'], format: 'percent', color: '#3B82F6', category: 'Advertising' },
   { id: 'acos', title: 'ACOS %', keys: ['ACOS%'], format: 'percent', color: '#DC2626', category: 'Advertising' },
   { id: 'cpa', title: 'CPA', keys: ['CPA'], format: 'currency', color: '#7C3AED', category: 'Advertising' },
-  { id: 'sales_30d', title: 'Ad Sales (30d)', keys: ['sales_30d'], format: 'currency', color: '#14B8A6', category: 'Advertising' },
-  { id: 'purchases_30d', title: 'Purchases (30d)', keys: ['purchases_30d'], format: 'number', color: '#F97316', category: 'Advertising' },
+  { id: 'sales_1d', title: 'Ad Sales (30d)', keys: ['sales_1d'], format: 'currency', color: '#14B8A6', category: 'Advertising' },
+  { id: 'purchases_1d', title: 'Purchases (30d)', keys: ['purchases_1d'], format: 'number', color: '#F97316', category: 'Advertising' },
 ] as const;
 
 type KPIKey = typeof KPI_OPTIONS[number]['id'];

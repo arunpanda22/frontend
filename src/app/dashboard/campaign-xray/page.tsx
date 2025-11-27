@@ -55,8 +55,6 @@ const CampaignXrayPage = () => {
 
               <CampaignXrayChart />
    
-    
-    
         </div>
       </div>
     </div>

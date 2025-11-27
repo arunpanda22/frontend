@@ -155,31 +155,31 @@ const AsinIntelligenceContent = () => {
           title: "TOTAL SALES",
           value: "Loading...",
           icon: DollarSign,
-          bgColor: "green" as const,
+          bgColor: "bg-jungle-teal-200",
         },
         {
           title: "TOTAL QUANTITY",
           value: "Loading...",
           icon: Package,
-          bgColor: "blue" as const,
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "AVG. BUYBOX",
           value: "Loading...",
           icon: Percent,
-          bgColor: "orange" as const,
+          bgColor: "bg-jungle-teal-200",
         },
         {
           title: "RETURN RATE",
           value: "Loading...",
           icon: RotateCcw,
-          bgColor: "red" as const,
+          bgColor: "bg-jungle-teal-100",
         },
         {
           title: "REPLACEMENT RATE",
           value: "Loading...",
           icon: Coins,
-          bgColor: "purple" as const,
+          bgColor: "bg-jungle-teal-200",
         },
       ];
     }
@@ -189,31 +189,32 @@ const AsinIntelligenceContent = () => {
         title: "TOTAL SALES",
         value: formatNumber(summaryStats.totalSales),
         icon: DollarSign,
-        bgColor: "green" as const,
+        bgColor: "bg-jungle-teal-200" ,
       },
       {
         title: "TOTAL QUANTITY",
         value: formatNumber(summaryStats.totalQuantity),
         icon: Package,
-        bgColor: "blue" as const,
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "AVG. BUYBOX",
         value: formatPercentage(summaryStats.avgBuyBox),
         icon: Percent,
-        bgColor: "orange" as const,
+        bgColor: "bg-jungle-teal-200",
+        
       },
       {
         title: "RETURN RATE",
         value: formatPercentage(summaryStats.avgReturnRate),
         icon: RotateCcw,
-        bgColor: "red" as const,
+        bgColor: "bg-jungle-teal-100",
       },
       {
         title: "REPLACEMENT RATE",
         value: formatPercentage(summaryStats.avgReplacementRate),
         icon: Coins,
-        bgColor: "purple" as const,
+        bgColor: "bg-jungle-teal-200",
       },
     ];
   }, [summaryStats, formatCurrency, formatNumber, formatPercentage]);
