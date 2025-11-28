@@ -120,20 +120,36 @@ export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
   };
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  if (!dateStr) return "-";
+
+  try {
+    // Input: 2025-11-28T02:13:23.558000-05:00
+    const [datePart, timeAndZone] = dateStr.split("T");
+
+    const [year, month, day] = datePart.split("-").map(Number);
+
+    // Extract time and timezone
+    const match = timeAndZone.match(/(\d{2}:\d{2}:\d{2})\.\d+([+-]\d{2}:\d{2})/);
+    if (!match) return dateStr;
+
+    const time = match[1];                 // "02:13:23"
+    const timezone = match[2];             // "-05:00"
+
+    let [hour, minute, second] = time.split(":").map(Number);
+
+    // Convert to AM/PM formatting (just formatting — NOT timezone shifting)
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 1; // convert 0 → 12
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    return `${monthNames[month - 1]} ${day}, ${year}, ${hour.toString().padStart(2, "0")}:${minute
+      .toString()
+      .padStart(2, "0")} ${ampm}`;
+  } catch {
+    return dateStr;
+  }
+};
 
   if (isLoading) {
     return (

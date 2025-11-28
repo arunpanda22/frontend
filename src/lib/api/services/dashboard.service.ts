@@ -348,30 +348,6 @@ export interface CampaignMetricsResponse {
   changes: CampaignMetricsChanges;
 }
 
-// Campaign X-Ray Types
-export interface XrayDataItem {
-  time_group: string;
-  "Total Sales": number;
-  "Total Quantity": number;
-  "Sales ASP": number;
-  impressions: number;
-  clicks: number;
-  "CTR%": number;
-  CPC: number;
-  cost: number;
-  "CVR%": number;
-  "ACOS%": number;
-  CPA: number;
-  sales_1d: number;
-  purchases_1d: number;
-}
-
-export interface XrayDataResponse {
-  xray_data: XrayDataItem[];
-  available_campaigns: string[];
-  selected_campaigns: string[];
-}
-
 export interface OrganicSalesItem {
   asin: string;
   product_name: string;
@@ -765,33 +741,4 @@ export const dashboardService = {
     return res.data;
   },
 
-  // Campaign X-Ray Data
-  async getXrayData(options: {
-    campaign_names?: string[];
-    focus_level?: "high" | "medium" | "low" | "all";
-  }) {
-    console.log("Fetching campaign xray data with options:", options);
-
-    const params: Record<string, any> = {
-      focus_level: options.focus_level || "all",
-    };
-
-    // FIXED: Use 'campaigns' (not 'campaign_names') as the parameter name
-    // Send campaign names as comma-separated string
-    if (options.campaign_names && options.campaign_names.length > 0) {
-      params.campaigns = options.campaign_names.join(",");
-    }
-
-    console.log("Request params:", params);
-
-    const res = await apiClient.get<XrayDataResponse>(
-      "/api/v1/dashboard-api/xray-data/",
-      {
-        params,
-      }
-    );
-
-    console.log("X-ray data response received:", res.data);
-    return res.data;
-  },
 };

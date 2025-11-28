@@ -5,7 +5,7 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 import { ChevronDown, TrendingUp, DollarSign, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/chartcard';
 import { FilterDropdown } from '@/components/dashboard/ui/FilterDropdown';
-import { useCampaignXrayData } from '@/lib/hooks/queries/use-dashboard';
+import { useCampaignXrayData } from '@/lib/hooks/useCampaignQueries';
 import { useCurrency } from '@/lib/context/CurrencyContext';
 
 // State components

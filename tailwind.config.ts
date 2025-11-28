@@ -112,7 +112,7 @@ const config = {
 				900: '#161D1A',  
 				950: '#0F1512',
 			},
-			goldenrod: {
+			"goldenrod": {
 				50:  '#FFF8E5',
 				100: '#FFF1CC',
 				200: '#FFE499',

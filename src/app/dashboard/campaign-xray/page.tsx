@@ -1,17 +1,16 @@
+// app/dashboard/campaign-xray/page.tsx
+
 "use client";
 import React from "react";
-// import CampaignMetricsCardGrid from "./components/CampaignMetricsCardGrid"; // Import the new component
-// import AdsTimelineChart from "./components/AdsTimelineChart";
 import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { DateRangeProvider, useDateRange } from "@/lib/context/DateRangeContext";
 import type { Range } from "react-date-range"; 
 import CampaignXrayChart from "./components/CampaignXray";
+import { CampaignSegmentsTables } from "./components/CampaignSegmentsTables";
 
 const CampaignXrayPage = () => {
-  // Access the date range context
   const { dateRange, updateCustomDates } = useDateRange();
   
-  // Convert context date range to FilterBar format
   const filterBarDateRange = {
     startDate: dateRange.startDate ? new Date(dateRange.startDate) : undefined,
     endDate: dateRange.endDate ? new Date(dateRange.endDate) : undefined,
@@ -20,7 +19,6 @@ const CampaignXrayPage = () => {
 
   const handleDateRangeChange = (newRange: Range) => {
     if (newRange.startDate && newRange.endDate) {
-      // Format dates as YYYY-MM-DD in local timezone to avoid UTC conversion issues
       const formatLocalDate = (date: Date): string => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -37,7 +35,7 @@ const CampaignXrayPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] py-12 px-12">
-      <div className="w-full transition-all duration-300 ">
+      <div className="w-full transition-all duration-300">
         {/* Date Range Filter */}
         <FilterBar
           title="🎯 Campaign Xray"
@@ -45,16 +43,17 @@ const CampaignXrayPage = () => {
           onDateRangeChange={handleDateRangeChange}
         />
 
-    
+        {/* Campaign Xray Chart Section */}
+        <div className="mb-8">
+          <CampaignXrayChart />
+        </div>
 
-        {/* Advertising Snapshot Section */}
-        <div className="flex flex-col">
-          {/* <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
-            Advertising Snapshot
-          </h2> */}
-
-              <CampaignXrayChart />
-   
+        {/* Campaign Segments Tables Section */}
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-[#1a2b3c] tracking-tight mb-6 px-2">
+            Campaign Performance Segments
+          </h2>
+          <CampaignSegmentsTables />
         </div>
       </div>
     </div>
