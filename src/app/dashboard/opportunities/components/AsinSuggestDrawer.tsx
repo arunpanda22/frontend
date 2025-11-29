@@ -13,8 +13,8 @@ import type {
   ColumnDefinition,
   TableData,
 } from "@/components/dashboard/table/advanced-data-table";
-import type { KeywordRecommendation } from "@/lib/hooks/use-asin-suggest-opportunities";
-import { useAsinSuggestOpportunities } from "@/lib/hooks/use-asin-suggest-opportunities";
+import type { KeywordRecommendation } from "@/lib/hooks/use-opportunities";
+import { useAsinSuggestOpportunities } from "@/lib/hooks/use-opportunities";
 import toast from "react-hot-toast";
 
 // ==================== COLUMN DEFINITIONS ====================

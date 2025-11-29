@@ -12,8 +12,8 @@ import type {
   ColumnDefinition,
   TableData,
 } from "@/components/dashboard/table/advanced-data-table";
-import type { DedupResult } from "@/lib/hooks/use-dedup-opportunities";
-import { useDedupOpportunities } from "@/lib/hooks/use-dedup-opportunities";
+import type { DedupResult } from "@/lib/hooks/use-opportunities";
+import { useDedupOpportunities } from "@/lib/hooks/use-opportunities";
 import toast from "react-hot-toast";
 
 // ==================== COLUMN DEFINITIONS ====================

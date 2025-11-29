@@ -5,7 +5,7 @@ import type {
   ColumnDefinition,
   TableData,
 } from "@/components/dashboard/table/advanced-data-table";
-import type { SQPSearchQuery } from "@/lib/hooks/use-sqp-opportunities";
+import type { SQPSearchQuery } from "@/lib/hooks/use-opportunities";
 
 // ==================== COLUMN DEFINITIONS ====================
 

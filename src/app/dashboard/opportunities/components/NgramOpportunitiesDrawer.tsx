@@ -5,8 +5,8 @@ import type {
   ColumnDefinition,
   TableData,
 } from "@/components/dashboard/table/advanced-data-table";
-import type { NgramKeyword, NgramResponse } from "@/lib/hooks/use-ngram-opportunities";
-import { useNgramOpportunities } from "@/lib/hooks/use-ngram-opportunities";
+import type { NgramKeyword, NgramResponse } from "@/lib/hooks/use-opportunities";
+import { useNgramOpportunities } from "@/lib/hooks/use-opportunities";
 import toast from "react-hot-toast";
 
 // ==================== COLUMN DEFINITIONS ====================

@@ -19,6 +19,7 @@ import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer"
 import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
 import { AsinSuggestDrawer } from "./components/AsinSuggestDrawer";
 import toast, { Toaster } from "react-hot-toast";
+import { CompetiRankDrawer } from "./components/CompetiRankDrawer";
 
 // Opportunities metadata
 const OPPORTUNITIES = [
@@ -68,7 +69,7 @@ const OPPORTUNITIES = [
     bgColor: "from-powder-blue-50 to-powder-blue-100",
     borderColor: "border-powder-blue-200",
     buttonText: "Coming soon",
-    disabled: true,
+    disabled: false,
   },
   {
     id: "similar",
@@ -149,6 +150,8 @@ export default function OpportunitiesPage() {
       setSelectedOpportunity("dedup");
     } else if (opportunityId === "asin") {
       setSelectedOpportunity("asin");
+    } else if (opportunityId === "competitor") {
+      setSelectedOpportunity("competitor");
     } else {
       // Placeholder for other opportunities
       console.log(`Clicked on: ${opportunityId}`);
@@ -200,6 +203,12 @@ export default function OpportunitiesPage() {
 
       {selectedOpportunity === "asin" && (
         <AsinSuggestDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+        />
+      )}
+      {selectedOpportunity === "competitor" && (
+        <CompetiRankDrawer
           isOpen={true}
           onClose={closeDrawer}
         />
