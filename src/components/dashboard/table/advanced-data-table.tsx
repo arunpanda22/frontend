@@ -81,18 +81,36 @@ interface CellRendererProps {
 }
 
 const calculateOptimalHeaderWidth = (headerText: string): number => {
-  const gripIconWidth = 16;
+  // const gripIconWidth = 16;
   const menuButtonWidth = 28;
   const gapWidth = 8;
   const paddingWidth = 16;
   const resizeHandleWidth = 6;
-  const charWidth = 9;
-  
-  const textWidth = headerText.length * charWidth;
-  const totalWidth = gripIconWidth + textWidth + gapWidth + menuButtonWidth + paddingWidth + resizeHandleWidth;
-  
-  return Math.max(120, Math.ceil(totalWidth / 5) * 5);
+
+  const smallCharWidth = 9;  // a-z, 0-9
+  const largeCharWidth = 13; // A-Z and all symbols
+
+  const isSmall = (ch: string) => /[a-z0-9]/.test(ch);   // lowercase + digits
+  const isLargeOrSymbol = (ch: string) => !isSmall(ch);  // everything else
+
+  let textWidth = 0;
+
+  for (const ch of headerText) {
+    textWidth += isSmall(ch) ? smallCharWidth : largeCharWidth;
+  }
+
+  const totalWidth =
+    // gripIconWidth +
+    textWidth +
+    gapWidth +
+    menuButtonWidth +
+    paddingWidth 
+    // resizeHandleWidth;
+
+  // Round to nearest 5 and keep minimum 120
+  return Math.max(100, Math.ceil(totalWidth / 5) * 5);
 };
+
 
 const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
   const [isHovered, setIsHovered] = useState(false)
@@ -532,7 +550,7 @@ export function AdvancedDataTable({
     (e: React.MouseEvent, field: string) => {
       e.preventDefault()
       e.stopPropagation()
-      const startWidth = columnWidths[field] ?? 180
+      const startWidth = columnWidths[field] ?? 120
       resizingRef.current = { field, startX: e.clientX, startWidth }
       document.body.style.cursor = "col-resize"
       document.body.classList.add("select-none")
@@ -546,7 +564,7 @@ export function AdvancedDataTable({
       if (!r) return
       const delta = e.clientX - r.startX
       const col = internalColumns.find((c) => c.field === r.field)
-      const min = col?.minWidth ?? 240
+      const min = col?.minWidth ?? 120
       const max = col?.maxWidth ?? 400
       const newWidth = Math.max(min, Math.min(max, r.startWidth + delta))
       setColumnWidths((prev) => {
@@ -942,7 +960,7 @@ export function AdvancedDataTable({
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200  overflow-hidden shadow-sm">
         <div className="overflow-auto" style={{ height: `${containerHeight}px` }}>
           <div className="relative">
             <table className="table-fixed w-full border-collapse min-w-full">
@@ -995,7 +1013,7 @@ export function AdvancedDataTable({
                       >
                         <div className="flex items-center justify-between h-12 px-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <GripVertical className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                            {/* <GripVertical className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" /> */}
                             <span className="truncate font-bold text-black text-sm tracking-wide">
                               {column.headerName}
                             </span>
@@ -1083,7 +1101,7 @@ export function AdvancedDataTable({
                               right: rightOffset,
                             }}
                           >
-                            <div className="h-11 px-4 flex items-center">
+                            <div className="h-11 px-2 flex items-center">
                               {!isEmpty && (
                                 <CellRenderer
                                   value={(row as TableData)[column.field as keyof TableData]}

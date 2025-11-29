@@ -2,7 +2,14 @@
 
 "use client";
 import React, { useMemo } from "react";
-import { TrendingUp, Zap, AlertTriangle, TrendingDown, Loader2, AlertCircle } from "lucide-react";
+import {
+  TrendingUp,
+  Zap,
+  AlertTriangle,
+  TrendingDown,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { AdvancedDataTable } from "@/components/dashboard/table/advanced-data-table";
 import type {
   ColumnDefinition,
@@ -20,29 +27,42 @@ const SEGMENT_COLUMNS: ColumnDefinition[] = [
     headerName: "Campaign Name",
     type: "text",
     editable: false,
-    pinned: "left",
-    width: 250,
     autoFitHeader: true,
   },
   {
     field: "sales",
     headerName: "Sales",
     editable: false,
-    width: 120,
+    autoFitHeader: true,
+  },
+  {
+    field: "sales_change_pct",
+    headerName: "Sales Change%",
+    editable: false,
     autoFitHeader: true,
   },
   {
     field: "cost",
     headerName: "Cost",
     editable: false,
-    width: 120,
+    autoFitHeader: true,
+  },
+  {
+    field: "cost_change_pct",
+    headerName: "Cost Change%",
+    editable: false,
     autoFitHeader: true,
   },
   {
     field: "acos",
     headerName: "ACOS%",
     editable: false,
-    width: 100,
+    autoFitHeader: true,
+  },
+  {
+    field: "acos_change_pct",
+    headerName: "ACOS Change%",
+    editable: false,
     autoFitHeader: true,
   },
   {
@@ -50,7 +70,6 @@ const SEGMENT_COLUMNS: ColumnDefinition[] = [
     headerName: "ROAS",
     type: "number",
     editable: false,
-    width: 100,
     autoFitHeader: true,
   },
   {
@@ -84,12 +103,13 @@ const SEGMENT_COLUMNS: ColumnDefinition[] = [
     width: 100,
     autoFitHeader: true,
   },
-
 ];
 
 // ==================== HELPER FUNCTIONS ====================
 
-const transformSegmentData = (campaigns: CampaignSegmentData[]): TableData[] => {
+const transformSegmentData = (
+  campaigns: CampaignSegmentData[]
+): TableData[] => {
   return campaigns.map((campaign, index) => ({
     ...campaign,
     _uniqueKey: `${campaign.campaign_name}-${index}`,
@@ -126,11 +146,15 @@ const SegmentTable: React.FC<SegmentTableProps> = ({
       <div className={`${bgColor} px-6 py-4 border-b border-jungle-teal-200`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 ${color} bg-opacity-10 rounded-lg flex items-center justify-center`}>
+            <div
+              className={`w-10 h-10 ${color} bg-opacity-10 rounded-lg flex items-center justify-center`}
+            >
               {icon}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-jungle-teal-900">{title}</h3>
+              <h3 className="text-lg font-bold text-jungle-teal-900">
+                {title}
+              </h3>
               <p className="text-sm text-jungle-teal-700">{description}</p>
             </div>
           </div>
@@ -141,7 +165,7 @@ const SegmentTable: React.FC<SegmentTableProps> = ({
       </div>
 
       {/* Table Content */}
-      <div className="p-4">
+      <div className="">
         {tableData.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-jungle-teal-500">
             <AlertCircle className="w-12 h-12 mb-3 opacity-50" />
@@ -170,7 +194,7 @@ export const CampaignSegmentsTables: React.FC = () => {
   // Prepare options for the hook
   const segmentOptions = useMemo(() => {
     if (!dateRange.startDate || !dateRange.endDate) return undefined;
-    
+
     return {
       start_date: dateRange.startDate,
       end_date: dateRange.endDate,
@@ -185,7 +209,9 @@ export const CampaignSegmentsTables: React.FC = () => {
       <div className="flex items-center justify-center py-24">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-jungle-teal-600 animate-spin" />
-          <p className="text-jungle-teal-700 font-medium">Loading campaign segments...</p>
+          <p className="text-jungle-teal-700 font-medium">
+            Loading campaign segments...
+          </p>
         </div>
       </div>
     );
@@ -198,7 +224,9 @@ export const CampaignSegmentsTables: React.FC = () => {
         <div className="flex items-center gap-3">
           <AlertCircle className="w-6 h-6 text-red-500" />
           <div>
-            <p className="text-sm font-medium text-red-800">Error loading segment data</p>
+            <p className="text-sm font-medium text-red-800">
+              Error loading segment data
+            </p>
             <p className="text-xs text-red-600 mt-1">{error.message}</p>
           </div>
         </div>
@@ -211,7 +239,9 @@ export const CampaignSegmentsTables: React.FC = () => {
     return (
       <div className="bg-jungle-teal-50 rounded-xl p-12 text-center">
         <AlertCircle className="w-16 h-16 text-jungle-teal-400 mx-auto mb-4" />
-        <p className="text-jungle-teal-700 font-medium">No segment data available</p>
+        <p className="text-jungle-teal-700 font-medium">
+          No segment data available
+        </p>
         <p className="text-sm text-jungle-teal-600 mt-2">
           Select a date range to view campaign segments
         </p>
@@ -225,36 +255,57 @@ export const CampaignSegmentsTables: React.FC = () => {
       <div className="bg-white rounded-xl border border-powder-blue-200 shadow-sm p-6">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           <div className="flex flex-col">
-            <div className="text-sm text-powder-blue-700 font-medium mb-2">Total Campaigns</div>
-            <div className="text-3xl font-bold text-powder-blue-900">{data.summary.total_campaigns_analyzed}</div>
-          </div>
-          <div className="flex flex-col">
-            <div className="text-sm text-powder-blue-700 font-medium mb-2">Top 80% Campaigns</div>
-            <div className="text-3xl font-bold text-powder-blue-900">{data.summary.top_80_campaigns}</div>
-          </div>
-          <div className="flex flex-col">
-            <div className="text-sm text-powder-blue-700 font-medium mb-2">Scalers</div>
-            <div className="text-3xl font-bold text-powder-blue-900">{data.summary.scalers_count}</div>
-          </div>
-          <div className="flex flex-col">
-            <div className="text-sm text-powder-blue-700 font-medium mb-2">Efficient Low-Scale</div>
-            <div className="text-3xl font-bold text-powder-blue-900">{data.summary.efficient_low_scale_count}</div>
-          </div>
-          <div className="flex flex-col">
-            <div className="text-sm text-powder-blue-700 font-medium mb-2">Need Attention</div>
+            <div className="text-sm text-powder-blue-700 font-medium mb-2">
+              Total Campaigns
+            </div>
             <div className="text-3xl font-bold text-powder-blue-900">
-              {data.summary.inefficient_wasteful_count + data.summary.decline_diagnostic_count}
+              {data.summary.total_campaigns_analyzed}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <div className="text-sm text-powder-blue-700 font-medium mb-2">
+              Top 80% Campaigns
+            </div>
+            <div className="text-3xl font-bold text-powder-blue-900">
+              {data.summary.top_80_campaigns}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <div className="text-sm text-powder-blue-700 font-medium mb-2">
+              Scalers
+            </div>
+            <div className="text-3xl font-bold text-powder-blue-900">
+              {data.summary.scalers_count}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <div className="text-sm text-powder-blue-700 font-medium mb-2">
+              Efficient Low-Scale
+            </div>
+            <div className="text-3xl font-bold text-powder-blue-900">
+              {data.summary.efficient_low_scale_count}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <div className="text-sm text-powder-blue-700 font-medium mb-2">
+              Need Attention
+            </div>
+            <div className="text-3xl font-bold text-powder-blue-900">
+              {data.summary.inefficient_wasteful_count +
+                data.summary.decline_diagnostic_count}
             </div>
           </div>
         </div>
-        
+
         {/* Period Info */}
         <div className="mt-6 pt-4 border-t border-powder-blue-200 text-xs text-powder-blue-600">
           <p>
-            Current Period: {data.period_info.current_start} to {data.period_info.current_end}
+            Current Period: {data.period_info.current_start} to{" "}
+            {data.period_info.current_end}
           </p>
           <p className="mt-1">
-            Previous Period: {data.period_info.previous_start} to {data.period_info.previous_end}
+            Previous Period: {data.period_info.previous_start} to{" "}
+            {data.period_info.previous_end}
           </p>
         </div>
       </div>
