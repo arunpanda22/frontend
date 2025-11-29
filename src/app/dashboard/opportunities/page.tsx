@@ -20,6 +20,8 @@ import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
 import { AsinSuggestDrawer } from "./components/AsinSuggestDrawer";
 import toast, { Toaster } from "react-hot-toast";
 import { CompetiRankDrawer } from "./components/CompetiRankDrawer";
+import { KeywordClusterDrawer } from "./components/KeywordClusterDrawer";
+import { CompetingAsinsDrawer } from "./components/CompetingAsinsDrawer";
 
 // Opportunities metadata
 const OPPORTUNITIES = [
@@ -81,7 +83,7 @@ const OPPORTUNITIES = [
     bgColor: "from-powder-blue-50 to-powder-blue-100",
     borderColor: "border-powder-blue-200",
     buttonText: "Coming soon",
-    disabled: true,
+    disabled: false,
   },
   {
     id: "rivalasin",
@@ -93,7 +95,7 @@ const OPPORTUNITIES = [
     bgColor: "from-powder-blue-50 to-powder-blue-100",
     borderColor: "border-powder-blue-200",
     buttonText: "Coming soon",
-    disabled: true,
+    disabled: false,
   },
   {
     id: "ngram-positive",
@@ -152,6 +154,10 @@ export default function OpportunitiesPage() {
       setSelectedOpportunity("asin");
     } else if (opportunityId === "competitor") {
       setSelectedOpportunity("competitor");
+    } else if (opportunityId === "similar") {
+      setSelectedOpportunity("similar");
+    } else if (opportunityId === "rivalasin") {
+      setSelectedOpportunity("rivalasin");
     } else {
       // Placeholder for other opportunities
       console.log(`Clicked on: ${opportunityId}`);
@@ -209,6 +215,18 @@ export default function OpportunitiesPage() {
       )}
       {selectedOpportunity === "competitor" && (
         <CompetiRankDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+        />
+      )}
+      {selectedOpportunity === "similar" && (
+        <KeywordClusterDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+        />
+      )}
+      {selectedOpportunity === "rivalasin" && (
+        <CompetingAsinsDrawer
           isOpen={true}
           onClose={closeDrawer}
         />
