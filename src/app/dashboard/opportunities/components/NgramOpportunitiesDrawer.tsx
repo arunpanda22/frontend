@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { X, TrendingUp, TrendingDown, Target, AlertCircle, Loader2 } from "lucide-react";
 import { AdvancedDataTable } from "@/components/dashboard/table/advanced-data-table";
 import type {
@@ -312,6 +312,13 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
 
   const { data, isLoading, error, fetchData } = useNgramOpportunities(submittedAcos);
 
+  useEffect(() => {
+    if (submittedAcos !== null) {
+      fetchData();
+    }
+  }, [submittedAcos, fetchData]);
+
+  // Simplify handleSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -322,8 +329,7 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
       return;
     }
 
-    setSubmittedAcos(acosValue);
-    fetchData();
+    setSubmittedAcos(acosValue);  // This will trigger the useEffect
   };
 
   const tableData = useMemo(() => {

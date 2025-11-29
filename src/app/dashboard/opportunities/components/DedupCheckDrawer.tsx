@@ -1,5 +1,12 @@
-import React, { useState, useMemo } from "react";
-import { X, Copy, AlertCircle, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  X,
+  Copy,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { AdvancedDataTable } from "@/components/dashboard/table/advanced-data-table";
 import type {
   ColumnDefinition,
@@ -68,10 +75,12 @@ const DEDUP_COLUMNS: ColumnDefinition[] = [
 const transformDedupData = (results: DedupResult[]): TableData[] => {
   return results.map((result, index) => {
     const totalMatches = result.exact + result.phrase + result.broad;
-    
+
     return {
       ...result,
-      has_duplicates: result.has_duplicates ? "✓ Duplicate Found" : "✗ No Duplicates",
+      has_duplicates: result.has_duplicates
+        ? "✓ Duplicate Found"
+        : "✗ No Duplicates",
       total_matches: totalMatches,
       _uniqueKey: `${result.asin}-${result.keyword}-${index}`,
       _originalIndex: index,
@@ -86,30 +95,36 @@ interface DedupOpportunitiesDrawerProps {
   onClose: () => void;
 }
 
-export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> = ({
-  isOpen,
-  onClose,
-}) => {
+export const DedupOpportunitiesDrawer: React.FC<
+  DedupOpportunitiesDrawerProps
+> = ({ isOpen, onClose }) => {
   const [asinInput, setAsinInput] = useState<string>("");
   const [keywordsInput, setKeywordsInput] = useState<string>("");
   const [submittedAsin, setSubmittedAsin] = useState<string | null>(null);
-  const [submittedKeywords, setSubmittedKeywords] = useState<string[] | null>(null);
+  const [submittedKeywords, setSubmittedKeywords] = useState<string[] | null>(
+    null
+  );
 
   const { data, isLoading, error, fetchData } = useDedupOpportunities(
     submittedAsin,
     submittedKeywords
   );
 
+  useEffect(() => {
+    if (submittedAsin !== null && submittedKeywords !== null) {
+      fetchData();
+    }
+  }, [submittedAsin, submittedKeywords, fetchData]);
+
+  // Simplify handleSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate ASIN
     if (!asinInput.trim()) {
       toast.error("Please enter an ASIN");
       return;
     }
 
-    // Validate and parse keywords
     const keywordArray = keywordsInput
       .split(",")
       .map((kw) => kw.trim())
@@ -122,7 +137,7 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
 
     setSubmittedAsin(asinInput.trim());
     setSubmittedKeywords(keywordArray);
-    fetchData();
+    // Remove fetchData() from here
   };
 
   const tableData = useMemo(() => {
@@ -131,11 +146,13 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
   }, [data]);
 
   const duplicateCount = useMemo(() => {
-    return tableData.filter((row) => row.has_duplicates === "✓ Duplicate Found").length;
+    return tableData.filter((row) => row.has_duplicates === "✓ Duplicate Found")
+      .length;
   }, [tableData]);
 
   const noDuplicateCount = useMemo(() => {
-    return tableData.filter((row) => row.has_duplicates === "✗ No Duplicates").length;
+    return tableData.filter((row) => row.has_duplicates === "✗ No Duplicates")
+      .length;
   }, [tableData]);
 
   if (!isOpen) return null;
@@ -155,7 +172,8 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
           <div>
             <h2 className="text-2xl font-bold text-gray-900">DedupCheck</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Instantly detect duplicate keywords across all campaigns & match types
+              Instantly detect duplicate keywords across all campaigns & match
+              types
             </p>
           </div>
 
@@ -231,7 +249,9 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-red-500" />
               <div>
-                <p className="text-sm font-medium text-red-800">Error loading data</p>
+                <p className="text-sm font-medium text-red-800">
+                  Error loading data
+                </p>
                 <p className="text-xs text-red-600 mt-1">{error.message}</p>
               </div>
             </div>
@@ -248,7 +268,9 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
                 </div>
                 <div>
                   <div className="text-xs opacity-90">Keywords Checked</div>
-                  <div className="text-2xl font-bold">{data.keywords_checked}</div>
+                  <div className="text-2xl font-bold">
+                    {data.keywords_checked}
+                  </div>
                 </div>
               </div>
 
@@ -261,7 +283,6 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
                   <div className="text-2xl font-bold">{duplicateCount}</div>
                 </div>
               </div>
-
             </div>
           </div>
         )}
@@ -271,7 +292,9 @@ export const DedupOpportunitiesDrawer: React.FC<DedupOpportunitiesDrawerProps> =
           {!data && !isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Copy className="w-16 h-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium">Enter ASIN and Keywords to Begin</p>
+              <p className="text-lg font-medium">
+                Enter ASIN and Keywords to Begin
+              </p>
               <p className="text-sm mt-2">
                 Check for duplicate keywords across different match types
               </p>

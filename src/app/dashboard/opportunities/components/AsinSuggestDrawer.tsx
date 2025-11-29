@@ -1,6 +1,13 @@
 // components/opportunities/AsinSuggestDrawer.tsx
-import React, { useState, useMemo } from "react";
-import { X, Target, AlertCircle, Loader2, Sparkles, TrendingUp } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  X,
+  Target,
+  AlertCircle,
+  Loader2,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 import { AdvancedDataTable } from "@/components/dashboard/table/advanced-data-table";
 import type {
   ColumnDefinition,
@@ -122,7 +129,9 @@ const ASIN_SUGGEST_COLUMNS: ColumnDefinition[] = [
 
 // ==================== HELPER FUNCTIONS ====================
 
-const transformAsinSuggestData = (keywords: KeywordRecommendation[]): TableData[] => {
+const transformAsinSuggestData = (
+  keywords: KeywordRecommendation[]
+): TableData[] => {
   return keywords.map((keyword, index) => ({
     ...keyword,
     _uniqueKey: `${keyword.asin}-${keyword.keyword}-${keyword.matchType}-${index}`,
@@ -144,19 +153,26 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
   const [asinInput, setAsinInput] = useState<string>("");
   const [submittedAsin, setSubmittedAsin] = useState<string | null>(null);
 
-  const { data, isLoading, error, fetchData } = useAsinSuggestOpportunities(submittedAsin);
+  const { data, isLoading, error, fetchData } =
+    useAsinSuggestOpportunities(submittedAsin);
 
+  useEffect(() => {
+    if (submittedAsin !== null) {
+      fetchData();
+    }
+  }, [submittedAsin, fetchData]);
+
+  // Simplify handleSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate ASIN
     if (!asinInput.trim()) {
       toast.error("Please enter an ASIN");
       return;
     }
 
     setSubmittedAsin(asinInput.trim());
-    fetchData();
+    // Remove fetchData() from here
   };
 
   const tableData = useMemo(() => {
@@ -176,7 +192,10 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
 
   const averageBid = useMemo(() => {
     if (tableData.length === 0) return 0;
-    const total = tableData.reduce((sum, row) => sum + (row.bid as number || 0), 0);
+    const total = tableData.reduce(
+      (sum, row) => sum + ((row.bid as number) || 0),
+      0
+    );
     return total / tableData.length;
   }, [tableData]);
 
@@ -201,7 +220,8 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
           <div>
             <h2 className="text-2xl font-bold text-gray-900">ASINSuggest</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Get Amazon ads keyword recommendations for any ASIN - powered by Amazon Ads API
+              Get Amazon ads keyword recommendations for any ASIN - powered by
+              Amazon Ads API
             </p>
           </div>
 
@@ -217,7 +237,6 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
         <div className="px-6 py-5 bg-deep-space-50 border-b border-deep-space-200">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-end gap-4">
-
               {/* ASIN INPUT */}
               <div className="flex-1 items-center md:max-w-xs">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -263,14 +282,15 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
           </form>
         </div>
 
-
         {/* Error State */}
         {error && (
           <div className="px-6 py-4 bg-red-50 border-l-4 border-red-500">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-red-500" />
               <div>
-                <p className="text-sm font-medium text-red-800">Error loading recommendations</p>
+                <p className="text-sm font-medium text-red-800">
+                  Error loading recommendations
+                </p>
                 <p className="text-xs text-red-600 mt-1">{error.message}</p>
               </div>
             </div>
@@ -338,7 +358,8 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
               <Target className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg font-medium">Enter an ASIN to Begin</p>
               <p className="text-sm mt-2">
-                Get Amazon-backed keyword recommendations for profitable targeting
+                Get Amazon-backed keyword recommendations for profitable
+                targeting
               </p>
             </div>
           )}

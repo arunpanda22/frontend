@@ -185,17 +185,17 @@ const TrendsChart = () => {
   if (!dataset?.length) return <EmptyState message="No data available" />;
 
   return (
-    <div className="w-full space-y-6 p-6 bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
+    <div className="w-full p-6 bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
       {/* Header */}
-      <div className="mb-8">
-        {/* <h1 className="text-3xl font-bold text-gray-900">Trends Analysis</h1> */}
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-gray-900">Trends Analysis</h1>
         <p className="text-gray-600 mt-2">
           {period === '30' ? 'Daily trends over the last 30 days' : 'Weekly trends over the last 90 days'}
         </p>
       </div>
 
       {/* Controls */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+      <div className="bg-white rounded-t-lg border border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           {/* Metrics Filter */}
           <div className="relative" ref={metricsFilterRef}>
@@ -272,7 +272,7 @@ const TrendsChart = () => {
       </div>
 
       {/* Chart */}
-      <Card className="shadow-md">
+      <Card className="shadow-md rounded-b-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-3 flex-wrap">
             {chartMetrics.map((m, idx) => {

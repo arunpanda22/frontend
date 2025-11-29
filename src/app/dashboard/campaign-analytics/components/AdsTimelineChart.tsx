@@ -250,7 +250,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
   if (!dataset?.length) return <EmptyState message="No data available for the selected period" />;
 
   return (
-    <div className="w-full space-y-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6">
+    <div className="w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6">
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Ads Timeline</h2>
@@ -258,7 +258,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
       </div>
 
       {/* Controls */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+      <div className="bg-white rounded-t-lg border border-gray-200 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           {/* Metrics Filter */}
           <div className="relative" ref={metricsFilterRef}>
@@ -376,7 +376,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
       </div> */}
 
       {/* Chart */}
-      <Card className="shadow-md">
+      <Card className="shadow-md rounded-b-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-3 flex-wrap">
             {chartMetrics.map((m, idx) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { X, Check } from "lucide-react";
 
 interface FilterItem {
@@ -32,11 +32,27 @@ export function FilterDropdown({
     new Set(initialSelected)
   );
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Sync local state with parent's selected items when they change
   useEffect(() => {
     setLocalSelected(new Set(initialSelected));
   }, [initialSelected]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearchQuery("");
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
 
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
@@ -86,7 +102,7 @@ export function FilterDropdown({
   const isAllSelected = localSelected.size === items.length && items.length > 0;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={dropdownRef}>
       <div className="relative">
         <div className="flex p-2 border border-gray-200 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
           <input

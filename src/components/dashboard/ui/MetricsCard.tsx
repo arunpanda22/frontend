@@ -209,11 +209,11 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
       {/* Trend Modal */}
       {showTrendModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed top-16 inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
           onClick={handleCloseTrendModal}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-[80vw] h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-[80vw] h-[80vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
