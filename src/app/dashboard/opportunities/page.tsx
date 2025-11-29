@@ -13,7 +13,7 @@ import {
   Sparkles,
   Lock,
 } from "lucide-react";
-import { useSQPOpportunities } from "@/lib/hooks/use-sqp-opportunities";
+import { useSQPOpportunities } from "@/lib/hooks/use-opportunities";
 import { SQPOpportunitiesDrawer } from "./components/SQPOpportunitiesDrawer";
 import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer";
 import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
