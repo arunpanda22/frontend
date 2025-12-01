@@ -138,7 +138,8 @@ export const CompetingAsinsDrawer: React.FC<CompetingAsinsDrawerProps> = ({
     min_click_share?: number;
   }>({});
 
-  const { data, isLoading, error, fetchData } = useCompetingAsins(submittedParams);
+  const { data, isLoading, error, fetchData } =
+    useCompetingAsins(submittedParams);
 
   useEffect(() => {
     if (Object.keys(submittedParams).length > 0) {
@@ -223,42 +224,40 @@ export const CompetingAsinsDrawer: React.FC<CompetingAsinsDrawerProps> = ({
         {/* Input Form */}
         <div className="px-6 py-4 bg-powder-blue-50 border-b border-powder-blue-200">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ASINs (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={asinsInput}
-                  onChange={(e) => setAsinsInput(e.target.value)}
-                  placeholder="e.g., B00LN30QJI,B007OU63NM"
-                  className="w-full px-4 py-2 border border-powder-blue-300 rounded-lg focus:ring-2 focus:ring-powder-blue-500 focus:border-powder-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Comma separated (uses your ASINs if empty)
-                </p>
+            <div className="flex justify-start gap-4">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-4">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    ASINs
+                  </label>
+                  <input
+                    type="text"
+                    value={asinsInput}
+                    onChange={(e) => setAsinsInput(e.target.value)}
+                    placeholder="e.g., B00LN30QJI,B007OU63NM"
+                    className="w-full px-4 py-2 border border-powder-blue-300 rounded-sm focus:ring-2 focus:ring-powder-blue-500 focus:border-powder-blue-500"
+                  />
+                </div>
               </div>
+              <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`px-6 py-2 rounded-sm h-10 font-semibold text-white transition-all ${
+                    isLoading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-powder-blue-500 to-powder-blue-600 hover:shadow-lg"
+                  }`}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Finding Competitors...
+                    </span>
+                  ) : (
+                    "Find Competing ASINs"
+                  )}
+                </button>
             </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`px-6 py-2 rounded-lg font-semibold text-white transition-all ${
-                isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-powder-blue-500 to-powder-blue-600 hover:shadow-lg"
-              }`}
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Finding Competitors...
-                </span>
-              ) : (
-                "Find Competing ASINs"
-              )}
-            </button>
           </form>
         </div>
 
@@ -347,34 +346,6 @@ export const CompetingAsinsDrawer: React.FC<CompetingAsinsDrawerProps> = ({
                 </div>
               )} */}
             </div>
-
-            {/* Top Competitors Section */}
-            {data.top_competitors && data.top_competitors.length > 0 && (
-              <div className="px-6 py-4 bg-yellow-50 border-b border-yellow-200">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">
-                  🏆 Top 10 Competitors by Frequency
-                </h3>
-                <div className="grid grid-cols-5 gap-3">
-                  {data.top_competitors.map((competitor, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white p-3 rounded-lg border border-yellow-200 shadow-sm"
-                    >
-                      <div className="text-xs text-gray-500 mb-1">#{idx + 1}</div>
-                      <div className="font-mono text-sm font-bold text-gray-900 mb-1">
-                        {competitor.asin}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        <span className="font-medium">{competitor.occurrence_count}</span> occurrences
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        Avg Click: <span className="font-medium">{(competitor.avg_click_share * 100).toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 
@@ -406,7 +377,7 @@ export const CompetingAsinsDrawer: React.FC<CompetingAsinsDrawerProps> = ({
             <AdvancedDataTable
               data={tableData}
               columns={COMPETING_ASINS_COLUMNS}
-              rowsPerPage={25}
+              rowsPerPage={10}
               showCheckboxColumn={false}
               className="h-full"
             />

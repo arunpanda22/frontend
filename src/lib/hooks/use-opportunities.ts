@@ -248,6 +248,23 @@ export interface CompetingAsinsRequest {
   min_click_share?: number;
 }
 
+export interface ProductRecommendation {
+  "Top converting targets": string | null;
+  "Similar items with low ratings and reviews": string | null;
+  "Similar items (frequently viewed together)": string | null;
+}
+
+export interface ProductRecommendationsResponse {
+  recommendations: ProductRecommendation[];
+  total_recommendations: number;
+  asin: string;
+  statusCode: number;
+}
+
+export interface ProductRecommendationsRequest {
+  asin: string;
+}
+
 // ==================== QUERY KEYS ====================
 
 export const opportunitiesQueryKeys = {
@@ -291,6 +308,11 @@ export const opportunitiesQueryKeys = {
     all: ["competing-asins"] as const,
     list: (params: CompetingAsinsRequest) =>
       ["competing-asins", "list", params] as const,
+  },
+  productRecommendations: {
+    all: ["product-recommendations"] as const,
+    list: (asin: string | null) =>
+      ["product-recommendations", "list", asin] as const,
   },
 };
 
@@ -354,6 +376,16 @@ async function fetchCompetingAsins(
   const { data } = await apiClient.get("/api/v1/dashboard-api/competing-asins/", {
     params,
   });
+  return data;
+}
+
+async function fetchProductRecommendations(
+  request: ProductRecommendationsRequest
+): Promise<ProductRecommendationsResponse> {
+  const { data } = await apiClient.post(
+    "/api/v1/dashboard-api/product-recommendations/",
+    request
+  );
   return data;
 }
 
@@ -567,6 +599,39 @@ export const useCompetingAsins = (params: CompetingAsinsRequest) => {
   };
 };
 
+export const useProductRecommendations = (asin: string | null) => {
+  const [isEnabled, setIsEnabled] = useState(false);
+
+  const query = useQuery({
+    queryKey: opportunitiesQueryKeys.productRecommendations.list(asin),
+    queryFn: async () => {
+      if (!asin) {
+        throw new Error("ASIN is required");
+      }
+      return fetchProductRecommendations({ asin });
+    },
+    enabled: isEnabled && asin !== null && asin.trim().length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+
+  const fetchData = () => {
+    if (asin && asin.trim().length > 0) {
+      setIsEnabled(true);
+      query.refetch();
+    }
+  };
+
+  return {
+    data: query.data as ProductRecommendationsResponse | undefined,
+    isLoading: query.isLoading,
+    error: (query.error as Error) ?? null,
+    fetchData,
+    isEnabled,
+  };
+};
+
 // ==================== HELPER FUNCTIONS ====================
 
 // SQP Helpers
@@ -639,4 +704,62 @@ export const groupByDepartment = (records: KeywordClusterRecord[]) => {
 
 export const getUniqueSearchTerms = (records: KeywordClusterRecord[]) => {
   return [...new Set(records.map((record) => record.search_term))];
+};
+
+export const extractAllAsins = (
+  recommendations: ProductRecommendation[]
+): string[] => {
+  const asins = new Set<string>();
+  
+  recommendations.forEach((rec) => {
+    if (rec["Top converting targets"]) {
+      asins.add(rec["Top converting targets"]);
+    }
+    if (rec["Similar items with low ratings and reviews"]) {
+      asins.add(rec["Similar items with low ratings and reviews"]);
+    }
+    if (rec["Similar items (frequently viewed together)"]) {
+      asins.add(rec["Similar items (frequently viewed together)"]);
+    }
+  });
+  
+  return Array.from(asins).filter(Boolean);
+};
+
+// Get recommendations by category
+export const getRecommendationsByCategory = (
+  recommendations: ProductRecommendation[]
+) => {
+  return {
+    topConverting: recommendations
+      .map((r) => r["Top converting targets"])
+      .filter(Boolean) as string[],
+    lowRatings: recommendations
+      .map((r) => r["Similar items with low ratings and reviews"])
+      .filter(Boolean) as string[],
+    frequentlyViewed: recommendations
+      .map((r) => r["Similar items (frequently viewed together)"])
+      .filter(Boolean) as string[],
+  };
+};
+
+// Count recommendations by type
+export const countRecommendationTypes = (
+  recommendations: ProductRecommendation[]
+) => {
+  let topConvertingCount = 0;
+  let lowRatingsCount = 0;
+  let frequentlyViewedCount = 0;
+
+  recommendations.forEach((rec) => {
+    if (rec["Top converting targets"]) topConvertingCount++;
+    if (rec["Similar items with low ratings and reviews"]) lowRatingsCount++;
+    if (rec["Similar items (frequently viewed together)"]) frequentlyViewedCount++;
+  });
+
+  return {
+    topConvertingCount,
+    lowRatingsCount,
+    frequentlyViewedCount,
+  };
 };

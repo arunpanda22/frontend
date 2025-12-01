@@ -49,7 +49,7 @@ export function useAdminReportDetails(id: string, source: 'ads' | 'fba') {
 export function useAdminReportStatusSummary() {
   return useQuery({
     queryKey: adminQueryKeys.reportStatusSummary,
-    queryFn: () => adminDashboardService.getReportStatusSummary(30),
+    queryFn: () => adminDashboardService.getReportStatusSummary(7),
     staleTime: 1 * 60 * 1000, // 1 minute
   })
 }

@@ -378,7 +378,7 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
             <AdvancedDataTable
               data={tableData}
               columns={ASIN_SUGGEST_COLUMNS}
-              rowsPerPage={25}
+              rowsPerPage={10}
               showCheckboxColumn={false}
               className="h-full"
             />

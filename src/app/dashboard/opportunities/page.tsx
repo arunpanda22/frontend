@@ -12,12 +12,14 @@ import {
   Filter,
   Sparkles,
   Lock,
+  Package,
 } from "lucide-react";
 import { useSQPOpportunities } from "@/lib/hooks/use-opportunities";
 import { SQPOpportunitiesDrawer } from "./components/SQPOpportunitiesDrawer";
 import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer";
 import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
 import { AsinSuggestDrawer } from "./components/AsinSuggestDrawer";
+import { ProductRecommendationsDrawer } from "./components/ProductRecommendationsDrawer";
 import toast, { Toaster } from "react-hot-toast";
 import { CompetiRankDrawer } from "./components/CompetiRankDrawer";
 import { KeywordClusterDrawer } from "./components/KeywordClusterDrawer";
@@ -62,6 +64,18 @@ const OPPORTUNITIES = [
     disabled: false,
   },
   {
+    id: "product-recommendations",
+    name: "Product Suggest",
+    headline: "Discover High-Converting Product Targets Based on Amazon's Intelligence",
+    description: "Find similar products, top converters, and frequently viewed together ASINs.",
+    icon: Package,
+    color: "bg-powder-blue-600",
+    bgColor: "from-powder-blue-50 to-powder-blue-100",
+    borderColor: "border-powder-blue-200",
+    buttonText: "Find Products",
+    disabled: false,
+  },
+  {
     id: "competitor",
     name: "CompetiRank",
     headline: "See the Keywords Your Competitors Dominate — And Take Their Market Share.",
@@ -70,7 +84,7 @@ const OPPORTUNITIES = [
     color: "bg-powder-blue-600",
     bgColor: "from-powder-blue-50 to-powder-blue-100",
     borderColor: "border-powder-blue-200",
-    buttonText: "Coming soon",
+    buttonText: "Find Keywords",
     disabled: false,
   },
   {
@@ -82,7 +96,7 @@ const OPPORTUNITIES = [
     color: "bg-powder-blue-600",
     bgColor: "from-powder-blue-50 to-powder-blue-100",
     borderColor: "border-powder-blue-200",
-    buttonText: "Coming soon",
+    buttonText: "Get keyword variants",
     disabled: false,
   },
   {
@@ -94,7 +108,7 @@ const OPPORTUNITIES = [
     color: "bg-powder-blue-600",
     bgColor: "from-powder-blue-50 to-powder-blue-100",
     borderColor: "border-powder-blue-200",
-    buttonText: "Coming soon",
+    buttonText: "Find Rivals",
     disabled: false,
   },
   {
@@ -152,6 +166,8 @@ export default function OpportunitiesPage() {
       setSelectedOpportunity("dedup");
     } else if (opportunityId === "asin") {
       setSelectedOpportunity("asin");
+    } else if (opportunityId === "product-recommendations") {
+      setSelectedOpportunity("product-recommendations");
     } else if (opportunityId === "competitor") {
       setSelectedOpportunity("competitor");
     } else if (opportunityId === "similar") {
@@ -213,18 +229,28 @@ export default function OpportunitiesPage() {
           onClose={closeDrawer}
         />
       )}
+
+      {selectedOpportunity === "product-recommendations" && (
+        <ProductRecommendationsDrawer
+          isOpen={true}
+          onClose={closeDrawer}
+        />
+      )}
+
       {selectedOpportunity === "competitor" && (
         <CompetiRankDrawer
           isOpen={true}
           onClose={closeDrawer}
         />
       )}
+
       {selectedOpportunity === "similar" && (
         <KeywordClusterDrawer
           isOpen={true}
           onClose={closeDrawer}
         />
       )}
+
       {selectedOpportunity === "rivalasin" && (
         <CompetingAsinsDrawer
           isOpen={true}
@@ -376,13 +402,13 @@ export default function OpportunitiesPage() {
                   ScaleFinder
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Identifies new keywords specifically for scaling ad performance
+                  Identifies new keywords and products specifically for scaling ad performance
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {OPPORTUNITIES.filter((o) =>
-                ["dedup", "competitor", "similar", "asin", "rivalasin"].includes(o.id)
+                ["dedup", "competitor", "similar", "asin", "rivalasin", "product-recommendations"].includes(o.id)
               ).map((opportunity) => {
                 const Icon = opportunity.icon;
                 const isHovered = hoveredCard === opportunity.id;

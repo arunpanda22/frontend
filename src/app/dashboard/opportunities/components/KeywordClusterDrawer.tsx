@@ -230,7 +230,7 @@ export const KeywordClusterDrawer: React.FC<KeywordClusterDrawerProps> = ({
                   value={wordsInput}
                   onChange={(e) => setWordsInput(e.target.value)}
                   placeholder="e.g., educational toy or wooden,puzzle"
-                  className="w-full px-4 py-2 border border-powder-blue-300 rounded-lg focus:ring-2 focus:ring-powder-blue-500 focus:border-powder-blue-500"
+                  className="w-full px-4 py-2 border border-powder-blue-300 rounded-sm focus:ring-2 focus:ring-powder-blue-500 focus:border-powder-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Space or comma separated

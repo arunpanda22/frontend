@@ -905,9 +905,9 @@ export function AdvancedDataTable({
   }, [pinnedColumns.right, columnWidths])
 
   return (
-    <div className={cn("w-full space-y-6 bg-slate-50", className)}>
+    <div className={cn("w-full bg-slate-50", className)}>
       {showExportCard && (
-        <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <div className={`flex items-center justify-between p-4 bg-white border border-slate-200 rounded-t-lg shadow-sm`}>
           <div className="flex items-center gap-4">
             {selectedRows.size > 0 && (
               <Button
@@ -960,7 +960,7 @@ export function AdvancedDataTable({
         </div>
       )}
 
-      <div className="bg-white border border-slate-200  overflow-hidden shadow-sm">
+      <div className={`bg-white border border-slate-200 ${!showExportCard && "rounded-t-lg"} overflow-hidden shadow-sm`}>
         <div className="overflow-auto" style={{ height: `${containerHeight}px` }}>
           <div className="relative">
             <table className="table-fixed w-full border-collapse min-w-full">
@@ -1128,7 +1128,7 @@ export function AdvancedDataTable({
         </div>
       </div>
 
-      <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
+      <div className="flex items-center  justify-between p-4 bg-white border border-slate-200 rounded-b-lg shadow-sm">
         <div className="flex items-center gap-4">
           <div className="text-sm text-slate-600 font-medium">
             Showing <span className="font-bold text-slate-800">{paginationData.startIndex + 1}</span> to{" "}

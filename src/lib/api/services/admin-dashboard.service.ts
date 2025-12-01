@@ -918,7 +918,7 @@ export const adminDashboardService = {
     return res.data
   },
 
-  async getReportStatusSummary(days = 30) {
+  async getReportStatusSummary(days = 7) {
     const res = await apiClient.get(
       '/api/v1/rbac-admin/reports/status-summary/',
       { params: { days } }
