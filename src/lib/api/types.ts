@@ -267,6 +267,7 @@ export interface CurrencyContextType {
   getCurrencySymbol: (marketplaceId?: string) => string; 
   formatCurrencyNoDecimal: (value: number, marketplaceId?: string) => string;
   formatNumber: (value: number) => string;
+  formatNumberWithDecimals: (value: number) => string;
   formatPercentage: (value: number) => string;
   formatPercentageNoDecimal: (value: number) => number;
   formatChange: (change: number, suffix?: string) => string;

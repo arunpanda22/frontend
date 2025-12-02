@@ -2,9 +2,8 @@
 
 import React, { useMemo, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import useChartColors from '@/lib/hooks/useChartColors'
 import { ApexOptions } from 'apexcharts'
-import type { HourlyDataPoint } from '@/lib/hooks/useRealtimeOrders'
+import { HourlyDataPoint } from '@/lib/hooks/useRealtimeOrders'
 
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import('react-apexcharts'), {
@@ -16,19 +15,38 @@ const ReactApexChart = dynamic(() => import('react-apexcharts'), {
   ),
 })
 
+// interface HourlyDataPoint {
+//   date: string;
+//   hour: string;
+//   period: string;
+//   quantity: number;
+//   timestamp: string; // This is a label like "12 AM - 1 AM", not an ISO timestamp
+// }
+
 interface HourlyOrdersChartProps {
   hourlyData: HourlyDataPoint[] | null;
   isLoading?: boolean;
 }
 
+// Format date for display (short version)
+const formatDateShort = (dateStr: string | null) => {
+  if (!dateStr) return "";
+
+  try {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    return `${monthNames[month - 1]} ${day}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartProps) => {
   const [isMounted, setIsMounted] = useState(false);
   
   // Chart colors: solid (today), dashed (yesterday), dotted (day before)
-  const chartsColor = useChartColors({ 
-    chartColors: '[bg-blue-500, bg-purple-500, bg-pink-500]',
-    chartDarkColors: '[bg-blue-400, bg-purple-400, bg-pink-400]'
-  });
+  const chartsColor = ['#3b82f6', '#a855f7', '#ec4899'];
 
   // Wait for component to mount before rendering chart
   useEffect(() => {
@@ -108,13 +126,13 @@ const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartP
     // Categories: 0 to 23 (just hours)
     const categories = Array.from({ length: 24 }, (_, i) => i.toString());
 
-    // Create time labels for tooltips (from the actual data)
-    // Use any available date's timestamps since they're the same for all days
+    // Create time labels for tooltips (use the timestamp label from API)
     const timeLabels = Array(24).fill('');
     const availableDate = todayDate || yesterdayDate || dayBeforeDate;
     if (availableDate && dataByDate[availableDate]) {
       dataByDate[availableDate].forEach(point => {
         const hourIndex = getHourIndex(point.hour, point.period);
+        // Use the timestamp label from API (e.g., "12 AM - 1 AM")
         timeLabels[hourIndex] = point.timestamp;
       });
     }
@@ -122,15 +140,15 @@ const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartP
     return {
       series: [
         {
-          name: `Today (${todayDate})`,
+          name: `Today (${formatDateShort(todayDate)})`,
           data: todayData,
         },
         {
-          name: `Yesterday (${yesterdayDate})`,
+          name: `Yesterday (${formatDateShort(yesterdayDate)})`,
           data: yesterdayData,
         },
         {
-          name: `2 Days Ago (${dayBeforeDate})`,
+          name: `2 Days Ago (${formatDateShort(dayBeforeDate)})`,
           data: dayBeforeData,
         },
       ],
@@ -259,7 +277,8 @@ const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartP
       x: {
         formatter: function (val, opts) {
           const hourIndex = opts?.dataPointIndex ?? (typeof val === 'number' ? val : parseInt(String(val)));
-          return timeLabels[hourIndex] || `${hourIndex}:00`;
+          // Use the timestamp label from the API (e.g., "12 AM - 1 AM")
+          return timeLabels[hourIndex] || `Hour ${hourIndex}`;
         },
       },
       y: {
@@ -291,7 +310,7 @@ const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartP
         },
       ],
     },
-  }), [categories, chartsColor, currentHour]);
+  }), [categories, chartsColor, currentHour, timeLabels]);
 
   if (isLoading) {
     return (
@@ -356,15 +375,15 @@ const HourlyOrdersChart = ({ hourlyData, isLoading = false }: HourlyOrdersChartP
       <div className="mt-4 flex items-center justify-center gap-6 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-8 h-0.5 bg-blue-500"></div>
-          <span className="text-gray-600">Today ({metadata.today_date})</span>
+          <span className="text-gray-600">Today ({formatDateShort(metadata.today_date)})</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-8 h-0.5 bg-purple-500" style={{ borderTop: '2px dashed #a855f7' }}></div>
-          <span className="text-gray-600">Yesterday ({metadata.yesterday_date})</span>
+          <span className="text-gray-600">Yesterday ({formatDateShort(metadata.yesterday_date)})</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-8 h-0.5 bg-pink-500" style={{ borderTop: '2px dotted #ec4899' }}></div>
-          <span className="text-gray-600">2 Days Ago ({metadata.day_before_date})</span>
+          <span className="text-gray-600">2 Days Ago ({formatDateShort(metadata.day_before_date)})</span>
         </div>
       </div>
     </div>

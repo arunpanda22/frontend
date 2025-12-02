@@ -45,35 +45,16 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     await queryClient.invalidateQueries({ queryKey: ['marketplace-currencies'] });
   }, [queryClient]);
 
-  /** 💲 Formatter with decimals (existing) */
+  /** 💲 Formatter with decimals - returns plain number */
   const formatCurrency = useCallback((value: number, marketplaceId?: string): string => {
-    if (isNaN(value) || value === null || value === undefined) return '0';
+    if (isNaN(value) || value === null || value === undefined) return '0.00';
     
-    const targetMarketplace = marketplaceId || defaultMarketplace || Object.keys(currencies)[0];
-    const currencyInfo = currencies[targetMarketplace]?.currency_info || primaryCurrency;
-    
-    if (!currencyInfo) {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    }
-
-    const formattedNumber = new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
       useGrouping: true,
-    }).format(Math.abs(value));
-
-    const sign = value < 0 ? '-' : '';
-    const { symbol, position } = currencyInfo;
-
-    return position === 'after'
-      ? `${sign}${formattedNumber}${symbol}`
-      : `${sign}${symbol}${formattedNumber}`;
-  }, [currencies, primaryCurrency, defaultMarketplace]);
+    }).format(value);
+  }, []);
 
   const getCurrencySymbol = useCallback((marketplaceId?: string): string => {
     const targetMarketplace =
@@ -85,27 +66,16 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     return currencyInfo?.symbol ?? '$';
   }, [currencies, primaryCurrency, defaultMarketplace]);
 
-
-  /** 💲 New formatter: Currency without decimals */
+  /** 💲 Currency without decimals - returns plain number */
   const formatCurrencyNoDecimal = useCallback((value: number, marketplaceId?: string): string => {
     if (isNaN(value) || value === null || value === undefined) return '0';
     
-    const targetMarketplace = marketplaceId || defaultMarketplace || Object.keys(currencies)[0];
-    const currencyInfo = currencies[targetMarketplace]?.currency_info || primaryCurrency;
-
-    const formattedNumber = new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
       useGrouping: true,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(Math.abs(value));
-
-    const sign = value < 0 ? '-' : '';
-    const { symbol, position } = currencyInfo || { symbol: '$', position: 'before' };
-
-    return position === 'after'
-      ? `${sign}${formattedNumber}${symbol}`
-      : `${sign}${symbol}${formattedNumber}`;
-  }, [currencies, primaryCurrency, defaultMarketplace]);
+    }).format(value);
+  }, []);
 
   /** 123,456 — plain number */
   const formatNumber = useCallback((value: number): string => {
@@ -116,10 +86,20 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     }).format(value);
   }, []);
 
-  /** 45.67% */
+  /** 123,456.78 — plain number with 2 decimals */
+  const formatNumberWithDecimals = useCallback((value: number): string => {
+    if (isNaN(value) || value === null || value === undefined) return '0.00';
+    return new Intl.NumberFormat('en-US', {
+      useGrouping: true,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }, []);
+
+  /** 45.67 - returns number without % symbol */
   const formatPercentage = useCallback((value: number): string => {
-    if (isNaN(value) || value === null || value === undefined) return '0%';
-    return `${value.toFixed(2)}%`;
+    if (isNaN(value) || value === null || value === undefined) return '0';
+    return value.toFixed(2);
   }, []);
 
   const formatPercentageNoDecimal = useCallback((value: number): number => {
@@ -127,9 +107,9 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     return Math.round(value);
   }, []);
 
-  /** +5.3% / -2.1% */
-  const formatChange = useCallback((change: number, suffix: string = "%"): string => {
-    if (isNaN(change) || change === null || change === undefined) return '0%';
+  /** +5.3 / -2.1 - returns signed number without % symbol */
+  const formatChange = useCallback((change: number, suffix: string = ""): string => {
+    if (isNaN(change) || change === null || change === undefined) return '0';
     const absChange = Math.abs(change);
     const sign = change >= 0 ? "+" : "-";
     return `${sign}${absChange.toFixed(1)}${suffix}`;
@@ -141,8 +121,9 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     error,
     formatCurrency,
     getCurrencySymbol,
-    formatCurrencyNoDecimal, // 👈 Added here
+    formatCurrencyNoDecimal,
     formatNumber,
+    formatNumberWithDecimals,
     formatPercentage,
     formatPercentageNoDecimal,
     formatChange,

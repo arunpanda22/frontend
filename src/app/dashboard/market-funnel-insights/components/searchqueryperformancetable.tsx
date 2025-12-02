@@ -12,7 +12,7 @@ interface SearchQueryPerformanceProps {
 
 export default function SearchQueryPerformanceTable({ data }: SearchQueryPerformanceProps) {
   // Define table columns with advanced data table structure
-  const { formatCurrency, formatNumber, formatPercentage } = useCurrency();
+  const { formatCurrency, formatNumberWithDecimals, formatPercentage } = useCurrency();
 
   const initialColumns: ColumnDefinition[] = useMemo(() => [
     {
@@ -141,12 +141,12 @@ export default function SearchQueryPerformanceTable({ data }: SearchQueryPerform
       search_query: item.search_query || '',
       total_click_count: item.total_click_count || 0,
       asin_click_count: item.asin_click_count || 0,
-      total_median_click_price: item.total_median_click_price || 0,
-      asin_median_click_price: item.asin_median_click_price || 0,
+      total_median_click_price: formatNumberWithDecimals(item.total_median_click_price) || 0,
+      asin_median_click_price: formatNumberWithDecimals(item.asin_median_click_price) || 0,
       total_purchase_count: item.total_purchase_count || 0,
       asin_purchase_count: item.asin_purchase_count || 0,
-      total_conversion: item.total_conversion || 0,
-      asin_conversion: item.asin_conversion || 0,
+      total_conversion: formatPercentage(item.total_conversion) || 0,
+      asin_conversion: formatPercentage(item.asin_conversion) || 0,
       keyword_exists: item.keyword_exists || false,
       conversion_greater_than_market: item.conversion_greater_than_market || false,
     }));
