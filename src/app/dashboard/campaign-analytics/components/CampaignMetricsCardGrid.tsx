@@ -22,7 +22,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
   const { dateRange } = useDateRange();
 
   // Access the currency context
-  const { formatCurrency, formatNumber, formatCurrencyNoDecimal, formatPercentage, error: currencyError } = useCurrency();
+  const { formatCurrency, formatNumber, getCurrencySymbol, formatCurrencyNoDecimal, formatPercentage, error: currencyError } = useCurrency();
 
   // Fetch campaign metrics data using the hook
   const {
@@ -151,7 +151,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "CPC",
-        value: formatCurrency(current.CPC),
+        value: `${getCurrencySymbol()}${formatCurrency(current.CPC)}`,
         icon: DollarSign,
         // change: `${formatChange(changes.CPC)}`,
         // changeType: changes.CPC >= 0 ? "decrease" : "increase", // Lower CPC is better
@@ -159,7 +159,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "Ad Costs",
-        value: formatCurrencyNoDecimal(current["Ad Costs"]),
+        value: `${getCurrencySymbol()}${formatCurrency(current["Ad Costs"])}`,
         icon: TrendingDown,
         // change: `${formatChange(changes["Ad Costs"])}`,
         // changeType: changes["Ad Costs"] >= 0 ? "decrease" : "increase", // Lower costs might be better
@@ -183,7 +183,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "Ad Sales",
-        value: formatCurrencyNoDecimal(current["Ads Sales"]),
+        value: `${getCurrencySymbol()}${formatCurrency(current["Ads Sales"])}`,
         icon: ShoppingCart,
         // change: `${formatChange(changes["Ads Sales"])}`,
         // changeType: changes["Ads Sales"] >= 0 ? "increase" : "decrease",

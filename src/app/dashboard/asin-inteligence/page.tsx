@@ -35,7 +35,7 @@ interface AsinData {
 const AsinIntelligenceContent = () => {
   // Access the date range context
   const { dateRange, updateCustomDates } = useDateRange();
-  const { formatCurrency, formatNumber, formatPercentage } = useCurrency();
+  const { formatCurrency, formatNumber, formatCurrencyNoDecimal, getCurrencySymbol, formatPercentage } = useCurrency();
 
   // Convert context date range to FilterBar format
   const filterBarDateRange = {
@@ -187,7 +187,7 @@ const AsinIntelligenceContent = () => {
     return [
       {
         title: "TOTAL SALES",
-        value: formatNumber(summaryStats.totalSales),
+        value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(summaryStats.totalSales)}`,
         icon: DollarSign,
         bgColor: "bg-jungle-teal-200" ,
       },

@@ -11,7 +11,7 @@ import { useCurrency } from "@/lib/context/CurrencyContext";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 
 export default function RealtimeOrdersPage() {
-  const { formatCurrency, formatCurrencyNoDecimal, formatNumber, formatPercentage, formatChange } = useCurrency();
+  const { formatCurrency, formatCurrencyNoDecimal, formatNumber, formatPercentage, formatChange, getCurrencySymbol } = useCurrency();
   const { data: userProfile } = useUserProfile();
   const sellerId = userProfile?.connected_seller_accounts?.[0]?.seller_id;
 
@@ -70,7 +70,7 @@ export default function RealtimeOrdersPage() {
     return [
       {
         title: "Today's Revenue",
-        value: formatCurrencyNoDecimal(revenue),
+        value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`,
         icon: DollarSign,
         bgColor: "bg-jungle-teal-100",
       },
@@ -88,7 +88,7 @@ export default function RealtimeOrdersPage() {
       },
       {
         title: "Avg. Selling Price",
-        value: formatCurrency(asp),
+        value: `${getCurrencySymbol()}${formatCurrency(asp)}`,
         icon: DollarSign,
         bgColor: "bg-jungle-teal-200",
       },

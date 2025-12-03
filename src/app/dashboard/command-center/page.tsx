@@ -24,7 +24,7 @@ const DashboardContent = () => {
 
   // Access the date range context
   const { dateRange, updateCustomDates } = useDateRange();
-  const { formatCurrency, formatNumber, formatCurrencyNoDecimal , formatPercentage, formatChange } = useCurrency();
+  const { formatCurrency, formatNumber, formatCurrencyNoDecimal , formatPercentage, getCurrencySymbol, formatChange } = useCurrency();
 
   // Convert context date range to FilterBar format
   const filterBarDateRange = {
@@ -70,13 +70,13 @@ const DashboardContent = () => {
       // Return loading state
       return [
         {
-          title: "Total Revenue",
+          title: "Revenue",
           value: "Loading...",
           icon: DollarSign,
           bgColor: "bg-powder-blue-100",
         },
         {
-          title: "Units Sold",
+          title: "Units",
           value: "Loading...",
           icon: Package,
           bgColor: "bg-powder-blue-200",
@@ -108,15 +108,15 @@ const DashboardContent = () => {
 
     return [
       {
-        title: "Total Revenue",
-        value: formatCurrencyNoDecimal(current["Total Sales"]),
+        title: "Revenue",
+        value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(current["Total Sales"])}`,
         icon: DollarSign,
         // change: `${formatChange(changes["Total Sales"])}`,
         // changeType: changes["Total Sales"] >= 0 ? "increase" : "decrease",
         bgColor: "bg-powder-blue-100",
       },
       {
-        title: "Units Sold",
+        title: "Units",
         value: formatNumber(current["Total Orders"]),
         icon: Package,
         // change: `${formatChange(changes["Total Orders"])} `,
@@ -125,7 +125,7 @@ const DashboardContent = () => {
       },
       {
         title: "AOV",
-        value: formatCurrency(current["AOV"]),
+        value: `${getCurrencySymbol()}${formatCurrency(current["AOV"])}`,
         icon: ShoppingCart,
         // change: `${formatChange(changes["AOV"])} `,
         // changeType: changes["AOV"] >= 0 ? "increase" : "decrease",
