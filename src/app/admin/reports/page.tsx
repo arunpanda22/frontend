@@ -122,9 +122,11 @@ export default function AdminReportsPage() {
               <option value="">All status</option>
               <option value="PENDING">PENDING</option>
               <option value="IN_PROGRESS">IN_PROGRESS</option>
-              <option value="COMPLETED">COMPLETED</option>
+              <option value="GENERATED">GENERATED</option>
+              <option value="COMPLETED">COMPLETED</option> 
+              <option value="CANCELLED">CANCELLED</option> 
               <option value="FAILED">FAILED</option>
-              <option value="failed">failed</option>
+              
             </select>
           </div>
           <div className="md:col-span-2 flex gap-2">

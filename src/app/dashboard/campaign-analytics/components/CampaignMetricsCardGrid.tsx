@@ -159,7 +159,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "Ad Costs",
-        value: `${getCurrencySymbol()}${formatCurrency(current["Ad Costs"])}`,
+        value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(current["Ad Costs"])}`,
         icon: TrendingDown,
         // change: `${formatChange(changes["Ad Costs"])}`,
         // changeType: changes["Ad Costs"] >= 0 ? "decrease" : "increase", // Lower costs might be better
@@ -183,7 +183,7 @@ const CampaignMetricsCardGrid: React.FC = () => {
       },
       {
         title: "Ad Sales",
-        value: `${getCurrencySymbol()}${formatCurrency(current["Ads Sales"])}`,
+        value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(current["Ads Sales"])}`,
         icon: ShoppingCart,
         // change: `${formatChange(changes["Ads Sales"])}`,
         // changeType: changes["Ads Sales"] >= 0 ? "increase" : "decrease",

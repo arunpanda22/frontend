@@ -180,6 +180,7 @@ export interface NegativeKeywordSuggestion {
   search_term?: string; // SP
   query?: string;       // SB
   Source_Type: string;
+  Type:string;
 }
 
 
