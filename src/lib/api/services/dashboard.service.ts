@@ -154,6 +154,7 @@ export interface TrendsDataItem {
   cost: number;
   "CVR%": number;
   "ACOS%": number;
+  "TACOS%": number;
   CPA: number;
   sales_30d: number;
   purchases_30d: number;

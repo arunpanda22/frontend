@@ -38,20 +38,21 @@ const EmptyState = ({ message }: { message: string }) => (
 // KPI Options
 const KPI_OPTIONS = [
   // Advertising
-  { id: 'impressions', title: 'Impressions', keys: ['impressions'], format: 'number', color: '#3B82F6', category: 'Advertising' },
+  { id: 'impressions', title: 'Impressions', keys: ['impressions'], format: 'number', color: '#ADC8F3', category: 'Advertising' },
   { id: 'clicks', title: 'Clicks', keys: ['clicks'], format: 'number', color: '#1E40AF', category: 'Advertising' },
   { id: 'ctr', title: 'CTR %', keys: ['CTR%'], format: 'percent', color: '#60A5FA', category: 'Advertising' },
   { id: 'cpc', title: 'CPC', keys: ['CPC'], format: 'currency', color: '#0EA5E9', category: 'Advertising' },
   { id: 'cost', title: 'Cost', keys: ['cost'], format: 'currency', color: '#06B6D4', category: 'Advertising' },
   { id: 'conversion', title: 'Conversion %', keys: ['CVR%'], format: 'percent', color: '#0D9488', category: 'Advertising' },
-  { id: 'acos', title: 'ACOS %', keys: ['ACOS%'], format: 'percent', color: '#EC4899', category: 'Advertising' },
+  { id: 'acos', title: 'ACOS %', keys: ['ACOS%'], format: 'percent', color: '#F95482', category: 'Advertising' },
+  { id: 'tacos', title: 'TACOS%', keys: ['TACOS%'], format: 'percent', color: '#27FFCC', category: 'Advertising' },
   { id: 'cpa', title: 'CPA', keys: ['CPA'], format: 'currency', color: '#0891B2', category: 'Advertising' },
   
   // Sales
-  { id: 'sales', title: 'Sales', keys: ['sales_30d'], format: 'currency', color: '#10B981', category: 'Sales' },
+  { id: 'ad_sales', title: 'Ads Sales', keys: ['sales_30d'], format: 'currency', color: '#E41F66', category: 'Sales' },
   { id: 'purchases', title: 'Purchases', keys: ['purchases_30d'], format: 'number', color: '#059669', category: 'Sales' },
   { id: 'asp', title: 'ASP', keys: ['Sales ASP'], format: 'currency', color: '#047857', category: 'Sales' },
-  { id: 'totalSales', title: 'Total Sales', keys: ['Total Sales'], format: 'currency', color: '#34D399', category: 'Sales' },
+  { id: 'totalSales', title: 'Total Sales', keys: ['Total Sales'], format: 'currency', color: '#00E0B2', category: 'Sales' },
   
   // Inventory
   { id: 'totalQuantity', title: 'Total Quantity', keys: ['Total Quantity'], format: 'number', color: '#F59E0B', category: 'Inventory' },
@@ -61,7 +62,7 @@ type KPIKey = typeof KPI_OPTIONS[number]['id'];
 
 const TrendsChart = () => {
   // State management
-  const [chartMetrics, setChartMetrics] = useState<KPIKey[]>(['impressions', 'clicks']);
+  const [chartMetrics, setChartMetrics] = useState<KPIKey[]>(['impressions','ad_sales', 'totalSales']);
   const [period, setPeriod] = useState<'30' | '90'>('30');
   const [focusLevel, setFocusLevel] = useState<'high' | 'medium' | 'low' | 'all'>('all');
   const [metricsFilterOpen, setMetricsFilterOpen] = useState(false);
