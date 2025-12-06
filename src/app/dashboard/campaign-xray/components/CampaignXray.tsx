@@ -99,6 +99,22 @@ const KPI_OPTIONS = [
     category: "Advertising",
   },
   {
+    id: "sales_30d",
+    title: "Ad Sales (30d)",
+    keys: ["sales_30d"],
+    format: "currency",
+    color: "#14B8A6",
+    category: "Advertising",
+  },
+  {
+    id: "purchases_30d",
+    title: "Purchases (30d)",
+    keys: ["purchases_30d"],
+    format: "number",
+    color: "#F97316",
+    category: "Advertising",
+  },
+  {
     id: "ctr",
     title: "CTR %",
     keys: ["CTR%"],
@@ -146,22 +162,7 @@ const KPI_OPTIONS = [
     color: "#7C3AED",
     category: "Advertising",
   },
-  {
-    id: "sales_1d",
-    title: "Ad Sales (30d)",
-    keys: ["sales_1d"],
-    format: "currency",
-    color: "#14B8A6",
-    category: "Advertising",
-  },
-  {
-    id: "purchases_1d",
-    title: "Purchases (30d)",
-    keys: ["purchases_1d"],
-    format: "number",
-    color: "#F97316",
-    category: "Advertising",
-  },
+
 ] as const;
 
 type KPIKey = (typeof KPI_OPTIONS)[number]["id"];

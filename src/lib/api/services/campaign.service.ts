@@ -71,8 +71,8 @@ export interface XrayDataItem {
   "CVR%": number;
   "ACOS%": number;
   CPA: number;
-  sales_1d: number;
-  purchases_1d: number;
+  sales_30d: number;
+  purchases_30d: number;
 }
 
 export interface XrayDataResponse {
