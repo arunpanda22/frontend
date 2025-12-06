@@ -132,7 +132,7 @@ export default function AdsOptimizerResultsPage() {
     isOpen: boolean;
     title: string;
     message: string;
-    onConfirm: () => void;
+    onConfirm: (dryrun: boolean) => void; // CHANGED: Now accepts dryrun parameter
     variant?: "danger" | "warning" | "info";
   }>({
     isOpen: false,
@@ -233,25 +233,40 @@ export default function AdsOptimizerResultsPage() {
     setConfirmDialog({
       isOpen: true,
       title: "Push Optimizations",
-      message: `Are you sure you want to push ${count} ${categoryKey} optimizations? This action cannot be undone.`,
+      message: `Are you sure you want to push ${count} ${categoryKey} optimizations? Choose "Dry Run" to test without applying changes, or "Push" to apply immediately.`,
       variant: "info",
-      onConfirm: async () => {
+      onConfirm: async (dryrun: boolean) => {
         setPushingCategory(categoryKey);
-        const toastId = toast.loading("Pushing optimizations...", {
-          position: "top-right",
-        });
+        const toastId = toast.loading(
+          dryrun ? "Testing push (dry run)..." : "Pushing optimizations...",
+          { position: "top-right" }
+        );
 
         try {
-          await pushCategory(categoryKey as any);
-          toast.success(`Successfully pushed ${count} optimizations!`, {
-            id: toastId,
-            duration: 3000,
-          });
-        } catch (error) {
-          toast.error("Failed to push optimizations", {
-            id: toastId,
-            duration: 4000,
-          });
+          const result = await pushCategory(categoryKey as any, dryrun);
+
+          if (result.success) {
+            toast.success(
+              dryrun
+                ? `✅ Dry run successful! ${count} optimizations validated. Check console for details.`
+                : `✅ Successfully pushed ${count} optimizations!`,
+              {
+                id: toastId,
+                duration: dryrun ? 5000 : 3000,
+              }
+            );
+          } else {
+            throw new Error(result.error || "Push failed");
+          }
+        } catch (error: any) {
+          console.error(`❌ Push ${categoryKey} FAILED:`, error);
+          toast.error(
+            `Failed to push optimizations: ${error.message || "Unknown error"}`,
+            {
+              id: toastId,
+              duration: 4000,
+            }
+          );
         } finally {
           setPushingCategory(null);
         }
@@ -262,29 +277,58 @@ export default function AdsOptimizerResultsPage() {
   // Handle push all categories
   const handlePushAll = async () => {
     const availableCount = getAvailableCategories().length;
+    const totalOptimizations = OPTIMIZATION_CATEGORIES.reduce((sum, cat) => {
+      return sum + getCategoryCount(cat.key);
+    }, 0);
 
     setConfirmDialog({
       isOpen: true,
       title: "Push All Optimizations",
-      message: `Are you sure you want to push ALL ${availableCount} categories of optimizations? This will apply all changes and cannot be undone.`,
+      message: `Are you sure you want to push ALL ${availableCount} categories (${totalOptimizations} total optimizations)? Choose "Dry Run" to test without applying changes, or "Push" to apply immediately.`,
       variant: "warning",
-      onConfirm: async () => {
+      onConfirm: async (dryrun: boolean) => {
         setPushingCategory("ALL");
-        const toastId = toast.loading("Pushing all optimizations...", {
-          position: "top-right",
-        });
+        const toastId = toast.loading(
+          dryrun
+            ? "Testing all pushes (dry run)..."
+            : "Pushing all optimizations...",
+          { position: "top-right" }
+        );
 
         try {
-          await pushAll();
-          toast.success("Successfully pushed all optimizations!", {
-            id: toastId,
-            duration: 3000,
-          });
-        } catch (error) {
-          toast.error("Failed to push all optimizations", {
-            id: toastId,
-            duration: 4000,
-          });
+          const result = await pushAll(dryrun);
+
+          if (result.success) {
+            const hasErrors =
+              result.data?.errors && Object.keys(result.data.errors).length > 0;
+
+            toast.success(
+              dryrun
+                ? `✅ Dry run completed! ${availableCount} categories validated. ${
+                    hasErrors ? "Some had errors - " : ""
+                  }Check console for details.`
+                : `✅ Successfully pushed all optimizations!${
+                    hasErrors ? " (with some errors)" : ""
+                  }`,
+              {
+                id: toastId,
+                duration: dryrun ? 5000 : 3000,
+              }
+            );
+          } else {
+            throw new Error(result.error || "Push failed");
+          }
+        } catch (error: any) {
+          console.error("❌ Push ALL FAILED:", error);
+          toast.error(
+            `Failed to push all optimizations: ${
+              error.message || "Unknown error"
+            }`,
+            {
+              id: toastId,
+              duration: 4000,
+            }
+          );
         } finally {
           setPushingCategory(null);
         }
@@ -449,6 +493,7 @@ export default function AdsOptimizerResultsPage() {
         variant={confirmDialog.variant}
         confirmText="Push"
         cancelText="Cancel"
+        showDryRun={true}
       />
 
       {/* Header */}
