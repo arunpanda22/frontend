@@ -57,8 +57,8 @@ export function AccountRegionDialog({ isOpen, onOpenChange }: AccountRegionDialo
 
     const marketplaceCode = COUNTRY_TO_MARKETPLACE[selectedCountry];
     const region = COUNTRY_TO_REGION[selectedCountry];
-    // const marketplaceId = (MARKETPLACE_IDS as any)[region][marketplaceCode];
-    const marketplaceId = marketplaceCode;
+    const marketplaceId = (MARKETPLACE_IDS as any)[region][marketplaceCode];
+    // const marketplaceId = marketplaceCode;
 
     try {
       console.log('Region : ', region)
