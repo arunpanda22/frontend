@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { apiClient } from "@/lib/api/config";
-import { useAdsOptimizerStore } from "./use-ads-optimizer-store";
+import { useAdsOptimizerStore, PushResultData } from "./use-ads-optimizer-store";
 import type { OptimizationKey } from "@/app/dashboard/ads-optimizer/lib/types";
 
 const BID_PLACEMENT_LINKS: Record<OptimizationKey, OptimizationKey | null> = {
@@ -29,6 +29,7 @@ interface PushResult {
   success: boolean;
   data?: any;
   error?: string;
+  result?: PushResultData; // Extracted result for the main category
 }
 
 export function usePushOptimizations() {
@@ -40,7 +41,63 @@ export function usePushOptimizations() {
   } = useAdsOptimizerStore();
 
   /**
+   * Extract standardized result from backend response
+   */
+  const extractPushResult = (response: any, category: OptimizationKey): PushResultData | undefined => {
+    console.log('🔍 extractPushResult called with:', { 
+      category, 
+      responseKeys: Object.keys(response),
+      responseCategory: response.category,
+      responseResults: response.results ? Object.keys(response.results) : 'none'
+    });
+
+    if (response.results && response.results[category]) {
+      console.log(`✅ Found result for ${category}:`, response.results[category]);
+    } else {
+      console.log(`❌ No result found for ${category}`, response.results);
+    }
+    try {
+      // For single category push
+      if (response.category === category) {
+        return {
+          push_id: response.push_id || "",
+          total_items: response.total_items || 0,
+          successful: response.successful || 0,
+          failed: response.failed || 0,
+          duplicates: response.duplicates,
+          errors: response.errors,
+          success_rate: response.success_rate || "0.00%",
+          timestamp: response.timestamp || new Date().toISOString(),
+          details: response.details,
+        };
+      }
+
+      // For multi-category push (results object)
+      if (response.results && response.results[category]) {
+        const catResult = response.results[category];
+        return {
+          push_id: catResult.push_id || "",
+          total_items: catResult.total_items || 0,
+          successful: catResult.successful || 0,
+          failed: catResult.failed || 0,
+          duplicates: catResult.duplicates,
+          errors: catResult.errors,
+          success_rate: catResult.success_rate || "0.00%",
+          timestamp: catResult.timestamp || new Date().toISOString(),
+          details: catResult.details,
+        };
+      }
+
+      return undefined;
+    } catch (error) {
+      console.error("Error extracting push result:", error);
+      return undefined;
+    }
+  };
+
+  /**
    * Push a single category (handles bid-placement linking).
+   * NO RETRY LOGIC - fails immediately on error
    */
   const pushCategory = useCallback(
     async (category: OptimizationKey, dryrun: boolean = false): Promise<PushResult> => {
@@ -66,14 +123,20 @@ export function usePushOptimizations() {
 
           const response = await apiClient.post("/api/v1/ads-optimizer/push/", payload);
 
-          // Mark both as pushed (only if not dryrun)
-          if (!dryrun) {
-            markCategoryAsPushed(category);
-            markCategoryAsPushed(linked);
-          }
+          // Extract results for both categories
+          const mainResult = extractPushResult(response.data, category);
+          const linkedResult = extractPushResult(response.data, linked);
 
-          console.log(`Push ${category} (with ${linked}) ${dryrun ? '[DRY RUN]' : ''}:`, response.data);
-          return { success: true, data: response.data };
+          // DELETE data from memory after push (for both dry-run and actual push)
+          markCategoryAsPushed(category, mainResult);
+          markCategoryAsPushed(linked, linkedResult);
+
+          console.log(`✅ Push ${category} (with ${linked}) ${dryrun ? '[DRY RUN]' : ''}:`, response.data);
+          return { 
+            success: true, 
+            data: response.data,
+            result: mainResult 
+          };
         }
 
         // --- CASE 2: Single category push ---
@@ -85,16 +148,25 @@ export function usePushOptimizations() {
 
         const response = await apiClient.post("/api/v1/ads-optimizer/push/", payload);
 
-        // Mark as pushed (only if not dryrun)
-        if (!dryrun) {
-          markCategoryAsPushed(category);
-          clearCategoryEdits(category);
-        }
+        // Extract result
+        const result = extractPushResult(response.data, category);
 
-        console.log(`Push ${category} ${dryrun ? '[DRY RUN]' : ''}:`, response.data);
-        return { success: true, data: response.data };
+        console.log('📊 Backend response for', category, ':', response.data);
+        console.log('📊 Extracted result:', result);
+
+        // DELETE data from memory after push (for both dry-run and actual push)
+        markCategoryAsPushed(category, result);
+        clearCategoryEdits(category);
+
+        console.log(`✅ Push ${category} ${dryrun ? '[DRY RUN]' : ''}:`, response.data);
+        return { 
+          success: true, 
+          data: response.data,
+          result 
+        };
       } catch (error: any) {
-        console.error(`Failed to push ${category}:`, error);
+        console.error(`❌ Push ${category} FAILED:`, error);
+        // NO RETRY LOGIC - just return error immediately
         return { 
           success: false, 
           error: error.response?.data?.error || error.message || "Unknown error" 
@@ -106,6 +178,7 @@ export function usePushOptimizations() {
 
   /**
    * Push ALL optimizations together.
+   * NO RETRY LOGIC - fails immediately on error
    */
   const pushAll = useCallback(async (dryrun: boolean = false): Promise<PushResult> => {
     try {
@@ -130,17 +203,17 @@ export function usePushOptimizations() {
 
       const response = await apiClient.post("/api/v1/ads-optimizer/push/", payload);
 
-      // Mark all categories as pushed (only if not dryrun)
-      if (!dryrun) {
-        Object.keys(filtered).forEach((cat) =>
-          markCategoryAsPushed(cat as OptimizationKey)
-        );
-      }
+      // DELETE data from memory after push for all categories (for both dry-run and actual push)
+      Object.keys(filtered).forEach((cat) => {
+        const result = extractPushResult(response.data, cat as OptimizationKey);
+        markCategoryAsPushed(cat as OptimizationKey, result);
+      });
 
-      console.log(`Push ALL ${dryrun ? '[DRY RUN]' : ''}:`, response.data);
+      console.log(`✅ Push ALL ${dryrun ? '[DRY RUN]' : ''}:`, JSON.stringify(response.data, null, 2));
       return { success: true, data: response.data };
     } catch (error: any) {
-      console.error("Failed to push all:", error);
+      console.error("❌ Push ALL FAILED:", error);
+      // NO RETRY LOGIC - just return error immediately
       return { 
         success: false, 
         error: error.response?.data?.error || error.message || "Unknown error" 

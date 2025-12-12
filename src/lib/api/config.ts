@@ -11,7 +11,7 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ||
 console.log(`API base URL: ${API_BASE_URL} (${isDevelopment ? 'development' : 'production'})`);
 
 export const DEFAULT_TIMEOUT = 300000; // 5 minutes
-export const LONG_OPERATION_TIMEOUT = 300000; // 5 minutes
+export const LONG_OPERATION_TIMEOUT = 600000; // 10 minutes
 
 // Token storage keys
 const STORAGE_KEYS = {
@@ -31,7 +31,7 @@ let jwtRefreshPromise: Promise<string | null> | null = null;
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  timeout: DEFAULT_TIMEOUT,
+  timeout: LONG_OPERATION_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -48,6 +48,19 @@ axiosRetry(apiClient, {
            (error.response?.status ? error.response.status >= 500 : false);
   }
 });
+
+export const longOpClient: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  timeout: LONG_OPERATION_TIMEOUT,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  xsrfCookieName: "csrftoken",
+  xsrfHeaderName: "X-CSRFToken",
+});
+
+
 
 // Firebase token cache
 let cachedFirebaseToken: string | null = null;

@@ -120,15 +120,22 @@ export interface DedupResult {
 
 export interface DedupResponse {
   results: DedupResult[];
-  asin: string;
+  asins: string[]; // Changed from single asin to array
   keywords_checked: number;
   total_duplicates: number;
 }
 
-export interface DedupRequest {
+// Support both request formats
+export interface DedupRequestSingle {
   asin: string;
   keywords: string[];
 }
+
+export interface DedupRequestMultiple {
+  asin_keywords: Record<string, string[]>;
+}
+
+export type DedupRequest = DedupRequestSingle | DedupRequestMultiple;
 
 // ==================== COMPETIRANK TYPES ====================
 
@@ -286,10 +293,15 @@ export const opportunitiesQueryKeys = {
     list: () => ["sqp-opportunities", "list"] as const,
   },
   // Dedup
+  // dedup: {
+  //   all: ["dedup-opportunities"] as const,
+  //   list: (asin: string | null, keywords: string[] | null) =>
+  //     ["dedup-opportunities", "list", asin, keywords] as const,
+  // },
   dedup: {
-    all: ["dedup-opportunities"] as const,
-    list: (asin: string | null, keywords: string[] | null) =>
-      ["dedup-opportunities", "list", asin, keywords] as const,
+    all: ["opportunities", "dedup"] as const,
+    list: (request: DedupRequest | null) => 
+      ["opportunities", "dedup", "list", request] as const,
   },
   // CompetiRank
   competiRank: {
@@ -472,27 +484,38 @@ export function useSQPOpportunities() {
 
 // 4. Dedup Hook
 export const useDedupOpportunities = (
-  asin: string | null,
-  keywords: string[] | null
+  requestData: DedupRequest | null
 ) => {
   const [isEnabled, setIsEnabled] = useState(false);
 
   const query = useQuery({
-    queryKey: opportunitiesQueryKeys.dedup.list(asin, keywords),
+    queryKey: opportunitiesQueryKeys.dedup.list(requestData),
     queryFn: async () => {
-      if (!asin || !keywords || keywords.length === 0) {
-        throw new Error("ASIN and keywords are required");
+      if (!requestData) {
+        throw new Error("Request data is required");
       }
-      return fetchDedupOpportunities({ asin, keywords });
+
+      // Validate based on format
+      if ('asin_keywords' in requestData) {
+        if (!requestData.asin_keywords || Object.keys(requestData.asin_keywords).length === 0) {
+          throw new Error("At least one ASIN with keywords is required");
+        }
+      } else {
+        if (!requestData.asin || !requestData.keywords || requestData.keywords.length === 0) {
+          throw new Error("ASIN and keywords are required");
+        }
+      }
+
+      return fetchDedupOpportunities(requestData);
     },
-    enabled: isEnabled && asin !== null && keywords !== null && keywords.length > 0,
+    enabled: isEnabled && requestData !== null,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
   });
 
   const fetchData = () => {
-    if (asin && keywords && keywords.length > 0) {
+    if (requestData) {
       setIsEnabled(true);
       query.refetch();
     }

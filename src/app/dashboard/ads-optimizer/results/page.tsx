@@ -10,7 +10,6 @@ import {
   Edit3,
   Send,
   Save,
-  CheckCircle2,
   DollarSign,
   Tag,
   Monitor,
@@ -28,6 +27,8 @@ import { adsOptimizerQueryKeys } from "@/lib/hooks/queries/use-ads-optimizer";
 import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
 import { OptimizationTableDrawer } from "../components/OptimizationTableDrawer";
 import { ConfirmationDialog } from "../components/ConfirmationDialog";
+import { PushResultSummary } from "../components/PushResultSummary";
+import { FailedItemsModal } from "../components/FailedItemsModal";
 import type { AdsOptimizerResponse, OptimizationCategory } from "../lib/types";
 import { usePushOptimizations } from "@/lib/hooks/usePushOptimizations";
 
@@ -121,6 +122,7 @@ export default function AdsOptimizerResultsPage() {
     isCategoryPushed,
     getAvailableCategories,
     getCategoryCount,
+    getPushResult,
   } = useAdsOptimizerStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -128,11 +130,20 @@ export default function AdsOptimizerResultsPage() {
     keyof AdsOptimizerResponse | null
   >(null);
   const [pushingCategory, setPushingCategory] = useState<string | null>(null);
+  const [failedItemsModal, setFailedItemsModal] = useState<{
+    isOpen: boolean;
+    categoryKey: keyof AdsOptimizerResponse | null;
+    categoryTitle: string;
+  }>({
+    isOpen: false,
+    categoryKey: null,
+    categoryTitle: "",
+  });
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
     message: string;
-    onConfirm: (dryrun: boolean) => void; // CHANGED: Now accepts dryrun parameter
+    onConfirm: (dryrun: boolean) => void;
     variant?: "danger" | "warning" | "info";
   }>({
     isOpen: false,
@@ -180,7 +191,7 @@ export default function AdsOptimizerResultsPage() {
 
   const stats = getSummaryStats();
 
-  // Handle saving data locally
+  // Handle saving data locally (removes from original store, moves to editedData)
   const handleSaveCategory = (
     categoryKey: keyof AdsOptimizerResponse,
     updatedData: any[]
@@ -192,7 +203,7 @@ export default function AdsOptimizerResultsPage() {
     });
   };
 
-  // Handle pushing data to backend
+  // Handle pushing data to backend from drawer
   const handlePushCategory = async (
     categoryKey: keyof AdsOptimizerResponse,
     data: any[]
@@ -203,24 +214,25 @@ export default function AdsOptimizerResultsPage() {
     });
 
     try {
-      console.log("Pushing data for category:", categoryKey, data);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      markCategoryAsPushed(categoryKey);
+      const result = await pushCategory(categoryKey as any, false);
 
-      toast.success(
-        `Successfully pushed ${data.length} ${categoryKey} optimizations!`,
-        {
-          id: toastId,
-          duration: 3000,
-        }
-      );
-    } catch (error) {
+      if (result.success) {
+        toast.success(
+          `Successfully pushed ${data.length} ${categoryKey} optimizations!`,
+          {
+            id: toastId,
+            duration: 3000,
+          }
+        );
+      } else {
+        throw new Error(result.error || "Push failed");
+      }
+    } catch (error: any) {
       console.error("Failed to push optimizations:", error);
       toast.error("Failed to push optimizations. Please try again.", {
         id: toastId,
         duration: 4000,
       });
-      throw error;
     } finally {
       setPushingCategory(null);
     }
@@ -315,6 +327,9 @@ export default function AdsOptimizerResultsPage() {
                 duration: dryrun ? 5000 : 3000,
               }
             );
+            setTimeout(() => {
+              setPushingCategory(null);
+            }, 100);
           } else {
             throw new Error(result.error || "Push failed");
           }
@@ -329,7 +344,6 @@ export default function AdsOptimizerResultsPage() {
               duration: 4000,
             }
           );
-        } finally {
           setPushingCategory(null);
         }
       },
@@ -355,35 +369,91 @@ export default function AdsOptimizerResultsPage() {
     return IconComponent ? <IconComponent className="w-5 h-5" /> : null;
   };
 
-  // Updated renderOptimizationCard function
+  // Refactored renderOptimizationCard with 3 states
   const renderOptimizationCard = (category: OptimizationCategory) => {
     const count = getCategoryCount(category.key);
     const isEmpty = count === 0;
     const isDirty = isCategoryDirty(category.key);
     const isPushing = pushingCategory === category.key;
     const isPushed = isCategoryPushed(category.key);
+    const pushResult = getPushResult(category.key);
 
+    // STATE 1: Category has been pushed - show summary only
+    if (isPushed && pushResult) {
+      return (
+        <div
+          key={category.key}
+          className="bg-white rounded-2xl border-2 border-green-200 shadow-sm p-6 flex flex-col"
+        >
+          {/* Header with Icon and Title */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center text-white">
+              {getIconComponent(category.icon)}
+            </div>
+          </div>
+
+          <h3 className="text-lg font-bold text-gray-900 mb-4">
+            {category.title}
+          </h3>
+
+          {/* Push Result Summary - takes up remaining space */}
+          <div className="mt-auto">
+            <PushResultSummary
+              result={pushResult}
+              onViewDetails={() =>
+                setFailedItemsModal({
+                  isOpen: true,
+                  categoryKey: category.key,
+                  categoryTitle: category.title,
+                })
+              }
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // STATE 2: Category is empty
+    if (isEmpty) {
+      return (
+        <div
+          key={category.key}
+          className="bg-white rounded-2xl border-2 border-gray-200 opacity-50 p-6 flex flex-col"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gray-400 flex items-center justify-center text-white">
+              {getIconComponent(category.icon)}
+            </div>
+          </div>
+
+          <h3 className="text-lg font-bold text-gray-900 mb-2">
+            {category.title}
+          </h3>
+
+          <div className="mb-4">
+            <div className="text-3xl font-bold text-gray-400">0</div>
+            <div className="text-sm text-gray-500">optimizations</div>
+          </div>
+
+          <div className="mt-auto text-center text-sm text-gray-400">
+            No optimizations available
+          </div>
+        </div>
+      );
+    }
+
+    // STATE 3: Category has data and is not pushed yet
     return (
       <div
         key={category.key}
-        className={`bg-white rounded-2xl border-2 transition-all duration-300 p-6 flex flex-col ${
-          isPushed || isEmpty
-            ? "border-powder-blue-200 opacity-50"
-            : "border-powder-blue-200 hover:border-powder-blue-500 hover:shadow-xl"
-        }`}
+        className="bg-white rounded-2xl border-2 border-powder-blue-200 hover:border-powder-blue-500 hover:shadow-xl transition-all duration-300 p-6 flex flex-col"
       >
         <div className="flex items-start justify-between mb-4">
           <div className="w-12 h-12 rounded-xl bg-powder-blue-600 flex items-center justify-center text-white">
             {getIconComponent(category.icon)}
           </div>
           <div className="flex items-center gap-2">
-            {isPushed && (
-              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Pushed
-              </span>
-            )}
-            {isDirty && !isPushed && (
+            {isDirty && (
               <span className="px-2 py-1 bg-powder-blue-100 border border-powder-blue-400 text-gray-900 text-xs font-semibold rounded-full flex items-center gap-1">
                 <Save className="w-3 h-3" />
                 Edited
@@ -392,26 +462,22 @@ export default function AdsOptimizerResultsPage() {
           </div>
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 mb-2">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">
           {category.title}
         </h3>
 
-        <div className="mb-4">
+        <div className="mb-6">
           <div className="text-3xl font-bold text-gray-900">{count}</div>
           <div className="text-sm text-gray-600">
             optimization{count !== 1 ? "s" : ""}
           </div>
         </div>
 
-        <p className="text-sm text-gray-700 mb-5 leading-relaxed flex-grow">
-          {category.description}
-        </p>
-
         <div className="mt-auto flex items-center justify-end gap-2">
           <button
             onClick={() => setSelectedCategory(category.key)}
-            disabled={isEmpty || isPushed}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-powder-blue-600 hover:bg-powder-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-powder-blue-600"
+            disabled={isPushing}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-powder-blue-600 hover:bg-powder-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit3 className="w-3 h-3" />
             Edit
@@ -419,7 +485,7 @@ export default function AdsOptimizerResultsPage() {
 
           <button
             onClick={() => handleDirectPush(category.key)}
-            disabled={isPushing || isEmpty || isPushed}
+            disabled={isPushing}
             className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPushing ? (
@@ -494,6 +560,42 @@ export default function AdsOptimizerResultsPage() {
         confirmText="Push"
         cancelText="Cancel"
         showDryRun={true}
+      />
+
+      <FailedItemsModal
+        isOpen={failedItemsModal.isOpen}
+        onClose={() =>
+          setFailedItemsModal({
+            isOpen: false,
+            categoryKey: null,
+            categoryTitle: "",
+          })
+        }
+        categoryTitle={failedItemsModal.categoryTitle}
+        failedItems={
+          failedItemsModal.categoryKey
+            ? getPushResult(failedItemsModal.categoryKey)?.details
+                ?.failed_items || []
+            : []
+        }
+        duplicateItems={
+          failedItemsModal.categoryKey
+            ? getPushResult(failedItemsModal.categoryKey)?.details
+                ?.duplicate_items || []
+            : []
+        }
+        errorItems={
+          failedItemsModal.categoryKey
+            ? getPushResult(failedItemsModal.categoryKey)?.details
+                ?.error_items || []
+            : []
+        }
+        successfulItems={
+          failedItemsModal.categoryKey
+            ? getPushResult(failedItemsModal.categoryKey)?.details
+                ?.successful_items || []
+            : []
+        }
       />
 
       {/* Header */}
@@ -664,8 +766,8 @@ export default function AdsOptimizerResultsPage() {
         <div className="mt-8 p-4 bg-[#E8F1F8] border border-[#A8C5DD] rounded-xl">
           <p className="text-sm text-[#2D5573] text-center">
             💡 <strong>Tip:</strong> Click "Edit" to review and modify
-            recommendations, or "Push" to apply them directly. Edited changes
-            are saved locally until you push them.
+            recommendations, or "Push" to apply them directly. View detailed results
+            by clicking on the summary after a push.
           </p>
         </div>
       </div>
