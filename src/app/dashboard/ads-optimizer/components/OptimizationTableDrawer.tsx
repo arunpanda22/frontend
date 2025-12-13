@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { X, Save, Send, AlertCircle } from 'lucide-react';
 import { AdvancedDataTable } from '@/components/dashboard/table/advanced-data-table';
 import type { ColumnDefinition, TableData } from '@/components/dashboard/table/advanced-data-table';
+import { ConfirmationDialog } from './ConfirmationDialog';
 import type { 
   AdsOptimizerResponse,
   BudgetOptimization,
@@ -55,7 +56,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', width: 160 },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'start_date', headerName: 'Start Date', type: 'text', editable: false, autoFitHeader: true },
-    // { field: 'dynamic_bidding', headerName: 'Bidding Strategy', type: 'text', editable: false, width: 160, autoFitHeader: true },
     { field: 'ACOS', headerName: 'ACOS (%)', type: 'number', editable: false, width: 120, autoFitHeader: true },
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 140, autoFitHeader: true },
     { field: 'campaign_budget_amount', headerName: 'Daily Budget', type: 'number', editable: false, width: 140, autoFitHeader: true },
@@ -162,7 +162,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
   sp_new_campaigns: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'Campaign Name', headerName: 'Campaign Name', type: 'text', editable: true, autoFitHeader: true },
-    // { field: 'Campaign Budget', headerName: 'Daily Budget', type: 'number', editable: true, width: 160, autoFitHeader: true },
     { field: 'Targeting', headerName: 'Target', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'match_type', headerName: 'Match Type', type: 'text', editable: false, width: 130, autoFitHeader: true },
     { field: 'Bid', headerName: 'Bid', type: 'number', editable: true, width: 120, autoFitHeader: true },
@@ -189,7 +188,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'ad_group_name', headerName: 'Ad Group', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'ad_group_id', headerName: 'Ad Group ID', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'search_term', headerName: 'Search Term', type: 'text', editable: false, width: 250, autoFitHeader: true },
-
   ],
   sb_negatives: [
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -197,7 +195,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'ad_group_name', headerName: 'Ad Group', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'ad_group_id', headerName: 'Ad Group ID', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'query', headerName: 'Search Term', type: 'text', editable: false, width: 250, autoFitHeader: true },
-
   ],
 };
 
@@ -219,7 +216,6 @@ const getColumnsForCategory = (categoryKey: string): ColumnDefinition[] => {
 };
 
 // ==================== VALIDATION ====================
-// ==================== VALIDATION ====================
 
 interface ValidationError {
   row: number;
@@ -237,7 +233,6 @@ const validateOptimizationData = (
     // Budget validations
     if (categoryKey.includes('budget')) {
       const rawBudget = row['New Budget'];
-      // Check if the field has a value before converting to number
       if (rawBudget !== undefined && rawBudget !== null && rawBudget !== '') {
         const newBudget = Number(rawBudget);
         if (isNaN(newBudget) || newBudget < 0) {
@@ -308,13 +303,10 @@ const validateOptimizationData = (
       if (!row['Campaign Name'] || String(row['Campaign Name']).trim() === '') {
         errors.push({ row: index, field: 'Campaign Name', message: 'Campaign name is required' });
       }
-
-
     }
 
     // Negative keywords validations
     if (categoryKey.includes('negatives')) {
-      // SP uses 'search_term', SB uses 'query'
       const searchTermField = categoryKey === 'sp_negatives' ? 'search_term' : 'query';
       const searchTerm = row[searchTermField];
       
@@ -339,110 +331,29 @@ const validateOptimizationData = (
   return errors;
 };
 
-// Helper function to check if a value is empty/null/undefined
-const isEmpty = (value: any): boolean => {
-  return value === undefined || value === null || value === '';
-};
-
-// Enhanced validation with specific field mappings
-const FIELD_VALIDATIONS: Record<string, {
-  minValue?: number;
-  maxValue?: number;
-  required?: boolean;
-  allowedValues?: string[];
-  customMessage?: string;
-}> = {
-  // Budget fields
-  'New Budget': {
-    minValue: 1,
-    customMessage: 'Budget must be at least $1'
-  },
-  
-  // Bid fields
-  'New bid': {
-    minValue: 0.02,
-    customMessage: 'Bid must be at least $0.02'
-  },
-  'ideal bid': {
-    minValue: 0.02,
-    customMessage: 'Bid must be at least $0.02'
-  },
-  'Bid': {
-    minValue: 0.02,
-    customMessage: 'Bid must be at least $0.02'
-  },
-  
-  // Placement fields
-  'Percentage': {
-    minValue: -99,
-    maxValue: 900,
-    customMessage: 'Must be between -99% and 900%'
-  },
-  
-  // Campaign fields
-  'Campaign Budget': {
-    minValue: 1,
-    customMessage: 'Campaign budget must be at least $1'
-  },
-  'Campaign Name': {
-    required: true,
-    customMessage: 'Campaign name is required'
-  },
-  
-  // Placement adjustments
-  'Top of Search Amazon': {
-    minValue: 0,
-    maxValue: 900,
-    customMessage: 'Must be between 0% and 900%'
-  },
-  'Rest of Search Amazon': {
-    minValue: 0,
-    maxValue: 900,
-    customMessage: 'Must be between 0% and 900%'
-  },
-  'Product Pages Amazon': {
-    minValue: 0,
-    maxValue: 900,
-    customMessage: 'Must be between 0% and 900%'
-  },
-  
-  // Bidding strategy
-  'Bidding Strategy': {
-    allowedValues: ['Dynamic bids - down only', 'Dynamic bids - up and down', 'Fixed bids'],
-    customMessage: 'Must be a valid bidding strategy'
-  },
-
-};
-
 // ==================== UNIQUE KEY GENERATION ====================
 
 const generateUniqueKey = (row: TableData, categoryKey: string): string => {
   const parts: string[] = [];
   
-  // Always include campaign_id if present
   if (row.campaign_id) parts.push(`c:${row.campaign_id}`);
   
-  // Add ad_group_id for bid and negative keywords
   if ((categoryKey.includes('bid') || categoryKey.includes('negatives')) && row.ad_group_id) {
     parts.push(`ag:${row.ad_group_id}`);
   }
   
-  // Add targeting_id for bids
   if (categoryKey.includes('bid') && row.targeting_id) {
     parts.push(`t:${row.targeting_id}`);
   }
   
-  // Add keyword_text for negatives
   if (categoryKey.includes('negatives') && row.keyword_text) {
     parts.push(`kw:${row.keyword_text}`);
   }
   
-  // Add placement_type for placements
   if (categoryKey.includes('placement') && row.placement_type) {
     parts.push(`p:${row.placement_type}`);
   }
   
-  // Fallback: use index if no unique identifiers found
   return parts.length > 0 ? parts.join('|') : `row:${Math.random()}`;
 };
 
@@ -455,7 +366,7 @@ interface OptimizationTableDrawerProps {
   categoryTitle: string;
   data: any[];
   onSave: (categoryKey: OptimizationKey, updatedData: any[]) => void;
-  onPush: (categoryKey: OptimizationKey, data: any[]) => void;
+  onPush: (categoryKey: OptimizationKey, data: any[], dryrun?: boolean) => Promise<void>; // ✅ ADD dryrun param
 }
 
 export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = ({
@@ -470,6 +381,7 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
   const [tableData, setTableData] = useState<TableData[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isPushing, setIsPushing] = useState(false);
+  const [showPushConfirm, setShowPushConfirm] = useState(false);
 
   // Initialize table data when drawer opens
   React.useEffect(() => {
@@ -503,8 +415,8 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
     onClose();
   }, [tableData, categoryKey, onSave, onClose]);
 
-  const handlePush = useCallback(async () => {
-    // Validate data
+  const handlePushConfirm = useCallback(() => {
+    // Validate data first
     const errors = validateOptimizationData(tableData, categoryKey);
     
     if (errors.length > 0) {
@@ -512,13 +424,23 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
       return;
     }
 
+    // Show confirmation dialog
+    setShowPushConfirm(true);
+  }, [tableData, categoryKey]);
+
+  const handlePush = useCallback(async (dryrun: boolean = false) => {
     setIsPushing(true);
+    setShowPushConfirm(false);
     
     try {
       // Remove internal fields before pushing
       const cleanedData = tableData.map(({ _uniqueKey, _originalIndex, ...rest }) => rest);
       
-      await onPush(categoryKey, cleanedData);
+      // IMPORTANT: Save the edits first before pushing
+      onSave(categoryKey, cleanedData);
+      
+      // Then push the data
+      await onPush(categoryKey, cleanedData, dryrun);
       setValidationErrors([]);
       onClose();
     } catch (error) {
@@ -526,7 +448,7 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
     } finally {
       setIsPushing(false);
     }
-  }, [tableData, categoryKey, onPush, onClose]);
+  }, [tableData, categoryKey, onPush, onSave, onClose]);
 
   if (!isOpen) return null;
 
@@ -615,7 +537,7 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
             </button>
             
             <button
-              onClick={handlePush}
+              onClick={handlePushConfirm}
               disabled={isPushing}
               className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -634,11 +556,24 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
           </div>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showPushConfirm}
+        onClose={() => setShowPushConfirm(false)}
+        onConfirm={handlePush}
+        title="Push Optimizations"
+        message={`Are you sure you want to push ${tableData.length} ${categoryTitle} optimizations? Choose "Dry Run" to test without applying changes, or "Push" to apply immediately.`}
+        variant="info"
+        confirmText="Push"
+        cancelText="Cancel"
+        showDryRun={true}
+      />
     </>
   );
 };
 
-// Add slide-in animation styles (add to global CSS or inline styles)
+// Add slide-in animation styles
 const styles = `
   @keyframes slide-in-right {
     from {

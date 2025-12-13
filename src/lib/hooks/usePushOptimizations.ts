@@ -44,56 +44,60 @@ export function usePushOptimizations() {
    * Extract standardized result from backend response
    */
   const extractPushResult = (response: any, category: OptimizationKey): PushResultData | undefined => {
-    console.log('🔍 extractPushResult called with:', { 
-      category, 
-      responseKeys: Object.keys(response),
-      responseCategory: response.category,
-      responseResults: response.results ? Object.keys(response.results) : 'none'
-    });
+  console.log('🔍 extractPushResult called with:', { 
+    category, 
+    responseKeys: Object.keys(response),
+    responseCategory: response.category,
+    responseResults: response.results ? Object.keys(response.results) : 'none'
+  });
+  
+  try {
+    // CHECK SINGLE CATEGORY FIRST (this is the fix!)
+    if (response.category === category) {
+      console.log(`✅ Found single category result for ${category}`);
+      return {
+        push_id: response.push_id || "",
+        total_items: response.total_items || 0,
+        successful: response.successful || 0,
+        failed: response.failed || 0,
+        duplicates: response.duplicates,
+        errors: response.errors,
+        success_rate: response.success_rate || "0.00%",
+        timestamp: response.timestamp || new Date().toISOString(),
+        details: response.details,
+      };
+    }
 
+    // THEN check multi-category push (results object)
     if (response.results && response.results[category]) {
-      console.log(`✅ Found result for ${category}:`, response.results[category]);
-    } else {
-      console.log(`❌ No result found for ${category}`, response.results);
+      const catResult = response.results[category];
+      console.log(`✅ Found multi-category result for ${category}`);
+      
+      return {
+        push_id: catResult.push_id || "",
+        total_items: catResult.total_items || 0,
+        successful: catResult.successful || 0,
+        failed: catResult.failed || 0,
+        duplicates: catResult.duplicates,
+        errors: catResult.errors,
+        success_rate: catResult.success_rate || "0.00%",
+        timestamp: catResult.timestamp || new Date().toISOString(),
+        details: {
+          successful_items: catResult.details?.successful_items || [],
+          failed_items: catResult.details?.failed_items || [],
+          duplicate_items: catResult.details?.duplicate_items || [],
+          error_items: catResult.details?.error_items || [],
+        },
+      };
     }
-    try {
-      // For single category push
-      if (response.category === category) {
-        return {
-          push_id: response.push_id || "",
-          total_items: response.total_items || 0,
-          successful: response.successful || 0,
-          failed: response.failed || 0,
-          duplicates: response.duplicates,
-          errors: response.errors,
-          success_rate: response.success_rate || "0.00%",
-          timestamp: response.timestamp || new Date().toISOString(),
-          details: response.details,
-        };
-      }
 
-      // For multi-category push (results object)
-      if (response.results && response.results[category]) {
-        const catResult = response.results[category];
-        return {
-          push_id: catResult.push_id || "",
-          total_items: catResult.total_items || 0,
-          successful: catResult.successful || 0,
-          failed: catResult.failed || 0,
-          duplicates: catResult.duplicates,
-          errors: catResult.errors,
-          success_rate: catResult.success_rate || "0.00%",
-          timestamp: catResult.timestamp || new Date().toISOString(),
-          details: catResult.details,
-        };
-      }
-
-      return undefined;
-    } catch (error) {
-      console.error("Error extracting push result:", error);
-      return undefined;
-    }
-  };
+    console.log(`❌ No result found for ${category}`);
+    return undefined;
+  } catch (error) {
+    console.error("Error extracting push result:", error);
+    return undefined;
+  }
+};
 
   /**
    * Push a single category (handles bid-placement linking).

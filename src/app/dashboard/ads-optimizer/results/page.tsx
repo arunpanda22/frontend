@@ -111,19 +111,40 @@ const OPTIMIZATION_CATEGORIES: OptimizationCategory[] = [
 export default function AdsOptimizerResultsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const {
-    optimizationData,
-    setOptimizationData,
-    getCategoryData,
-    updateCategory,
-    isCategoryDirty,
-    getDirtyCount,
-    markCategoryAsPushed,
-    isCategoryPushed,
-    getAvailableCategories,
-    getCategoryCount,
-    getPushResult,
-  } = useAdsOptimizerStore();
+
+  const optimizationData = useAdsOptimizerStore(
+    (state) => state.optimizationData
+  );
+  const setOptimizationData = useAdsOptimizerStore(
+    (state) => state.setOptimizationData
+  );
+  const getCategoryData = useAdsOptimizerStore(
+    (state) => state.getCategoryData
+  );
+  const updateCategory = useAdsOptimizerStore((state) => state.updateCategory);
+  const isCategoryDirty = useAdsOptimizerStore(
+    (state) => state.isCategoryDirty
+  );
+  const getDirtyCount = useAdsOptimizerStore((state) => state.getDirtyCount);
+  const markCategoryAsPushed = useAdsOptimizerStore(
+    (state) => state.markCategoryAsPushed
+  );
+  const isCategoryPushed = useAdsOptimizerStore(
+    (state) => state.isCategoryPushed
+  );
+  const getAvailableCategories = useAdsOptimizerStore(
+    (state) => state.getAvailableCategories
+  );
+  const getCategoryCount = useAdsOptimizerStore(
+    (state) => state.getCategoryCount
+  );
+  const getPushResult = useAdsOptimizerStore((state) => state.getPushResult);
+
+  // Or better yet, for values that need reactivity, do this:
+  const pushedCategories = useAdsOptimizerStore(
+    (state) => state.pushedCategories
+  );
+  const pushResults = useAdsOptimizerStore((state) => state.pushResults);
 
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<
@@ -206,15 +227,19 @@ export default function AdsOptimizerResultsPage() {
   // Handle pushing data to backend from drawer
   const handlePushCategory = async (
     categoryKey: keyof AdsOptimizerResponse,
-    data: any[]
+    data: any[],
+    dryrun: boolean = false // ✅ ADD dryrun parameter
   ) => {
     setPushingCategory(categoryKey);
-    const toastId = toast.loading(`Pushing ${categoryKey} optimizations...`, {
-      position: "top-right",
-    });
+    const toastId = toast.loading(
+      dryrun
+        ? "Testing push (dry run)..."
+        : `Pushing ${categoryKey} optimizations...`,
+      { position: "top-right" }
+    );
 
     try {
-      const result = await pushCategory(categoryKey as any, false);
+      const result = await pushCategory(categoryKey as any, dryrun);
 
       if (result.success) {
         toast.success(
@@ -375,8 +400,8 @@ export default function AdsOptimizerResultsPage() {
     const isEmpty = count === 0;
     const isDirty = isCategoryDirty(category.key);
     const isPushing = pushingCategory === category.key;
-    const isPushed = isCategoryPushed(category.key);
-    const pushResult = getPushResult(category.key);
+    const isPushed = pushedCategories.has(category.key); // Use Set directly
+    const pushResult = pushResults[category.key]; // Use object directly
 
     // STATE 1: Category has been pushed - show summary only
     if (isPushed && pushResult) {
@@ -766,8 +791,8 @@ export default function AdsOptimizerResultsPage() {
         <div className="mt-8 p-4 bg-[#E8F1F8] border border-[#A8C5DD] rounded-xl">
           <p className="text-sm text-[#2D5573] text-center">
             💡 <strong>Tip:</strong> Click "Edit" to review and modify
-            recommendations, or "Push" to apply them directly. View detailed results
-            by clicking on the summary after a push.
+            recommendations, or "Push" to apply them directly. View detailed
+            results by clicking on the summary after a push.
           </p>
         </div>
       </div>

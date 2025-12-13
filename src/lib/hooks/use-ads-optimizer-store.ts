@@ -169,6 +169,12 @@ export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
   
   // DELETE data from memory after push (works for both dry-run and actual push)
   markCategoryAsPushed: (category, result) => set((state) => {
+    console.log(`🔄 BEFORE markCategoryAsPushed for ${category}:`, {
+      isPushed: state.pushedCategories.has(category),
+      hasData: state.optimizationData?.[category]?.length || 0,
+      result: result
+    });
+    
     const newPushedCategories = new Set(state.pushedCategories);
     newPushedCategories.add(category);
     
@@ -177,19 +183,23 @@ export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
     delete newEditedData[category];
     
     // DELETE original data for this category
-    const newOptimizationData = state.optimizationData ? { ...state.optimizationData } : null;
-    if (newOptimizationData) {
-      (newOptimizationData as any)[category] = [];
-    }
+    const newOptimizationData = state.optimizationData 
+      ? { ...state.optimizationData, [category]: [] } 
+      : null;
     
     const newDirtyCategories = new Set(state.dirtyCategories);
     newDirtyCategories.delete(category);
     
     // Store push result if provided
-    const newPushResults = { ...state.pushResults };
-    if (result) {
-      newPushResults[category] = result;
-    }
+    const newPushResults = result 
+      ? { ...state.pushResults, [category]: result }
+      : state.pushResults;
+    
+    console.log(`🔄 AFTER markCategoryAsPushed for ${category}:`, {
+      pushedCategories: Array.from(newPushedCategories),
+      dataLength: newOptimizationData?.[category]?.length || 0,
+      hasResult: !!newPushResults[category]
+    });
     
     return {
       optimizationData: newOptimizationData,
