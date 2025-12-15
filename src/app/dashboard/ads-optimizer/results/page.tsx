@@ -140,7 +140,7 @@ export default function AdsOptimizerResultsPage() {
   );
   const getPushResult = useAdsOptimizerStore((state) => state.getPushResult);
 
-  // Or better yet, for values that need reactivity, do this:
+  // Reactive values that trigger re-renders
   const pushedCategories = useAdsOptimizerStore(
     (state) => state.pushedCategories
   );
@@ -151,6 +151,7 @@ export default function AdsOptimizerResultsPage() {
     keyof AdsOptimizerResponse | null
   >(null);
   const [pushingCategory, setPushingCategory] = useState<string | null>(null);
+  const [renderKey, setRenderKey] = useState(0); // Force re-render key
   const [failedItemsModal, setFailedItemsModal] = useState<{
     isOpen: boolean;
     categoryKey: keyof AdsOptimizerResponse | null;
@@ -228,7 +229,7 @@ export default function AdsOptimizerResultsPage() {
   const handlePushCategory = async (
     categoryKey: keyof AdsOptimizerResponse,
     data: any[],
-    dryrun: boolean = false // ✅ ADD dryrun parameter
+    dryrun: boolean = false
   ) => {
     setPushingCategory(categoryKey);
     const toastId = toast.loading(
@@ -243,12 +244,19 @@ export default function AdsOptimizerResultsPage() {
 
       if (result.success) {
         toast.success(
-          `Successfully pushed ${data.length} ${categoryKey} optimizations!`,
+          dryrun
+            ? `✅ Dry run successful! ${data.length} optimizations validated.`
+            : `✅ Successfully pushed ${data.length} ${categoryKey} optimizations!`,
           {
             id: toastId,
-            duration: 3000,
+            duration: dryrun ? 5000 : 3000,
           }
         );
+        
+        // Force re-render
+        setTimeout(() => {
+          setRenderKey(prev => prev + 1);
+        }, 100);
       } else {
         throw new Error(result.error || "Push failed");
       }
@@ -292,6 +300,11 @@ export default function AdsOptimizerResultsPage() {
                 duration: dryrun ? 5000 : 3000,
               }
             );
+            
+            // Force re-render after state settles
+            setTimeout(() => {
+              setRenderKey(prev => prev + 1);
+            }, 100);
           } else {
             throw new Error(result.error || "Push failed");
           }
@@ -352,8 +365,10 @@ export default function AdsOptimizerResultsPage() {
                 duration: dryrun ? 5000 : 3000,
               }
             );
+            
             setTimeout(() => {
               setPushingCategory(null);
+              setRenderKey(prev => prev + 1); // Force re-render
             }, 100);
           } else {
             throw new Error(result.error || "Push failed");
@@ -400,8 +415,8 @@ export default function AdsOptimizerResultsPage() {
     const isEmpty = count === 0;
     const isDirty = isCategoryDirty(category.key);
     const isPushing = pushingCategory === category.key;
-    const isPushed = pushedCategories.has(category.key); // Use Set directly
-    const pushResult = pushResults[category.key]; // Use object directly
+    const isPushed = pushedCategories.has(category.key);
+    const pushResult = pushResults[category.key];
 
     // STATE 1: Category has been pushed - show summary only
     if (isPushed && pushResult) {
@@ -684,7 +699,7 @@ export default function AdsOptimizerResultsPage() {
         {/* Optimization Categories Grouped by Campaign Type */}
         <div className="space-y-8">
           {/* Sponsored Products */}
-          <div>
+          <div key={`sp-${renderKey}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-300 to-powder-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">SP</span>
@@ -711,7 +726,7 @@ export default function AdsOptimizerResultsPage() {
           </div>
 
           {/* Sponsored Brands */}
-          <div>
+          <div key={`sb-${renderKey}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-300 to-powder-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">SB</span>
@@ -738,7 +753,7 @@ export default function AdsOptimizerResultsPage() {
           </div>
 
           {/* Sponsored Display */}
-          <div>
+          <div key={`sd-${renderKey}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-powder-blue-300 to-powder-blue-500 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-lg">SD</span>
