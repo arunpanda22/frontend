@@ -86,6 +86,91 @@ export interface XrayDataOptions {
   focus_level?: 'high' | 'medium' | 'low' | 'all';
 }
 
+export interface KeywordPerformanceMetrics {
+  // Identifiers
+  campaign_name: string;
+  campaign_id: string;
+  ad_group_name: string;
+  ad_group_id: string;
+  keyword: string;
+  keyword_id: string;
+  keyword_type: string;
+  match_type: string;
+  targeting: string;
+  source: 'keyword' | 'expression';
+  
+  // Metrics - Current Values
+  impressions: number;
+  clicks: number;
+  cost: number;
+  ctr: number;
+  cpc: number;
+  acos: number;
+  roas: number;
+  cvr: number;
+  cpa: number;
+  units_sold_clicks_30d: number;
+  sales_30d: number;
+  purchases_30d: number;
+  sales_same_sku_30d: number;
+  units_sold_same_sku_30d: number;
+  purchases_same_sku_30d: number;
+  
+  // Metrics - Previous Period Values
+  impressions_prev: number | null;
+  clicks_prev: number | null;
+  cost_prev: number | null;
+  ctr_prev: number | null;
+  cpc_prev: number | null;
+  acos_prev: number | null;
+  roas_prev: number | null;
+  cvr_prev: number | null;
+  cpa_prev: number | null;
+  units_sold_clicks_30d_prev: number | null;
+  sales_30d_prev: number | null;
+  purchases_30d_prev: number | null;
+  sales_same_sku_30d_prev: number | null;
+  units_sold_same_sku_30d_prev: number | null;
+  purchases_same_sku_30d_prev: number | null;
+  
+  // Change Percentages
+  impressions_change_pct: number | null;
+  clicks_change_pct: number | null;
+  cost_change_pct: number | null;
+  ctr_change_pct: number | null;
+  cpc_change_pct: number | null;
+  acos_change_pct: number | null;
+  roas_change_pct: number | null;
+  cvr_change_pct: number | null;
+  cpa_change_pct: number | null;
+  units_sold_clicks_30d_change_pct: number | null;
+  sales_30d_change_pct: number | null;
+  purchases_30d_change_pct: number | null;
+  sales_same_sku_30d_change_pct: number | null;
+  units_sold_same_sku_30d_change_pct: number | null;
+  purchases_same_sku_30d_change_pct: number | null;
+}
+
+export interface KeywordPerformanceResponse {
+  keyword_level: {
+    data: KeywordPerformanceMetrics[];
+    total_records: number;
+  };
+  period_info: {
+    current_start: string;
+    current_end: string;
+    previous_start: string;
+    previous_end: string;
+    period_days: number;
+  };
+}
+
+export interface KeywordPerformanceOptions {
+  start_date?: string; // Format: YYYY-MM-DD
+  end_date?: string;   // Format: YYYY-MM-DD
+}
+
+
 // ============================================================================
 // SERVICE
 // ============================================================================
@@ -143,6 +228,36 @@ export const campaignService = {
     );
 
     console.log('X-ray data response received:', res.data);
+    return res.data;
+  },
+
+  /**
+   * Get keyword and expression performance metrics
+   * Returns keyword-level data with current values, previous values, and change percentages
+   */
+  async getKeywordPerformance(options?: KeywordPerformanceOptions) {
+    console.log('Fetching keyword performance data with options:', options);
+
+    const params: Record<string, string> = {
+      level: 'keyword', // Always keyword level
+    };
+
+    if (options?.start_date) {
+      params.start_date = options.start_date;
+    }
+
+    if (options?.end_date) {
+      params.end_date = options.end_date;
+    }
+
+    console.log('Request params:', params);
+
+    const res = await apiClient.get<KeywordPerformanceResponse>(
+      '/api/v1/dashboard-api/keyword-expression-performance/',
+      { params }
+    );
+
+    console.log('Keyword performance response received:', res.data);
     return res.data;
   },
 };

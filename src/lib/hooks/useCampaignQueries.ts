@@ -1,10 +1,10 @@
 // hooks/useCampaignQueries.ts
-
 import { useQuery } from '@tanstack/react-query';
 import { 
   campaignService,
   CampaignSegmentationOptions,
-  XrayDataOptions
+  XrayDataOptions,
+  KeywordPerformanceOptions
 } from '../api/services/campaign.service';
 
 /**
@@ -64,6 +64,36 @@ export function useCampaignXrayData(options: XrayDataOptions) {
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
+  });
+}
+
+/**
+ * Hook to fetch keyword and expression performance data
+ * Returns keyword-level metrics with comparison to previous period
+ */
+export function useKeywordPerformance(options?: KeywordPerformanceOptions) {
+  console.log('useKeywordPerformance called with:', options);
+
+  // Create stable query key
+  const queryKey = ['keywords', 'performance'];
+  
+  if (options?.start_date) {
+    queryKey.push(options.start_date);
+  }
+  
+  if (options?.end_date) {
+    queryKey.push(options.end_date);
+  }
+
+  return useQuery({
+    queryKey,
+    queryFn: () => {
+      console.log('Fetching keyword performance with options:', options);
+      return campaignService.getKeywordPerformance(options);
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false,
   });
 }
 

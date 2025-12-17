@@ -1,12 +1,10 @@
-// app/dashboard/campaign-xray/page.tsx
-
 "use client";
 import React from "react";
 import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { DateRangeProvider, useDateRange } from "@/lib/context/DateRangeContext";
 import type { Range } from "react-date-range"; 
 import CampaignXrayChart from "./components/CampaignXray";
-import { CampaignSegmentsTables } from "./components/CampaignSegmentsTables";
+import KeywordPerformanceTable from "./components/CampaignPerformanceTable";
 
 const CampaignXrayPage = () => {
   const { dateRange, updateCustomDates } = useDateRange();
@@ -48,12 +46,12 @@ const CampaignXrayPage = () => {
           <CampaignXrayChart />
         </div>
 
-        {/* Campaign Segments Tables Section */}
+        {/* Keyword Performance Table Section */}
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-[#1a2b3c] tracking-tight mb-6 px-2">
-            Campaign Performance Segments
+            Keyword & Expression Performance
           </h2>
-          <CampaignSegmentsTables />
+          <KeywordPerformanceTable />
         </div>
       </div>
     </div>
