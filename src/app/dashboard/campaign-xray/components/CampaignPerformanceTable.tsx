@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useMemo } from "react";
 import { EnhancedDataTable, ColumnDefinition } from "@/components/dashboard/table/enhanced-data-table";
 import { useKeywordPerformance } from "@/lib/hooks/useCampaignQueries";
 import { useDateRange } from "@/lib/context/DateRangeContext";
 import { Loader2 } from "lucide-react";
+import { useMemo } from "react";
 
 const KeywordPerformanceTable = () => {
   const { dateRange } = useDateRange();
@@ -25,8 +25,9 @@ const KeywordPerformanceTable = () => {
         sortable: true,
         filterable: true,
         pinned: "left",
-        minWidth: 200,
-        maxWidth: 400,
+        width: 300,
+        maxWidth: 500,
+        align: "left",
       },
       {
         field: "keyword",
@@ -37,14 +38,23 @@ const KeywordPerformanceTable = () => {
         pinned: "left",
         minWidth: 180,
         maxWidth: 350,
+        align: "left",
       },
+    //   {
+    //     field: "match_type",
+    //     headerName: "Match Type",
+    //     type: "text",
+    //     sortable: true,
+    //     filterable: true,
+    //     width: 120,
+    //   },
       {
-        field: "match_type",
-        headerName: "Match Type",
-        type: "text",
+        field: "keyword_bid",
+        headerName: "Bid",
+        type: "number",
         sortable: true,
         filterable: true,
-        width: 120,
+        width: 100,
       },
       {
         field: "source",
@@ -236,7 +246,7 @@ const KeywordPerformanceTable = () => {
         columns={columns}
         initialSort={initialSort}
         showCheckboxColumn={true}
-        rowsPerPage={20}
+        rowsPerPage={10}
         autoFitHeaders={false}
         showExportCard={true}
         enableComparisonMode={true}

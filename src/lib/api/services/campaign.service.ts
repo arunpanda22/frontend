@@ -97,6 +97,7 @@ export interface KeywordPerformanceMetrics {
   keyword_type: string;
   match_type: string;
   targeting: string;
+  keyword_bid: number;
   source: 'keyword' | 'expression';
   
   // Metrics - Current Values
@@ -109,14 +110,10 @@ export interface KeywordPerformanceMetrics {
   roas: number;
   cvr: number;
   cpa: number;
-  units_sold_clicks_30d: number;
   sales_30d: number;
   purchases_30d: number;
-  sales_same_sku_30d: number;
-  units_sold_same_sku_30d: number;
-  purchases_same_sku_30d: number;
   
-  // Metrics - Previous Period Values
+  // Metrics - Previous Period Values (change % calculated by frontend)
   impressions_prev: number | null;
   clicks_prev: number | null;
   cost_prev: number | null;
@@ -126,29 +123,9 @@ export interface KeywordPerformanceMetrics {
   roas_prev: number | null;
   cvr_prev: number | null;
   cpa_prev: number | null;
-  units_sold_clicks_30d_prev: number | null;
   sales_30d_prev: number | null;
   purchases_30d_prev: number | null;
-  sales_same_sku_30d_prev: number | null;
-  units_sold_same_sku_30d_prev: number | null;
-  purchases_same_sku_30d_prev: number | null;
-  
-  // Change Percentages
-  impressions_change_pct: number | null;
-  clicks_change_pct: number | null;
-  cost_change_pct: number | null;
-  ctr_change_pct: number | null;
-  cpc_change_pct: number | null;
-  acos_change_pct: number | null;
-  roas_change_pct: number | null;
-  cvr_change_pct: number | null;
-  cpa_change_pct: number | null;
-  units_sold_clicks_30d_change_pct: number | null;
-  sales_30d_change_pct: number | null;
-  purchases_30d_change_pct: number | null;
-  sales_same_sku_30d_change_pct: number | null;
-  units_sold_same_sku_30d_change_pct: number | null;
-  purchases_same_sku_30d_change_pct: number | null;
+  keyword_bid_prev: number | null;
 }
 
 export interface KeywordPerformanceResponse {

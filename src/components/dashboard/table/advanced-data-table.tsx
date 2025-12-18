@@ -3,9 +3,9 @@
 import type React from "react"
 
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "../ui/table/button"
+import { Input } from "../ui/table/input"
+import { Checkbox } from "../ui/table/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/table-dropdown-menu"
 import {
   Download,
@@ -22,6 +22,7 @@ import {
   MoreVertical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { log } from "node:console"
 
 export interface ColumnDefinition {
   field: string
@@ -521,7 +522,7 @@ export function AdvancedDataTable({
   const containerRef = useRef<HTMLDivElement>(null)
   
   const containerHeight = useMemo(() => {
-    return 48 + (minVisibleRows * 44) + 28
+    return 48 + (minVisibleRows * 63) + 28
   }, [minVisibleRows])
   
   const checkboxColumnWidth = showCheckboxColumn ? 80 : 0

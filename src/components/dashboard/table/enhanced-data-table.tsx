@@ -1,11 +1,12 @@
+
 "use client"
 
 import type React from "react"
 
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "../ui/table/button"
+import { Input } from "../ui/table/input"
+import { Checkbox } from "../ui/table/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/table-dropdown-menu"
 import {
   Download,
@@ -18,7 +19,6 @@ import {
   ArrowDown,
   Pin,
   PinOff,
-  GripVertical,
   MoreVertical,
   TrendingUp,
   TrendingDown,
@@ -37,6 +37,7 @@ export interface ColumnDefinition {
   maxWidth?: number
   pinned?: "left" | "right" | null
   autoFitHeader?: boolean
+  align?: "left" | "center" | "right"
 }
 
 export interface TableData {
@@ -84,7 +85,7 @@ interface EnhancedDataTableProps {
   initialSort?: SortState[]
   autoFitHeaders?: boolean
   showExportCard?: boolean
-  enableComparisonMode?: boolean // New prop to enable comparison features
+  enableComparisonMode?: boolean
 }
 
 interface CellRendererProps {
@@ -104,20 +105,14 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
   const menuButtonWidth = 28
   const gapWidth = 8
   const paddingWidth = 16
-
   const smallCharWidth = 9
   const largeCharWidth = 13
-
   const isSmall = (ch: string) => /[a-z0-9]/.test(ch)
-
   let textWidth = 0
-
   for (const ch of headerText) {
     textWidth += isSmall(ch) ? smallCharWidth : largeCharWidth
   }
-
   const totalWidth = textWidth + gapWidth + menuButtonWidth + paddingWidth
-
   return Math.max(100, Math.ceil(totalWidth / 5) * 5)
 }
 
@@ -125,9 +120,7 @@ const ComparisonBadge = memo(function ComparisonBadge({ value, prevValue }: { va
   const change = prevValue !== 0 ? ((value - prevValue) / prevValue) * 100 : 0
   const isPositive = change > 0
   const isNegative = change < 0
-
   if (change === 0) return null
-
   return (
     <div
       className={cn(
@@ -145,11 +138,9 @@ const ComparisonBadge = memo(function ComparisonBadge({ value, prevValue }: { va
 const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
   const [isHovered, setIsHovered] = useState(false)
   const [imageError, setImageError] = useState(false)
-
   if (!imageUrl || imageError) {
     return null
   }
-
   return (
     <div className="relative inline-block mr-3">
       <div className="relative" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
@@ -159,7 +150,6 @@ const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
           className="min-w-8 h-8 rounded-md object-cover border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
           onError={() => setImageError(true)}
         />
-
         {isHovered && (
           <div
             className="absolute z-[9999] bg-white p-2 rounded-lg shadow-xl border border-slate-300"
@@ -227,6 +217,10 @@ const CellRenderer = memo(function CellRenderer({
   const prevValue = rowData?.[`${column.field}_prev`]
   const hasComparison = enableComparisonMode && isNumericColumn && prevValue !== undefined && prevValue !== null
 
+  const cellAlign = column.align || (isNameColumn ? "left" : "center")
+  const justifyClass = cellAlign === "left" ? "justify-start" : cellAlign === "right" ? "justify-end" : "justify-center"
+  const itemsAlign = cellAlign === "left" ? "items-start" : cellAlign === "right" ? "items-end" : "items-center"
+
   if (isEditing && column.editable) {
     return (
       <div className="flex items-center gap-2 w-full">
@@ -261,19 +255,31 @@ const CellRenderer = memo(function CellRenderer({
   return (
     <div
       className={cn(
-        "flex items-center justify-between group w-full min-h-[1.75rem]",
+        "flex items-center group w-full min-h-[2rem]",
+        justifyClass,
         column.editable &&
-          "cursor-pointer hover:bg-blue-50/70 rounded-md px-2 py-1 -mx-2 -my-1 transition-all duration-200",
+          "cursor-pointer hover:bg-blue-50/70 rounded-md px-2 py-1.5 -mx-2 -my-1.5 transition-all duration-200",
       )}
       onClick={handleClick}
     >
-      <div className="flex flex-col items-start flex-1 min-w-0 gap-1">
-        <div className="flex items-center w-full min-w-0">
+      <div className={cn(
+        "flex gap-1.5",
+        isNameColumn ? "flex-row items-center flex-1 min-w-0" : `flex-col ${itemsAlign}`
+      )}>
+        <div className={cn(
+          "flex items-center",
+          isNameColumn ? "w-full min-w-0" : justifyClass
+        )}>
           {isNameColumn && rowData?.image_url && <ImageCell imageUrl={rowData.image_url} />}
-          <span className="truncate text-sm font-medium text-slate-700">{displayValue}</span>
+          <span className={cn(
+            "text-sm font-semibold text-slate-800",
+            isNameColumn ? "truncate" : cellAlign === "center" ? "text-center" : cellAlign === "right" ? "text-right" : "text-left"
+          )}>
+            {displayValue}
+          </span>
         </div>
         {hasComparison && (
-          <div className="ml-0">
+          <div className={cn("flex", justifyClass)}>
             <ComparisonBadge value={Number(value)} prevValue={Number(prevValue)} />
           </div>
         )}
@@ -601,7 +607,7 @@ export function EnhancedDataTable({
   const containerRef = useRef<HTMLDivElement>(null)
 
   const containerHeight = useMemo(() => {
-    return 48 + minVisibleRows * 44 + 28
+    return 48 + minVisibleRows * 52 + 28
   }, [minVisibleRows])
 
   const checkboxColumnWidth = showCheckboxColumn ? 80 : 0
@@ -1172,14 +1178,14 @@ export function EnhancedDataTable({
                         isEmpty && "opacity-30",
                         rowIndex % 2 === 0 && "bg-slate-50/30",
                       )}
-                      style={{ height: "44px" }}
+                      style={{ height: "52px" }}
                     >
                       {showCheckboxColumn && (
                         <td
                           className="sticky left-0 z-20 p-0 bg-white border-r border-slate-200"
                           style={{ width: checkboxColumnWidth, minWidth: checkboxColumnWidth }}
                         >
-                          <div className="flex items-center justify-center h-11">
+                          <div className="flex items-center justify-center h-full py-2">
                             {!isEmpty && (
                               <Checkbox
                                 checked={isSelected}
@@ -1213,7 +1219,7 @@ export function EnhancedDataTable({
                               right: rightOffset,
                             }}
                           >
-                            <div className="h-11 px-2 flex items-center">
+                            <div className="h-full px-3 py-2 flex items-center">
                               {!isEmpty && (
                                 <CellRenderer
                                   value={(row as TableData)[column.field as keyof TableData]}
