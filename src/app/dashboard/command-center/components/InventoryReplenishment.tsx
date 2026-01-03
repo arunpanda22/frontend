@@ -5,9 +5,10 @@ import { useInventoryHealth } from "@/lib/hooks/queries/use-dashboard";
 import TopItemsList from "@/components/dashboard/ui/TopItemsCard";
 import { useCurrency } from "@/lib/context/CurrencyContext";
 
+
 const InventoryReplenishment = () => {
   const { data, isLoading, isError } = useInventoryHealth();
-  const { formatNumber } = useCurrency();
+  const { formatNumber, getCurrencySymbol } = useCurrency();
 
   // Transform inventory data to match TopItemsList interface
   const transformedData = React.useMemo(() => {
@@ -20,7 +21,8 @@ const InventoryReplenishment = () => {
         id: item.asin,
         name: item.product_name || 'Unknown Product',
         imageUrl: item.image_url,
-        value: formatNumber(item.reorder_quantity), // Format the number here
+        value: formatNumber(item.reorder_quantity), 
+        currency: getCurrencySymbol(),
         subtitle: `ASIN: ${item.asin}`,
       }));
   }, [data]);
