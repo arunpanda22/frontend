@@ -36,31 +36,36 @@ export default function RealtimeOrdersPage() {
           title: "Today's Revenue",
           value: "Loading...",
           icon: DollarSign,
-          bgColor: "bg-jungle-teal-200",
+          bgColor: "bg-white",
+          color: "bg-ocean-300",
         },
         {
           title: "Orders Today",
           value: "Loading...",
           icon: ShoppingCart,
-          bgColor: "bg-jungle-teal-100",
+          bgColor: "bg-white",
+          color: "bg-gold-400",
         },
         {
           title: "Units Sold",
           value: "Loading...",
           icon: Package,
-          bgColor: "bg-jungle-teal-200",
+          bgColor: "bg-white",
+          color: "bg-ocean-300",
         },
         {
           title: "Avg. Selling Price",
           value: "Loading...",
           icon: DollarSign,
-          bgColor: "bg-jungle-teal-100",
+          bgColor: "bg-white",
+          color: "bg-gold-400",
         },
         {
           title: "Shipped",
           value: "Loading...",
           icon: Truck,
-          bgColor: "bg-jungle-teal-200",
+          bgColor: "bg-white",
+          color: "bg-ocean-300",
         },
       ];
     }
@@ -69,46 +74,51 @@ export default function RealtimeOrdersPage() {
 
     return [
       {
-        title: "Today's Revenue",
+        title: "Revenue",
         value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`,
         icon: DollarSign,
-        bgColor: "bg-jungle-teal-100",
+        bgColor: "bg-white",
+        color: "bg-ocean-300",
       },
       {
-        title: "Orders Today",
+        title: "Orders",
         value: orderCount.toString(),
         icon: ShoppingCart,
-        bgColor: "bg-jungle-teal-200",
+        bgColor: "bg-white",
+        color: "bg-gold-400",
       },
       {
-        title: "Units Sold",
+        title: "Units",
         value: quantity.toString(),
         icon: Package,
-        bgColor: "bg-jungle-teal-100",
+        bgColor: "bg-white",
+        color: "bg-ocean-300",
       },
       {
-        title: "Avg. Selling Price",
+        title: "ASP",
         value: `${getCurrencySymbol()}${formatCurrency(asp)}`,
         icon: DollarSign,
-        bgColor: "bg-jungle-teal-200",
+        bgColor: "bg-white",
+        color: "bg-gold-400",
       },
       {
         title: "Shipped %",
         value: formatPercentage(shipped),
         icon: Truck,
-        bgColor: "bg-jungle-teal-100" ,
+        bgColor: "bg-white" ,
+        color: "bg-ocean-300",
       },
     ];
   }, [metrics, formatCurrency]);
 
   return (
-    <div className="min-h-screen bg-[#f7fafc] px-4 sm:px-6 lg:px-12 py-8">
+    <div className="min-h-screen px-4 bg-[#f7fafc] sm:px-6 lg:px-12 py-8">
       <div className="w-full">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#1a2b3c] tracking-tight">
-              📦 Live Orders & Revenue Tracker
+            <h1 className="text-2xl sm:text-3xl md:text-4xl  text-[#1a2b3c] tracking-tight font-montserrat font-semibold">
+              Live Orders & Revenue Tracker
             </h1>
             
             {/* Connection Status */}
@@ -146,7 +156,7 @@ export default function RealtimeOrdersPage() {
 
         {/* Metrics Cards */}
         <div className="mb-8">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight">
+          <h2 className="text-xl md:text-2xl text-[#1a2b3c] mb-6 tracking-tight font-montserrat">
             Today's Performance
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
@@ -159,6 +169,7 @@ export default function RealtimeOrdersPage() {
                 // change={metric.change}
                 // changeType={metric.changeType}
                 bgColor={metric.bgColor}
+                color={metric.color}
                 className="animate-fadeIn"
               />
             ))}

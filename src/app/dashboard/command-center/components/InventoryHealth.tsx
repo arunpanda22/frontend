@@ -1,34 +1,30 @@
 import React from 'react'
 import dynamic from 'next/dynamic'
+import { useInventoryPerformanceData } from '@/lib/hooks/queries/use-dashboard'
 
-// Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import('react-apexcharts'), {
   ssr: false,
 })
 
-// Import your existing hook
-import { useInventoryPerformanceData } from '@/lib/hooks/queries/use-dashboard'
-
 const InventoryHealthDonut: React.FC = () => {
-  // Directly fetch data using your existing hook
   const { asinLiquidation } = useInventoryPerformanceData()
   const { data, isLoading, isError } = asinLiquidation
 
-  // Calculate totals and percentages
   const healthyInventory = data?.inventory_health?.['0_90_days'] || 0
   const excessInventory = data?.inventory_health?.above_90 || 0
   const strandedInventory = data?.inventory_health?.stranded || 0
   
   const totalInventory = healthyInventory + excessInventory + strandedInventory
   
-  // Calculate percentages
   const healthyPercentage = totalInventory > 0 ? Math.round((healthyInventory / totalInventory) * 100) : 0
   const excessPercentage = totalInventory > 0 ? Math.round((excessInventory / totalInventory) * 100) : 0
   const strandedPercentage = totalInventory > 0 ? Math.round((strandedInventory / totalInventory) * 100) : 0
   
   const series = [healthyPercentage, excessPercentage, strandedPercentage]
   const labels = ['Healthy', 'Excess', 'Stranded']
-  const chartColors = ['#10B981', '#F59E0B', '#EF4444']
+  
+  // Exact colors from the image: light ocean blue, gold, and a third color
+  const chartColors = ['#7EAEED', '#4F94DE', '#FFBF00'];
 
   const options = {
     labels: labels,
@@ -80,18 +76,18 @@ const InventoryHealthDonut: React.FC = () => {
     dataLabels: {
       enabled: false,
     },
-    fill: {
-      type: 'gradient' as const,
-      gradient: {
-        shade: 'light' as const,
-        type: 'horizontal' as const,
-        shadeIntensity: 0.25,
-        gradientToColors: undefined,
-        opacityFrom: 0.85,
-        opacityTo: 0.85,
-        stops: [50, 0, 100],
-      },
-    },
+    // fill: {
+    //   type: 'gradient' as const,
+    //   gradient: {
+    //     shade: 'light' as const,
+    //     type: 'horizontal' as const,
+    //     shadeIntensity: 0.25,
+    //     gradientToColors: undefined,
+    //     opacityFrom: 1,
+    //     opacityTo: 1,
+    //     stops: [50, 0, 100],
+    //   },
+    // },
     legend: {
       show: false,
     },
@@ -119,7 +115,6 @@ const InventoryHealthDonut: React.FC = () => {
     ],
   }
 
-  // Error state
   if (isError) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
@@ -141,7 +136,6 @@ const InventoryHealthDonut: React.FC = () => {
     )
   }
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
@@ -152,14 +146,13 @@ const InventoryHealthDonut: React.FC = () => {
         </div>
         
         <div className="p-4 md:p-6 flex-1 flex flex-col justify-center items-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mb-4"></div>
           <p className="text-gray-500 text-sm">Loading inventory data...</p>
         </div>
       </div>
     )
   }
 
-  // No data state
   if (!data || totalInventory === 0) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
@@ -183,13 +176,10 @@ const InventoryHealthDonut: React.FC = () => {
 
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           Inventory Health Status
         </h6>
-        <p className="text-sm text-gray-500 mt-1">
-          Total: {totalInventory.toLocaleString()} units
-        </p>
       </div>
       
       <div className="p-4 md:p-6 flex-1 flex flex-col justify-center">
@@ -206,7 +196,7 @@ const InventoryHealthDonut: React.FC = () => {
         <div className="grid grid-cols-3 gap-2 mt-4">
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#7EAEED' }}></div>
               <div className="text-xs font-semibold text-gray-900">{healthyPercentage}%</div>
             </div>
             <div className="text-xs text-gray-500">Healthy</div>
@@ -216,7 +206,7 @@ const InventoryHealthDonut: React.FC = () => {
           </div>
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#163250' }}></div>
               <div className="text-xs font-semibold text-gray-900">{excessPercentage}%</div>
             </div>
             <div className="text-xs text-gray-500">Excess</div>
@@ -226,7 +216,7 @@ const InventoryHealthDonut: React.FC = () => {
           </div>
           <div className="flex flex-col items-center gap-1">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#FFBF00' }}></div>
               <div className="text-xs font-semibold text-gray-900">{strandedPercentage}%</div>
             </div>
             <div className="text-xs text-gray-500">Stranded</div>

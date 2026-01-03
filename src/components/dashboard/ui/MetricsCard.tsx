@@ -141,29 +141,32 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
     <>
       <div
         ref={cardRef}
-        className={`relative overflow-hidden min-w-44 transition-all duration-500 card group/item hover:-translate-y-1 hover:shadow-2xl ${bgColor} bg-gradient-to-br rounded-lg border border-gray-200 shadow-sm ${className}`}
+        className={`relative overflow-hidden min-w-44 transition-all duration-500 card group/item hover:-translate-y-1 hover:shadow-2xl ${bgColor} rounded-lg border border-gray-200 shadow-sm ${className}`}
       >
         <div className="card-body p-4">
           <div className="relative z-10">
-            {/* Top row: title + value + icon */} 
+            {/* Top row: title + value + icon */}
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+                <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide font-montserrat">
                   {title}
                 </h3>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1 font-montserrat">
+                  {value}
+                </p>
                 {(change && changeType) || showTrendButton ? (
                   <div className="flex items-center justify-between mt-4 gap-2">
                     {/* Change indicator */}
 
                     {showTrendButton && (
                       <div className="relative group">
-                      
-                          <span onClick={handleViewTrends}  className="px-2 py-1 bg-powder-blue-700 border bg-gradient-to-br border-powder-blue-800 text-white hover:bg-powder-blue-800 text-xs font-semibold rounded-full flex items-center gap-1">
-                            <TrendingUpIcon className="w-3 h-3" />
-                            View trends
-                          </span>
-                  
+                        <span
+                          onClick={handleViewTrends}
+                          className="px-2 py-1 bg-ocean-600 border  text-white hover:bg-powder-blue-800 text-xs font-semibold rounded-full flex items-center gap-1 font-montserrat"
+                        >
+                          <TrendingUpIcon className="w-3 h-3" />
+                          View trends
+                        </span>
                       </div>
                     )}
                   </div>
@@ -173,15 +176,15 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
               {/* Icon on the right - conditionally rendered based on card width */}
               {showIcon && (
                 <div
-                  className={`grid place-items-center size-12 rounded-full bg-white transition-all duration-500 p-2`}
+                  className={`grid place-items-center rounded-full size-12  ${color} transition-all duration-500 p-3 shadow-icon`}
                 >
-                  <Icon className={`size-6`} />
+                  <Icon className={`size-6 text-white`} />
                 </div>
               )}
             </div>
 
             {/* Change indicator and trend button */}
-            {(change && changeType) ? (
+            {change && changeType ? (
               <div className="flex items-center justify-between mt-4 gap-2">
                 {/* Change indicator */}
                 {change && changeType && (

@@ -65,41 +65,27 @@ const ReturnReplacementCards = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-5 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             Lowlights
           </h6>
         </div>
         
-        <div className="p-4 md:p-6 flex-1 flex flex-col gap-4">
+        <div className="p-5 flex-1 grid grid-cols-2 gap-4">
           {/* Loading skeletons */}
-          <div className="rounded-lg bg-gray-50 p-4 flex flex-col animate-pulse">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-gray-200"></div>
-              <div>
-                <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-12"></div>
-              </div>
-            </div>
-            <div className="mt-auto">
-              <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
-              <div className="h-3 bg-gray-200 rounded w-16"></div>
-            </div>
+          <div className="flex flex-col items-center justify-center p-4 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-gray-200 mb-3"></div>
+            <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded w-16"></div>
           </div>
 
-          <div className="rounded-lg bg-gray-50 p-4 flex flex-col animate-pulse">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-gray-200"></div>
-              <div>
-                <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-12"></div>
-              </div>
-            </div>
-            <div className="mt-auto">
-              <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
-              <div className="h-3 bg-gray-200 rounded w-20"></div>
-            </div>
+          <div className="flex flex-col items-center justify-center p-4 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-gray-200 mb-3"></div>
+            <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded w-16 mb-1"></div>
+            <div className="h-3 bg-gray-200 rounded w-20"></div>
           </div>
         </div>
       </div>
@@ -109,14 +95,14 @@ const ReturnReplacementCards = () => {
   // Error state
   if (isError) {
     return (
-      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-5 border-b border-gray-100 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             Lowlights
           </h6>
         </div>
         
-        <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
+        <div className="p-5 flex-1 flex items-center justify-center">
           <div className="text-center text-gray-500">
             <p className="text-sm">Unable to load return/replacement data</p>
             <p className="text-xs mt-1">Please try again later</p>
@@ -139,72 +125,44 @@ const ReturnReplacementCards = () => {
     : 0;
 
   return (
-    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+    <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           Lowlights
         </h6>
       </div>
       
-      <div className="p-4 md:p-6 flex-1 flex flex-col gap-4">
+      <div className="p-5 flex-1 grid grid-cols-2 gap-4">
         {/* Return Rate Card */}
-        <div className="rounded-lg bg-gray-50 p-4 flex flex-col">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-100">
-              <RotateCcw className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 uppercase tracking-wide">
-                Return Rate
-              </p>
-              <h4 className="text-2xl font-bold text-gray-900">
-                {currentMetrics ? formatPercentage(currentMetrics.return_rate) : '0.0%'}
-              </h4>
-            </div>
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-3">
+            <RotateCcw className="w-6 h-6 text-red-600" />
           </div>
-          <div className="mt-auto">
-            {/* <div className="flex items-center gap-1 text-sm">
-              <span className={`font-medium ${
-                returnRateChange <= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {previousMetrics ? formatChange(returnRateChange) : 'N/A'}
-              </span>
-              <span className="text-gray-500">vs last period</span>
-            </div> */}
-            <p className="text-xs text-gray-400 mt-1">
-              {currentMetrics ? `${formatNumber(currentMetrics.total_returns)} returns` : '0 returns'}
-            </p>
-          </div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+            Return Rate
+          </p>
+          <h4 className="text-3xl font-bold text-gray-900 mb-1">
+            {currentMetrics ? formatPercentage(currentMetrics.return_rate) : '0.0%'}
+          </h4>
+          <p className="text-xs text-gray-400">
+            {currentMetrics ? `${formatNumber(currentMetrics.total_returns)} returns` : '0 returns'}
+          </p>
         </div>
 
         {/* Replacement Rate Card */}
-        <div className="rounded-lg bg-gray-50 p-4 flex flex-col">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">
-              <RefreshCw className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 uppercase tracking-wide">
-                Replacement Rate
-              </p>
-              <h4 className="text-2xl font-bold text-gray-900">
-                {currentMetrics ? formatPercentage(currentMetrics.replacement_rate) : '0.0%'}
-              </h4>
-            </div>
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 mb-3">
+            <RefreshCw className="w-6 h-6 text-blue-600" />
           </div>
-          <div className="mt-auto">
-            {/* <div className="flex items-center gap-1 text-sm">
-              <span className={`font-medium ${
-                replacementRateChange <= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {previousMetrics ? formatChange(replacementRateChange) : 'N/A'}
-              </span>
-              <span className="text-gray-500">vs last period</span>
-            </div> */}
-            <p className="text-xs text-gray-400 mt-1">
-              {currentMetrics ? `${formatNumber(currentMetrics.total_replacements)} replacements` : '0 replacements'}
-            </p>
-          </div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+            Replacement Rate
+          </p>
+          <h4 className="text-3xl font-bold text-gray-900 mb-1">
+            {currentMetrics ? formatPercentage(currentMetrics.replacement_rate) : '0.0%'}
+          </h4>
+          <p className="text-xs text-gray-400">
+            {currentMetrics ? `${formatNumber(currentMetrics.total_replacements)} replacements` : '0 replacements'}
+          </p>
         </div>
       </div>
     </div>

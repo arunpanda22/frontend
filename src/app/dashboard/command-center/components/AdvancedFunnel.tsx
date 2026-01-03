@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 import { useDateRange } from '@/lib/context/DateRangeContext';
 import { useCurrency } from "@/lib/context/CurrencyContext";
+import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
 
 interface MetricData {
   title: string;
@@ -17,7 +17,7 @@ const Metric: React.FC<MetricData> = ({ title, value, change, changeUp }) => (
     <div className="text-lg md:text-2xl font-bold my-1 text-gray-900">{value}</div>
     <div
       className="text-xs md:text-xs flex items-center"
-      style={{ color: changeUp ? "#16a34a" : "#E3144D" }}
+      style={{ color: changeUp ? "#16a34a" : "#dc2626" }}
     >
       <span>{changeUp ? "↑" : "↓"}</span>
       <span className="ml-1">{change}</span>
@@ -26,31 +26,26 @@ const Metric: React.FC<MetricData> = ({ title, value, change, changeUp }) => (
 );
 
 export default function AdvancedFunnel() {
-  // Get date range from parent context (from FilterBar)
   const { dateRange } = useDateRange();
   const { formatCurrency, formatNumber, formatPercentage, formatChange } = useCurrency();
   
-  // Use the date range from context, or fallback to last 30 days
   const endDate = dateRange.endDate || new Date().toISOString().split("T")[0];
   const startDate = dateRange.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  // Fetch data using your existing hook
   const { data: apiResponse, isLoading, error } = useAdsSalesData({
     start_date: startDate,
     end_date: endDate,
     focus_level: "all",
   });
 
-  // Handle loading state
   if (isLoading) {
     return (
       <div className="w-full p-4 flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-ocean-500"></div>
       </div>
     );
   }
 
-  // Handle error state
   if (error || !apiResponse) {
     return (
       <div className="text-red-500 w-full text-center p-4">
@@ -62,10 +57,8 @@ export default function AdvancedFunnel() {
     );
   }
 
-  // Extract data from API response
   const { current_period, previous_period, changes } = apiResponse;
 
-  // Create metrics with proper formatting
   const metrics = {
     impressions: {
       title: "Impressions",
@@ -120,12 +113,11 @@ export default function AdvancedFunnel() {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 md:p-6 border-b border-gray-100">
+      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          <h6 className="text-base font-semibold text-gray-900">
             Advanced Funnel
           </h6>
-          {/* Show current date range */}
           <div className="text-xs text-gray-500">
             {startDate} to {endDate}
           </div>
@@ -148,23 +140,23 @@ export default function AdvancedFunnel() {
         `}</style>
 
         <div className="w-full flex md:flex-row flex-col items-center gap-6 md:gap-8 h-full">
-          {/* Metrics - Direct API data mapping */}
+          {/* Metrics */}
           <div className="flex flex-col gap-6 flex-1 w-full">
             {/* Visibility Stage */}
-            <div className="border-t-4 px-4 pt-4 flex justify-around gap-4" style={{ borderTopColor: "#E3144D" }}>
+            <div className="border-t-4 border-ocean-300 px-4 pt-4 flex justify-around gap-4">
               <Metric {...metrics.impressions} />
               <Metric {...metrics.avgCPM} />
             </div>
             
             {/* Engagement Stage */}
-            <div className="border-t-4 px-4 border-blue-500 pt-4 flex justify-around gap-4">
+            <div className="border-t-4 border-ocean-500 px-4 pt-4 flex justify-around gap-4">
               <Metric {...metrics.clicks} />
               <Metric {...metrics.ctr} />
               <Metric {...metrics.avgCPC} />
             </div>
             
             {/* Conversion Stage */}
-            <div className="border-t-4 px-4 border-green-500 pt-4 flex justify-around gap-4">
+            <div className="border-t-4 border-ocean-700 px-4 pt-4 flex justify-around gap-4">
               <Metric {...metrics.conversions} />
               <Metric {...metrics.convRate} />
               <Metric {...metrics.adsSales} />
@@ -174,13 +166,13 @@ export default function AdvancedFunnel() {
           {/* Funnel SVG */}
           <div className="w-full md:w-1/3 h-56 md:h-full flex items-center justify-center">
             <svg viewBox="0 0 200 240" className="w-full h-full max-h-80">
-              {/* Visibility Stage */}
+              {/* Visibility Stage - Light Blue */}
               <g className="funnel-section">
                 <path
                   d="M 10 30 C 10 10, 190 10, 190 30 L 170 80 C 170 90, 30 90, 30 80 Z"
-                  fill="#E3144D"
+                  fill="#7EAEED"
                 />
-                <ellipse cx="100" cy="30" rx="90" ry="15" fill="#C51244" />
+                <ellipse cx="100" cy="30" rx="90" ry="15" fill="#4F94DE" />
                 <text
                   x="100"
                   y="68"
@@ -193,11 +185,11 @@ export default function AdvancedFunnel() {
                 </text>
               </g>
               
-              {/* Engagement Stage */}
+              {/* Engagement Stage - Medium Blue */}
               <g className="funnel-section">
                 <path
                   d="M 30 80 C 30 90, 170 90, 170 80 L 150 140 C 150 150, 50 150, 50 140 Z"
-                  fill="#2563eb"
+                  fill="#407AB8"
                 />
                 <text
                   x="100"
@@ -211,11 +203,11 @@ export default function AdvancedFunnel() {
                 </text>
               </g>
               
-              {/* Conversion Stage */}
+              {/* Conversion Stage - Dark Blue */}
               <g className="funnel-section">
                 <path
                   d="M 50 140 C 50 150, 150 150, 150 140 L 130 200 C 130 210, 70 210, 70 200 Z"
-                  fill="#16a34a"
+                  fill="#234871"
                 />
                 <text
                   x="100"
@@ -228,7 +220,6 @@ export default function AdvancedFunnel() {
                   CONVERSION
                 </text>
               </g>
-          
             </svg>
           </div>
         </div>  

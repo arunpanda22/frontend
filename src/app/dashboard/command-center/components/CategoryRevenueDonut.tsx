@@ -56,20 +56,16 @@ const CategoryRevenueDonut = () => {
   const { series, labels } = getCategoryData();
 
   // Generate colors for each category
-
-  
   const generateColors = (count: number): string[] => {
     const baseColors = [
-      '#3B82F6', // Blue
-      '#10B981', // Green  
-      '#F59E0B', // Amber
-      '#EF4444', // Red
-      '#8B5CF6', // Purple
-      '#F97316', // Orange
-      '#06B6D4', // Cyan
-      '#84CC16', // Lime
-      '#EC4899', // Pink
-      '#6366F1', // Indigo
+      '#234871', // ocean-700
+      '#316095', // ocean-600
+      '#407AB8', // ocean-500
+      '#4F94DE', // ocean-400
+      '#7EAEED', // ocean-300
+      '#ADC8F3', // ocean-200
+      '#D7E3F9', // ocean-100
+      '#EBF1FC', // ocean-50
     ];
     
     // If we need more colors than our base set, generate variations
@@ -100,37 +96,23 @@ const CategoryRevenueDonut = () => {
         startAngle: -90,
         endAngle: 270,
         donut: {
-          size: '70%',
+          size: '60%',
           labels: {
             show: true,
             name: {
-              show: true,
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#374151',
-              offsetY: -10,
+              show: false,
             },
             value: {
-              show: true,
-              fontSize: '20px',
-              fontWeight: 700,
-              color: '#111827',
-              offsetY: 8,
-              formatter: function (val: string) {
-                return parseFloat(val).toFixed(1) + '%';
-              },
+              show: false,
             },
             total: {
               show: true,
-              showAlways: false,
+              showAlways: true,
               label: 'Total',
-              fontSize: '12px',
-              fontWeight: 400,
-              color: '#6B7280',
-              formatter: function (w: any) {
-                const total = w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0);
-                return total.toFixed(1) + '%';
-              },
+              fontSize: '13px',
+              fontWeight: 500,
+              color: '#64748B',
+              formatter: () => '100%',
             },
           },
         },
@@ -144,11 +126,10 @@ const CategoryRevenueDonut = () => {
       gradient: {
         shade: 'light',
         type: 'horizontal',
-        shadeIntensity: 0.25,
-        gradientToColors: undefined,
-        opacityFrom: 0.85,
-        opacityTo: 0.85,
-        stops: [50, 0, 100],
+        shadeIntensity: 0.15,
+        opacityFrom: 0.95,
+        opacityTo: 0.95,
+        stops: [0, 100],
       },
     },
     legend: {
@@ -180,13 +161,13 @@ const CategoryRevenueDonut = () => {
 
   if (isLoading) {
     return (
-      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             Category Revenue Share
           </h6>
         </div>
-        <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
+        <div className="p-5 flex-1 flex items-center justify-center">
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <span className="text-gray-500">Loading category data...</span>
@@ -198,13 +179,13 @@ const CategoryRevenueDonut = () => {
 
   if (error) {
     return (
-      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
+        <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             Category Revenue Share
           </h6>
         </div>
-        <div className="p-4 md:p-6 flex-1 flex items-center justify-center">
+        <div className="p-5 flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="text-red-500 text-sm mb-2">Failed to load data</div>
             <div className="text-xs text-gray-400">Please try again later</div>
@@ -215,15 +196,16 @@ const CategoryRevenueDonut = () => {
   }
 
   return (
-    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+    <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           Category Revenue Share
         </h6>
       </div>
      
-      <div className="p-4 md:p-6 flex-1 flex flex-col justify-center">
-        <div className="flex items-center justify-center flex-1">
+      <div className="p-5 flex-1 flex items-center gap-6">
+        {/* Donut Chart on the Left */}
+        <div className="flex-shrink-0 px-6" style={{ width: '208px' }}>
           <ReactApexChart
             options={options}
             series={series}
@@ -233,17 +215,18 @@ const CategoryRevenueDonut = () => {
           />
         </div>
        
-        <div className="grid grid-cols-1 gap-2 mt-4 max-h-32 overflow-y-auto">
+        {/* Legend on the Right */}
+        <div className="flex-1 flex flex-col gap-3 px-6 overflow-y-auto max-h-40 ">
           {labels.map((label, index) => (
             <div key={label} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div
-                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: chartColors[index] }}
                 ></div>
-                <span className="text-xs text-gray-500 truncate">{label}</span>
+                <span className="text-sm text-slate-600 truncate">{label}</span>
               </div>
-              <span className="text-xs font-semibold text-gray-900 ml-2">
+              <span className="text-sm font-medium text-slate-900">
                 {series[index]}%
               </span>
             </div>

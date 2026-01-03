@@ -333,8 +333,8 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
           variant="ghost"
           size="sm"
           className={cn(
-            "h-7 w-7 p-0 hover:bg-slate-600/20 text-white rounded-md transition-all duration-200",
-            (currentSort || hasFilter || column.pinned) && "bg-slate-600/30 shadow-sm",
+            "h-7 w-7 p-0 hover:bg-ocean-400 text-white rounded-md transition-all duration-200",
+            (currentSort || hasFilter || column.pinned) && "bg-ocean-300 shadow-sm",
           )}
         >
           <MoreVertical className="h-4 w-4" />
@@ -522,7 +522,7 @@ export function AdvancedDataTable({
   const containerRef = useRef<HTMLDivElement>(null)
   
   const containerHeight = useMemo(() => {
-    return 48 + (minVisibleRows * 63) + 28
+    return 48 + (minVisibleRows * 44) + 28
   }, [minVisibleRows])
   
   const checkboxColumnWidth = showCheckboxColumn ? 80 : 0
@@ -1000,7 +1000,7 @@ export function AdvancedDataTable({
                       <th
                         key={column.field}
                         className={cn(
-                          "text-left p-0 font-bold text-sm bg-gradient-to-r from-blue-100 to-blue-200 border-r border-slate-200 relative group",
+                          "text-left p-0 font-bold text-sm bg-ocean-100 border-r border-slate-200 relative group",
                           isLeftPinned && "sticky z-20 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
                           isRightPinned && "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
                         )}
@@ -1058,10 +1058,10 @@ export function AdvancedDataTable({
                     <tr
                       key={row?.__isEmpty ? `empty-${row.__emptyIndex}` : rowIndex}
                       className={cn(
-                        "border-b border-slate-100 hover:bg-blue-50/50 transition-all duration-150",
+                        "border-b border-slate-100 hover:bg-ocean-50/50 transition-all duration-150",
                         isSelected && !isEmpty && "bg-blue-50 border-blue-200",
                         isEmpty && "opacity-30",
-                        rowIndex % 2 === 0 && "bg-slate-50/30",
+                        rowIndex % 2 === 1 && "bg-ocean-50",
                       )}
                       style={{ height: '44px' }}
                     >
@@ -1090,8 +1090,10 @@ export function AdvancedDataTable({
                             key={column.field}
                             className={cn(
                               "p-0 border-r border-slate-200 relative",
-                              isLeftPinned && "sticky z-10 bg-white shadow-[4px_0_8px_rgba(0,0,0,0.08)]",
-                              isRightPinned && "sticky z-10 bg-white shadow-[-4px_0_8px_rgba(0,0,0,0.08)]",
+                              isLeftPinned && "sticky z-10 shadow-[4px_0_8px_rgba(0,0,0,0.08)]",
+                              isRightPinned && "sticky z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.08)]",
+                              !isEmpty && rowIndex % 2 === 1 && (isLeftPinned || isRightPinned) && "bg-ocean-50",
+                              !isEmpty && rowIndex % 2 === 0 && (isLeftPinned || isRightPinned) && "bg-white",
                               isSelected && (isLeftPinned || isRightPinned) && "bg-blue-50",
                             )}
                             style={{
@@ -1154,7 +1156,7 @@ export function AdvancedDataTable({
           </Button>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">Page</span>
-            <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-bold min-w-[3rem] text-center shadow-sm">
+            <div className="px-4 py-2 bg-gradient-to-r from-ocean-400 to-ocean-500 text-white rounded-lg text-sm font-bold min-w-[3rem] text-center shadow-sm">
               {currentPage}
             </div>
             <span className="text-sm font-medium text-slate-600">of {paginationData.totalPages || 1}</span>

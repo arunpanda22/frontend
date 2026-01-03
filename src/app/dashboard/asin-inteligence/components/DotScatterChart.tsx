@@ -85,11 +85,21 @@ export default function DotScatterChart({
 
   // Card wrapper styling (like AdsSplitBubbleChart)
   return (
-    <div className="order-7 col-span-12 xl:col-span-6 2xl:col-span-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-      
+    <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 p-6 border-b border-gray-200 dark:border-gray-700">
-        <h6 className="text-lg font-semibold text-gray-900 dark:text-white">ASIN Scatter</h6>
+      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <h6 className="text-base font-semibold text-gray-900">
+            Total Sales vs TACOS
+          </h6>
+          <div className="text-xs text-gray-500">
+            {startDate} to {endDate}
+          </div>
+        </div>
+      </div>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 px-6 py-2 border-b border-gray-200 dark:border-gray-700">
+        <h6 className="text-lg text-gray-900 dark:text-white font-montserrat font-semibold">ASIN Scatter</h6>
         <select
           value={focusLevel}
           onChange={e => setFocusLevel(e.target.value)}

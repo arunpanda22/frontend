@@ -20,6 +20,10 @@ const config = {
   		}
   	},
   	extend: {
+		fontFamily: {
+			sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+			montserrat: ["var(--font-montserrat)", "sans-serif"],
+		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -58,7 +62,6 @@ const config = {
                 DEFAULT: '#ff9900',
                 dark: '#e88b00'
             },
-            // Deep Space Blue - Palette 1 (Primary Brand Color)
             'deep-space': {
                 50: '#E7F5FE',
                 100: '#CFECFC',
@@ -71,20 +74,6 @@ const config = {
                 800: '#053F61',
                 900: '#032030',
                 950: '#021622',
-            },
-            // Aqua Breeze - Palette 2 (Accent/Secondary)
-            'aqua': {
-                50: '#E9FAFC',
-                100: '#D3F5F8',
-                200: '#A6EBF2',
-                300: '#7AE2EB',
-                400: '#4ED8E4',
-                500: '#21CEDE',  // Main aqua color
-                600: '#1BA5B1',
-                700: '#147C85',
-                800: '#0D5259',
-                900: '#07292C',
-                950: '#051D1F',
             },
 			'powder-blue': {
 				50: '#EEF2F6',
@@ -112,18 +101,29 @@ const config = {
 				900: '#161D1A',  
 				950: '#0F1512',
 			},
-			"goldenrod": {
-				50:  '#FFF8E5',
-				100: '#FFF1CC',
-				200: '#FFE499',
-				300: '#FFD666',
-				400: '#FFC933',
-				500: '#FFBB00', // Main goldenrod color
-				600: '#CC9600',
-				700: '#997000',
-				800: '#664B00',
-				900: '#332500',
-				950: '#241A00',
+			ocean: {
+				50:  "#EBF1FC",
+				100: "#D7E3F9",
+				200: "#ADC8F3",
+				300: "#7EAEED",
+				400: "#4F94DE",
+				500: "#407AB8",
+				600: "#316095",
+				700: "#234871",
+				800: "#163250",
+				900: "#0A1C30",
+			},
+			gold: {
+				50:  "#FFF9E5",
+				100: "#FFF2CC",
+				200: "#FFE699",
+				300: "#FFD966",
+				400: "#FFBF00",
+				500: "#CC9900",
+				600: "#997300",
+				700: "#664D00",
+				800: "#332600",
+				900: "#241B00",
 			},
 		
   			chart: {
@@ -160,7 +160,11 @@ const config = {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
-  		}
+  		},
+		boxShadow: {
+			'icon': '0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1)',
+		},
+		
   	}
   },
   plugins: [animatePlugin, require("tailwindcss-animate")],

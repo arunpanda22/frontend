@@ -14,11 +14,14 @@ const TopAsinsRevenue: React.FC<TopAsinsRevenueProps> = ({
   isLoading = false, 
   isError = false 
 }) => {
-  const { formatCurrencyNoDecimal } = useCurrency();
+  const { formatCurrencyNoDecimal, getCurrencySymbol } = useCurrency();
+
+  const currencySymbol = getCurrencySymbol()
   
   // Transform API data - format currency in the transformation
   const transformedData = data?.map(asin => ({
     id: asin.asin,
+    currency: currencySymbol,
     name: asin.product_name || 'Unknown Product',
     imageUrl: asin.image_url,
     value: formatCurrencyNoDecimal(asin.revenue), // Pre-format the currency

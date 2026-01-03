@@ -1,7 +1,9 @@
+import { Currency } from 'lucide-react';
 import React from 'react';
 
 interface TopItemsListItem {
   id: string;
+  currency: string;
   name: string;
   imageUrl?: string;
   value: number | string; // Allow both number and pre-formatted string
@@ -43,7 +45,7 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
   if (isLoading) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 md:p-6 border-b-2 border-gray-300 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             {title}
           </h6>
@@ -70,7 +72,7 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
   if (isError) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 md:p-6 border-b-2 border-gray-300 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             {title}
           </h6>
@@ -90,8 +92,8 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
   if (!data || data.length === 0) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+        <div className="p-4 md:p-5 border-b-2 border-gray-300 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             {title}
           </h6>
         </div>
@@ -108,8 +110,8 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
 
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="p-4 md:p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           {title}
         </h6>
       </div>
@@ -138,7 +140,7 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate" title={item.name || 'Unknown Item'}>
+                    <p className="text-sm font-medium text-gray-900 truncate pr-4" title={item.name || 'Unknown Item'}>
                       {item.name || 'Unknown Item'}
                     </p>
                     {item.subtitle && (
@@ -148,8 +150,8 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
                     )}
                   </div>
                   <div className="flex-shrink-0">
-                    <p className="text-lg font-bold text-blue-600">
-                      {item.value}
+                    <p className="text-lg font-bold text-ocean-700">
+                      {item.currency}{item.value}
                     </p>
                   </div>
                 </div>

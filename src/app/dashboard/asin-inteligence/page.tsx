@@ -152,69 +152,78 @@ const AsinIntelligenceContent = () => {
     if (!summaryStats) {
       return [
         {
-          title: "TOTAL SALES",
+          title: "SALES",
           value: "Loading...",
           icon: DollarSign,
-          bgColor: "bg-jungle-teal-200",
+          color: "bg-ocean-500",
+          bgColor: "bg-white",
         },
         {
-          title: "TOTAL QUANTITY",
+          title: "QUANTITY",
           value: "Loading...",
           icon: Package,
-          bgColor: "bg-jungle-teal-100",
+          color: "bg-gold-400",
+          bgColor: "bg-white",
         },
         {
           title: "AVG. BUYBOX",
           value: "Loading...",
           icon: Percent,
-          bgColor: "bg-jungle-teal-200",
+          color: "bg-ocean-500",
+          bgColor: "bg-white",
         },
         {
           title: "RETURN RATE",
           value: "Loading...",
           icon: RotateCcw,
-          bgColor: "bg-jungle-teal-100",
+          color: "bg-gold-400",
+          bgColor: "bg-white",
         },
         {
           title: "REPLACEMENT RATE",
           value: "Loading...",
           icon: Coins,
-          bgColor: "bg-jungle-teal-200",
+          color: "bg-ocean-500",
+          bgColor: "bg-white",
         },
       ];
     }
 
     return [
       {
-        title: "TOTAL SALES",
+        title: "SALES",
         value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(summaryStats.totalSales)}`,
         icon: DollarSign,
-        bgColor: "bg-jungle-teal-200" ,
+        color: "bg-ocean-500",
+        bgColor: "bg-white",
       },
       {
-        title: "TOTAL QUANTITY",
+        title: "QUANTITY",
         value: formatNumber(summaryStats.totalQuantity),
         icon: Package,
-        bgColor: "bg-jungle-teal-100",
+        color: "bg-gold-400",
+        bgColor: "bg-white",
       },
       {
         title: "AVG. BUYBOX",
         value: formatPercentage(summaryStats.avgBuyBox),
         icon: Percent,
-        bgColor: "bg-jungle-teal-200",
-        
+        color: "bg-ocean-500",
+        bgColor: "bg-white",
       },
       {
         title: "RETURN RATE",
         value: formatPercentage(summaryStats.avgReturnRate),
         icon: RotateCcw,
-        bgColor: "bg-jungle-teal-100",
+        color: "bg-gold-400",
+        bgColor: "bg-white",
       },
       {
         title: "REPLACEMENT RATE",
         value: formatPercentage(summaryStats.avgReplacementRate),
         icon: Coins,
-        bgColor: "bg-jungle-teal-200",
+        color: "bg-ocean-500",
+        bgColor: "bg-white",
       },
     ];
   }, [summaryStats, formatCurrency, formatNumber, formatPercentage]);
@@ -248,7 +257,7 @@ const AsinIntelligenceContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7fafc] py-12 px-12">
+    <div className="min-h-screen py-12 px-12">
       <div className="w-full transition-all duration-300">
         {/* Filter Bar with date range integration */}
         <FilterBar
@@ -269,6 +278,7 @@ const AsinIntelligenceContent = () => {
                 title={metric.title}
                 value={metric.value}
                 icon={metric.icon}
+                color={metric.color}
                 bgColor={metric.bgColor}
               />
             ))}
@@ -280,22 +290,16 @@ const AsinIntelligenceContent = () => {
           <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Analytics
           </h2>
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start w-full">
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6">
             {/* Dot Scatter Chart */}
-            <div className="xl:col-span-2 rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-4 sm:p-6 md:p-8 flex flex-col min-h-[400px] sm:min-h-[520px] w-full">
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#1a2b3c] mb-2">
-                Total Sales vs TACOS
-              </div>
-              <div className="rounded-2xl w-full h-full p-2 transition-transform duration-200">
-                <DotScatterChart
-                  startDate={dateRange.startDate || ""}
-                  endDate={dateRange.endDate || ""}
-                />
-              </div>
+            <div className="rounded-2xl flex w-full bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-4 row-span-1 transition-all duration-300 animate-fadein delay-300 h-full">
+              <DotScatterChart
+                startDate={dateRange.startDate || ""}
+                endDate={dateRange.endDate || ""}
+              />
             </div>
-
             {/* Organic Sales Card */}
-            <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg p-4 sm:p-6 md:p-8 w-full h-full flex flex-col min-h-[400px] sm:min-h-[520px]">
+            <div className="col-span-1 lg:col-span-2 row-span-1 h-full">
               <OrganicSalesCard
                 maxItems={10}
                 className="h-full"

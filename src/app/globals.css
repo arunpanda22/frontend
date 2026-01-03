@@ -43,6 +43,10 @@
     --chart-4: 43 74% 66%;
  
     --chart-5: 27 87% 67%;
+
+    --funnel-visibility: theme(colors.ocean.400);
+    --funnel-engagement: theme(colors.ocean.600);
+    --funnel-conversion: theme(colors.ocean.800);
   }
  
   .dark {

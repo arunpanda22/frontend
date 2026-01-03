@@ -348,7 +348,7 @@ export default function AsinPerformanceTable({
       </div>
 
       {/* Table Content */}
-      <div className="p-4 md:p-6 flex-1 min-h-0">
+      <div className="flex-1 min-h-0">
         <AdvancedDataTable
           data={asinData}
           columns={tableColumns}

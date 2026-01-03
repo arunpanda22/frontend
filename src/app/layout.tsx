@@ -5,14 +5,14 @@
 // Purpose: Root layout that wraps all pages
 // TODO: Add production metadata
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/layout/navbar'
 import Footer from '@/components/layout/footer'
 import { Providers } from '@/lib/providers/providers'
 import { LayoutWrapper } from '@/components/layout/layout-wrapper'
+import { inter, montserrat } from './fonts'
 
-const inter = Inter({ subsets: ['latin'] })
+// const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Pacepivot AI',
@@ -29,7 +29,7 @@ export default function RootLayout({
   const heightCalc = 'h-[calc(100vh-4rem)]'
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${montserrat.variable}`}>
       <body className={inter.className}>
         <Providers>
           <div className={`min-h-screen  flex flex-col`}>
