@@ -146,13 +146,13 @@ export default function ASinExcess() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="p-4 md:p-6 border-b-2 border-gray-300 flex-shrink-0">
+          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
           ASIN Excess
         </h6>
       </div>
       {/* Table Content */}
-      <div className="p-4 md:p-6 flex-1 min-h-0">
+      <div className="flex-1 min-h-0">
         <AdvancedDataTable
           data={excessData}
           columns={tableColumns}

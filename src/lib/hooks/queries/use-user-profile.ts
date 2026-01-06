@@ -26,6 +26,14 @@ export interface ConnectedSellerAccount {
   created_at: string;
   last_refreshed_at: string;
 }
+export interface ConnectedVendorAccount {
+  vendor_code: string;
+  marketplace_id: string;
+  region: string;
+  is_active: boolean;
+  created_at: string;
+  last_refreshed_at: string;
+}
 
 export interface RBACContext {
   role_id: number;
@@ -71,6 +79,7 @@ export interface UserProfile {
   rbac_context: RBACContext;
   connected_advertising_profiles: ConnectedAdvertisingProfile[];
   connected_seller_accounts: ConnectedSellerAccount[];
+  connected_vendor_accounts: ConnectedVendorAccount[];
 }
 
 /**
