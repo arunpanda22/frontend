@@ -185,7 +185,9 @@ const AdsSplitBubbleChart = () => {
   return (
     <div className="order-8 col-span-12 xl:col-span-6 2xl:col-span-4 bg-white rounded-lg border border-gray-200 shadow-sm h-full">
       <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
-        <h6 className="text-base font-semibold text-gray-900">Ads Split</h6>
+        <h6 className="text-base font-semibold text-gray-900">
+          Ads Split
+        </h6>
       </div>
       
       <div className="p-4 md:p-6 flex-1 flex flex-col justify-center">

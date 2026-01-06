@@ -212,7 +212,7 @@ const LineColumnAreaChart = ({
         left: 10
       },
     },
-    colors: ['#3B82F6', '#10B981'],
+    colors: ['#4F94DE', '#FFBF00'],
     legend: {
       position: 'top',
       horizontalAlign: 'right',
@@ -225,10 +225,10 @@ const LineColumnAreaChart = ({
   }
 
   return (
-       <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
+    <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
       {/* Header with consistent padding */}
-      <div className="p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="p-5  border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           Inventory Overview
         </h6>
       </div>

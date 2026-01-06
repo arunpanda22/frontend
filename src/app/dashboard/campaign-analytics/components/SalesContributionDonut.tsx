@@ -25,8 +25,8 @@ const SalesContributionDonut: React.FC = () => {
   if (isLoading) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+        <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             Sales Contribution by Category
           </h6>
         </div>
@@ -57,8 +57,8 @@ const SalesContributionDonut: React.FC = () => {
   if (salesContributionByCategory.length === 0) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+        <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+          <h6 className="text-base font-semibold text-gray-900">
             Sales Contribution by Category
           </h6>
           <p className="text-sm text-gray-500 mt-1">
@@ -77,7 +77,14 @@ const SalesContributionDonut: React.FC = () => {
     parseFloat(item.sales_contribution_pct.toFixed(2))
   )
   const labels = salesContributionByCategory.map((item) => item.category)
-  const chartColors = ['#2563EB', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#F43F5E']
+  const chartColors = [
+      '#7EAEED', // ocean-300
+      '#4F94DE', // ocean-400
+      '#407AB8', // ocean-500
+      '#316095', // ocean-600
+      '#234871', // ocean-700
+      '#163250', // ocean-800
+    ];
 
   const options = {
     labels,
@@ -151,8 +158,8 @@ const SalesContributionDonut: React.FC = () => {
 
   return (
     <div className="h-full w-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           Sales Contribution by Category
         </h6>
        

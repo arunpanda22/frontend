@@ -8,7 +8,10 @@ import { useWeeklyData } from '@/lib/hooks/queries/use-dashboard';
 import { useCurrency } from '@/lib/context/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/chartcard';
 
-// State components (using your existing ones)
+// Consistent color palette
+const CHART_COLORS = ['#4F94DE', '#FFD966', '#00E0B2', '#E41F66' ];
+
+// State components
 const LoadingState = () => (
   <div className="w-full h-96 flex items-center justify-center">
     <div className="flex flex-col items-center gap-3">
@@ -36,18 +39,18 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-// KPI Options with categories
+// KPI Options with categories (no fixed colors)
 const KPI_OPTIONS = [
   // Advertising
-  { id: 'impressions', title: 'Impressions', keys: ['impressions'], format: 'number', color: '#3B82F6', category: 'Advertising' },
-  { id: 'clicks', title: 'Clicks', keys: ['clicks'], format: 'number', color: '#1E40AF', category: 'Advertising' },
-  { id: 'ctr', title: 'CTR %', keys: ['CTR%'], format: 'percent', color: '#60A5FA', category: 'Advertising' },
-  { id: 'cpc', title: 'CPC', keys: ['CPC'], format: 'currency', color: '#0EA5E9', category: 'Advertising' },
-  { id: 'cost', title: 'Cost', keys: ['cost'], format: 'currency', color: '#06B6D4', category: 'Advertising' },
-  { id: 'conversion', title: 'Conversion %', keys: ['CVR%'], format: 'percent', color: '#0D9488', category: 'Advertising' },
-  { id: 'acos', title: 'ACOS %', keys: ['ACOS%'], format: 'percent', color: '#EC4899', category: 'Advertising' },
-  { id: 'cpa', title: 'CPA', keys: ['CPA'], format: 'currency', color: '#0891B2', category: 'Advertising' },
-  { id: 'sales', title: 'Sales', keys: ['sales_30d'], format: 'currency', color: '#10B981', category: 'Advertising' },
+  { id: 'impressions', title: 'Impressions', keys: ['impressions'], format: 'number', category: 'Advertising' },
+  { id: 'clicks', title: 'Clicks', keys: ['clicks'], format: 'number', category: 'Advertising' },
+  { id: 'ctr', title: 'CTR %', keys: ['CTR%'], format: 'percent', category: 'Advertising' },
+  { id: 'cpc', title: 'CPC', keys: ['CPC'], format: 'currency', category: 'Advertising' },
+  { id: 'cost', title: 'Cost', keys: ['cost'], format: 'currency', category: 'Advertising' },
+  { id: 'conversion', title: 'Conversion %', keys: ['CVR%'], format: 'percent', category: 'Advertising' },
+  { id: 'acos', title: 'ACOS %', keys: ['ACOS%'], format: 'percent', category: 'Advertising' },
+  { id: 'cpa', title: 'CPA', keys: ['CPA'], format: 'currency', category: 'Advertising' },
+  { id: 'sales', title: 'Sales', keys: ['sales_30d'], format: 'currency', category: 'Advertising' },
 ] as const;
 
 type KPIKey = typeof KPI_OPTIONS[number]['id'];
@@ -250,11 +253,11 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
   if (!dataset?.length) return <EmptyState message="No data available for the selected period" />;
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6">
+    <div className="w-full bg-white rounded-xl ">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Ads Timeline</h2>
-        <p className="text-gray-600 mt-1">Performance trends over time</p>
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">Ads Timeline</h6>
+        <p className="text-xs text-gray-400 mt-1">Performance trends over time</p>
       </div>
 
       {/* Controls */}
@@ -279,24 +282,29 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
                         {group.category}
                       </h4>
                       <div className="space-y-2">
-                        {group.items.map(kpi => (
-                          <label
-                            key={kpi.id}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={chartMetrics.includes(kpi.id as KPIKey)}
-                              onChange={() => handleChartMetricToggle(kpi.id as KPIKey)}
-                              disabled={chartMetrics.length === 1 && chartMetrics.includes(kpi.id as KPIKey)}
-                              className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                            />
-                            <div className="flex items-center gap-2 flex-1">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: kpi.color }} />
-                              <span className="text-sm text-gray-700">{kpi.title}</span>
-                            </div>
-                          </label>
-                        ))}
+                        {group.items.map(kpi => {
+                          const metricIndex = chartMetrics.indexOf(kpi.id as KPIKey);
+                          const color = metricIndex >= 0 ? CHART_COLORS[metricIndex] : '#D1D5DB';
+                          
+                          return (
+                            <label
+                              key={kpi.id}
+                              className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={chartMetrics.includes(kpi.id as KPIKey)}
+                                onChange={() => handleChartMetricToggle(kpi.id as KPIKey)}
+                                disabled={chartMetrics.length === 1 && chartMetrics.includes(kpi.id as KPIKey)}
+                                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                              />
+                              <div className="flex items-center gap-2 flex-1">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                                <span className="text-sm text-gray-700">{kpi.title}</span>
+                              </div>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -320,70 +328,16 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cardMetrics.slice(0, 4).map((metricId, index) => {
-          const kpi = KPI_OPTIONS.find(k => k.id === metricId);
-          if (!kpi) return null;
-
-          const value = chartData.totals[metricId];
-          
-          const formatValue = () => {
-            if (kpi.format === 'currency') {
-              return formatCurrencyValue(value);
-            } else if (kpi.format === 'number') {
-              return formatNumberValue(value);
-            } else if (kpi.format === 'percent') {
-              return `${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}%`;
-            }
-            return value.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-          };
-
-          return (
-            <Card 
-              key={index}
-              className="hover:shadow-lg transition-shadow border-l-4"
-              style={{ 
-                backgroundColor: `${kpi.color}20`,
-                borderLeftColor: kpi.color
-              }}
-            >
-              <CardHeader className="pb-0 pt-1 px-3">
-                <div className="flex items-start justify-between gap-0">
-                  <select
-                    value={metricId}
-                    onChange={(e) => handleCardMetricChange(index, e.target.value as KPIKey)}
-                    className="text-xl font-semibold text-gray-900 bg-transparent border-none p-0 cursor-pointer hover:text-blue-600 transition-colors flex-1"
-                  >
-                    {KPI_OPTIONS.map(option => (
-                      <option key={option.id} value={option.id}>
-                        {option.title}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex-shrink-0">
-                    {getMetricIcon(metricId)}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pb-0 px-3 pt-0">
-                <p className="text-2xl font-bold text-gray-900">{formatValue()}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{kpi.category}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div> */}
-
       {/* Chart */}
       <Card className="shadow-md rounded-b-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-3 flex-wrap">
             {chartMetrics.map((m, idx) => {
               const kpi = KPI_OPTIONS.find(k => k.id === m);
+              const color = CHART_COLORS[idx];
               return (
                 <span key={m} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: kpi?.color }} />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
                   <span>{kpi?.title}</span>
                   {idx < chartMetrics.length - 1 && <span className="text-gray-400">•</span>}
                 </span>
@@ -398,15 +352,14 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
               <XAxis dataKey="date" stroke="#6b7280" />
 
               {yAxisConfig.map(config => {
-                const metric = chartMetrics[config.index];
-                const kpi = KPI_OPTIONS.find(k => k.id === metric);
+                const color = CHART_COLORS[config.index];
 
                 return (
                   <YAxis
                     key={config.yAxisId}
                     yAxisId={config.yAxisId}
                     orientation={config.orientation}
-                    stroke={kpi?.color}
+                    stroke={color}
                     width={80}
                   />
                 );
@@ -425,6 +378,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
               {chartMetrics.map((metricId, index) => {
                 const kpi = KPI_OPTIONS.find(k => k.id === metricId);
                 const config = yAxisConfig[index];
+                const color = CHART_COLORS[index];
                 const isImpressionsBar = metricId === 'impressions';
 
                 if (isImpressionsBar) {
@@ -433,7 +387,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
                       key={metricId}
                       yAxisId={config.yAxisId}
                       dataKey={metricId}
-                      fill={kpi?.color}
+                      fill={color}
                       name={kpi?.title}
                       opacity={0.8}
                       radius={[8, 8, 0, 0]}
@@ -447,9 +401,9 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
                     yAxisId={config.yAxisId}
                     type="monotone"
                     dataKey={metricId}
-                    stroke={kpi?.color}
+                    stroke={color}
                     strokeWidth={2.5}
-                    dot={{ fill: kpi?.color, r: 4 }}
+                    dot={{ fill: color, r: 4 }}
                     activeDot={{ r: 6 }}
                     name={kpi?.title}
                   />

@@ -32,7 +32,7 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const width = entry.contentRect.width;
-        setShowIcon(width >= 240); // w-60 is 240px
+        setShowIcon(width >= 200); // w-60 is 240px
       }
     });
 
@@ -66,76 +66,6 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
       document.body.style.overflow = "unset";
     };
   }, [showTrendModal]);
-
-  // Color mappings for consistent styling
-  // const colorClasses = {
-  //   blue: {
-  //     iconBg: "bg-blue-500/10",
-  //     iconText: "text-blue-500",
-  //     hover: "hover:border-blue-500",
-  //     expandBg: "bg-blue-500/10",
-  //     buttonBg: "bg-blue-500",
-  //     buttonHover: "hover:bg-blue-600",
-  //   },
-  //   green: {
-  //     iconBg: "bg-green-500/10",
-  //     iconText: "text-green-500",
-  //     hover: "hover:border-green-500",
-  //     expandBg: "bg-green-500/10",
-  //     buttonBg: "bg-green-500",
-  //     buttonHover: "hover:bg-green-600",
-  //   },
-  //   purple: {
-  //     iconBg: "bg-purple-500/10",
-  //     iconText: "text-purple-500",
-  //     hover: "hover:border-purple-500",
-  //     expandBg: "bg-purple-500/10",
-  //     buttonBg: "bg-purple-500",
-  //     buttonHover: "hover:bg-purple-600",
-  //   },
-  //   orange: {
-  //     iconBg: "bg-orange-500/10",
-  //     iconText: "text-orange-500",
-  //     hover: "hover:border-orange-500",
-  //     expandBg: "bg-orange-500/10",
-  //     buttonBg: "bg-orange-500",
-  //     buttonHover: "hover:bg-orange-600",
-  //   },
-  //   red: {
-  //     iconBg: "bg-red-500/10",
-  //     iconText: "text-red-500",
-  //     hover: "hover:border-red-500",
-  //     expandBg: "bg-red-500/10",
-  //     buttonBg: "bg-red-500",
-  //     buttonHover: "hover:bg-red-600",
-  //   },
-  //   indigo: {
-  //     iconBg: "bg-indigo-500/10",
-  //     iconText: "text-indigo-500",
-  //     hover: "hover:border-indigo-500",
-  //     expandBg: "bg-indigo-500/10",
-  //     buttonBg: "bg-indigo-500",
-  //     buttonHover: "hover:bg-indigo-600",
-  //   },
-  //   pink: {
-  //     iconBg: "bg-pink-500/10",
-  //     iconText: "text-pink-500",
-  //     hover: "hover:border-pink-500",
-  //     expandBg: "bg-pink-500/10",
-  //     buttonBg: "bg-pink-500",
-  //     buttonHover: "hover:bg-pink-600",
-  //   },
-  //   yellow: {
-  //     iconBg: "bg-yellow-500/10",
-  //     iconText: "text-yellow-500",
-  //     hover: "hover:border-yellow-500",
-  //     expandBg: "bg-yellow-500/10",
-  //     buttonBg: "bg-yellow-500",
-  //     buttonHover: "hover:bg-yellow-600",
-  //   },
-  // };
-
-  // const colors = colorClasses[bgColor];
 
   return (
     <>

@@ -58,14 +58,13 @@ const CategoryRevenueDonut = () => {
   // Generate colors for each category
   const generateColors = (count: number): string[] => {
     const baseColors = [
-      '#234871', // ocean-700
-      '#316095', // ocean-600
-      '#407AB8', // ocean-500
-      '#4F94DE', // ocean-400
       '#7EAEED', // ocean-300
-      '#ADC8F3', // ocean-200
-      '#D7E3F9', // ocean-100
-      '#EBF1FC', // ocean-50
+      '#4F94DE', // ocean-400
+      '#407AB8', // ocean-500
+      '#316095', // ocean-600
+      '#234871', // ocean-700
+      '#163250', // ocean-800
+
     ];
     
     // If we need more colors than our base set, generate variations

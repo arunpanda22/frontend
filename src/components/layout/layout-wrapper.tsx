@@ -60,7 +60,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   if (routesWithoutSidebar) {
     return (
       <RouteGuard>
-        <div className="w-full bg-gradient-to-b from-[#ADC8F3] to-[#D7E3F9] min-h-screen">
+        <div className="w-full  min-h-screen">
           {children}
         </div>
       </RouteGuard>
@@ -80,7 +80,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
             <Sidebar />
           </div>
         </div>
-        <div className="flex-1 overflow-hidden bg-gradient-to-b from-[#ADC8F3] to-[#D7E3F9] min-h-screen">
+        <div className="flex-1 overflow-hidden bg-gray-100 min-h-screen">
           <RouteGuard>{children}</RouteGuard>
         </div>
       </div>

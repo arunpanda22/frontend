@@ -212,36 +212,36 @@ import { useInventoryStats } from '@/lib/hooks/queries/use-dashboard'
 const statCardsConfig = [
   {
     label: 'Total Inventory',
-    icon: <Boxes className="text-blue-400 w-7 h-7" />,
-    color: 'text-blue-400',
-    borderColor: 'border-blue-200',
+    icon: <Boxes className="text-gold-400 w-7 h-7" />,
+    color: 'text-gold-400',
+    borderColor: 'border-gold-300',
     leftLabel: 'Total ASIN',
     rightLabel: 'Total Quantity',
     key: 'total',
   },
   {
     label: 'Excess Inventory',
-    icon: <TrendingUp className="text-purple-400 w-7 h-7" />,
-    color: 'text-purple-400',
-    borderColor: 'border-purple-200',
+    icon: <TrendingUp className="text-jungle-400 w-7 h-7" />,
+    color: 'text-jungle-400',
+    borderColor: 'border-jungle-200',
     leftLabel: 'Total ASIN',
     rightLabel: 'Total Quantity',
     key: 'excess',
   },
   {
     label: 'Liquidation',
-    icon: <Droplet className="text-red-400 w-7 h-7" />,
-    color: 'text-red-400',
-    borderColor: 'border-red-200',
+    icon: <Droplet className="text-ocean-400 w-7 h-7" />,
+    color: 'text-ocean-400',
+    borderColor: 'border-ocean-200',
     leftLabel: 'Total ASIN',
     rightLabel: 'Total Quantity',
     key: 'liquidation',
   },
   {
     label: 'Stranded Inventory',
-    icon: <AlertTriangle className="text-orange-400 w-7 h-7" />,
-    color: 'text-orange-400',
-    borderColor: 'border-orange-200',
+    icon: <AlertTriangle className="text-rose-400 w-7 h-7" />,
+    color: 'text-rose-400',
+    borderColor: 'border-rose-200',
     leftLabel: 'Total ASIN',
     rightLabel: 'Total Quantity',
     key: 'stranded',
@@ -270,7 +270,7 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({
   // Handle loading state
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full font-montserrat">
         {statCardsConfig.map((card, idx) => (
           <div key={idx} className={`bg-gray-50 border ${card.borderColor} rounded-lg p-4 flex flex-col shadow-sm animate-pulse`}>
             <div className="flex flex-col items-center bg-gray-100 rounded-md py-2 mb-4">
@@ -299,7 +299,7 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({
   // Handle error state
   if (error) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full font-montserrat">
         <div className="col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 text-center">
           <p className="text-red-700 font-semibold">Failed to load inventory stats</p>
           <p className="text-red-600 text-sm">{error?.message || 'An error occurred while fetching data'}</p>
@@ -317,7 +317,7 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full font-montserrat">
       {statCardsConfig.map((card, idx) => (
         <div
           key={idx}
