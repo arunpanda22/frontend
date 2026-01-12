@@ -6,7 +6,7 @@ import { apiClient } from "../config";
 // TYPES
 // ============================================================================
 
-// Campaign Segmentation Types
+// Campaign Segmentation Types (unchanged)
 export interface CampaignSegmentData {
   campaign_name: string;
   condition: string;
@@ -57,7 +57,7 @@ export interface CampaignSegmentationOptions {
   end_date?: string;   // Format: YYYY-MM-DD
 }
 
-// Campaign X-Ray Types
+// Campaign X-Ray Types (unchanged)
 export interface XrayDataItem {
   time_group: string;
   "Total Sales": number;
@@ -86,67 +86,200 @@ export interface XrayDataOptions {
   focus_level?: 'high' | 'medium' | 'low' | 'all';
 }
 
-export interface KeywordPerformanceMetrics {
+// NEW: Hierarchical Keyword Performance Types
+export interface KeywordMetrics {
+  [key: string]: any; 
   // Identifiers
-  campaign_name: string;
-  campaign_id: string;
-  ad_group_name: string;
-  ad_group_id: string;
+  id: string;
+  type: 'keyword';
+  name: string;
   keyword: string;
   keyword_id: string;
   keyword_type: string;
   match_type: string;
   targeting: string;
-  keyword_bid: number;
   source: 'keyword' | 'expression';
+  campaign_name: string;
+  campaign_id: string;
+  ad_group_name: string;
+  ad_group_id: string;
   
-  // Metrics - Current Values
+  // Bid information
+  keyword_bid: number;
+  is_editable: boolean;
+  bid_min: number;
+  bid_max: number;
+  
+  // Current period metrics
   impressions: number;
   clicks: number;
   cost: number;
+  sales_30d: number;
+  purchases_30d: number;
   ctr: number;
   cpc: number;
   acos: number;
   roas: number;
   cvr: number;
   cpa: number;
-  sales_30d: number;
-  purchases_30d: number;
   
-  // Metrics - Previous Period Values (change % calculated by frontend)
-  impressions_prev: number | null;
-  clicks_prev: number | null;
-  cost_prev: number | null;
-  ctr_prev: number | null;
-  cpc_prev: number | null;
-  acos_prev: number | null;
-  roas_prev: number | null;
-  cvr_prev: number | null;
-  cpa_prev: number | null;
-  sales_30d_prev: number | null;
-  purchases_30d_prev: number | null;
-  keyword_bid_prev: number | null;
+  // Previous period metrics (for comparison)
+  impressions_prev: number;
+  clicks_prev: number;
+  cost_prev: number;
+  sales_30d_prev: number;
+  purchases_30d_prev: number;
+  ctr_prev: number;
+  cpc_prev: number;
+  acos_prev: number;
+  roas_prev: number;
+  cvr_prev: number;
+  cpa_prev: number;
+  
+  // Last day metric
+  last_day_top_of_search_impression_share: number | null;
 }
 
-export interface KeywordPerformanceResponse {
-  keyword_level: {
-    data: KeywordPerformanceMetrics[];
-    total_records: number;
-  };
+export interface AsinGroupMetrics {
+  [key: string]: any; 
+  // Identifiers
+  id: string;
+  type: 'asin_group';
+  asin: string;
+  name: string;
+  product_name: string;
+  image_url: string;
+  
+  // Counts
+  campaign_count: number;
+  keyword_count: number;
+  
+  // Current period metrics (aggregated from all keywords)
+  impressions: number;
+  clicks: number;
+  cost: number;
+  sales_30d: number;
+  purchases_30d: number;
+  ctr: number;
+  cpc: number;
+  acos: number;
+  roas: number;
+  cvr: number;
+  cpa: number;
+  
+  // Previous period metrics
+  impressions_prev: number;
+  clicks_prev: number;
+  cost_prev: number;
+  sales_30d_prev: number;
+  purchases_30d_prev: number;
+  ctr_prev: number;
+  cpc_prev: number;
+  acos_prev: number;
+  roas_prev: number;
+  cvr_prev: number;
+  cpa_prev: number;
+  
+  // Last day metric
+  last_day_top_of_search_impression_share: number | null;
+  
+  // Not editable at ASIN level
+  is_editable: false;
+  keyword_bid: null;
+  
+  // Children
+  _children?: KeywordMetrics[];
+}
+
+export interface CampaignGroupMetrics {
+  [key: string]: any; 
+  // Identifiers
+  id: string;
+  type: 'campaign';
+  name: string;
+  campaign_name: string;
+  campaign_id: string;
+  
+  // Count
+  keyword_count: number;
+  
+  // Current period metrics
+  impressions: number;
+  clicks: number;
+  cost: number;
+  sales_30d: number;
+  purchases_30d: number;
+  ctr: number;
+  cpc: number;
+  acos: number;
+  roas: number;
+  cvr: number;
+  cpa: number;
+  
+  // Previous period metrics
+  impressions_prev: number;
+  clicks_prev: number;
+  cost_prev: number;
+  sales_30d_prev: number;
+  purchases_30d_prev: number;
+  ctr_prev: number;
+  cpc_prev: number;
+  acos_prev: number;
+  roas_prev: number;
+  cvr_prev: number;
+  cpa_prev: number;
+  
+  // Last day metric
+  last_day_top_of_search_impression_share: number | null;
+  
+  // Average bid (not editable at campaign level)
+  keyword_bid: number;
+  is_editable: false;
+  
+  // Children
+ _children?: KeywordMetrics[];
+}
+
+export type HierarchicalRow = AsinGroupMetrics | CampaignGroupMetrics;
+
+export interface KeywordPerformanceHierarchicalResponse {
+  data: HierarchicalRow[];
   period_info: {
     current_start: string;
     current_end: string;
-    previous_start: string;
-    previous_end: string;
+    comparison_start: string;
+    comparison_end: string;
     period_days: number;
+  };
+  summary: {
+    total_groups: number;
+    total_spend: number;
+    total_sales: number;
+    total_keywords: number;
   };
 }
 
 export interface KeywordPerformanceOptions {
   start_date?: string; // Format: YYYY-MM-DD
   end_date?: string;   // Format: YYYY-MM-DD
+  comparison_start_date?: string;
+  comparison_end_date?: string;
 }
 
+export interface UpdateKeywordBidRequest {
+  keyword_id: string;
+  new_bid: number;
+  campaign_id?: string; // Optional for validation
+}
+
+export interface UpdateKeywordBidResponse {
+  success: boolean;
+  keyword_id: string;
+  old_bid: number;
+  new_bid: number;
+  updated_at: string;
+  message?: string;
+}
 
 // ============================================================================
 // SERVICE
@@ -209,15 +342,14 @@ export const campaignService = {
   },
 
   /**
-   * Get keyword and expression performance metrics
-   * Returns keyword-level data with current values, previous values, and change percentages
+   * Get hierarchical keyword performance data (ASIN -> Keywords or Campaign -> Keywords)
+   * Returns aggregated parent rows with expandable keyword children
+   * Includes comparison to previous period
    */
-  async getKeywordPerformance(options?: KeywordPerformanceOptions) {
-    console.log('Fetching keyword performance data with options:', options);
+  async getKeywordPerformanceHierarchical(options?: KeywordPerformanceOptions) {
+    console.log('Fetching hierarchical keyword performance data with options:', options);
 
-    const params: Record<string, string> = {
-      level: 'keyword', // Always keyword level
-    };
+    const params: Record<string, string> = {};
 
     if (options?.start_date) {
       params.start_date = options.start_date;
@@ -227,14 +359,43 @@ export const campaignService = {
       params.end_date = options.end_date;
     }
 
+    if (options?.comparison_start_date) {
+      params.comparison_start_date = options.comparison_start_date;
+    }
+
+    if (options?.comparison_end_date) {
+      params.comparison_end_date = options.comparison_end_date;
+    }
+
     console.log('Request params:', params);
 
-    const res = await apiClient.get<KeywordPerformanceResponse>(
-      '/api/v1/dashboard-api/keyword-expression-performance/',
+    const res = await apiClient.get<KeywordPerformanceHierarchicalResponse>(
+      '/api/v1/dashboard-api/campaign-xray-table-data/',
       { params }
     );
 
-    console.log('Keyword performance response received:', res.data);
+    console.log('Hierarchical keyword performance response received:', {
+      total_groups: res.data.summary.total_groups,
+      total_keywords: res.data.summary.total_keywords,
+      period_info: res.data.period_info
+    });
+
+    return res.data;
+  },
+
+  /**
+   * Update keyword bid
+   * Sends bid update request to backend (which should call Amazon Ads API)
+   */
+  async updateKeywordBid(request: UpdateKeywordBidRequest) {
+    console.log('Updating keyword bid:', request);
+
+    const res = await apiClient.patch<UpdateKeywordBidResponse>(
+      '/api/v1/dashboard-api/keyword-bid/',
+      request
+    );
+
+    console.log('Keyword bid update response:', res.data);
     return res.data;
   },
 };

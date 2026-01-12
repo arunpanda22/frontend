@@ -1,10 +1,11 @@
 // hooks/useCampaignQueries.ts
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   campaignService,
   CampaignSegmentationOptions,
   XrayDataOptions,
-  KeywordPerformanceOptions
+  KeywordPerformanceOptions,
+  UpdateKeywordBidRequest
 } from '../api/services/campaign.service';
 
 /**
@@ -68,32 +69,74 @@ export function useCampaignXrayData(options: XrayDataOptions) {
 }
 
 /**
- * Hook to fetch keyword and expression performance data
- * Returns keyword-level metrics with comparison to previous period
+ * Hook to fetch hierarchical keyword performance data
+ * Returns ASIN/Campaign groups with expandable keyword children
+ * Includes comparison to previous period for trend analysis
  */
-export function useKeywordPerformance(options?: KeywordPerformanceOptions) {
-  console.log('useKeywordPerformance called with:', options);
+export function useKeywordPerformanceHierarchical(options?: KeywordPerformanceOptions) {
+  console.log('useKeywordPerformanceHierarchical called with:', options);
 
   // Create stable query key
-  const queryKey = ['keywords', 'performance'];
+  const queryKey = ['keywords', 'performance', 'hierarchical'];
   
   if (options?.start_date) {
-    queryKey.push(options.start_date);
+    queryKey.push('start', options.start_date);
   }
   
   if (options?.end_date) {
-    queryKey.push(options.end_date);
+    queryKey.push('end', options.end_date);
+  }
+
+  if (options?.comparison_start_date) {
+    queryKey.push('comp_start', options.comparison_start_date);
+  }
+
+  if (options?.comparison_end_date) {
+    queryKey.push('comp_end', options.comparison_end_date);
   }
 
   return useQuery({
     queryKey,
     queryFn: () => {
-      console.log('Fetching keyword performance with options:', options);
-      return campaignService.getKeywordPerformance(options);
+      console.log('Fetching hierarchical keyword performance with options:', options);
+      return campaignService.getKeywordPerformanceHierarchical(options);
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Hook to update keyword bid
+ * Optimistically updates the UI and refetches data on success
+ */
+export function useUpdateKeywordBid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: UpdateKeywordBidRequest) => {
+      console.log('Mutation function called with:', request);
+      return campaignService.updateKeywordBid(request);
+    },
+    onSuccess: (data, variables) => {
+      console.log('Keyword bid updated successfully:', data);
+      
+      // Invalidate and refetch keyword performance queries
+      queryClient.invalidateQueries({
+        queryKey: ['keywords', 'performance']
+      });
+      
+      // You could also do optimistic updates here
+      // queryClient.setQueryData(['keywords', 'performance', 'hierarchical'], (old) => {
+      //   // Update the specific keyword's bid in the cache
+      //   return updateKeywordBidInCache(old, variables.keyword_id, variables.new_bid);
+      // });
+    },
+    onError: (error, variables) => {
+      console.error('Failed to update keyword bid:', error, variables);
+      // Error handling can be done in the component using onError callback
+    }
   });
 }
 

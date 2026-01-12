@@ -162,7 +162,6 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
     }
   }, [submittedAsin, fetchData]);
 
-  // Simplify handleSubmit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -172,7 +171,6 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
     }
 
     setSubmittedAsin(asinInput.trim());
-    // Remove fetchData() from here
   };
 
   const tableData = useMemo(() => {
@@ -180,7 +178,6 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
     return transformAsinSuggestData(data.keywords);
   }, [data]);
 
-  // Calculate summary metrics
   const matchTypeBreakdown = useMemo(() => {
     const breakdown: { [key: string]: number } = {};
     tableData.forEach((row) => {
@@ -214,152 +211,87 @@ export const AsinSuggestDrawer: React.FC<AsinSuggestDrawerProps> = ({
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
+      <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right font-montserrat">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-deep-space-200 bg-gradient-to-r from-deep-space-50 to-deep-space-100">
+        <div className="flex items-center justify-between px-6 py-4 bg-ocean-600">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">ASINSuggest</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Get Amazon ads keyword recommendations for any ASIN - powered by
-              Amazon Ads API
+            <h2 className="text-xl font-semibold text-white">ASINSuggest</h2>
+            <p className="text-sm text-white/80 mt-0.5">
+              Get Amazon ads keyword recommendations for any ASIN - powered by Amazon Ads API
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-deep-space-100 rounded-lg"
+            className="text-white/80 hover:text-white transition-colors p-1.5"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Input Form */}
-        <div className="px-6 py-5 bg-deep-space-50 border-b border-deep-space-200">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-col md:flex-row md:items-end gap-4">
-              {/* ASIN INPUT */}
-              <div className="flex-1 items-center md:max-w-xs">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ASIN
-                </label>
-                <input
-                  type="text"
-                  value={asinInput}
-                  onChange={(e) => setAsinInput(e.target.value)}
-                  placeholder="e.g., B0DGT5J8SD"
-                  className="w-full px-4 py-2 border border-deep-space-300 rounded-lg focus:ring-2 focus:ring-deep-space-500 focus:border-deep-space-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Enter an ASIN to get Amazon-backed keyword recommendations
-                </p>
-              </div>
+        <div className="px-6 py-4 bg-ocean-100 border-b border-gray-200 font-montserrat">
+          <form onSubmit={handleSubmit} className="flex items-center gap-3">
+            {/* ASIN LABEL AND INPUT */}
+            <label className=" font-bold text-gray-700 whitespace-nowrap">
+              Enter ASIN
+            </label>
+            <input
+              type="text"
+              value={asinInput}
+              onChange={(e) => setAsinInput(e.target.value)}
+              placeholder="B0C6K691XQ"
+              className="flex-1 max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 text-sm"
+            />
 
-              {/* SUBMIT BUTTON */}
-              <div className="flex-1 h-full ">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className={`px-6 py-2 rounded-lg font-semibold text-white transition-all flex items-center gap-2 ${
-                    isLoading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-deep-space-500 to-deep-space-600 hover:shadow-lg"
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Get Recommendations
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            {/* SUBMIT BUTTON */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`px-5 py-2 rounded-md font-medium text-gray-900 transition-all flex items-center gap-2 whitespace-nowrap ${
+                isLoading
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-gold-400 hover:bg-gold-500"
+              }`}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Get Recommendations
+                </>
+              )}
+            </button>
           </form>
         </div>
 
         {/* Error State */}
         {error && (
-          <div className="px-6 py-4 bg-red-50 border-l-4 border-red-500">
+          <div className="mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-md">
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500" />
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-red-800">
                   Error loading recommendations
                 </p>
-                <p className="text-xs text-red-600 mt-1">{error.message}</p>
+                <p className="text-xs text-red-600 mt-0.5">{error.message}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Summary Metrics */}
-        {/* {data && (
-          <div className="px-6 py-4 bg-gradient-to-r from-deep-space-500 to-deep-space-600 text-white">
-            <div className="grid grid-cols-4 gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Total Keywords</div>
-                  <div className="text-2xl font-bold">{data.total_keywords}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Top Rank Keywords</div>
-                  <div className="text-2xl font-bold">{topRankKeywords}</div>
-                  <div className="text-xs opacity-75">(Rank ≤ 5)</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Average Bid</div>
-                  <div className="text-2xl font-bold">₹{averageBid.toFixed(2)}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Match Types</div>
-                  <div className="text-sm font-semibold">
-                    {Object.entries(matchTypeBreakdown).map(([type, count]) => (
-                      <span key={type} className="mr-2">
-                        {type}: {count}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )} */}
-
         {/* Table Content */}
-        <div className="flex-1 overflow-auto p-2">
+        <div className="flex-1 overflow-auto p-6">
           {!data && !isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Target className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg font-medium">Enter an ASIN to Begin</p>
               <p className="text-sm mt-2">
-                Get Amazon-backed keyword recommendations for profitable
-                targeting
+                Get Amazon-backed keyword recommendations for profitable targeting
               </p>
             </div>
           )}

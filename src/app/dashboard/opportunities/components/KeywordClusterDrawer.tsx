@@ -7,7 +7,7 @@ import {
   Loader2,
   Search,
   Filter,
-  Package
+  Package,
 } from "lucide-react";
 import { AdvancedDataTable } from "@/components/dashboard/table/advanced-data-table";
 import type {
@@ -145,7 +145,8 @@ export const KeywordClusterDrawer: React.FC<KeywordClusterDrawerProps> = ({
     limit?: number;
   }>({ words: "" });
 
-  const { data, isLoading, error, fetchData } = useKeywordCluster(submittedParams);
+  const { data, isLoading, error, fetchData } =
+    useKeywordCluster(submittedParams);
 
   useEffect(() => {
     if (submittedParams.words && submittedParams.words.trim().length > 0) {
@@ -200,153 +201,140 @@ export const KeywordClusterDrawer: React.FC<KeywordClusterDrawerProps> = ({
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-powder-blue-200 bg-gradient-to-r from-powder-blue-50 to-powder-blue-100">
+        <div className="flex items-center justify-between px-6 py-4 bg-ocean-600">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">KeywordCluster</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-xl font-semibold text-white">KeywordCluster</h2>
+            <p className="text-sm text-white/80 mt-0.5">
               Enter one keyword. Get every related variant instantly.
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-powder-blue-100 rounded-lg"
+            className="text-white/80 hover:text-white transition-colors p-1.5"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Input Form */}
-        <div className="px-6 py-4 bg-powder-blue-50 border-b border-powder-blue-200">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Keywords/Words
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={wordsInput}
-                  onChange={(e) => setWordsInput(e.target.value)}
-                  placeholder="e.g., educational toy or wooden,puzzle"
-                  className="w-full px-4 py-2 border border-powder-blue-300 rounded-sm focus:ring-2 focus:ring-powder-blue-500 focus:border-powder-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Space or comma separated
-                </p>
+        <div className="flex justify-between px-6 py-3 bg-ocean-100 border-b border-gray-200">
+          <div>
+            <form onSubmit={handleSubmit}>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Keywords/Words
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={wordsInput}
+                      onChange={(e) => setWordsInput(e.target.value)}
+                      placeholder="triangle"
+                      className="max-w-lg pl-3 pr-10 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className={`absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-md flex items-center justify-center transition-all ${
+                        isLoading
+                          ? "bg-gray-300 cursor-not-allowed"
+                          : "bg-gold-400 hover:bg-gold-500"
+                      }`}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-700" />
+                      ) : (
+                        <Search className="w-4 h-4 text-gray-900" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Space or comma separated
+                  </p>
+                </div>
               </div>
-            </div>
+            </form>
+          </div>
+          <div>
+            {/* Summary Metrics */}
+            {data && (
+              <div className="bg-gradient-to-br from-ocean-600 to-ocean-700 rounded-2xl">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <Search className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-white/70">Total Records</div>
+                      <div className="text-xl font-bold text-white">
+                        {data.summary.total_records}
+                      </div>
+                    </div>
+                  </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`px-6 py-2 rounded-lg font-semibold text-white transition-all ${
-                isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-powder-blue-500 to-powder-blue-600 hover:shadow-lg"
-              }`}
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Searching...
-                </span>
-              ) : (
-                "Find Keyword Clusters"
-              )}
-            </button>
-          </form>
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <Grid3x3 className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-white/70">
+                        Unique Search Terms
+                      </div>
+                      <div className="text-xl font-bold text-white">
+                        {data.summary.unique_search_terms}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <Package className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-white/70">Unique ASINs</div>
+                      <div className="text-xl font-bold text-white">
+                        {data.summary.unique_asins}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <Filter className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-white/70">Match Mode</div>
+                      <div className="text-lg font-bold text-white capitalize">
+                        {data.summary.match_mode}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Error State */}
         {error && (
-          <div className="px-6 py-4 bg-red-50 border-l-4 border-red-500">
+          <div className="mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-md">
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500" />
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-red-800">
                   Error loading data
                 </p>
-                <p className="text-xs text-red-600 mt-1">{error.message}</p>
+                <p className="text-xs text-red-600 mt-0.5">{error.message}</p>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Summary Metrics */}
-        {data && (
-          <div className="px-6 py-4 bg-gradient-to-r from-powder-blue-500 to-powder-blue-600 text-white">
-            <div className="grid grid-cols-4 gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Search className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Total Records</div>
-                  <div className="text-2xl font-bold">
-                    {data.summary.total_records}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Grid3x3 className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Unique Search Terms</div>
-                  <div className="text-2xl font-bold">
-                    {data.summary.unique_search_terms}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Package className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Unique ASINs</div>
-                  <div className="text-2xl font-bold">
-                    {data.summary.unique_asins}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Filter className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs opacity-90">Match Mode</div>
-                  <div className="text-xl font-bold capitalize">
-                    {data.summary.match_mode}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* {data.summary.search_words && data.summary.search_words.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-white/20">
-                <div className="text-xs opacity-90 mb-2">Search Words:</div>
-                <div className="flex flex-wrap gap-2">
-                  {data.summary.search_words.map((word, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium"
-                    >
-                      {word}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )} */}
           </div>
         )}
 
         {/* Table Content */}
-        <div className="flex-1 overflow-auto p-2">
+        <div className="flex-1 overflow-auto p-6">
           {!data && !isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <Grid3x3 className="w-16 h-16 mb-4 opacity-50" />
