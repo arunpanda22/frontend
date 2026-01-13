@@ -22,7 +22,6 @@ import {
   MoreVertical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { log } from "node:console"
 
 export interface ColumnDefinition {
   field: string
@@ -66,7 +65,7 @@ interface AdvancedDataTableProps {
   rowsPerPage?: number
   initialSort?: SortState[]
   autoFitHeaders?: boolean
-  showExportCard?: boolean // New prop to control export card visibility
+  showExportCard?: boolean 
 }
 
 interface CellRendererProps {
@@ -474,7 +473,7 @@ export function AdvancedDataTable({
   rowsPerPage = 10,
   initialSort = [],
   autoFitHeaders = false,
-  showExportCard = true // Default to true for backward compatibility
+  showExportCard = true 
 }: AdvancedDataTableProps) {
   const processedColumns = useMemo(() => {
     return columns.map(col => {

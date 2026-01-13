@@ -9,7 +9,7 @@ import { useCurrency } from '@/lib/context/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/chartcard';
 
 // Consistent color palette
-const CHART_COLORS = ['#4F94DE', '#FFD966', '#00E0B2', '#E41F66' ];
+const CHART_COLORS = ['#316095', '#FFBF00', '#00E0B2', '#E41F66' ];
 
 // State components
 const LoadingState = () => (
