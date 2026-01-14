@@ -5,7 +5,7 @@ import {
   CampaignSegmentationOptions,
   XrayDataOptions,
   KeywordPerformanceOptions,
-  UpdateKeywordBidRequest
+  KeywordBidPushPayload,
 } from '../api/services/campaign.service';
 
 /**
@@ -108,34 +108,39 @@ export function useKeywordPerformanceHierarchical(options?: KeywordPerformanceOp
 }
 
 /**
- * Hook to update keyword bid
- * Optimistically updates the UI and refetches data on success
+ * Hook to push keyword bid updates
+ * Supports batch updates and dry-run mode
+ * Invalidates keyword performance queries on success
  */
-export function useUpdateKeywordBid() {
+export function usePushKeywordBids() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (request: UpdateKeywordBidRequest) => {
-      console.log('Mutation function called with:', request);
-      return campaignService.updateKeywordBid(request);
+    mutationFn: (payload: KeywordBidPushPayload) => {
+      console.log('Mutation function called with:', {
+        count: payload.data.length,
+        dryrun: payload.dryrun || false
+      });
+      return campaignService.pushKeywordBids(payload);
     },
     onSuccess: (data, variables) => {
-      console.log('Keyword bid updated successfully:', data);
-      
-      // Invalidate and refetch keyword performance queries
-      queryClient.invalidateQueries({
-        queryKey: ['keywords', 'performance']
+      console.log('Keyword bids pushed successfully:', {
+        push_id: data.push_id,
+        total_items: data.total_items,
+        dryrun: data.dryrun
       });
       
-      // You could also do optimistic updates here
-      // queryClient.setQueryData(['keywords', 'performance', 'hierarchical'], (old) => {
-      //   // Update the specific keyword's bid in the cache
-      //   return updateKeywordBidInCache(old, variables.keyword_id, variables.new_bid);
-      // });
+      // Only invalidate queries if not a dry run
+      if (!variables.dryrun) {
+        // Invalidate and refetch keyword performance queries
+        queryClient.invalidateQueries({
+          queryKey: ['keywords', 'performance']
+        });
+      }
     },
     onError: (error, variables) => {
-      console.error('Failed to update keyword bid:', error, variables);
-      // Error handling can be done in the component using onError callback
+      console.error('Failed to push keyword bids:', error, variables);
+      // Error handling is done in the component using onError callback
     }
   });
 }

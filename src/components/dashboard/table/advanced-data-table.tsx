@@ -87,8 +87,8 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
   const paddingWidth = 16;
   const resizeHandleWidth = 6;
 
-  const smallCharWidth = 9;  // a-z, 0-9
-  const largeCharWidth = 13; // A-Z and all symbols
+  const smallCharWidth = 8;  // a-z, 0-9
+  const largeCharWidth = 11; // A-Z and all symbols
 
   const isSmall = (ch: string) => /[a-z0-9]/.test(ch);   // lowercase + digits
   const isLargeOrSymbol = (ch: string) => !isSmall(ch);  // everything else
@@ -885,7 +885,7 @@ export function AdvancedDataTable({
     let offset = checkboxColumnWidth
     
     for (let i = 0; i < leftPinnedIndex; i++) {
-      offset += columnWidths[pinnedColumns.left[i].field] ?? pinnedColumns.left[i].width ?? 180
+      offset += columnWidths[pinnedColumns.left[i].field] ?? pinnedColumns.left[i].width ?? 120
     }
     
     return offset
@@ -898,7 +898,7 @@ export function AdvancedDataTable({
     let offset = 0
     
     for (let i = rightPinnedIndex + 1; i < pinnedColumns.right.length; i++) {
-      offset += columnWidths[pinnedColumns.right[i].field] ?? pinnedColumns.right[i].width ?? 180
+      offset += columnWidths[pinnedColumns.right[i].field] ?? pinnedColumns.right[i].width ?? 120
     }
     
     return offset
@@ -970,7 +970,7 @@ export function AdvancedDataTable({
                   <col
                     key={col.field}
                     style={{
-                      width: columnWidths[col.field] ?? col.width ?? 180,
+                      width: columnWidths[col.field] ?? col.width ?? 120,
                     }}
                   />
                 ))}
@@ -1004,7 +1004,7 @@ export function AdvancedDataTable({
                           isRightPinned && "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
                         )}
                         style={{
-                          width: columnWidths[column.field] ?? column.width ?? 180,
+                          width: columnWidths[column.field] ?? column.width ?? 120,
                           minWidth: column.minWidth ?? 120,
                           maxWidth: column.maxWidth ?? 400,
                           left: leftOffset,

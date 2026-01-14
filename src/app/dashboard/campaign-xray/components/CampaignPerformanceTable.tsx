@@ -1,28 +1,38 @@
 "use client";
 
 import { AdvancedDataTable, ColumnDefinition } from "@/components/dashboard/table/dropdown-data-table";
-import { useKeywordPerformanceHierarchical, useUpdateKeywordBid } from "@/lib/hooks/useCampaignQueries";
+import { useKeywordPerformanceHierarchical, usePushKeywordBids } from "@/lib/hooks/useCampaignQueries";
 import { useDateRange } from "@/lib/context/DateRangeContext";
-import { Loader2, AlertCircle, TrendingUp, DollarSign, Target } from "lucide-react";
+import { Loader2, AlertCircle, Target, Save, X, CheckCircle } from "lucide-react";
 import { useMemo, useState, useCallback } from "react";
-import { HierarchicalRow, KeywordMetrics } from "@/lib/api/services/campaign.service";
+import { HierarchicalRow, BidChange, campaignService } from "@/lib/api/services/campaign.service";
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 
 const KeywordPerformanceTable = () => {
   const { dateRange } = useDateRange();
   const { toast } = useToast();
 
   // Fetch hierarchical keyword performance data
-  const { data, isLoading, isError, error } = useKeywordPerformanceHierarchical({
+  const { data, isLoading, isError, error, refetch } = useKeywordPerformanceHierarchical({
     start_date: dateRange.startDate,
     end_date: dateRange.endDate,
   });
 
-  // Mutation for updating keyword bids
-  const updateBidMutation = useUpdateKeywordBid();
+  // Mutation for pushing keyword bids
+  const pushBidsMutation = usePushKeywordBids();
 
   // Local state for table data (to handle optimistic updates)
   const [tableData, setTableData] = useState<HierarchicalRow[]>([]);
+  
+  // Track pending bid changes
+  const [pendingChanges, setPendingChanges] = useState<Map<string, BidChange>>(new Map());
+  
+  // Track edited rows (selected rows)
+  const [editedRowIds, setEditedRowIds] = useState<Set<string>>(new Set());
+  
+  // Push result state
+  const [pushResult, setPushResult] = useState<any>(null);
 
   // Update local state when data changes
   useMemo(() => {
@@ -167,62 +177,130 @@ const KeywordPerformanceTable = () => {
         filterable: true,
         width: 110,
       },
-      
     ],
     []
   );
 
   // Handle data changes (when user edits a bid)
   const handleDataChange = useCallback(
-  async (updatedData: any[]) => {  // Change to any[] or TableData[]
-    console.log('Data changed:', updatedData);
+    (updatedData: any[]) => {
+      const typedUpdatedData = updatedData as HierarchicalRow[];
+      
+      // Find what changed by comparing with original data
+      const changes = findChangedBids(data?.data || [], typedUpdatedData);
+      
+      if (changes.length === 0) {
+        return;
+      }
 
-    // Cast to your specific type for type safety within the function
-    const typedUpdatedData = updatedData as HierarchicalRow[];
+      // Update local state immediately (optimistic update)
+      setTableData(typedUpdatedData);
 
-    // Find what changed by comparing with current data
-    const changes = findChangedBids(tableData, typedUpdatedData);
+      // Add changes to pending changes map
+      setPendingChanges(prev => {
+        const newMap = new Map(prev);
+        changes.forEach(change => {
+          newMap.set(change.keyword_id, change);
+        });
+        return newMap;
+      });
 
-    if (changes.length === 0) {
-      console.log('No bid changes detected');
+      // Track edited rows
+      setEditedRowIds(prev => {
+        const newSet = new Set(prev);
+        changes.forEach(change => newSet.add(change.keyword_id));
+        return newSet;
+      });
+    },
+    [data?.data]
+  );
+
+  // Handle edited rows change (when rows are selected/deselected)
+  const handleEditedRowsChange = useCallback((editedRows: Set<number>) => {
+    // This gets called by the table when rows are selected
+  }, []);
+
+  // Save all pending changes
+  const handleSaveChanges = useCallback(async (dryrun: boolean = false) => {
+    if (pendingChanges.size === 0) {
+      toast({
+        title: "No Changes",
+        description: "There are no pending bid changes to save.",
+        variant: "default",
+      });
       return;
     }
 
-    // Update local state immediately (optimistic update)
-    setTableData(typedUpdatedData);
+    const changesArray = Array.from(pendingChanges.values());
+    
+    try {
+      setPushResult(null);
+      
+      // Show loading toast
+      toast({
+        title: dryrun ? "Testing Changes" : "Saving Changes",
+        description: `${dryrun ? 'Testing' : 'Updating'} ${changesArray.length} keyword bid(s)...`,
+      });
 
-    // Process each change
-    for (const change of changes) {
-      try {
-        console.log('Updating bid for keyword:', change.keyword_id, 'from', change.oldBid, 'to', change.newBid);
+      // Transform to API format using service helper
+      const bidUpdates = campaignService.transformBidChangesToPayload(pendingChanges);
+      
+      // Push to API using mutation
+      const result = await pushBidsMutation.mutateAsync({
+        data: bidUpdates,
+        dryrun,
+      });
+      
+      console.log('Push result:', result);
+      setPushResult(result);
 
-        await updateBidMutation.mutateAsync({
-          keyword_id: change.keyword_id,
-          new_bid: change.newBid,
-          campaign_id: change.campaign_id,
-        });
-
+      if (dryrun) {
+        // Dry run - show validation success
         toast({
-          title: "Bid Updated",
-          description: `${change.keyword}: ${change.oldBid} → ${change.newBid}`,
+          title: "Validation Successful",
+          description: `${changesArray.length} bid change(s) validated successfully. Ready to push.`,
           variant: "default",
         });
-      } catch (error) {
-        console.error('Failed to update bid:', error);
-
-        // Revert optimistic update on error
-        setTableData(tableData);
-
+      } else {
+        // Actual push - clear pending changes and refetch data
+        setPendingChanges(new Map());
+        setEditedRowIds(new Set());
+        
+        // Refetch data to get updated values (query will be invalidated by mutation)
+        await refetch();
+        
         toast({
-          title: "Update Failed",
-          description: error instanceof Error ? error.message : "Failed to update keyword bid",
-          variant: "destructive",
+          title: "Changes Saved",
+          description: `Successfully updated ${changesArray.length} keyword bid(s).`,
+          variant: "default",
         });
       }
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      toast({
+        title: "Save Failed",
+        description: error instanceof Error ? error.message : "Failed to save bid changes",
+        variant: "destructive",
+      });
     }
-  },
-  [tableData, updateBidMutation, toast]
-);
+  }, [pendingChanges, toast, refetch, pushBidsMutation]);
+
+  // Cancel all pending changes
+  const handleCancelChanges = useCallback(() => {
+    // Revert to original data
+    if (data?.data) {
+      setTableData(data.data);
+    }
+    setPendingChanges(new Map());
+    setEditedRowIds(new Set());
+    setPushResult(null);
+    
+    toast({
+      title: "Changes Cancelled",
+      description: "All pending bid changes have been reverted.",
+      variant: "default",
+    });
+  }, [data?.data, toast]);
 
   // Loading state
   if (isLoading) {
@@ -268,7 +346,124 @@ const KeywordPerformanceTable = () => {
 
   return (
     <div className="space-y-4">
+      {/* Pending Changes Banner */}
+      {pendingChanges.size > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-300 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-500 rounded-full p-2">
+                <Save className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  {pendingChanges.size} Unsaved Change{pendingChanges.size !== 1 ? 's' : ''}
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Review your bid changes and save when ready
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelChanges}
+                disabled={pushBidsMutation.isPending}
+                className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSaveChanges(true)}
+                disabled={pushBidsMutation.isPending}
+                className="bg-blue-50 border-blue-300 hover:bg-blue-100 text-blue-700 font-medium"
+              >
+                {pushBidsMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                Dry Run
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleSaveChanges(false)}
+                disabled={pushBidsMutation.isPending}
+                className="bg-green-500 hover:bg-green-600 text-white font-medium shadow-sm"
+              >
+                {pushBidsMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+          
+          {/* Changes Summary */}
+          {pendingChanges.size > 0 && (
+            <div className="mt-3 pt-3 border-t border-amber-200">
+              <div className="text-xs font-semibold text-slate-700 mb-2">Pending Changes:</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                {Array.from(pendingChanges.values()).map(change => (
+                  <div key={change.keyword_id} className="bg-white rounded px-3 py-2 text-xs border border-amber-200">
+                    <div className="font-medium text-slate-800 truncate">{change.keyword}</div>
+                    <div className="text-slate-600">
+                      ${change.oldBid.toFixed(2)} → ${change.newBid.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Push Result Banner */}
+      {pushResult && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-300 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-500 rounded-full p-2">
+              <CheckCircle className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-slate-800">
+                {pushResult.message}
+              </h3>
+              <p className="text-xs text-slate-600">
+                Push ID: {pushResult.push_id} • {pushResult.total_items} items • 
+                S3: {pushResult.s3_location.bucket}/{pushResult.s3_location.key}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPushResult(null)}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* Lambda Response Details */}
+          {pushResult.lambda_response && pushResult.lambda_response !== 'Skipped (dryrun mode)' && (
+            <div className="mt-3 pt-3 border-t border-green-200">
+              <details className="text-xs">
+                <summary className="font-semibold text-slate-700 cursor-pointer hover:text-slate-900">
+                  View Lambda Response
+                </summary>
+                <pre className="mt-2 p-3 bg-slate-50 rounded border border-slate-200 overflow-x-auto">
+                  {JSON.stringify(pushResult.lambda_response, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Period Info Card */}
       {data?.period_info && (
@@ -296,6 +491,7 @@ const KeywordPerformanceTable = () => {
         data={tableData}
         columns={columns}
         onDataChange={handleDataChange}
+        onEditedRowsChange={handleEditedRowsChange}
         className="shadow-sm"
       />
 
@@ -303,7 +499,8 @@ const KeywordPerformanceTable = () => {
       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
         <p className="text-xs text-blue-800">
           <strong>Tip:</strong> Click on ASIN or Campaign rows to expand and view keywords. 
-          Click on a bid value to edit it. Changes are saved automatically.
+          Click on a bid value to edit it. Use "Dry Run" to test changes without applying them, 
+          or "Save Changes" to push all changes at once.
         </p>
       </div>
     </div>
@@ -316,20 +513,8 @@ export default KeywordPerformanceTable;
 function findChangedBids(
   oldData: HierarchicalRow[],
   newData: HierarchicalRow[]
-): Array<{
-  keyword_id: string;
-  keyword: string;
-  campaign_id: string;
-  oldBid: number;
-  newBid: number;
-}> {
-  const changes: Array<{
-    keyword_id: string;
-    keyword: string;
-    campaign_id: string;
-    oldBid: number;
-    newBid: number;
-  }> = [];
+): BidChange[] {
+  const changes: BidChange[] = [];
 
   // Function to check keywords in a group
   const checkKeywords = (oldGroup: HierarchicalRow, newGroup: HierarchicalRow) => {
@@ -349,6 +534,8 @@ function findChangedBids(
           keyword_id: oldKeyword.keyword_id,
           keyword: oldKeyword.keyword,
           campaign_id: oldKeyword.campaign_id,
+          ad_group_id: oldKeyword.ad_group_id,
+          match_type: oldKeyword.match_type,
           oldBid: oldKeyword.keyword_bid,
           newBid: newKeyword.keyword_bid,
         });

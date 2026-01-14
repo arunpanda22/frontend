@@ -266,10 +266,47 @@ export interface KeywordPerformanceOptions {
   comparison_end_date?: string;
 }
 
+// Keyword Bid Update Types
+export interface KeywordBidUpdate {
+  keyword_id: string;
+  campaign_id: string;
+  ad_group_id: string;
+  match_type: string;
+  "New bid": number;
+}
+
+export interface KeywordBidPushPayload {
+  data: KeywordBidUpdate[];
+  dryrun?: boolean;
+}
+
+export interface KeywordBidPushResponse {
+  message: string;
+  push_id: string;
+  total_items: number;
+  s3_location: {
+    bucket: string;
+    key: string;
+  };
+  dryrun: boolean;
+  lambda_response: any; // Raw Lambda response
+}
+
+export interface BidChange {
+  keyword_id: string;
+  keyword: string;
+  campaign_id: string;
+  ad_group_id: string;
+  match_type: string;
+  oldBid: number;
+  newBid: number;
+}
+
+// Legacy types (keeping for backward compatibility)
 export interface UpdateKeywordBidRequest {
   keyword_id: string;
   new_bid: number;
-  campaign_id?: string; // Optional for validation
+  campaign_id?: string;
 }
 
 export interface UpdateKeywordBidResponse {
@@ -384,18 +421,40 @@ export const campaignService = {
   },
 
   /**
-   * Update keyword bid
-   * Sends bid update request to backend (which should call Amazon Ads API)
+   * Push keyword bid updates to S3 and invoke Lambda
+   * Supports batch updates and dry-run mode
    */
-  async updateKeywordBid(request: UpdateKeywordBidRequest) {
-    console.log('Updating keyword bid:', request);
+  async pushKeywordBids(payload: KeywordBidPushPayload) {
+    console.log('Pushing keyword bids:', {
+      count: payload.data.length,
+      dryrun: payload.dryrun || false
+    });
 
-    const res = await apiClient.patch<UpdateKeywordBidResponse>(
-      '/api/v1/dashboard-api/keyword-bid/',
-      request
+    const res = await apiClient.post<KeywordBidPushResponse>(
+      '/api/v1/ads-optimizer/bids-update/',
+      payload
     );
 
-    console.log('Keyword bid update response:', res.data);
+    console.log('Keyword bid push response received:', {
+      push_id: res.data.push_id,
+      total_items: res.data.total_items,
+      dryrun: res.data.dryrun
+    });
+
     return res.data;
+  },
+
+  /**
+   * Transform BidChange map to API payload format
+   * Converts frontend data structure to backend requirements
+   */
+  transformBidChangesToPayload(changes: Map<string, BidChange>): KeywordBidUpdate[] {
+    return Array.from(changes.values()).map(change => ({
+      keyword_id: change.keyword_id,
+      campaign_id: change.campaign_id,
+      ad_group_id: change.ad_group_id,
+      match_type: change.match_type,
+      "New bid": change.newBid,
+    }));
   },
 };

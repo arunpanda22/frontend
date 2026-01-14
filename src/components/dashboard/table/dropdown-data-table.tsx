@@ -1294,17 +1294,14 @@ export function AdvancedDataTable({
         <div className="overflow-auto" style={{ height: containerHeight }}>
           <div className="relative">
             <table className="table-fixed w-full border-collapse min-w-full">
-              <colgroup>  {/* ADD THIS ENTIRE SECTION */}
-              <col style={{ width: 56 }} />  {/* checkbox column */}
-              {orderedColumns.map((col) => (
+              <colgroup><col style={{ width: 56 }} />{orderedColumns.map((col) => (
                 <col
                   key={col.field}
                   style={{
                     width: columnWidths[col.field] ?? col.width ?? 180,
                   }}
                 />
-              ))}
-            </colgroup>
+              ))}</colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600">
                   <th className="sticky left-0 z-20 w-14 p-0 bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600">

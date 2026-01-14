@@ -59,8 +59,7 @@ export default function CampaignAdsSummary({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 200
+      autoFitHeader: true,
     },
     {
       field: 'clicks',
@@ -69,8 +68,7 @@ export default function CampaignAdsSummary({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 180,
-      minWidth: 200
+      autoFitHeader: true,
     },
     {
       field: 'ctr_percent',
@@ -79,39 +77,35 @@ export default function CampaignAdsSummary({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 180,
-      minWidth: 180
+      autoFitHeader: true,
     },
 
     {
       field: 'ad_cost',
-      headerName: `Ad Cost (${currency})`,
+      headerName: `Cost (${currency})`,
       type: 'number',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 180,
-      minWidth: 180
+      autoFitHeader: true,
     },
     {
       field: 'cost_per_click',
-      headerName: `Cost/Click (${currency})`,
+      headerName: `CPC (${currency})`,
       type: 'number',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 200
+      autoFitHeader: true,
     },
     {
       field: 'units_sold',
-      headerName: 'Units Sold',
+      headerName: 'Units',
       type: 'number',
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 200
+      autoFitHeader: true,
     },
     {
       field: 'sales',
@@ -120,8 +114,7 @@ export default function CampaignAdsSummary({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 200
+      autoFitHeader: true,
     },
     {
       field: 'acos_percent',
@@ -130,8 +123,7 @@ export default function CampaignAdsSummary({
       editable: false,
       sortable: true,
       filterable: true,
-      width: 200,
-      minWidth: 200
+      autoFitHeader: true,
     }
   ], [currency]);
 
@@ -173,7 +165,7 @@ export default function CampaignAdsSummary({
   if (loading) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Campaign Ads Summary
           </h6>
@@ -192,7 +184,7 @@ export default function CampaignAdsSummary({
   if (error) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Campaign Ads Summary
           </h6>
@@ -215,7 +207,7 @@ export default function CampaignAdsSummary({
   if (!transformedData || transformedData.length === 0) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4  border-b border-gray-100 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Campaign Ads Summary
           </h6>
@@ -237,7 +229,7 @@ export default function CampaignAdsSummary({
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
       {/* Header - matches ASIN Performance styling */}
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+      <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Campaign Ads Summary
@@ -256,7 +248,7 @@ export default function CampaignAdsSummary({
       </div>
       
       {/* Table Content */}
-      <div className="p-4 md:p-6 flex-1 min-h-0">
+      <div className="flex-1 min-h-0">
         <AdvancedDataTable
           data={transformedData}
           columns={columns}

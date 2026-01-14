@@ -38,7 +38,7 @@ const CampaignPerformancePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] py-12 px-12">
+    <div className="min-h-screen bg-[#f8fafc] py-12 px-12 font-montserrat">
       <div className="w-full transition-all duration-300 ">
         {/* Date Range Filter */}
         <FilterBar
@@ -49,7 +49,7 @@ const CampaignPerformancePage = () => {
 
         {/* Performance Snapshot Section */}
         <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+          <h2 className="text-xl md:text-xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Performance Snapshot
           </h2>
           {/* Replace StatCardGrid with CampaignMetricsCardGrid */}
