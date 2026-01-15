@@ -42,12 +42,19 @@ const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
-    name: 'Live Orders & Revenue Tracker',
-    href: '/dashboard/orders',
+    name: 'Orders & Revenue Tracker',
+    href: '/dashboard/recent-orders',
     description: 'Live orders dashboard',
     permission: 'view_dashboard',
     requiresSellerAccount: true,
   },
+  // {
+  //   name: 'Recent Orders ',
+  //   href: '/dashboard/recent-orders',
+  //   description: 'Orders dashboard',
+  //   permission: 'view_dashboard',
+  //   requiresSellerAccount: true,
+  // },
   {
     name: 'ASIN Intelligence',
     href: '/dashboard/asin-inteligence',
