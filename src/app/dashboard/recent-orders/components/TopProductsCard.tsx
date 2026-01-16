@@ -1,6 +1,7 @@
 import React from 'react';
 import { Package } from 'lucide-react';
 import { useCurrency } from '@/lib/context/CurrencyContext';
+import { useUserProfile } from '@/lib/hooks/queries/use-user-profile';
 
 interface TopProduct {
   asin: string;
@@ -24,6 +25,8 @@ interface TopProductsCardProps {
 
 const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProps) => {
   const { formatCurrency, getCurrencySymbol } = useCurrency();
+  const { data: userProfile } = useUserProfile();
+  const hasVendorAccounts = (userProfile?.connected_vendor_accounts?.length ?? 0) > 0;
 
   if (isLoading) {
     return (
@@ -77,7 +80,9 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
         <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
           Top Products Today
         </h6>
-        <p className="text-xs text-gray-500 mt-1">Combined seller and vendor sales</p>
+        <p className="text-xs text-gray-500 mt-1">
+          {hasVendorAccounts ? 'Combined seller and vendor sales' : 'Seller sales'}
+        </p>
       </div>
       
       <div className="flex-1 overflow-y-auto">
@@ -134,17 +139,19 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
                   </div>
                 </div>
 
-                {/* Split Info - Expandable on hover or always visible */}
-                <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                    <span>Seller: {product.seller_units}</span>
+                {/* Split Info - Only show if user has vendor accounts */}
+                {hasVendorAccounts && (
+                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                      <span>Seller: {product.seller_units}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                      <span>Vendor: {product.vendor_units}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-                    <span>Vendor: {product.vendor_units}</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           ))}

@@ -7,6 +7,7 @@ import { useCombinedOrdersData } from "@/lib/hooks/useCombinedOrdersData";
 import HourlyOrdersChart from "./components/HourlyOrdersChart";
 import TopProductsCard from "./components/TopProductsCard";
 import { useCurrency } from "@/lib/context/CurrencyContext";
+import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 
 export default function CombinedDashboardPage() {
   const { 
@@ -23,6 +24,9 @@ export default function CombinedDashboardPage() {
     refetch,
     isRefetching,
   } = useCombinedOrdersData();
+
+  const { data: userProfile } = useUserProfile();
+  const hasVendorAccounts = (userProfile?.connected_vendor_accounts?.length ?? 0) > 0;
 
   const metricsData = useMemo(() => {
     if (!data?.daily_metrics?.combined) {
@@ -215,7 +219,7 @@ export default function CombinedDashboardPage() {
         </div>
 
         {/* Metrics Breakdown - Seller vs Vendor */}
-        {data?.daily_metrics && (
+        {hasVendorAccounts && data?.daily_metrics && (
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight">
               Breakdown: Seller vs Vendor
@@ -284,6 +288,7 @@ export default function CombinedDashboardPage() {
             </div>
           </div>
         )}
+        
       </div>
     </div>
   );
