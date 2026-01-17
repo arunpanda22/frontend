@@ -70,6 +70,7 @@ export interface DashboardMetadata {
   timezone: string;
   marketplace_id: string;
   last_updated: string;
+  last_refreshed_at: string;
 }
 
 export interface CombinedOrdersData {

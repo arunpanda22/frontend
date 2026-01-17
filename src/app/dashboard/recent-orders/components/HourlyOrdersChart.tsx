@@ -1,17 +1,19 @@
-'use client'
+"use client";
 
-import React, { useMemo, useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
-import { ApexOptions } from 'apexcharts'
+import React, { useMemo, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { ApexOptions } from "apexcharts";
+import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
+import { RevenueCard } from "./RevenueCard";
 
-const ReactApexChart = dynamic(() => import('react-apexcharts'), {
+const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-[450px]">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
     </div>
   ),
-})
+});
 
 interface HourlyDataPoint {
   date: string;
@@ -47,14 +49,36 @@ interface HourlyTotals {
 interface HourlyOrdersChartProps {
   hourlyData: HourlyDataPoint[] | null;
   hourlyTotals?: HourlyTotals | null;
+  metadata?: Metadata | null;
   isLoading?: boolean;
+}
+
+export interface Metadata {
+  date: string;
+  timezone: string;
+  marketplace_id: string;
+  last_updated: string;
+  last_refreshed_at: string | null;
 }
 
 const formatDateShort = (dateStr: string | null) => {
   if (!dateStr) return "";
   try {
     const [year, month, day] = dateStr.split("-").map(Number);
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     return `${monthNames[month - 1]} ${day}`;
   } catch {
     return dateStr;
@@ -62,18 +86,27 @@ const formatDateShort = (dateStr: string | null) => {
 };
 
 const formatRevenue = (value: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     maximumFractionDigits: 0,
   }).format(value);
 };
 
-const HourlyOrdersChart = ({ hourlyData, hourlyTotals, isLoading = false }: HourlyOrdersChartProps) => {
+const HourlyOrdersChart = ({
+  hourlyData,
+  hourlyTotals,
+  metadata,
+  isLoading = false,
+}: HourlyOrdersChartProps) => {
   const [isMounted, setIsMounted] = useState(false);
-  
-  const lineColors = ['#3B82F6', '#8B5CF6', '#EC4899'];
-  const barColors = ['#60A5FA', '#A78BFA'];
+
+  const lineColors = ["#3B82F6", "#8B5CF6", "#EC4899"];
+  const barColors = ["#60A5FA", "#A78BFA"];
+
+  const { data: userProfile } = useUserProfile();
+  const hasVendorAccounts =
+    (userProfile?.connected_vendor_accounts?.length ?? 0) > 0;
 
   useEffect(() => {
     setIsMounted(true);
@@ -83,82 +116,114 @@ const HourlyOrdersChart = ({ hourlyData, hourlyTotals, isLoading = false }: Hour
     if (!hourlyData || hourlyData.length === 0) {
       return {
         series: [],
-        categories: Array.from({ length: 24 }, (_, i) => i.toString()),
-        dates: { today: '', yesterday: '', dayBefore: '' },
+        categories: Array.from({ length: 24 }, (_, i) => `${i}-${i + 1}`),
+        dates: { today: "", yesterday: "", dayBefore: "" },
         totals: { today: 0, yesterday: 0, dayBefore: 0 },
         timeLabels: [],
-        lastAvailableHour: null
+        lastAvailableHour: null,
       };
     }
 
-    const dataByDate = hourlyData.reduce((acc, point) => {
-      if (!acc[point.date]) {
-        acc[point.date] = [];
-      }
-      acc[point.date].push(point);
-      return acc;
-    }, {} as Record<string, HourlyDataPoint[]>);
+    const dataByDate = hourlyData.reduce(
+      (acc, point) => {
+        if (!acc[point.date]) {
+          acc[point.date] = [];
+        }
+        acc[point.date].push(point);
+        return acc;
+      },
+      {} as Record<string, HourlyDataPoint[]>,
+    );
 
     const dates = Object.keys(dataByDate).sort((a, b) => b.localeCompare(a));
-    
-    const todayDate = dates[0] || '';
-    const yesterdayDate = dates[1] || '';
-    const dayBeforeDate = dates[2] || '';
+
+    const todayDate = dates[0] || "";
+    const yesterdayDate = dates[1] || "";
+    const dayBeforeDate = dates[2] || "";
 
     const getHourIndex = (hour: string, period: string): number => {
       let h = parseInt(hour);
-      if (period === 'AM') {
+      if (period === "AM") {
         return h === 12 ? 0 : h;
       } else {
         return h === 12 ? 12 : h + 12;
       }
     };
 
+    // Calculate last available hour from last_refreshed_at
     let lastAvailableHour = -1;
-    if (todayDate && dataByDate[todayDate]) {
-      dataByDate[todayDate].forEach(point => {
-        const hourIndex = getHourIndex(point.hour, point.period);
-        if (hourIndex > lastAvailableHour) {
-          lastAvailableHour = hourIndex;
+    if (metadata?.last_refreshed_at) {
+      try {
+        const lastRefreshedDate = new Date(metadata.last_refreshed_at);
+        const lastRefreshedHour = lastRefreshedDate.getHours();
+        // The data is for completed hours, so if it's 10:30, the last complete hour is 9-10 (hour 9)
+        lastAvailableHour = lastRefreshedHour - 1;
+
+        // Make sure it's not negative
+        if (lastAvailableHour < 0) {
+          lastAvailableHour = 0;
         }
-      });
-    }
 
-    const createDayTotalData = (date: string, limitToLastAvailable: boolean = false) => {
-      const dayData = new Array(24).fill(0);
-      const datePoints = dataByDate[date] || [];
-      
-      datePoints.forEach(point => {
-        const hourIndex = getHourIndex(point.hour, point.period);
-        dayData[hourIndex] = point.total_quantity;
-      });
-
-      if (limitToLastAvailable && lastAvailableHour >= 0) {
-        for (let i = lastAvailableHour + 1; i < 24; i++) {
-          dayData[i] = null;
+        console.log(
+          `Last refreshed at: ${metadata.last_refreshed_at}, Hour: ${lastRefreshedHour}, Last complete hour: ${lastAvailableHour}-${lastAvailableHour + 1}`,
+        );
+      } catch (error) {
+        console.error("Error parsing last_refreshed_at:", error);
+        // Fallback to finding last hour from data
+        if (todayDate && dataByDate[todayDate]) {
+          dataByDate[todayDate].forEach((point) => {
+            const hourIndex = getHourIndex(point.hour, point.period);
+            if (hourIndex > lastAvailableHour) {
+              lastAvailableHour = hourIndex;
+            }
+          });
         }
       }
+    } else {
+      // Fallback: find last available hour from data
+      if (todayDate && dataByDate[todayDate]) {
+        dataByDate[todayDate].forEach((point) => {
+          const hourIndex = getHourIndex(point.hour, point.period);
+          if (hourIndex > lastAvailableHour) {
+            lastAvailableHour = hourIndex;
+          }
+        });
+      }
+    }
+
+    const createDayTotalData = (
+      date: string,
+      limitToLastAvailable: boolean = false,
+    ) => {
+      const dayData = new Array(24).fill(null);
+      const datePoints = dataByDate[date] || [];
+
+      datePoints.forEach((point) => {
+        const hourIndex = getHourIndex(point.hour, point.period);
+
+        // Only add data if it's within the available range
+        if (!limitToLastAvailable || hourIndex <= lastAvailableHour) {
+          dayData[hourIndex] = point.total_quantity;
+        }
+      });
 
       return dayData;
     };
 
     const createTodaySplitData = () => {
-      const sellerData = new Array(24).fill(0);
-      const vendorData = new Array(24).fill(0);
+      const sellerData = new Array(24).fill(null);
+      const vendorData = new Array(24).fill(null);
       const datePoints = dataByDate[todayDate] || [];
-      
-      datePoints.forEach(point => {
-        const hourIndex = getHourIndex(point.hour, point.period);
-        sellerData[hourIndex] = point.seller_quantity;
-        vendorData[hourIndex] = point.vendor_quantity;
-      });
 
-      if (lastAvailableHour >= 0) {
-        for (let i = lastAvailableHour + 1; i < 24; i++) {
-          sellerData[i] = null;
-          vendorData[i] = null;
+      datePoints.forEach((point) => {
+        const hourIndex = getHourIndex(point.hour, point.period);
+
+        // Only add data if it's within the available range
+        if (hourIndex <= lastAvailableHour) {
+          sellerData[hourIndex] = point.seller_quantity;
+          vendorData[hourIndex] = point.vendor_quantity;
         }
-      }
+      });
 
       return { sellerData, vendorData };
     };
@@ -166,51 +231,77 @@ const HourlyOrdersChart = ({ hourlyData, hourlyTotals, isLoading = false }: Hour
     const todayTotalData = createDayTotalData(todayDate, true);
     const yesterdayTotalData = createDayTotalData(yesterdayDate, false);
     const dayBeforeTotalData = createDayTotalData(dayBeforeDate, false);
-    
-    const { sellerData: todaySellerData, vendorData: todayVendorData } = createTodaySplitData();
 
-    const total_today = todayTotalData.filter(v => v !== null).reduce((sum, v) => sum + (v || 0), 0);
-    const total_yesterday = yesterdayTotalData.reduce((sum, v) => sum + v, 0);
-    const total_day_before = dayBeforeTotalData.reduce((sum, v) => sum + v, 0);
+    const { sellerData: todaySellerData, vendorData: todayVendorData } =
+      createTodaySplitData();
 
-    const categories = Array.from({ length: 24 }, (_, i) => i.toString());
+    const total_today = todayTotalData
+      .filter((v) => v !== null)
+      .reduce((sum, v) => sum + (v || 0), 0);
+    const total_yesterday = yesterdayTotalData
+      .filter((v) => v !== null)
+      .reduce((sum, v) => sum + (v || 0), 0);
+    const total_day_before = dayBeforeTotalData
+      .filter((v) => v !== null)
+      .reduce((sum, v) => sum + (v || 0), 0);
 
-    const timeLabels = Array(24).fill('');
+    // Create categories as hour ranges: "0-1", "1-2", ..., "23-24"
+    const categories = Array.from({ length: 24 }, (_, i) => `${i}-${i + 1}`);
+
+    const timeLabels = Array(24).fill("");
     const availableDate = todayDate || yesterdayDate || dayBeforeDate;
     if (availableDate && dataByDate[availableDate]) {
-      dataByDate[availableDate].forEach(point => {
+      dataByDate[availableDate].forEach((point) => {
         const hourIndex = getHourIndex(point.hour, point.period);
         timeLabels[hourIndex] = point.timestamp;
       });
     }
 
-    const series = [
-      {
-        name: `Today Total (${formatDateShort(todayDate)})`,
-        data: todayTotalData,
-        type: 'line' as const,
-      },
-      {
-        name: `Yesterday (${formatDateShort(yesterdayDate)})`,
-        data: yesterdayTotalData,
-        type: 'line' as const,
-      },
-      {
-        name: `2 Days Ago (${formatDateShort(dayBeforeDate)})`,
-        data: dayBeforeTotalData,
-        type: 'line' as const,
-      },
-      {
-        name: 'Today - Seller',
-        data: todaySellerData,
-        type: 'column' as const,
-      },
-      {
-        name: 'Today - Vendor',
-        data: todayVendorData,
-        type: 'column' as const,
-      },
-    ];
+    const series = hasVendorAccounts
+      ? [
+          {
+            name: `Today Total (${formatDateShort(todayDate)})`,
+            data: todayTotalData,
+            type: "line" as const,
+          },
+          {
+            name: `Yesterday (${formatDateShort(yesterdayDate)})`,
+            data: yesterdayTotalData,
+            type: "line" as const,
+          },
+          {
+            name: `2 Days Ago (${formatDateShort(dayBeforeDate)})`,
+            data: dayBeforeTotalData,
+            type: "line" as const,
+          },
+          {
+            name: "Today - Seller",
+            data: todaySellerData,
+            type: "column" as const,
+          },
+          {
+            name: "Today - Vendor",
+            data: todayVendorData,
+            type: "column" as const,
+          },
+        ]
+      : [
+          {
+            name: `Today Total (${formatDateShort(todayDate)})`,
+            data: todayTotalData,
+            type: "line" as const,
+          },
+          {
+            name: `Yesterday (${formatDateShort(yesterdayDate)})`,
+            data: yesterdayTotalData,
+            type: "line" as const,
+          },
+          {
+            name: `2 Days Ago (${formatDateShort(dayBeforeDate)})`,
+            data: dayBeforeTotalData,
+            type: "line" as const,
+          },
+        ];
 
     return {
       series,
@@ -226,138 +317,161 @@ const HourlyOrdersChart = ({ hourlyData, hourlyTotals, isLoading = false }: Hour
         dayBefore: total_day_before,
       },
       timeLabels,
-      lastAvailableHour: lastAvailableHour >= 0 ? lastAvailableHour : null
+      lastAvailableHour: lastAvailableHour >= 0 ? lastAvailableHour : null,
     };
-  }, [hourlyData]);
+  }, [hourlyData, metadata?.last_refreshed_at, hasVendorAccounts]);
 
-  const options: ApexOptions = useMemo(() => ({
-    chart: {
-      height: 400,
-      type: 'line',
-      stacked: false,
-      zoom: { enabled: false },
-      toolbar: {
-        show: true,
-        tools: { 
-          download: true, 
-          zoom: false, 
-          zoomin: false, 
-          zoomout: false, 
-          pan: false, 
-          reset: false 
-        }
-      },
-      animations: { 
-        enabled: true, 
-        easing: 'easeinout', 
-        speed: 800 
-      }
-    },
-    dataLabels: { enabled: false },
-    stroke: {
-      width: [3, 3, 3, 0, 0],
-      curve: 'smooth',
-      dashArray: [0, 8, 4, 0, 0],
-    },
-    plotOptions: {
-      bar: {
-        columnWidth: '40%',
-        dataLabels: {
-          position: 'top',
-        }
-      },
-    },
-    title: {
-      text: 'Orders by Hour - Last 3 Days',
-      align: 'left',
-      style: { 
-        fontSize: '18px', 
-        fontWeight: 'bold', 
-        color: '#1a2b3c' 
-      }
-    },
-    legend: {
-      show: false,
-    },
-    markers: { 
-      size: [0, 0, 0, 0, 0],
-      hover: { sizeOffset: 6 } 
-    },
-    xaxis: {
-      categories: chartData.categories,
-      title: { 
-        text: 'Hour of Day', 
-        style: { 
-          fontSize: '13px', 
-          fontWeight: 600, 
-          color: '#374151' 
-        } 
-      },
-      labels: {
-        rotate: -45,
-        style: { 
-          fontSize: '11px', 
-          colors: '#6b7280' 
-        }
-      },
-    },
-    yaxis: {
-      title: { 
-        text: 'Number of Orders', 
-        style: { 
-          fontSize: '13px', 
-          fontWeight: 600, 
-          color: '#374151' 
-        } 
-      },
-      labels: {
-        formatter: (val) => val?.toFixed(0) || '0',
-      },
-      min: 0,
-    },
-    grid: { 
-      show: true,
-      borderColor: '#f3f4f6',
-      strokeDashArray: 3,
-    },
-    tooltip: {
-      shared: true,
-      intersect: false,
-      x: {
-        formatter: (val, opts) => {
-          const hourIndex = opts?.dataPointIndex ?? (typeof val === 'number' ? val : parseInt(String(val)));
-          return chartData.timeLabels[hourIndex] || `${hourIndex}:00`;
-        },
-      },
-      y: {
-        formatter: (val) => {
-          if (val === null || val === undefined) {
-            return 'No data';
-          }
-          return val.toFixed(0) + ' orders';
-        },
-      },
-    },
-    colors: [...lineColors, ...barColors],
-    annotations: chartData.lastAvailableHour !== null ? {
-      xaxis: [
-        {
-          x: chartData.lastAvailableHour,
-          borderColor: '#3b82f6',
-          borderWidth: 2,
-          strokeDashArray: 4,
-          label: {
-            text: 'Current Hour',
-            style: {
-              color: '#fff',
-              background: '#3b82f6',
-              fontSize: '10px',
-            },
+  const options: ApexOptions = useMemo(
+    () => ({
+      chart: {
+        height: 400,
+        type: "line",
+        stacked: false,
+        zoom: { enabled: false },
+        toolbar: {
+          show: true,
+          tools: {
+            download: true,
+            zoom: false,
+            zoomin: false,
+            zoomout: false,
+            pan: false,
+            reset: false,
           },
         },
-      ],
-    } : undefined,
-  }), [chartData, lineColors, barColors]);
+        animations: {
+          enabled: true,
+          easing: "easeinout",
+          speed: 800,
+        },
+      },
+      dataLabels: { enabled: false },
+      stroke: {
+        width: hasVendorAccounts ? [3, 3, 3, 0, 0] : [3, 3, 3], // Conditional stroke widths
+        curve: "smooth",
+        dashArray: hasVendorAccounts ? [0, 8, 4, 0, 0] : [0, 8, 4], // Conditional dash arrays
+      },
+      plotOptions: {
+        bar: {
+          columnWidth: "40%",
+          dataLabels: {
+            position: "top",
+          },
+        },
+      },
+      title: {
+        text: "Orders by Hour - Last 3 Days",
+        align: "left",
+        style: {
+          fontSize: "18px",
+          fontWeight: "bold",
+          color: "#1a2b3c",
+        },
+      },
+      legend: {
+        show: false,
+      },
+      markers: {
+        size: hasVendorAccounts ? [4, 0, 0, 0, 0] : [4, 0, 0], // Conditional marker sizes
+        hover: { sizeOffset: 6 },
+      },
+      xaxis: {
+        categories: chartData.categories,
+        title: {
+          text: "Hour Range",
+          style: {
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#374151",
+          },
+        },
+        labels: {
+          rotate: -45,
+          style: {
+            fontSize: "11px",
+            colors: "#6b7280",
+          },
+          formatter: (val) => {
+            const hourRange = String(val);
+            const [start] = hourRange.split("-").map(Number);
+            if (start % 2 === 0) {
+              return hourRange;
+            }
+            return "";
+          },
+        },
+      },
+      yaxis: {
+        title: {
+          text: "Number of Orders",
+          style: {
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "#374151",
+          },
+        },
+        labels: {
+          formatter: (val) => val?.toFixed(0) || "0",
+        },
+        min: 0,
+      },
+      grid: {
+        show: true,
+        borderColor: "#f3f4f6",
+        strokeDashArray: 3,
+      },
+      tooltip: {
+        shared: true,
+        intersect: false,
+        x: {
+          formatter: (val, opts) => {
+            const hourIndex =
+              opts?.dataPointIndex ??
+              (typeof val === "number" ? val : parseInt(String(val)));
+            if (chartData.timeLabels[hourIndex]) {
+              return chartData.timeLabels[hourIndex];
+            }
+            return `${hourIndex}:00 - ${hourIndex + 1}:00`;
+          },
+        },
+        y: {
+          formatter: (val) => {
+            if (val === null || val === undefined) {
+              return "No data";
+            }
+            return val.toFixed(0) + " orders";
+          },
+        },
+      },
+      colors: hasVendorAccounts
+        ? [...lineColors, ...barColors] // All 5 colors
+        : lineColors, // Only 3 colors for lines
+      annotations:
+        chartData.lastAvailableHour !== null
+          ? {
+              xaxis: [
+                {
+                  x: chartData.lastAvailableHour,
+                  x2: chartData.lastAvailableHour + 0.5,
+                  borderColor: "#3b82f6",
+                  fillColor: "#3b82f6",
+                  opacity: 0.1,
+                  label: {
+                    text: `Last: ${chartData.lastAvailableHour}-${chartData.lastAvailableHour + 1}`,
+                    position: "top",
+                    style: {
+                      color: "#fff",
+                      background: "#3b82f6",
+                      fontSize: "10px",
+                    },
+                  },
+                },
+              ],
+            }
+          : undefined,
+    }),
+    [chartData, lineColors, barColors, hasVendorAccounts], // Add hasVendorAccounts to dependencies
+  );
 
   if (isLoading) {
     return (
@@ -381,30 +495,29 @@ const HourlyOrdersChart = ({ hourlyData, hourlyTotals, isLoading = false }: Hour
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6">
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="text-center p-3 bg-blue-50 rounded-lg">
-          <p className="text-xs text-gray-600 mb-1">Today's Revenue</p>
-          {hourlyTotals?.today && (
-            <p className="text-2xl font-bold text-blue-600">
-              {formatRevenue(hourlyTotals.today.revenue)}
-            </p>
-          )}
-        </div>
-        <div className="text-center p-3 bg-purple-50 rounded-lg">
-          <p className="text-xs text-gray-600 mb-1">Yesterday's Revenue</p>
-          {hourlyTotals?.yesterday && (
-            <p className="text-2xl font-bold text-purple-500">
-              {formatRevenue(hourlyTotals.yesterday.revenue)}
-            </p>
-          )}
-        </div>
-        <div className="text-center p-3 bg-pink-50 rounded-lg">
-          <p className="text-xs text-gray-600 mb-1">2 Days Ago Revenue</p>
-          {hourlyTotals?.day_before_yesterday && (
-            <p className="text-2xl font-bold text-pink-500">
-              {formatRevenue(hourlyTotals.day_before_yesterday.revenue)}
-            </p>
-          )}
-        </div>
+        <RevenueCard
+          label="Today's Revenue"
+          data={hourlyTotals?.today}
+          color="blue"
+          showVendor={hasVendorAccounts}
+          formatRevenue={formatRevenue}
+        />
+
+        <RevenueCard
+          label="Yesterday's Revenue"
+          data={hourlyTotals?.yesterday}
+          color="purple"
+          showVendor={hasVendorAccounts}
+          formatRevenue={formatRevenue}
+        />
+
+        <RevenueCard
+          label="2 Days Ago Revenue"
+          data={hourlyTotals?.day_before_yesterday}
+          color="pink"
+          showVendor={hasVendorAccounts}
+          formatRevenue={formatRevenue}
+        />
       </div>
 
       {isMounted && (
@@ -433,14 +546,18 @@ const HourlyOrdersChart = ({ hourlyData, hourlyTotals, isLoading = false }: Hour
             <div className="w-8 h-0.5 border-t-2 border-dotted border-pink-500"></div>
             <span className="text-gray-600">2 Days Ago (Line)</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-400 rounded"></div>
-            <span className="text-gray-600">Today Seller (Bar)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-purple-400 rounded"></div>
-            <span className="text-gray-600">Today Vendor (Bar)</span>
-          </div>
+          {hasVendorAccounts && (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-400 rounded"></div>
+                <span className="text-gray-600">Today Seller (Bar)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-purple-400 rounded"></div>
+                <span className="text-gray-600">Today Vendor (Bar)</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
