@@ -22,9 +22,9 @@ export interface CampaignSegmentData {
   cost_change_pct: number;
   sales_change_pct: number;
   acos_change_pct: number;
-  spend_status: 'increased' | 'decreased' | 'stable';
-  sales_status: 'increased' | 'decreased' | 'stable';
-  acos_status: 'increased' | 'decreased' | 'stable';
+  spend_status: "increased" | "decreased" | "stable";
+  sales_status: "increased" | "decreased" | "stable";
+  acos_status: "increased" | "decreased" | "stable";
 }
 
 export interface CampaignSegmentationSummary {
@@ -54,7 +54,7 @@ export interface CampaignSegmentationResponse {
 
 export interface CampaignSegmentationOptions {
   start_date?: string; // Format: YYYY-MM-DD
-  end_date?: string;   // Format: YYYY-MM-DD
+  end_date?: string; // Format: YYYY-MM-DD
 }
 
 // Campaign X-Ray Types (unchanged)
@@ -83,33 +83,33 @@ export interface XrayDataResponse {
 
 export interface XrayDataOptions {
   campaign_names?: string[];
-  focus_level?: 'high' | 'medium' | 'low' | 'all';
+  focus_level?: "high" | "medium" | "low" | "all";
 }
 
 // NEW: Hierarchical Keyword Performance Types
 export interface KeywordMetrics {
-  [key: string]: any; 
+  [key: string]: any;
   // Identifiers
   id: string;
-  type: 'keyword';
+  type: "keyword";
   name: string;
   keyword: string;
   keyword_id: string;
   keyword_type: string;
   match_type: string;
   targeting: string;
-  source: 'keyword' | 'expression';
+  source: "keyword" | "expression";
   campaign_name: string;
   campaign_id: string;
   ad_group_name: string;
   ad_group_id: string;
-  
+
   // Bid information
   keyword_bid: number;
   is_editable: boolean;
   bid_min: number;
   bid_max: number;
-  
+
   // Current period metrics
   impressions: number;
   clicks: number;
@@ -122,7 +122,7 @@ export interface KeywordMetrics {
   roas: number;
   cvr: number;
   cpa: number;
-  
+
   // Previous period metrics (for comparison)
   impressions_prev: number;
   clicks_prev: number;
@@ -135,25 +135,25 @@ export interface KeywordMetrics {
   roas_prev: number;
   cvr_prev: number;
   cpa_prev: number;
-  
+
   // Last day metric
   last_day_top_of_search_impression_share: number | null;
 }
 
 export interface AsinGroupMetrics {
-  [key: string]: any; 
+  [key: string]: any;
   // Identifiers
   id: string;
-  type: 'asin_group';
+  type: "asin_group";
   asin: string;
   name: string;
   product_name: string;
   image_url: string;
-  
+
   // Counts
   campaign_count: number;
   keyword_count: number;
-  
+
   // Current period metrics (aggregated from all keywords)
   impressions: number;
   clicks: number;
@@ -166,7 +166,7 @@ export interface AsinGroupMetrics {
   roas: number;
   cvr: number;
   cpa: number;
-  
+
   // Previous period metrics
   impressions_prev: number;
   clicks_prev: number;
@@ -179,30 +179,30 @@ export interface AsinGroupMetrics {
   roas_prev: number;
   cvr_prev: number;
   cpa_prev: number;
-  
+
   // Last day metric
   last_day_top_of_search_impression_share: number | null;
-  
+
   // Not editable at ASIN level
   is_editable: false;
   keyword_bid: null;
-  
+
   // Children
   _children?: KeywordMetrics[];
 }
 
 export interface CampaignGroupMetrics {
-  [key: string]: any; 
+  [key: string]: any;
   // Identifiers
   id: string;
-  type: 'campaign';
+  type: "campaign";
   name: string;
   campaign_name: string;
   campaign_id: string;
-  
+
   // Count
   keyword_count: number;
-  
+
   // Current period metrics
   impressions: number;
   clicks: number;
@@ -215,7 +215,7 @@ export interface CampaignGroupMetrics {
   roas: number;
   cvr: number;
   cpa: number;
-  
+
   // Previous period metrics
   impressions_prev: number;
   clicks_prev: number;
@@ -228,16 +228,16 @@ export interface CampaignGroupMetrics {
   roas_prev: number;
   cvr_prev: number;
   cpa_prev: number;
-  
+
   // Last day metric
   last_day_top_of_search_impression_share: number | null;
-  
+
   // Average bid (not editable at campaign level)
   keyword_bid: number;
   is_editable: false;
-  
+
   // Children
- _children?: KeywordMetrics[];
+  _children?: KeywordMetrics[];
 }
 
 export type HierarchicalRow = AsinGroupMetrics | CampaignGroupMetrics;
@@ -261,7 +261,7 @@ export interface KeywordPerformanceHierarchicalResponse {
 
 export interface KeywordPerformanceOptions {
   start_date?: string; // Format: YYYY-MM-DD
-  end_date?: string;   // Format: YYYY-MM-DD
+  end_date?: string; // Format: YYYY-MM-DD
   comparison_start_date?: string;
   comparison_end_date?: string;
 }
@@ -328,7 +328,7 @@ export const campaignService = {
    * Categorizes campaigns into 4 segments based on performance trends
    */
   async getCampaignSegments(options?: CampaignSegmentationOptions) {
-    console.log('Fetching campaign segmentation data with options:', options);
+    console.log("Fetching campaign segmentation data with options:", options);
 
     const params: Record<string, string> = {};
 
@@ -340,42 +340,58 @@ export const campaignService = {
       params.end_date = options.end_date;
     }
 
-    console.log('Request params:', params);
+    console.log("Request params:", params);
 
     const res = await apiClient.get<CampaignSegmentationResponse>(
-      '/api/v1/dashboard-api/campaign-segments/',
-      { params }
+      "/api/v1/dashboard-api/campaign-segments/",
+      { params },
     );
 
-    console.log('Campaign segmentation response received:', res.data);
+    console.log("Campaign segmentation response received:", res.data);
     return res.data;
   },
 
   /**
    * Get campaign X-ray data
    * Provides detailed metrics for selected campaigns
+   * Uses POST to handle large campaign lists
    */
   async getXrayData(options: XrayDataOptions) {
-    console.log('Fetching campaign xray data with options:', options);
+    console.log("Fetching campaign xray data with options:", options);
 
-    const params: Record<string, any> = {
-      focus_level: options.focus_level || 'all',
+    const payload: Record<string, any> = {
+      focus_level: options.focus_level || "all",
     };
 
-    // Send campaign names as comma-separated string
+    // Send campaign names as array in request body (handles large lists)
     if (options.campaign_names && options.campaign_names.length > 0) {
-      params.campaigns = options.campaign_names.join(',');
+      payload.campaigns = options.campaign_names;
     }
 
-    console.log('Request params:', params);
+    console.log("Request payload:", {
+      ...payload,
+      campaigns: payload.campaigns
+        ? `${payload.campaigns.length} campaigns`
+        : "all",
+    });
 
-    const res = await apiClient.get<XrayDataResponse>(
-      '/api/v1/dashboard-api/xray-data/',
-      { params }
-    );
+    try {
+      const res = await apiClient.post<XrayDataResponse>(
+        "/api/v1/dashboard-api/xray-data/",
+        payload,
+      );
 
-    console.log('X-ray data response received:', res.data);
-    return res.data;
+      console.log("X-ray data response received:", {
+        data_points: res.data.xray_data?.length || 0,
+        available_campaigns: res.data.available_campaigns?.length || 0,
+        selected_campaigns: res.data.selected_campaigns?.length || 0,
+      });
+
+      return res.data;
+    } catch (error) {
+      console.error("Failed to fetch xray data:", error);
+      throw error;
+    }
   },
 
   /**
@@ -384,7 +400,10 @@ export const campaignService = {
    * Includes comparison to previous period
    */
   async getKeywordPerformanceHierarchical(options?: KeywordPerformanceOptions) {
-    console.log('Fetching hierarchical keyword performance data with options:', options);
+    console.log(
+      "Fetching hierarchical keyword performance data with options:",
+      options,
+    );
 
     const params: Record<string, string> = {};
 
@@ -404,17 +423,17 @@ export const campaignService = {
       params.comparison_end_date = options.comparison_end_date;
     }
 
-    console.log('Request params:', params);
+    console.log("Request params:", params);
 
     const res = await apiClient.get<KeywordPerformanceHierarchicalResponse>(
-      '/api/v1/dashboard-api/campaign-xray-table-data/',
-      { params }
+      "/api/v1/dashboard-api/campaign-xray-table-data/",
+      { params },
     );
 
-    console.log('Hierarchical keyword performance response received:', {
+    console.log("Hierarchical keyword performance response received:", {
       total_groups: res.data.summary.total_groups,
       total_keywords: res.data.summary.total_keywords,
-      period_info: res.data.period_info
+      period_info: res.data.period_info,
     });
 
     return res.data;
@@ -425,20 +444,20 @@ export const campaignService = {
    * Supports batch updates and dry-run mode
    */
   async pushKeywordBids(payload: KeywordBidPushPayload) {
-    console.log('Pushing keyword bids:', {
+    console.log("Pushing keyword bids:", {
       count: payload.data.length,
-      dryrun: payload.dryrun || false
+      dryrun: payload.dryrun || false,
     });
 
     const res = await apiClient.post<KeywordBidPushResponse>(
-      '/api/v1/ads-optimizer/bids-update/',
-      payload
+      "/api/v1/ads-optimizer/bids-update/",
+      payload,
     );
 
-    console.log('Keyword bid push response received:', {
+    console.log("Keyword bid push response received:", {
       push_id: res.data.push_id,
       total_items: res.data.total_items,
-      dryrun: res.data.dryrun
+      dryrun: res.data.dryrun,
     });
 
     return res.data;
@@ -448,8 +467,10 @@ export const campaignService = {
    * Transform BidChange map to API payload format
    * Converts frontend data structure to backend requirements
    */
-  transformBidChangesToPayload(changes: Map<string, BidChange>): KeywordBidUpdate[] {
-    return Array.from(changes.values()).map(change => ({
+  transformBidChangesToPayload(
+    changes: Map<string, BidChange>,
+  ): KeywordBidUpdate[] {
+    return Array.from(changes.values()).map((change) => ({
       keyword_id: change.keyword_id,
       campaign_id: change.campaign_id,
       ad_group_id: change.ad_group_id,

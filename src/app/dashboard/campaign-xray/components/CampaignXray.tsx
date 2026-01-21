@@ -162,7 +162,6 @@ const KPI_OPTIONS = [
     color: "#7C3AED",
     category: "Advertising",
   },
-
 ] as const;
 
 type KPIKey = (typeof KPI_OPTIONS)[number]["id"];
@@ -244,11 +243,11 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
 
     const initialData = KPI_OPTIONS.reduce(
       (acc, kpi) => ({ ...acc, [kpi.id]: [] }),
-      {} as Record<KPIKey, number[]>
+      {} as Record<KPIKey, number[]>,
     );
     const initialTotals = KPI_OPTIONS.reduce(
       (acc, kpi) => ({ ...acc, [kpi.id]: 0 }),
-      {} as Record<KPIKey, number>
+      {} as Record<KPIKey, number>,
     );
 
     if (!xrayData.length) {
@@ -269,7 +268,7 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
       const keyToUse = kpi.keys.find((key) => xrayData[0]?.[key] !== undefined);
       if (keyToUse) {
         const dataArray = xrayData.map((item) =>
-          safeParse(item[keyToUse], kpi.format)
+          safeParse(item[keyToUse], kpi.format),
         );
         data[kpi.id] = dataArray;
 
@@ -321,7 +320,12 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
   };
 
   const handleCampaignFilterApply = (selectedIds: (string | number)[]) => {
-    console.log("Applying campaign filter:", selectedIds);
+    console.log("Applying campaign filter:", {
+      count: selectedIds.length,
+      total_available: availableCampaigns.length,
+      sample: selectedIds.slice(0, 5), // Log first 5 for debugging
+    });
+
     // React Query will automatically refetch when this state changes
     setSelectedCampaigns(selectedIds as string[]);
   };

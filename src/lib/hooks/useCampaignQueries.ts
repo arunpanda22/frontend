@@ -7,6 +7,7 @@ import {
   KeywordPerformanceOptions,
   KeywordBidPushPayload,
 } from '../api/services/campaign.service';
+import { useMemo } from 'react';
 
 /**
  * Hook to fetch campaign segmentation data
@@ -46,25 +47,32 @@ export function useCampaignSegmentation(options?: CampaignSegmentationOptions) {
 export function useCampaignXrayData(options: XrayDataOptions) {
   console.log('useCampaignXrayData called with:', options);
 
-  // Sort campaign names for consistent query key
-  const sortedCampaigns = options.campaign_names
-    ? [...options.campaign_names].sort()
-    : [];
+  // Create a stable query key that doesn't depend on exact campaign order
+  // Use a hash or sorted string representation for better cache hits
+  const campaignsKey = useMemo(() => {
+    if (!options.campaign_names || options.campaign_names.length === 0) {
+      return 'all';
+    }
+    // Sort and join for consistent cache key regardless of order
+    return options.campaign_names.slice().sort().join('|');
+  }, [options.campaign_names]);
 
   return useQuery({
     queryKey: [
       'campaigns',
       'xray',
       options.focus_level || 'all',
-      // Use comma-separated string for array comparison
-      sortedCampaigns.length > 0 ? sortedCampaigns.join(',') : 'none',
+      campaignsKey,
     ],
     queryFn: () => {
-      console.log('Query function executing with campaigns:', options.campaign_names);
+      console.log('Query function executing with campaigns:', 
+        options.campaign_names?.length || 'all');
       return campaignService.getXrayData(options);
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
+    // Prevent refetch on window focus for this data
+    refetchOnWindowFocus: false,
   });
 }
 

@@ -61,12 +61,44 @@ export function FilterDropdown({
     );
   }, [items, searchQuery]);
 
+  // Check if all FILTERED items are selected
+  const isAllFilteredSelected = useMemo(() => {
+    if (filteredItems.length === 0) return false;
+    return filteredItems.every((item) => localSelected.has(item.id));
+  }, [filteredItems, localSelected]);
+
   const handleSelectAll = () => {
-    if (localSelected.size === items.length) {
-      setLocalSelected(new Set());
+    const newSelected = new Set(localSelected);
+    
+    if (isAllFilteredSelected) {
+      // Deselect all filtered items
+      filteredItems.forEach((item) => {
+        newSelected.delete(item.id);
+      });
     } else {
-      setLocalSelected(new Set(items.map((item) => item.id)));
+      // Select all filtered items
+      filteredItems.forEach((item) => {
+        newSelected.add(item.id);
+      });
     }
+    
+    setLocalSelected(newSelected);
+    
+    console.log('Select All clicked:', {
+      search_query: searchQuery,
+      filtered_count: filteredItems.length,
+      total_count: items.length,
+      selected_count: newSelected.size,
+      action: isAllFilteredSelected ? 'deselected' : 'selected'
+    });
+  };
+
+  const handleClearAll = () => {
+    console.log('Clear All clicked - applying empty selection immediately');
+    setLocalSelected(new Set());
+    onApply?.([]); // Apply immediately with empty array
+    setIsOpen(false); // Close the dropdown
+    setSearchQuery(""); // Clear search
   };
 
   const handleToggleItem = (itemId: string | number) => {
@@ -83,10 +115,16 @@ export function FilterDropdown({
     const newSelected = new Set(localSelected);
     newSelected.delete(itemId);
     setLocalSelected(newSelected);
-    onApply?.(Array.from(newSelected));
+    onApply?.(Array.from(newSelected)); // Apply immediately when removing a tag
   };
 
   const handleApply = () => {
+    console.log('Applying filter:', {
+      total_items: items.length,
+      selected_count: localSelected.size,
+      search_query: searchQuery,
+      filtered_count: filteredItems.length
+    });
     onApply?.(Array.from(localSelected));
     setIsOpen(false);
     setSearchQuery("");
@@ -98,8 +136,6 @@ export function FilterDropdown({
     setIsOpen(false);
     onCancel?.();
   };
-
-  const isAllSelected = localSelected.size === items.length && items.length > 0;
 
   return (
     <div className="space-y-3" ref={dropdownRef}>
@@ -124,11 +160,26 @@ export function FilterDropdown({
             <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-gray-50">
               <input
                 type="checkbox"
-                checked={isAllSelected}
+                checked={isAllFilteredSelected}
                 onChange={handleSelectAll}
                 className="w-4 h-4 rounded border-gray-300 bg-white cursor-pointer"
               />
-              <span className="text-sm text-gray-700 flex-1">All</span>
+              <span className="text-sm text-gray-700 flex-1">
+                All
+                {searchQuery && filteredItems.length !== items.length && (
+                  <span className="text-gray-500 ml-1">
+                    ({filteredItems.length} filtered)
+                  </span>
+                )}
+              </span>
+              <button
+                onClick={handleClearAll}
+                className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors font-medium"
+                title="Clear all selections and show all data"
+                aria-label="Clear all"
+              >
+                Clear All
+              </button>
               <button
                 onClick={handleApply}
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
