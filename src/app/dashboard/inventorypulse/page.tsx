@@ -29,6 +29,7 @@ import Cards from "./components/cards";
 import AdsRevenueApp from "./components/cards";
 import InventoryReplenishment from "../command-center/components/InventoryReplenishment";
 import FilterBar from "../../../components/dashboard/ui/FilterBar";
+import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 
 // Register Chart.js components
 ChartJS.register(
@@ -169,19 +170,22 @@ function TopAsinInventoryBarChart() {
   );
 }
 
-export default function CampaignPerformanceLayout() {
+export default function InventoryPulseLayout() {
   const chartRef = useRef(null);
   const adsChartRef = useRef(null);
+  const { data: userProfile } = useUserProfile();
+  const hasVendorAccounts =
+    (userProfile?.connected_vendor_accounts?.length ?? 0) > 0;
 
   return (
-    <div className="min-h-screen w-full px-12 py-12 bg-[#f6fafd] flex flex-col gap-6 font-sans">
+    <div className="min-h-screen w-full px-12 py-12 bg-[#f6fafd] flex flex-col gap-6 font-montserrat">
       
       {/* --- Page Heading --- */}
       
       <FilterBar
           title="📦 InventoryPulse"
       />
-      <InventoryStats />
+      <InventoryStats hasVendorAccounts={hasVendorAccounts} />
       
       {/* --- Section 1: Bar Chart and Restock Recommendations --- */}
       <div className="flex gap-4 items-stretch min-h-[500px]">

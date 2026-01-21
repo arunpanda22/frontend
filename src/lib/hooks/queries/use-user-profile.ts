@@ -26,6 +26,7 @@ export interface ConnectedSellerAccount {
   created_at: string;
   last_refreshed_at: string;
 }
+
 export interface ConnectedVendorAccount {
   vendor_code: string;
   marketplace_id: string;
@@ -37,7 +38,7 @@ export interface ConnectedVendorAccount {
 
 export interface RBACContext {
   role_id: number;
-  role_name: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user' ;
+  role_name: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user';
   role_display: string;
   hierarchy_level: number;
 
@@ -46,7 +47,7 @@ export interface RBACContext {
   agency_name?: string;
   agency_slug?: string;
   
-  // Admin role context - NEW
+  // Admin role context
   managed_agencies?: Array<{
     id: number;
     name: string;
@@ -58,7 +59,6 @@ export interface RBACContext {
   parent_seller_id?: number;
   parent_seller_email?: string;
 }
-
 
 export interface UserProfile {
   id: number;
@@ -86,10 +86,10 @@ export interface UserProfile {
  * Hook to fetch user profile with RBAC context
  * 
  * Caching Strategy:
- * - Profile data is cached for 5 minutes since roles/permissions don't change frequently
- * - Cache is kept in memory for 10 minutes before garbage collection
+ * - Profile data is cached for 30 minutes since roles/permissions/accounts don't change frequently
+ * - Cache is kept in memory for 1 hour before garbage collection
  * - No automatic refetch on window focus or component mount to reduce API calls
- * - Use invalidateProfileCache() from AuthContext to manually refresh when needed
+ * - Use invalidateProfileCache() from AuthContext to manually refresh when account connections change
  */
 export const useUserProfile = (options?: { enabled?: boolean }): UseQueryResult<UserProfile, Error> => {
   const { user } = useAuth();
@@ -101,18 +101,51 @@ export const useUserProfile = (options?: { enabled?: boolean }): UseQueryResult<
         throw new Error('User not authenticated');
       }
 
-      // Token will be added automatically by axios interceptor
       const response = await apiClient.get('/api/v1/auth/profile/');
-      
       return response.data;
     },
     enabled: (options?.enabled ?? true) && !!user,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    // Cache profile data for 5 minutes since roles/permissions don't change often
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
-    refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: false, // Don't refetch on component mount if data is fresh
+    // Extended cache times - profile data rarely changes
+    staleTime: 30 * 60 * 1000, // 30 minutes - data considered fresh
+    gcTime: 60 * 60 * 1000, // 1 hour - keep in memory
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
-}; 
+};
+
+/**
+ * Helper hook to check if user has a connected vendor account
+ * Uses the cached user profile data
+ */
+export const useHasVendorAccount = (): {
+  hasVendorAccount: boolean;
+  isLoading: boolean;
+  vendorAccounts: ConnectedVendorAccount[];
+} => {
+  const { data: userProfile, isLoading } = useUserProfile();
+
+  return {
+    hasVendorAccount: (userProfile?.connected_vendor_accounts?.length ?? 0) > 0,
+    isLoading,
+    vendorAccounts: userProfile?.connected_vendor_accounts ?? [],
+  };
+};
+
+/**
+ * Helper hook to check if user has a connected seller account
+ */
+export const useHasSellerAccount = (): {
+  hasSellerAccount: boolean;
+  isLoading: boolean;
+  sellerAccounts: ConnectedSellerAccount[];
+} => {
+  const { data: userProfile, isLoading } = useUserProfile();
+
+  return {
+    hasSellerAccount: (userProfile?.connected_seller_accounts?.length ?? 0) > 0,
+    isLoading,
+    sellerAccounts: userProfile?.connected_seller_accounts ?? [],
+  };
+};

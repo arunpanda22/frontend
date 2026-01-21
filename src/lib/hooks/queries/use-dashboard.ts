@@ -18,6 +18,7 @@ import type {
   CampaignMetricsResponse,
   OrganicSalesResponse
 } from '@/lib/api/services/dashboard.service'
+import { useHasVendorAccount } from '@/lib/hooks/queries/use-user-profile' 
 
 // Query keys for consistent caching
 export const dashboardQueryKeys = {
@@ -34,7 +35,8 @@ export const dashboardQueryKeys = {
   weeklyData: (options?: any) => ['dashboard', 'weekly-data', options] as const,
   trendsData: (options?: any) => ['dashboard', 'trends-data', options] as const,
   adsSalesData: (options: any) => ['dashboard', 'ads-sales-data', options] as const,
-  asinSummary: (options: any) => ['dashboard', 'asin-summary', options] as const,
+  asinSummary: (options: { start_date: string; end_date: string; focus_level?: string }) => ['asinSummary', options] as const,
+  combinedAsinSummary: (options: { start_date: string; end_date: string; focus_level?: string }) => ['combinedAsinSummary', options] as const,
   adsTrend: (days?: number) => ['dashboard', 'ads-trend', days] as const,
   organicSales: (options: any) => ['dashboard', 'organic-sales', options] as const,
   returnReplacementRates: (options: any) => ['dashboard', 'return-replacement-rates', options] as const,
@@ -170,14 +172,34 @@ export function useAdsSalesData(options: {
 }
 
 // ASIN Summary Hook
-export function useAsinSummary(options: {
-  start_date: string
-  end_date: string
-  focus_level?: 'high' | 'medium' | 'low' | 'all'
-}, enabled = true) {
-  return useQuery<AsinSummaryResponse>({
+export function useAsinSummary(
+  options: {
+    start_date: string
+    end_date: string
+    focus_level?: 'high' | 'medium' | 'low' | 'all'
+  },
+  enabled = true
+) {
+  return useQuery({
     queryKey: dashboardQueryKeys.asinSummary(options),
     queryFn: () => dashboardService.getAsinSummary(options),
+    enabled: enabled && !!options.start_date && !!options.end_date,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  })
+}
+
+export function useCombinedAsinSummary(
+  options: {
+    start_date: string
+    end_date: string
+    focus_level?: 'high' | 'medium' | 'low' | 'all'
+  },
+  enabled = true
+) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.combinedAsinSummary(options),
+    queryFn: () => dashboardService.getCombinedAsinSummary(options),
     enabled: enabled && !!options.start_date && !!options.end_date,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
@@ -360,13 +382,16 @@ export function useMainDashboardData(options?: {
   }
 }
 
-// UPDATED: ASIN Performance Data - Now uses new pivot table structure
+// Updated main hook with vendor account check
 export function useAsinPerformanceData(options?: {
   start_date?: string
   end_date?: string
   period?: string
   focus_level?: 'high' | 'medium' | 'low' | 'all'
 }) {
+  // Use the helper hook to check vendor account
+  const { hasVendorAccount, isLoading: isLoadingProfile } = useHasVendorAccount()
+
   const defaultOptions = {
     start_date: options?.start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end_date: options?.end_date || new Date().toISOString().split('T')[0],
@@ -374,38 +399,39 @@ export function useAsinPerformanceData(options?: {
     focus_level: options?.focus_level || 'all' as const,
   }
 
-  const asinSummary = useAsinSummary({  
-    start_date: defaultOptions.start_date,
-    end_date: defaultOptions.end_date,
-    focus_level: defaultOptions.focus_level
-  })
+  // Conditionally use the right API based on vendor account
+  // Only fetch when profile is loaded
+  const asinSummary = hasVendorAccount
+    ? useCombinedAsinSummary(
+        {
+          start_date: defaultOptions.start_date,
+          end_date: defaultOptions.end_date,
+          focus_level: defaultOptions.focus_level
+        },
+        !isLoadingProfile // Only enable when profile is loaded
+      )
+    : useAsinSummary(
+        {
+          start_date: defaultOptions.start_date,
+          end_date: defaultOptions.end_date,
+          focus_level: defaultOptions.focus_level
+        },
+        !isLoadingProfile // Only enable when profile is loaded
+      )
 
   const organicSalesData = useOrganicSalesData({
     start_date: defaultOptions.start_date,
     end_date: defaultOptions.end_date,
     limit: 10 
   })
-  
-  // Use the NEW pivot table API
-  // const salesTrendAsin = useSalesTrendAsin(defaultOptions.period)
-  // const targetingAnalysis = useTargetingAnalysis(defaultOptions.period)
-
-  // return {
-  //   asinSummary, // This returns AsinSummaryResponse structure
-  //   salesTrendAsin, // This now returns SalesTrendResponse with pivot table data
-  //   targetingAnalysis,
-  //   organicSalesData,
-  //   isLoading: asinSummary.isLoading || salesTrendAsin.isLoading || targetingAnalysis.isLoading || organicSalesData.isLoading,
-  //   isError: asinSummary.isError || salesTrendAsin.isError || targetingAnalysis.isError || organicSalesData.isError,
-  //   error: asinSummary.error || salesTrendAsin.error || targetingAnalysis.error || organicSalesData.error,
-  // }
 
   return {
-    asinSummary, 
+    asinSummary,
     organicSalesData,
-    isLoading: asinSummary.isLoading  || organicSalesData.isLoading,
+    hasVendorAccount,
+    isLoading: isLoadingProfile || asinSummary.isLoading || organicSalesData.isLoading,
     isError: asinSummary.isError || organicSalesData.isError,
-    error: asinSummary.error  || organicSalesData.error,
+    error: asinSummary.error || organicSalesData.error,
   }
 }
 

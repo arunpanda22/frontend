@@ -2,8 +2,7 @@
 import React, { useMemo, useState } from "react";
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ScatterProps,
-  LabelList
+  Tooltip, ResponsiveContainer, LabelList
 } from "recharts";
 import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard';
 
@@ -39,34 +38,52 @@ export default function DotScatterChart({
     return 'custom';
   }, [startDate, endDate]);
     
-  // Fetch ASIN performance data
-  // const dateParams = React.useMemo(() => ({
-  //   start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  //   end_date: new Date().toISOString().split('T')[0],
-  //   period: '30d',
-  //   focus_level: 'all' as const
-  // }), []);
-  const { asinSummary, isLoading, isError, error } = useAsinPerformanceData({
+  // Fetch ASIN performance data (automatically handles SC-only vs SC+VC)
+  const { asinSummary, hasVendorAccount, isLoading, isError, error } = useAsinPerformanceData({
     start_date: startDate,
     end_date: endDate,
     period: period,
     focus_level: 'all' as const
   });
 
-  // Transform ASIN summary data
+  // Transform ASIN summary data - handle both response types
   const asinData = React.useMemo(() => {
-    if (!asinSummary?.data?.asin_summary) return [];
-    return asinSummary.data.asin_summary.map((item: any) => {
+    let rawData = null;
+
+    if (asinSummary?.data?.asin_summary) {
+      rawData = asinSummary.data.asin_summary;
+    } else if (asinSummary?.data && Array.isArray(asinSummary.data)) {
+      rawData = asinSummary.data;
+    }
+
+    if (!rawData || !Array.isArray(rawData)) {
+      return [];
+    }
+
+    return rawData.map((item: any) => {
       const actualItem = item.json || item;
-      return {
-        asin: actualItem.asin,
-        product_name: actualItem.product_name,
-        "Total Sales": actualItem.total_sales,
-        "TACOS": actualItem.tacos_percent,
-        "Focus Level": actualItem.focus_category || "High Focus",
-      };
+      
+      if (hasVendorAccount) {
+        // Combined SC + VC data
+        return {
+          asin: actualItem.asin,
+          product_name: actualItem.product_name,
+          "Total Sales": actualItem.total_revenue || 0,
+          "TACOS": actualItem.tacos_percent || 0,
+          "Focus Level": actualItem.focus_category || "High Focus",
+        };
+      } else {
+        // Seller-only data
+        return {
+          asin: actualItem.asin,
+          product_name: actualItem.product_name,
+          "Total Sales": actualItem.total_sales || 0,
+          "TACOS": actualItem.tacos_percent || 0,
+          "Focus Level": actualItem.focus_category || "High Focus",
+        };
+      }
     });
-  }, [asinSummary]);
+  }, [asinSummary, hasVendorAccount]);
 
   const filteredData = asinData.filter(item => item["Focus Level"] === focusLevel);
   const topAsins = [...filteredData]
@@ -83,21 +100,21 @@ export default function DotScatterChart({
     color: dotColors[idx % dotColors.length],
   }));
 
-  // Card wrapper styling (like AdsSplitBubbleChart)
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
       <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h6 className="text-base font-semibold text-gray-900">
-            Total Sales vs TACOS
+            Total Sales vs TACOS {hasVendorAccount && <span className="text-sm font-normal text-purple-600">(SC + VC)</span>}
           </h6>
           <div className="text-xs text-gray-500">
             {startDate} to {endDate}
           </div>
         </div>
       </div>
-      {/* Header */}
+      
+      {/* Filter Header */}
       <div className="flex items-center justify-between gap-3 px-6 py-2 border-b border-gray-200 dark:border-gray-700">
         <h6 className="text-lg text-gray-900 dark:text-white font-montserrat font-semibold">ASIN Scatter</h6>
         <select
@@ -156,7 +173,7 @@ export default function DotScatterChart({
                       <div className="bg-zinc-900 text-white rounded-lg px-4 py-2 text-sm shadow-lg border border-zinc-700">
                         <div className="flex items-center gap-2">
                           <span className="w-3 h-3 rounded-sm border border-white" style={{ background: d.color }}></span>
-                          <span className="font-semibold">Product :</span> {d.Product}
+                          <span className="font-semibold">Product:</span> {d.Product}
                         </div>
                         <div>Sales: ₹{d.x.toLocaleString()}</div>
                         <div>TACOS: {d.y}%</div>

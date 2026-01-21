@@ -250,39 +250,104 @@ export interface AdsSalesResponse {
   top_5_asins_by_revenue: TopAsinByRevenue[];
 }
 
-export interface AsinSummaryResponse {
-  asin_summary: AsinSummaryItem[];
-  summary_stats: {
-    total_sales: number;
-    total_quantity: number;
-    "Buy Box %": number;
-    replacement_rate: number;
-    "Return Rate": number;
-  };
+// Combined ASIN Summary (SC + VC) Types
+export interface CombinedAsinSummaryItem {
+  asin: string
+  product_name: string
+  image_url: string
+  focus_category: string
+  
+  // Seller Central metrics
+  sc_revenue: number
+  sc_units: number
+  sc_asp: number
+  sc_sessions: number
+  sc_conversion_rate: number
+  sc_buy_box_percentage: number
+  sc_replacement_rate: number
+  sc_return_rate: number
+  sc_return_quantity: number
+  
+  // Vendor Central metrics
+  vc_revenue: number
+  vc_units: number
+  
+  // Combined totals
+  total_revenue: number
+  total_quantity: number
+  asp_combined: number
+  
+  // Advertising metrics (typically SC only)
+  total_ad_cost: number
+  total_ad_sales: number
+  acos_percent: number
+  impressions: number
+  clicks: number
+  ctr_percent: number
+  
+  // Derived metrics using combined totals
+  tacos_percent: number
+  organic_sales: number
+  organic_percentage: number
+  
+  // Other
+  days_of_supply: number
 }
 
+export interface CombinedAsinSummaryStats {
+  sc_revenue: number
+  sc_units: number
+  vc_revenue: number
+  vc_units: number
+  total_revenue: number
+  total_quantity: number
+  sc_buy_box_percent: number
+  sc_replacement_rate: number
+  sc_return_rate: number
+  vc_contribution_percent: number
+}
+
+export interface CombinedAsinSummaryResponse {
+  asin_summary: CombinedAsinSummaryItem[]
+  summary_stats: CombinedAsinSummaryStats
+  message: string
+  data_available: boolean
+}
+
+// Original ASIN Summary Types (for reference - keep these for seller-only clients)
 export interface AsinSummaryItem {
-  asin: string;
-  product_name: string;
-  image_url: string;
-  focus_category: string;
-  total_sales: number;
-  total_units: number;
-  total_ad_cost: number;
-  total_ad_sales: number;
-  impressions: number;
-  clicks: number;
-  ctr_percent: number;
-  acos_percent: number;
-  tacos_percent: number;
-  buy_box_percentage: number;
-  replacement_rate: number;
-  return_rate: number;
-  sessions: number;
-  conversion_rate: number;
-  inventory_quantity: number;
-  days_of_supply: number;
-  asp: number;
+  asin: string
+  product_name: string
+  image_url: string
+  focus_category: string
+  total_sales: number
+  total_units: number
+  total_ad_cost: number
+  total_ad_sales: number
+  acos_percent: number
+  sessions: number
+  conversion_rate: number
+  tacos_percent: number
+  buy_box_percentage: number
+  replacement_rate: number
+  return_rate: number
+  ctr_percent: number
+  days_of_supply: number
+  asp: number
+  Return_Quantity: number
+}
+
+export interface AsinSummaryResponse {
+  asin_summary: AsinSummaryItem[]
+  summary_stats: {
+    total_sales: number
+    total_quantity: number
+    "Buy Box %": number
+    replacement_rate: number
+    "Return Rate": number
+  }
+  message: string
+  data_available: boolean
 }
 
 export interface AdsTrendItem {
@@ -305,6 +370,10 @@ export interface InventoryStatsResponse {
       total_quantity: number;
     };
     stranded: {
+      total_asin: number;
+      total_quantity: number;
+    };
+    vendor?: {
       total_asin: number;
       total_quantity: number;
     };
@@ -656,6 +725,33 @@ export const dashboardService = {
     }
 
     return res.data; // This now returns { asin_summary: [...], summary_stats: {...} }
+  },
+
+  // Combined ASIN Summary (for clients with both SC and VC)
+  async getCombinedAsinSummary(options: {
+    start_date: string
+    end_date: string
+    focus_level?: "high" | "medium" | "low" | "all"
+  }): Promise<CombinedAsinSummaryResponse> {
+    const res = await apiClient.get<CombinedAsinSummaryResponse>(
+      "/api/v1/dashboard-api/asin-summary-combined/",
+      {
+        params: options,
+      }
+    )
+
+    if (
+      !res.data ||
+      (res.data?.asin_summary && res.data.asin_summary.length === 0)
+    ) {
+      console.log("⚠️ Combined ASIN Summary: No data returned")
+    } else if (
+      res.data?.asin_summary &&
+      res.data.asin_summary.every((item) => item.total_revenue === 0)
+    ) {
+      console.log("⚠️ Combined ASIN Summary: All items have zero revenue")
+    }
+    return res.data
   },
 
   // Ads Trend

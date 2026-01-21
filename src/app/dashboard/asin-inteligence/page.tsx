@@ -4,17 +4,24 @@ import React, { useState } from "react";
 import { Package, DollarSign, Percent, Coins, RotateCcw } from "lucide-react";
 import DotScatterChart from "./components/DotScatterChart";
 import AsinPerformanceTable from "./components/PerformanceTable";
-// import AsinSalesTable from "./SalesTable";
 import OrganicSalesCard from "./components/OrganicSalesBarChart";
 import FilterBar from "../../../components/dashboard/ui/FilterBar";
 import { MetricsCard } from "@/components/dashboard/ui";
 import { useAsinPerformanceData } from "@/lib/hooks/queries/use-dashboard";
+import type { CombinedAsinSummaryStats } from "@/lib/api/services/dashboard.service";
 import {
   DateRangeProvider,
   useDateRange,
 } from "@/lib/context/DateRangeContext";
 import { useCurrency } from "@/lib/context/CurrencyContext";
 import type { Range } from "react-date-range";
+
+// Type guard to check if stats are combined
+function isCombinedStats(
+  stats: any
+): stats is CombinedAsinSummaryStats {
+  return 'total_revenue' in stats;
+}
 
 interface AsinData {
   asin: string;
@@ -31,11 +38,19 @@ interface AsinData {
   "Return Rate": number | null;
 }
 
+
+
 // Separate component that uses the context
 const AsinIntelligenceContent = () => {
   // Access the date range context
   const { dateRange, updateCustomDates } = useDateRange();
-  const { formatCurrency, formatNumber, formatCurrencyNoDecimal, getCurrencySymbol, formatPercentage } = useCurrency();
+  const { 
+    formatCurrency, 
+    formatNumber, 
+    formatCurrencyNoDecimal, 
+    getCurrencySymbol, 
+    formatPercentage 
+  } = useCurrency();
 
   // Convert context date range to FilterBar format
   const filterBarDateRange = {
@@ -62,11 +77,11 @@ const AsinIntelligenceContent = () => {
   };
 
   // Fetch ASIN performance data from API using date range from context
+  // Now includes hasVendorAccount flag
   const {
     asinSummary,
-    // salesTrendAsin,
-    // targetingAnalysis,
     organicSalesData,
+    hasVendorAccount, // NEW: Flag indicating if user has vendor account
     isLoading,
     isError,
     error,
@@ -84,7 +99,8 @@ const AsinIntelligenceContent = () => {
         console.log(
           "📊 ASIN Summary loaded:",
           asinSummary.data.asin_summary.length,
-          "items"
+          "items",
+          hasVendorAccount ? "(SC + VC)" : "(SC only)"
         );
       } else if (Array.isArray(asinSummary.data)) {
         console.log("📊 ASIN Summary loaded:", asinSummary.data.length, "items");
@@ -93,9 +109,9 @@ const AsinIntelligenceContent = () => {
     if (isError) {
       console.error("❌ API Error:", error);
     }
-  }, [asinSummary, isError, error]);
+  }, [asinSummary, isError, error, hasVendorAccount]);
 
-  // Transform API data for components
+  // Transform API data for components - handle both seller-only and combined data
   const asinData: AsinData[] = React.useMemo(() => {
     let rawData = null;
 
@@ -111,41 +127,82 @@ const AsinIntelligenceContent = () => {
 
     return rawData.map((item: any) => {
       const actualItem = item.json || item;
-      return {
-        asin: actualItem.asin,
-        product_name: actualItem.product_name,
-        "Total Quantity": actualItem.total_units,
-        "Total Sales": actualItem.total_sales,
-        "Sales ASP":
-          actualItem.total_sales / Math.max(actualItem.total_units, 1),
-        BuyBox: actualItem.buy_box_percentage || 0,
-        "Organic Sales":
-          actualItem.total_sales - (actualItem.total_ad_sales || 0),
-        Conversion: actualItem.conversion_rate,
-        ACOS: actualItem.acos_percent,
-        TACOS: actualItem.tacos_percent,
-        "Replacement Rate": actualItem.replacement_rate,
-        "Return Rate": actualItem.return_rate,
-      };
+      
+      if (hasVendorAccount) {
+        // Combined SC + VC data
+        return {
+          asin: actualItem.asin,
+          product_name: actualItem.product_name,
+          "Total Quantity": actualItem.total_quantity || 0,
+          "Total Sales": actualItem.total_revenue || 0,
+          "Sales ASP": actualItem.asp_combined || 0,
+          BuyBox: actualItem.sc_buy_box_percentage || 0,
+          "Organic Sales": actualItem.organic_sales || 0,
+          Conversion: actualItem.sc_conversion_rate || 0,
+          ACOS: actualItem.acos_percent,
+          TACOS: actualItem.tacos_percent,
+          "Replacement Rate": actualItem.sc_replacement_rate,
+          "Return Rate": actualItem.sc_return_rate,
+        };
+      } else {
+        // Seller-only data
+        return {
+          asin: actualItem.asin,
+          product_name: actualItem.product_name,
+          "Total Quantity": actualItem.total_units || 0,
+          "Total Sales": actualItem.total_sales || 0,
+          "Sales ASP": actualItem.asp || 0,
+          BuyBox: actualItem.buy_box_percentage || 0,
+          "Organic Sales": (actualItem.total_sales || 0) - (actualItem.total_ad_sales || 0),
+          Conversion: actualItem.conversion_rate || 0,
+          ACOS: actualItem.acos_percent,
+          TACOS: actualItem.tacos_percent,
+          "Replacement Rate": actualItem.replacement_rate,
+          "Return Rate": actualItem.return_rate,
+        };
+      }
     });
-  }, [asinSummary]);
+  }, [asinSummary, hasVendorAccount]);
 
-  // Extract summary stats from API
+  // Extract summary stats from API - handle both response types
   const summaryStats = React.useMemo(() => {
     const apiSummaryStats = asinSummary?.data?.summary_stats;
 
-    if (apiSummaryStats) {
-      return {
-        totalSales: apiSummaryStats.total_sales || 0,
-        totalQuantity: apiSummaryStats.total_quantity || 0,
-        avgBuyBox: apiSummaryStats["Buy Box %"] || 0,
-        avgReturnRate: apiSummaryStats["Return Rate"] || 0,
-        avgReplacementRate: apiSummaryStats.replacement_rate || 0,
-      };
+    if (!apiSummaryStats) {
+      return null;
     }
 
-    return null;
-  }, [asinSummary]);
+    if (hasVendorAccount && isCombinedStats(apiSummaryStats)) {
+      // TypeScript now knows this is CombinedAsinSummaryStats
+      return {
+        totalSales: apiSummaryStats.total_revenue || 0,
+        totalQuantity: apiSummaryStats.total_quantity || 0,
+        avgBuyBox: apiSummaryStats.sc_buy_box_percent || 0,
+        avgReturnRate: apiSummaryStats.sc_return_rate || 0,
+        avgReplacementRate: apiSummaryStats.sc_replacement_rate || 0,
+        scSales: apiSummaryStats.sc_revenue || 0,
+        vcSales: apiSummaryStats.vc_revenue || 0,
+        vcContribution: apiSummaryStats.vc_contribution_percent || 0,
+      };
+    } else {
+      // Type assertion for seller-only stats
+      const sellerStats = apiSummaryStats as {
+        total_sales: number;
+        total_quantity: number;
+        "Buy Box %": number;
+        replacement_rate: number;
+        "Return Rate": number;
+      };
+      
+      return {
+        totalSales: sellerStats.total_sales || 0,
+        totalQuantity: sellerStats.total_quantity || 0,
+        avgBuyBox: sellerStats["Buy Box %"] || 0,
+        avgReturnRate: sellerStats["Return Rate"] || 0,
+        avgReplacementRate: sellerStats.replacement_rate || 0,
+      };
+    }
+  }, [asinSummary, hasVendorAccount]);
 
   // Prepare metrics data for MetricsCard components
   const metricsData = React.useMemo(() => {
@@ -189,50 +246,63 @@ const AsinIntelligenceContent = () => {
       ];
     }
 
-    return [
+    const baseMetrics = [
       {
-        title: "SALES",
+        title: "TOTAL SALES",
         value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(summaryStats.totalSales)}`,
         icon: DollarSign,
         color: "bg-ocean-500",
         bgColor: "bg-white",
+        subtitle: hasVendorAccount && summaryStats.vcContribution 
+          ? `VC: ${formatPercentage(summaryStats.vcContribution)}` 
+          : undefined,
       },
       {
-        title: "QUANTITY",
+        title:  "QUANTITY",
         value: formatNumber(summaryStats.totalQuantity),
         icon: Package,
         color: "bg-gold-400",
         bgColor: "bg-white",
       },
       {
-        title: "AVG. BUYBOX",
+        title: hasVendorAccount ? "SC BUYBOX" : "AVG. BUYBOX",
         value: formatPercentage(summaryStats.avgBuyBox),
         icon: Percent,
         color: "bg-ocean-500",
         bgColor: "bg-white",
       },
       {
-        title: "RETURN RATE",
+        title: hasVendorAccount ? "SC RETURN RATE" : "RETURN RATE",
         value: formatPercentage(summaryStats.avgReturnRate),
         icon: RotateCcw,
         color: "bg-gold-400",
         bgColor: "bg-white",
       },
       {
-        title: "REPLACEMENT RATE",
+        title: hasVendorAccount ? "SC REPLACEMENT" : "REPLACEMENT RATE",
         value: formatPercentage(summaryStats.avgReplacementRate),
         icon: Coins,
         color: "bg-ocean-500",
         bgColor: "bg-white",
       },
     ];
-  }, [summaryStats, formatCurrency, formatNumber, formatPercentage]);
+
+    return baseMetrics;
+  }, [
+    summaryStats, 
+    hasVendorAccount,
+    formatCurrencyNoDecimal,
+    formatNumber, 
+    formatPercentage,
+    getCurrencySymbol
+  ]);
 
   // Handle loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
         <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <div className="text-2xl font-bold text-blue-600 mb-2">
             Loading ASIN Performance...
           </div>
@@ -261,16 +331,23 @@ const AsinIntelligenceContent = () => {
       <div className="w-full transition-all duration-300">
         {/* Filter Bar with date range integration */}
         <FilterBar
-          title="📊 ASIN Intelligence"
+          title={hasVendorAccount ? "📊 ASIN Intelligence (SC + VC)" : "📊 ASIN Intelligence"}
           dateRange={filterBarDateRange}
           onDateRangeChange={handleDateRangeChange}
         />
 
         {/* Metrics Cards Grid */}
         <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
-            Performance Snapshot
-          </h2>
+          <div className="flex items-center gap-3 mb-6">
+            <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
+              Performance Snapshot
+            </h2>
+            {hasVendorAccount && (
+              <span className="px-3 py-1 text-sm font-medium bg-purple-100 text-purple-700 rounded-full">
+                Seller Central + Vendor Central
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             {metricsData.map((metric) => (
               <MetricsCard
@@ -322,19 +399,6 @@ const AsinIntelligenceContent = () => {
             />
           </div>
         </div>
-
-        {/* Table Section - Sales Table */}
-        {/* <div className="flex flex-col mt-8">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
-            Sales Breakdown
-          </h2>
-          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">
-            <div className="w-full overflow-x-auto">
-              <AsinSalesTable
-              />
-            </div>
-          </div>
-        </div> */}
       </div>
     </div>
   );
