@@ -36,11 +36,11 @@ export default function AdsOptimizerPage() {
   >("Balanced Optimisation");
   const [showMultipliers, setShowMultipliers] = useState(false);
   const [multipliers, setMultipliers] = useState({
-    brand: 0.5,
-    competitor: 1.3,
-    product_target: 1.1,
-    new_launch: 2.0,
-    recent_start: 1.5,
+    brand: 1,
+    competitor: 1,
+    product_target: 1,
+    new_launch: 1,
+    recent_start: 1,
   });
 
   // New toggle states
@@ -56,11 +56,11 @@ export default function AdsOptimizerPage() {
     setTargetAcos({ combined: 25, sp: 20, sb: 30, sd: 40 });
     setMode("Balanced Optimisation");
     setMultipliers({
-      brand: 0.5,
-      competitor: 1.3,
-      product_target: 1.1,
-      new_launch: 2.0,
-      recent_start: 1.5,
+      brand: 1,
+      competitor: 1,
+      product_target: 1,
+      new_launch: 1,
+      recent_start: 1,
     });
     setShowMultipliers(false);
     setDayParting(false);
