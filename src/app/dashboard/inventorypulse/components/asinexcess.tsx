@@ -130,6 +130,11 @@ export default function ASinExcess() {
   if (!excessData || excessData.length === 0) {
     return (
       <div className="h-full flex flex-col">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          ASIN Excess
+        </h6>
+      </div>
         <div className="flex-1 min-h-0 flex items-center justify-center">
           <div className="text-center">
             <Typography variant="h6" color="text.secondary">

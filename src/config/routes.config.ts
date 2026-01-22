@@ -98,9 +98,16 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
+    name: 'Campaign Creation',
+    href: '/dashboard/campaign-creation',
+    description: 'Campaign creation page',
+    permission: 'access_campaign_creation',
+    requiresSellerAccount: true,
+  },
+  {
     name: 'Opportunity Optimizer',
     href: '/dashboard/opportunities',
-    description: 'Automated Bid Management for Maximum ROI',
+    description: 'Find oppurtunities to increase profits',
     permission: 'access_oppurtunities',
     requiresSellerAccount: true,
   },
