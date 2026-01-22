@@ -18,12 +18,24 @@ export interface InventoryHealthItem {
   asin: string;
   "Product Name": string;
   "Focus category": string;
-  reserved_quantity: number;
-  fulfillable_quantity: number;
-  "Sales/Day": number;
-  "Inventory Cover": number;
+  
+  // FBA metrics (renamed for clarity)
+  fba_reserved_quantity: number;
+  fba_fulfillable_quantity: number;
+  fba_total_inventory: number;
+  fba_sales_per_day: number;
+  fba_inventory_cover: number;
+  
+  // Reorder metrics (based on FBA)
   reorder_quantity: number;
   status: string;
+  
+  // Vendor metrics (optional - only present if user has vendor account)
+  vendor_inventory?: number;
+  vendor_sales_per_day?: number;
+  vendor_inventory_cover?: number;
+  
+  // Common
   image_url: string;
 }
 
@@ -32,6 +44,10 @@ export interface InventoryReplenishmentItem {
   reorder_quantity: number;
   product_name: string;
   image_url: string;
+  fba_total_inventory: number;
+  fba_sales_per_day: number;
+  fba_inventory_cover: number;
+
 }
 
 export interface InventoryHealthResponse {
@@ -41,6 +57,11 @@ export interface InventoryHealthResponse {
     sales_days: number;
     reorder_cover_days: number;
     supply_chain_lead_time: number;
+    has_vendor_data: boolean;
+    data_sources: {
+      fba: boolean;
+      vendor: boolean;
+    };
   };
 }
 

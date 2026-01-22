@@ -3,7 +3,7 @@ import React from 'react';
 
 interface TopItemsListItem {
   id: string;
-  currency: string;
+  currency?: string;
   name: string;
   imageUrl?: string;
   value: number | string; // Allow both number and pre-formatted string
@@ -151,7 +151,8 @@ const TopItemsList: React.FC<TopItemsListProps> = ({
                   </div>
                   <div className="flex-shrink-0">
                     <p className="text-lg font-bold text-ocean-700">
-                      {item.currency}{item.value}
+                      {item.currency && item.currency}
+                      {item.value}
                     </p>
                   </div>
                 </div>

@@ -26,35 +26,64 @@ const LineColumnAreaChart = ({
     supply_chain_lead_time: 60
   });
 
-  const { series, labels } = useMemo(() => {
+  const { series, labels, hasVendorData } = useMemo(() => {
     if (!inventoryHealthData?.inventory_health) {
       return {
         series: [],
-        labels: []
+        labels: [],
+        hasVendorData: false
       };
     }
 
-    const sorted = [...inventoryHealthData.inventory_health]
-      .sort((a: any, b: any) => (b.fulfillable_quantity || 0) - (a.fulfillable_quantity || 0))
+    const hasVendor = inventoryHealthData?.metadata?.has_vendor_data || false;
+
+    // Filter out vendor-only items for this chart (focus on FBA inventory)
+    const fbaItems = inventoryHealthData.inventory_health.filter(
+      (item: any) => item.status !== 'Vendor Only'
+    );
+
+    // Sort by FBA total inventory and take top 10
+    const sorted = [...fbaItems]
+      .sort((a: any, b: any) => 
+        (b.fba_total_inventory || 0) - (a.fba_total_inventory || 0)
+      )
       .slice(0, 10);
 
     const chartLabels = sorted.map((item: any) => item.asin);
-    const chartSeries = [
+    
+    const chartSeries: any[] = [
       {
-        name: 'Fulfillable Quantity',
+        name: 'Seller Fulfillable Qty',
         type: 'column',
-        data: sorted.map((item: any) => item.fulfillable_quantity || 0),
+        data: sorted.map((item: any) => item.fba_fulfillable_quantity || 0),
       },
       {
-        name: 'Inventory Cover',
+        name: 'Seller Inventory Cover',
         type: 'line',
-        data: sorted.map((item: any) => item['Inventory Cover'] || 0),
+        data: sorted.map((item: any) => item.fba_inventory_cover || 0),
       },
     ];
 
+    // Add vendor series if vendor data is available
+    if (hasVendor) {
+      chartSeries.push(
+        {
+          name: 'Vendor Inventory',
+          type: 'column',
+          data: sorted.map((item: any) => item.vendor_inventory || 0),
+        },
+        {
+          name: 'Vendor Inventory Cover',
+          type: 'line',
+          data: sorted.map((item: any) => item.vendor_inventory_cover || 0),
+        }
+      );
+    }
+
     return {
       series: chartSeries,
-      labels: chartLabels
+      labels: chartLabels,
+      hasVendorData: hasVendor
     };
   }, [inventoryHealthData]);
 
@@ -107,6 +136,11 @@ const LineColumnAreaChart = ({
     );
   }
 
+  // Dynamic colors based on whether vendor data is present
+  const colors = hasVendorData 
+    ? ['#4F94DE', '#FFBF00', '#10B981', '#002118'] // FBA Fulfillable, FBA Cover, Vendor Inv, Vendor Cover
+    : ['#4F94DE', '#FFBF00']; // FBA Fulfillable, FBA Cover only
+
   const options: ApexOptions = {
     chart: {
       height: '100%',
@@ -119,12 +153,12 @@ const LineColumnAreaChart = ({
       parentHeightOffset: 0,
     },
     stroke: {
-      width: [0, 4],
+      width: hasVendorData ? [0, 3, 0, 3] : [0, 4],
       curve: 'smooth',
     },
     plotOptions: {
       bar: {
-        columnWidth: '50%',
+        columnWidth: hasVendorData ? '40%' : '50%',
         borderRadius: 8,
         borderRadiusApplication: 'end',
       },
@@ -157,7 +191,7 @@ const LineColumnAreaChart = ({
     yaxis: [
       {
         title: {
-          text: 'Fulfillable Quantity',
+          text: 'Inventory Quantity',
           style: {
             fontSize: '12px',
             fontWeight: 600,
@@ -175,7 +209,7 @@ const LineColumnAreaChart = ({
       {
         opposite: true,
         title: {
-          text: 'Inventory Cover',
+          text: 'Inventory Cover (Days)',
           style: {
             fontSize: '12px',
             fontWeight: 600,
@@ -197,9 +231,17 @@ const LineColumnAreaChart = ({
       y: {
         formatter: function (y: number, opts: any) {
           if (typeof y !== 'undefined') {
-            return y.toFixed(0)
+            const seriesName = opts.seriesIndex !== undefined 
+              ? series[opts.seriesIndex]?.name 
+              : '';
+            
+            // Format based on series type
+            if (seriesName.includes('Cover')) {
+              return `${y.toFixed(0)} days`;
+            }
+            return `${y.toFixed(0)} units`;
           }
-          return y
+          return y;
         },
       },
     },
@@ -212,11 +254,11 @@ const LineColumnAreaChart = ({
         left: 10
       },
     },
-    colors: ['#4F94DE', '#FFBF00'],
+    colors: colors,
     legend: {
       position: 'top',
       horizontalAlign: 'right',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: 500,
       labels: {
         colors: '#6B7280'
@@ -227,10 +269,17 @@ const LineColumnAreaChart = ({
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
       {/* Header with consistent padding */}
-      <div className="p-5  border-b-2 border-gray-300 flex-shrink-0">
-        <h6 className="text-base font-semibold text-gray-900">
-          Inventory Overview
-        </h6>
+      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <h6 className="text-base font-semibold text-gray-900">
+            Inventory Overview
+          </h6>
+          {hasVendorData && (
+            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+              Seller + Vendor
+            </span>
+          )}
+        </div>
       </div>
       
       {/* Chart container - takes remaining space */}

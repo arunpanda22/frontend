@@ -22,7 +22,7 @@ const InventoryReplenishment = () => {
         name: item.product_name || 'Unknown Product',
         imageUrl: item.image_url,
         value: formatNumber(item.reorder_quantity), 
-        currency: getCurrencySymbol(),
+        // currency: getCurrencySymbol(),
         subtitle: `ASIN: ${item.asin}`,
       }));
   }, [data]);
