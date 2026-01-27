@@ -480,7 +480,7 @@ const KeywordPerformanceTable = () => {
   return (
     <div className="space-y-4">
       {/* Data Source Info Banner */}
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
+      {/* <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-indigo-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
@@ -503,7 +503,7 @@ const KeywordPerformanceTable = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Pending Changes Banner */}
       {pendingChanges.size > 0 && (
