@@ -346,7 +346,7 @@ export default function InventoryHealthTable({
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
       {/* Header - matches ASIN Performance styling */}
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+      <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Inventory Health Table
@@ -370,7 +370,7 @@ export default function InventoryHealthTable({
       </div>
 
       {/* Table Content */}
-      <div className="p-4 md:p-6 flex-1 min-h-0">
+      <div className="flex-1 min-h-0">
         <AdvancedDataTable
           data={transformedData}
           columns={columns}

@@ -13,8 +13,8 @@ interface MetricData {
 
 const Metric: React.FC<MetricData> = ({ title, value, change, changeUp }) => (
   <div className="text-gray-800 flex-1">
-    <div className="text-sm md:text-base text-gray-500">{title}</div>
-    <div className="text-lg md:text-2xl font-bold my-1 text-gray-900">{value}</div>
+    <div className="text-sm  text-gray-500">{title}</div>
+    <div className="text-lg md:text-xl font-bold my-1 text-gray-900">{value}</div>
     <div
       className="text-xs md:text-xs flex items-center"
       style={{ color: changeUp ? "#16a34a" : "#dc2626" }}
@@ -113,7 +113,7 @@ export default function AdvancedFunnel() {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h6 className="text-base font-semibold text-gray-900">
             Advanced Funnel
@@ -125,7 +125,7 @@ export default function AdvancedFunnel() {
       </div>
 
       {/* Body */}
-      <div className="p-4 md:p-6 flex-1">
+      <div className="p-4 flex-1">
         <style jsx>{`
           .funnel-section {
             transition: all 0.3s ease-in-out;
@@ -178,7 +178,7 @@ export default function AdvancedFunnel() {
                   y="68"
                   textAnchor="middle"
                   fill="white"
-                  fontSize="14"
+                  fontSize="12"
                   fontWeight="bold"
                 >
                   VISIBILITY
@@ -196,7 +196,7 @@ export default function AdvancedFunnel() {
                   y="120"
                   textAnchor="middle"
                   fill="white"
-                  fontSize="12"
+                  fontSize="10"
                   fontWeight="bold"
                 >
                   ENGAGEMENT
@@ -214,7 +214,7 @@ export default function AdvancedFunnel() {
                   y="178"
                   textAnchor="middle"
                   fill="white"
-                  fontSize="10"
+                  fontSize="8"
                   fontWeight="bold"
                 >
                   CONVERSION

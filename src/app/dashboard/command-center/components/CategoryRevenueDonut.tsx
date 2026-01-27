@@ -108,7 +108,7 @@ const CategoryRevenueDonut = () => {
               show: true,
               showAlways: true,
               label: 'Total',
-              fontSize: '13px',
+              fontSize: '11px',
               fontWeight: 500,
               color: '#64748B',
               formatter: () => '100%',
@@ -161,7 +161,7 @@ const CategoryRevenueDonut = () => {
   if (isLoading) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
           <h6 className="text-base font-semibold text-gray-900">
             Category Revenue Share
           </h6>
@@ -179,7 +179,7 @@ const CategoryRevenueDonut = () => {
   if (error) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+        <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
           <h6 className="text-base font-semibold text-gray-900">
             Category Revenue Share
           </h6>
@@ -196,13 +196,13 @@ const CategoryRevenueDonut = () => {
 
   return (
     <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <h6 className="text-base font-semibold text-gray-900">
           Category Revenue Share
         </h6>
       </div>
      
-      <div className="p-5 flex-1 flex items-center gap-6">
+      <div className="p-4 flex-1 flex items-center gap-6">
         {/* Donut Chart on the Left */}
         <div className="flex-shrink-0 px-6" style={{ width: '208px' }}>
           <ReactApexChart
@@ -223,7 +223,7 @@ const CategoryRevenueDonut = () => {
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: chartColors[index] }}
                 ></div>
-                <span className="text-sm text-slate-600 truncate">{label}</span>
+                <span className="text-xs text-slate-600 truncate">{label}</span>
               </div>
               <span className="text-sm font-medium text-slate-900">
                 {series[index]}%

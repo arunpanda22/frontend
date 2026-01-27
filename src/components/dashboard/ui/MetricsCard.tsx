@@ -81,7 +81,7 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
                 <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide font-montserrat">
                   {title}
                 </h3>
-                <p className="text-2xl font-semibold text-gray-900 mt-1 font-montserrat">
+                <p className="text-xl font-semibold text-gray-900 mt-1 font-montserrat">
                   {value}
                 </p>
                 {(change && changeType) || showTrendButton ? (

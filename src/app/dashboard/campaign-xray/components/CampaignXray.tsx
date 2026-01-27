@@ -364,7 +364,7 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
     return <EmptyState message="No data available for the selected period" />;
 
   return (
-    <div className="w-full  bg-white shadow rounded-xl p-6">
+    <div className="w-full bg-white shadow rounded-xl">
       {/* Controls */}
       <div className="bg-powder-blue-50 rounded-t-lg border border-powder-blue-200 p-4 shadow-sm">
         <div className="flex items-start justify-between gap-4 flex-wrap">

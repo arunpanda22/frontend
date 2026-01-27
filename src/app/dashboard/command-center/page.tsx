@@ -166,11 +166,11 @@ const DashboardContent = () => {
   }
 
   return (
-    <div className="min-h-screen py-12 px-12">
+    <div className="min-h-screen py-12 px-12 font-montserrat">
       <div className="w-full transition-all duration-300">
         {/* Filter Bar with date range integration */}
         <FilterBar
-          title="🏠 Command Center"
+          title="Command Center"
           dateRange={filterBarDateRange}
           onDateRangeChange={handleDateRangeChange}
         />
@@ -198,13 +198,13 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+        <div className="flex flex-col ">
+          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
             Highlights
           </h2>
 
           {/* <section className="bg-[#EAF2FF] rounded-2xl p-4 md:p-6"> */}
-            <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 md:gap-6 py-6">
               {/* Left: Top ASINs */}
               <div className="lg:col-span-2">
                   <TopAsinsRevenue
@@ -229,7 +229,7 @@ const DashboardContent = () => {
           <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c]  tracking-tight px-2">
             Advertising Snapshot
           </h2>
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 md:gap-6 md:py-6 lg:py-8">
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 md:gap-6 py-6">
             <div className="rounded-2xl flex w-full bg-white shadow-lg col-span-1 md:col-span-1 lg:col-span-5 row-span-1 transition-all duration-300 animate-fadein delay-300 h-full">
               <AdvancedFunnel />
             </div>

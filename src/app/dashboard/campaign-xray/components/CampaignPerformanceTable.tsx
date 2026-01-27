@@ -3,11 +3,22 @@
 import { AdvancedDataTable, ColumnDefinition } from "@/components/dashboard/table/dropdown-data-table";
 import { useKeywordPerformanceHierarchical, usePushKeywordBids } from "@/lib/hooks/useCampaignQueries";
 import { useDateRange } from "@/lib/context/DateRangeContext";
-import { Loader2, AlertCircle, Target, Save, X, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, Target, Save, X, CheckCircle, Info } from "lucide-react";
 import { useMemo, useState, useCallback } from "react";
-import { HierarchicalRow, BidChange, campaignService } from "@/lib/api/services/campaign.service";
+import { 
+  HierarchicalRow, 
+  BidChange, 
+  campaignService,
+  KeywordMetrics,
+  getSourceLabel,
+  getSourceColor,
+  isSponsoredBrand,
+  KeywordSource,
+} from "@/lib/api/services/campaign.service";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const KeywordPerformanceTable = () => {
   const { dateRange } = useDateRange();
@@ -41,6 +52,90 @@ const KeywordPerformanceTable = () => {
     }
   }, [data]);
 
+  // Custom cell renderer for Source badge
+  const renderSourceCell = useCallback((row: any) => {
+    if (row.type !== "keyword" || !row.source) return null;
+    
+    const source = row.source as KeywordSource;
+    const label = getSourceLabel(source);
+    const colorClass = getSourceColor(source);
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge 
+              variant="outline" 
+              className={`text-xs font-medium px-2 py-0.5 ${colorClass}`}
+            >
+              {label}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">
+              {source === "sp_keyword" && "Sponsored Product - Keyword Targeting"}
+              {source === "sp_expression" && "Sponsored Product - Auto/Product Targeting"}
+              {source === "sb" && "Sponsored Brand Campaign"}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }, []);
+
+  // Custom cell renderer for Cost Type (SB only)
+  const renderCostTypeCell = useCallback((row: any) => {
+    if (row.type !== "keyword" || !row.cost_type) return null;
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" className="text-xs font-medium px-2 py-0.5">
+              {row.cost_type}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs">
+              {row.cost_type === "CPC" && "Cost Per Click"}
+              {row.cost_type === "CPM" && "Cost Per Mille (1000 impressions)"}
+              {row.cost_type === "vCPM" && "Viewable Cost Per Mille"}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }, []);
+
+  // Custom cell renderer for Name with product image (for ASIN groups)
+  const renderNameCell = useCallback((row: any) => {
+    if (row.type === "asin_group" && row.image_url) {
+      return (
+        <div className="flex items-center gap-3">
+          <img 
+            src={row.image_url} 
+            alt={row.product_name || row.name}
+            className="w-10 h-10 object-cover rounded border border-slate-200"
+            onError={(e) => {
+              // Hide image on error
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <div className="flex flex-col">
+            <span className="font-medium text-slate-900">{row.name}</span>
+            {row.product_name && (
+              <span className="text-xs text-slate-500 truncate max-w-xs">
+                {row.product_name}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    return <span className="font-medium">{row.name}</span>;
+  }, []);
+
   // Define columns for the hierarchical table
   const columns: ColumnDefinition[] = useMemo(
     () => [
@@ -53,6 +148,16 @@ const KeywordPerformanceTable = () => {
         pinned: "left",
         width: 350,
         minWidth: 250,
+        cellRenderer: renderNameCell,
+      },
+      {
+        field: "source",
+        headerName: "Source",
+        type: "text",
+        sortable: true,
+        filterable: true,
+        width: 150,
+        cellRenderer: renderSourceCell,
       },
       {
         field: "campaign_name",
@@ -130,15 +235,15 @@ const KeywordPerformanceTable = () => {
         width: 110,
       },
       {
-        field: "sales_30d",
-        headerName: "Sales (30d)",
+        field: "sales",
+        headerName: "Sales",
         type: "number",
         sortable: true,
         filterable: true,
         width: 140,
       },
       {
-        field: "purchases_30d",
+        field: "purchases",
         headerName: "Orders",
         type: "number",
         sortable: true,
@@ -178,7 +283,7 @@ const KeywordPerformanceTable = () => {
         width: 110,
       },
     ],
-    []
+    [renderNameCell, renderSourceCell, renderCostTypeCell]
   );
 
   // Handle data changes (when user edits a bid)
@@ -232,6 +337,17 @@ const KeywordPerformanceTable = () => {
     }
 
     const changesArray = Array.from(pendingChanges.values());
+    
+    // Check for SB keywords (not editable via this interface)
+    const sbChanges = changesArray.filter(c => c.source === 'sb');
+    if (sbChanges.length > 0) {
+      toast({
+        title: "Invalid Changes",
+        description: `${sbChanges.length} Sponsored Brand keyword(s) cannot be edited via this interface. Please remove these changes.`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setPushResult(null);
@@ -302,6 +418,23 @@ const KeywordPerformanceTable = () => {
     });
   }, [data?.data, toast]);
 
+  // Get statistics about pending changes by source
+  const changesBySource = useMemo(() => {
+    const stats = {
+      sp_keyword: 0,
+      sp_expression: 0,
+      sb: 0,
+    };
+    
+    pendingChanges.forEach(change => {
+      if (change.source in stats) {
+        stats[change.source]++;
+      }
+    });
+    
+    return stats;
+  }, [pendingChanges]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -346,6 +479,32 @@ const KeywordPerformanceTable = () => {
 
   return (
     <div className="space-y-4">
+      {/* Data Source Info Banner */}
+      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
+        <div className="flex items-start gap-3">
+          <Info className="h-5 w-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-slate-800 mb-1">
+              Combined Data Sources
+            </h3>
+            <p className="text-xs text-slate-600 mb-2">
+              This table combines data from Sponsored Products (Keywords & Expressions) and Sponsored Brands campaigns.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
+                SP Keyword - Keyword targeting
+              </Badge>
+              <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
+                SP Expression - Auto/Product targeting
+              </Badge>
+              <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
+                Sponsored Brand - Brand campaigns
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Pending Changes Banner */}
       {pendingChanges.size > 0 && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-300 shadow-sm">
@@ -358,9 +517,26 @@ const KeywordPerformanceTable = () => {
                 <h3 className="text-sm font-bold text-slate-800">
                   {pendingChanges.size} Unsaved Change{pendingChanges.size !== 1 ? 's' : ''}
                 </h3>
-                <p className="text-xs text-slate-600">
-                  Review your bid changes and save when ready
-                </p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-xs text-slate-600">
+                    Review your bid changes and save when ready
+                  </p>
+                  {changesBySource.sp_keyword > 0 && (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                      {changesBySource.sp_keyword} SP Keyword
+                    </Badge>
+                  )}
+                  {changesBySource.sp_expression > 0 && (
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-xs">
+                      {changesBySource.sp_expression} SP Expression
+                    </Badge>
+                  )}
+                  {changesBySource.sb > 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      {changesBySource.sb} SB (Not Editable!)
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -378,7 +554,7 @@ const KeywordPerformanceTable = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSaveChanges(true)}
-                disabled={pushBidsMutation.isPending}
+                disabled={pushBidsMutation.isPending || changesBySource.sb > 0}
                 className="bg-blue-50 border-blue-300 hover:bg-blue-100 text-blue-700 font-medium"
               >
                 {pushBidsMutation.isPending ? (
@@ -391,7 +567,7 @@ const KeywordPerformanceTable = () => {
               <Button
                 size="sm"
                 onClick={() => handleSaveChanges(false)}
-                disabled={pushBidsMutation.isPending}
+                disabled={pushBidsMutation.isPending || changesBySource.sb > 0}
                 className="bg-green-500 hover:bg-green-600 text-white font-medium shadow-sm"
               >
                 {pushBidsMutation.isPending ? (
@@ -411,7 +587,12 @@ const KeywordPerformanceTable = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                 {Array.from(pendingChanges.values()).map(change => (
                   <div key={change.keyword_id} className="bg-white rounded px-3 py-2 text-xs border border-amber-200">
-                    <div className="font-medium text-slate-800 truncate">{change.keyword}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-medium text-slate-800 truncate flex-1">{change.keyword}</div>
+                      <Badge className={`${getSourceColor(change.source)} text-xs px-1 py-0`}>
+                        {change.source === 'sp_keyword' ? 'SP-K' : change.source === 'sp_expression' ? 'SP-E' : 'SB'}
+                      </Badge>
+                    </div>
                     <div className="text-slate-600">
                       ${change.oldBid.toFixed(2)} → ${change.newBid.toFixed(2)}
                     </div>
@@ -499,7 +680,8 @@ const KeywordPerformanceTable = () => {
       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
         <p className="text-xs text-blue-800">
           <strong>Tip:</strong> Click on ASIN or Campaign rows to expand and view keywords. 
-          Click on a bid value to edit it. Use "Dry Run" to test changes without applying them, 
+          Click on a bid value to edit it (SP keywords only - SB not editable). 
+          Use "Dry Run" to test changes without applying them, 
           or "Save Changes" to push all changes at once.
         </p>
       </div>
@@ -536,6 +718,7 @@ function findChangedBids(
           campaign_id: oldKeyword.campaign_id,
           ad_group_id: oldKeyword.ad_group_id,
           match_type: oldKeyword.match_type,
+          source: oldKeyword.source, // NEW: Track source
           oldBid: oldKeyword.keyword_bid,
           newBid: newKeyword.keyword_bid,
         });

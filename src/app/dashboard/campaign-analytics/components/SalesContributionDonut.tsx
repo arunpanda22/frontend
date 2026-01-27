@@ -163,11 +163,11 @@ const SalesContributionDonut: React.FC = () => {
           Sales Contribution by Category
         </h6>
        
-        {data?.period && (
+        {/* {data?.period && (
           <p className="text-xs text-gray-400 mt-1">
             {data.period.start_date} to {data.period.end_date}
           </p>
-        )}
+        )} */}
       </div>
 
       <div className="p-4 md:p-6 flex-1 flex flex-col justify-center">

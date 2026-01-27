@@ -211,7 +211,7 @@ const InventoryAging = () => {
 
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <h6 className="text-base font-semibold text-gray-900">
           Inventory Aging
         </h6>

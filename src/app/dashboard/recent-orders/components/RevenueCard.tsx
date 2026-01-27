@@ -49,7 +49,7 @@ export function RevenueCard({
 
       {data ? (
         <>
-          <p className={`text-2xl font-bold ${colors.text}`}>
+          <p className={`text-xl font-bold ${colors.text}`}>
             {formatRevenue(data.revenue)}
           </p>
 

@@ -75,20 +75,20 @@ const TopProductsCard = ({ topProducts, isLoading = false }: TopProductsCardProp
   }
 
   return (
-    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
-        <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+    <div className="h-full rounded-xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      <div className="p-4 border-b border-gray-100 flex-shrink-0">
+        <h6 className="text-base font-semibold text-gray-900">
           Top Products Today
         </h6>
-        <p className="text-xs text-gray-500 mt-1">
+        {/* <p className="text-xs text-gray-500 mt-1">
           {hasVendorAccounts ? 'Combined seller and vendor sales' : 'Seller sales'}
-        </p>
+        </p> */}
       </div>
       
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-3">
           {topProducts.map((product, index) => (
-            <div key={`${product.asin}-${index}`} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+            <div key={`${product.asin}-${index}`} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors ">
               {/* Rank Badge */}
               <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                 index === 0 ? 'bg-yellow-100 text-yellow-700' :

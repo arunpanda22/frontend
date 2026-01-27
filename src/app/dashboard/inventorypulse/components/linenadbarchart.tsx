@@ -103,7 +103,7 @@ const LineColumnAreaChart = ({
   if (error) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
-        <div className="p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Inventory Overview
           </h6>
@@ -121,7 +121,7 @@ const LineColumnAreaChart = ({
   if (!series.length || !labels.length) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
-        <div className="p-6 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
             Inventory Overview
           </h6>
@@ -269,7 +269,7 @@ const LineColumnAreaChart = ({
   return (
     <div className="h-full rounded-2xl bg-white shadow-lg flex flex-col">
       {/* Header with consistent padding */}
-      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h6 className="text-base font-semibold text-gray-900">
             Inventory Overview

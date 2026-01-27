@@ -162,7 +162,7 @@ export function Sidebar() {
         }
       `}</style>
 
-      <div className="bg-gray-900 border-r border-gray-700 flex flex-col h-full">
+      <div className="bg-gray-900 border-r border-gray-700 flex flex-col h-full font-montserrat">
         {/* Toggle Button */}
         <div
           className={`flex items-center p-3 border-b border-gray-700 ${

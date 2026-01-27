@@ -327,7 +327,7 @@ const AsinIntelligenceContent = () => {
   }
 
   return (
-    <div className="min-h-screen py-12 px-12">
+    <div className="min-h-screen py-12 px-12 font-montserrat">
       <div className="w-full transition-all duration-300">
         {/* Filter Bar with date range integration */}
         <FilterBar
@@ -339,7 +339,7 @@ const AsinIntelligenceContent = () => {
         {/* Metrics Cards Grid */}
         <div className="flex flex-col">
           <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
+            <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
               Performance Snapshot
             </h2>
             {hasVendorAccount && (
@@ -364,7 +364,7 @@ const AsinIntelligenceContent = () => {
 
         {/* Charts Section */}
         <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+          <h2 className="text-xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Analytics
           </h2>
           <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6">
@@ -389,7 +389,7 @@ const AsinIntelligenceContent = () => {
 
         {/* Table Section - Performance Table */}
         <div className="flex flex-col mt-8">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+          <h2 className="text-xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Performance Details
           </h2>
           <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[220px] flex flex-col gap-6 sm:gap-8 w-full overflow-hidden">

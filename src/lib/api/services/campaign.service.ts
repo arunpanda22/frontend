@@ -86,7 +86,21 @@ export interface XrayDataOptions {
   focus_level?: "high" | "medium" | "low" | "all";
 }
 
-// NEW: Hierarchical Keyword Performance Types
+// UPDATED: Hierarchical Keyword Performance Types
+/**
+ * Source type for keyword targeting data
+ * - sp_keyword: Sponsored Product Keyword
+ * - sp_expression: Sponsored Product Expression (auto/product targeting)
+ * - sb: Sponsored Brand
+ */
+export type KeywordSource = "sp_keyword" | "sp_expression" | "sb";
+
+/**
+ * Cost type for Sponsored Brand campaigns
+ * Only present for SB (source='sb'), null for SP
+ */
+export type CostType = "CPC" | "CPM" | "vCPM" | null;
+
 export interface KeywordMetrics {
   [key: string]: any;
   // Identifiers
@@ -97,25 +111,29 @@ export interface KeywordMetrics {
   keyword_id: string;
   keyword_type: string;
   match_type: string;
-  targeting: string;
-  source: "keyword" | "expression";
+  targeting_text: string;
+  
+  // NEW: Source and cost type fields
+  source: KeywordSource; // Indicates data source: sp_keyword, sp_expression, or sb
+  cost_type: CostType; // Only for SB (CPC, CPM, etc.), null for SP
+  
   campaign_name: string;
   campaign_id: string;
   ad_group_name: string;
   ad_group_id: string;
 
   // Bid information
-  keyword_bid: number;
+  keyword_bid: number ;
   is_editable: boolean;
   bid_min: number;
   bid_max: number;
 
-  // Current period metrics
+  // Current period metrics (UNIFIED: sales not sales_30d, purchases not purchases_30d)
   impressions: number;
   clicks: number;
   cost: number;
-  sales_30d: number;
-  purchases_30d: number;
+  sales: number; // CHANGED: was sales_30d
+  purchases: number; // CHANGED: was purchases_30d
   ctr: number;
   cpc: number;
   acos: number;
@@ -127,8 +145,8 @@ export interface KeywordMetrics {
   impressions_prev: number;
   clicks_prev: number;
   cost_prev: number;
-  sales_30d_prev: number;
-  purchases_30d_prev: number;
+  sales_prev: number; // CHANGED: was sales_30d_prev
+  purchases_prev: number; // CHANGED: was purchases_30d_prev
   ctr_prev: number;
   cpc_prev: number;
   acos_prev: number;
@@ -147,8 +165,8 @@ export interface AsinGroupMetrics {
   type: "asin_group";
   asin: string;
   name: string;
-  product_name: string;
-  image_url: string;
+  product_name: string | null;
+  image_url: string | null;
 
   // Counts
   campaign_count: number;
@@ -158,8 +176,8 @@ export interface AsinGroupMetrics {
   impressions: number;
   clicks: number;
   cost: number;
-  sales_30d: number;
-  purchases_30d: number;
+  sales: number; // CHANGED: was sales_30d
+  purchases: number; // CHANGED: was purchases_30d
   ctr: number;
   cpc: number;
   acos: number;
@@ -171,8 +189,8 @@ export interface AsinGroupMetrics {
   impressions_prev: number;
   clicks_prev: number;
   cost_prev: number;
-  sales_30d_prev: number;
-  purchases_30d_prev: number;
+  sales_prev: number; // CHANGED: was sales_30d_prev
+  purchases_prev: number; // CHANGED: was purchases_30d_prev
   ctr_prev: number;
   cpc_prev: number;
   acos_prev: number;
@@ -186,6 +204,7 @@ export interface AsinGroupMetrics {
   // Not editable at ASIN level
   is_editable: false;
   keyword_bid: null;
+  cost_type: null; // Always null for parent rows
 
   // Children
   _children?: KeywordMetrics[];
@@ -199,6 +218,8 @@ export interface CampaignGroupMetrics {
   name: string;
   campaign_name: string;
   campaign_id: string;
+  product_name: null;
+  image_url: null;
 
   // Count
   keyword_count: number;
@@ -207,8 +228,8 @@ export interface CampaignGroupMetrics {
   impressions: number;
   clicks: number;
   cost: number;
-  sales_30d: number;
-  purchases_30d: number;
+  sales: number; // CHANGED: was sales_30d
+  purchases: number; // CHANGED: was purchases_30d
   ctr: number;
   cpc: number;
   acos: number;
@@ -220,8 +241,8 @@ export interface CampaignGroupMetrics {
   impressions_prev: number;
   clicks_prev: number;
   cost_prev: number;
-  sales_30d_prev: number;
-  purchases_30d_prev: number;
+  sales_prev: number; // CHANGED: was sales_30d_prev
+  purchases_prev: number; // CHANGED: was purchases_30d_prev
   ctr_prev: number;
   cpc_prev: number;
   acos_prev: number;
@@ -233,8 +254,9 @@ export interface CampaignGroupMetrics {
   last_day_top_of_search_impression_share: number | null;
 
   // Average bid (not editable at campaign level)
-  keyword_bid: number;
+  keyword_bid: number | null;
   is_editable: false;
+  cost_type: null; // Always null for parent rows
 
   // Children
   _children?: KeywordMetrics[];
@@ -298,6 +320,7 @@ export interface BidChange {
   campaign_id: string;
   ad_group_id: string;
   match_type: string;
+  source: KeywordSource; // NEW: Track source type
   oldBid: number;
   newBid: number;
 }
@@ -316,6 +339,48 @@ export interface UpdateKeywordBidResponse {
   new_bid: number;
   updated_at: string;
   message?: string;
+}
+
+// NEW: Helper type guards
+export function isKeywordMetrics(row: any): row is KeywordMetrics {
+  return row && row.type === "keyword";
+}
+
+export function isAsinGroup(row: any): row is AsinGroupMetrics {
+  return row && row.type === "asin_group";
+}
+
+export function isCampaignGroup(row: any): row is CampaignGroupMetrics {
+  return row && row.type === "campaign";
+}
+
+export function isSponsoredBrand(keyword: KeywordMetrics): boolean {
+  return keyword.source === "sb";
+}
+
+export function isSponsoredProduct(keyword: KeywordMetrics): boolean {
+  return keyword.source === "sp_keyword" || keyword.source === "sp_expression";
+}
+
+// NEW: Source display helpers
+export const SOURCE_LABELS: Record<KeywordSource, string> = {
+  sp_keyword: "SP Keyword",
+  sp_expression: "SP Expression",
+  sb: "Sponsored Brand",
+};
+
+export const SOURCE_COLORS: Record<KeywordSource, string> = {
+  sp_keyword: "bg-blue-100 text-blue-800 border-blue-300",
+  sp_expression: "bg-purple-100 text-purple-800 border-purple-300",
+  sb: "bg-green-100 text-green-800 border-green-300",
+};
+
+export function getSourceLabel(source: KeywordSource): string {
+  return SOURCE_LABELS[source] || source;
+}
+
+export function getSourceColor(source: KeywordSource): string {
+  return SOURCE_COLORS[source] || "bg-gray-100 text-gray-800 border-gray-300";
 }
 
 // ============================================================================
@@ -398,6 +463,7 @@ export const campaignService = {
    * Get hierarchical keyword performance data (ASIN -> Keywords or Campaign -> Keywords)
    * Returns aggregated parent rows with expandable keyword children
    * Includes comparison to previous period
+   * NOW INCLUDES: SP (Keyword + Expression) + SB (Sponsored Brand) data
    */
   async getKeywordPerformanceHierarchical(options?: KeywordPerformanceOptions) {
     console.log(

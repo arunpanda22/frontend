@@ -166,7 +166,7 @@ export default function CampaignAdsSummary({
     return (
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
         <div className="p-4 border-b border-gray-100 flex-shrink-0">
-          <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+          <h6 className="text-base font-semibold text-gray-900">
             Campaign Ads Summary
           </h6>
         </div>

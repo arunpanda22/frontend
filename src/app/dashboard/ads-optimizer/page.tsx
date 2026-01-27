@@ -152,7 +152,7 @@ export default function AdsOptimizerPage() {
   ];
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl overflow-hidden">
+    <div className="w-full h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl overflow-hidden font-montserrat">
       <div className="grid h-full grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-0">
         {/* Left Content Section */}
         <div className="lg:col-span-2 xl:col-span-3 p-12 text-white flex flex-col justify-top">
@@ -161,7 +161,7 @@ export default function AdsOptimizerPage() {
               AI-Powered Amazon Optimization
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
+            <h1 className="text-4xl md:text-4xl font-bold mb-6 leading-tight">
               Automated Bid Management for Maximum ROI
             </h1>
 

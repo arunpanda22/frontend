@@ -144,7 +144,7 @@ const OrganicSalesCard: React.FC<OrganicSalesCardProps> = ({
       className={`order-8 col-span-12 xl:col-span-6 2xl:col-span-4 bg-white rounded-lg border border-gray-200 shadow-sm h-full ${className}`}
     >
       {/* Header */}
-      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <h6 className="text-base font-semibold text-gray-900">
           Top 10 Organic Sales Performance
         </h6>

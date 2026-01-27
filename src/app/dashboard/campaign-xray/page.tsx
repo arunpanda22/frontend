@@ -32,7 +32,7 @@ const CampaignXrayPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] py-12 px-12">
+    <div className="min-h-screen bg-[#f8fafc] py-12 px-12 font-montserrat">
       <div className="w-full transition-all duration-300">
         {/* Date Range Filter */}
         <FilterBar
@@ -48,7 +48,7 @@ const CampaignXrayPage = () => {
 
         {/* Keyword Performance Table Section */}
         <div className="mt-8">
-          <h2 className="text-2xl font-bold text-[#1a2b3c] tracking-tight mb-6 px-2">
+          <h2 className="text-base font-semibold text-gray-900">
             Keyword & Expression Performance
           </h2>
           <KeywordPerformanceTable />

@@ -66,13 +66,13 @@ const ReturnReplacementCards = () => {
   if (isLoading) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-5 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <h6 className="text-base font-semibold text-gray-900">
             Lowlights
           </h6>
         </div>
         
-        <div className="p-5 flex-1 grid grid-cols-2 gap-4">
+        <div className="p-4 flex-1 grid grid-cols-2 gap-4">
           {/* Loading skeletons */}
           <div className="flex flex-col items-center justify-center p-4 animate-pulse">
             <div className="w-12 h-12 rounded-full bg-gray-200 mb-3"></div>
@@ -96,13 +96,13 @@ const ReturnReplacementCards = () => {
   if (isError) {
     return (
       <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
-        <div className="p-5 border-b border-gray-100 flex-shrink-0">
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <h6 className="text-base font-semibold text-gray-900">
             Lowlights
           </h6>
         </div>
         
-        <div className="p-5 flex-1 flex items-center justify-center">
+        <div className="p-4 flex-1 flex items-center justify-center">
           <div className="text-center text-gray-500">
             <p className="text-sm">Unable to load return/replacement data</p>
             <p className="text-xs mt-1">Please try again later</p>
@@ -126,13 +126,13 @@ const ReturnReplacementCards = () => {
 
   return (
     <div className="h-full rounded-2xl bg-white shadow-sm transition-all duration-300 animate-fadein delay-500 flex flex-col">
-      <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
+      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <h6 className="text-base font-semibold text-gray-900">
           Lowlights
         </h6>
       </div>
       
-      <div className="p-5 flex-1 grid grid-cols-2 gap-4">
+      <div className="p-4 flex-1 grid grid-cols-2 gap-4">
         {/* Return Rate Card */}
         <div className="flex flex-col items-center justify-center text-center">
           <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-3">
@@ -141,7 +141,7 @@ const ReturnReplacementCards = () => {
           <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
             Return Rate
           </p>
-          <h4 className="text-3xl font-bold text-gray-900 mb-1">
+          <h4 className="text-xl font-bold text-gray-900 mb-1">
             {currentMetrics ? formatPercentage(currentMetrics.return_rate) : '0.0%'}
           </h4>
           <p className="text-xs text-gray-400">
@@ -157,7 +157,7 @@ const ReturnReplacementCards = () => {
           <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
             Replacement Rate
           </p>
-          <h4 className="text-3xl font-bold text-gray-900 mb-1">
+          <h4 className="text-xl font-bold text-gray-900 mb-1">
             {currentMetrics ? formatPercentage(currentMetrics.replacement_rate) : '0.0%'}
           </h4>
           <p className="text-xs text-gray-400">

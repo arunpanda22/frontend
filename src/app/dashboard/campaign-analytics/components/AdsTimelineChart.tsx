@@ -257,7 +257,7 @@ const AdsTimeLineChart: React.FC<AdsTimeLineChartProps> = ({ dateRange }) => {
       {/* Header */}
       <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
         <h6 className="text-base font-semibold text-gray-900">Ads Timeline</h6>
-        <p className="text-xs text-gray-400 mt-1">Performance trends over time</p>
+        {/* <p className="text-xs text-gray-400 mt-1">Performance trends over time</p> */}
       </div>
 
       {/* Controls */}

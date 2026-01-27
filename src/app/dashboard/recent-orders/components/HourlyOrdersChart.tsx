@@ -486,14 +486,14 @@ const HourlyOrdersChart = ({
 
   if (!hourlyData || hourlyData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[500px] bg-white rounded-2xl shadow-lg">
+      <div className="flex items-center justify-center h-[500px] bg-white rounded-xl shadow-lg">
         <p className="text-sm text-gray-500">No hourly data available</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
+    <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="grid grid-cols-3 gap-4 mb-6">
         <RevenueCard
           label="Today's Revenue"
@@ -533,7 +533,7 @@ const HourlyOrdersChart = ({
       )}
 
       <div className="mt-4 pt-4 border-t border-gray-200">
-        <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-4 tracking-tighter text-xs">
           <div className="flex items-center gap-2">
             <div className="w-8 h-0.5 bg-blue-500"></div>
             <span className="text-gray-600">Today Total (Line)</span>

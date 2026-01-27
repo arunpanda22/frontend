@@ -352,7 +352,7 @@ export default function AsinPerformanceTable({
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
         <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
           <div className="flex justify-between items-center">
-            <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            <h6 className="text-base font-bold text-[#1a2b3c] tracking-tight">
               ASIN Performance Table
             </h6>
             {dateRangeDisplay && (
@@ -404,7 +404,7 @@ export default function AsinPerformanceTable({
       <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
         <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
           <div className="flex justify-between items-center">
-            <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            <h6 className="text-base font-bold text-[#1a2b3c] tracking-tight">
               ASIN Performance Table
             </h6>
             {dateRangeDisplay && (
@@ -449,16 +449,16 @@ export default function AsinPerformanceTable({
   const defaultSortField = hasVendorAccount ? "total_revenue" : "total_sales";
 
   return (
-    <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+    <div className="h-full bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
       {/* Header with date range display */}
-      <div className="p-4 md:p-6 border-b border-gray-100 flex-shrink-0">
+      <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex justify-between items-center flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <h6 className="text-lg font-bold text-[#1a2b3c] tracking-tight">
+            <h6 className="text-base font-semibold text-gray-900">
               ASIN Performance Table
             </h6>
             {hasVendorAccount && (
-              <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+              <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
                 SC + VC
               </span>
             )}

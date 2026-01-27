@@ -118,16 +118,28 @@ export default function CombinedDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen px-4 bg-[#f7fafc] sm:px-6 lg:px-12 py-8">
+    <div className="min-h-screen  bg-[#f7fafc] p-12 font-montserrat">
       <div className="w-full">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl text-[#1a2b3c] tracking-tight font-montserrat font-semibold">
-              Combined Dashboard
-            </h1>
+        <div
+          className={`bg-white p-4 rounded-lg shadow mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible`}
+        >
+          {/* Left side - Title Section */}
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-gray-900">Daily Orders</h1>
+            {data?.metadata?.last_refreshed_at && (
+            <p className="text-xs text-gray-500 ">
+              Last updated:{" "}
+              {new Date(data.metadata.last_refreshed_at).toLocaleString()}
+            </p>
+          )}
+          </div>
 
-            <button
+          {/* Right side - Only show if date selector enabled */}
+
+          <div className="flex items-center relative">
+            <div className="relative">
+              <button
               onClick={handleRefresh}
               disabled={isRefetching}
               className={`
@@ -155,24 +167,19 @@ export default function CombinedDashboardPage() {
               </svg>
               {isRefetching ? "Refreshing..." : "Refresh"}
             </button>
+            </div>
           </div>
+        </div>
 
-          {data?.metadata?.last_refreshed_at && (
-            <p className="text-sm text-gray-500 mt-2">
-              Last updated:{" "}
-              {new Date(data.metadata.last_refreshed_at).toLocaleString()}
-            </p>
-          )}
-
+        {/* <div className="mb-6">
           {data?.metadata && (
             <p className="text-xs text-gray-400 mt-1">
               Timezone: {data.metadata.timezone} • Marketplace:{" "}
               {data.metadata.marketplace_id}
             </p>
           )}
-        </div>
+        </div> */}
 
-        {/* Error Display */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 text-sm font-medium">
@@ -185,11 +192,11 @@ export default function CombinedDashboardPage() {
         )}
 
         {/* Metrics Cards */}
-        <div className="mb-8">
-          <h2 className="text-xl md:text-2xl text-[#1a2b3c] mb-6 tracking-tight font-montserrat">
+        <div className="">
+          <h2 className="text-xl  font-bold text-[#1a2b3c] tracking-tight px-2">
             Today's Performance
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 py-6 gap-4 md:gap-6">
             {metricsData.map((metric) => (
               <MetricsCard
                 key={metric.title}
@@ -206,10 +213,10 @@ export default function CombinedDashboardPage() {
 
         {/* Hourly Chart & Top Products Section */}
         <div className="mb-8">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight">
+          <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
             Analytics
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 py-6 gap-6">
             <div className="lg:col-span-2">
               <HourlyOrdersChart
                 hourlyData={data?.hourly_orders || null}
