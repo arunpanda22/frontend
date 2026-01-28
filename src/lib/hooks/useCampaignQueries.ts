@@ -119,6 +119,7 @@ export function useKeywordPerformanceHierarchical(options?: KeywordPerformanceOp
  * Hook to push keyword bid updates
  * Supports batch updates and dry-run mode
  * Invalidates keyword performance queries on success
+ * NOW HANDLES: Separate SP and SB push results
  */
 export function usePushKeywordBids() {
   const queryClient = useQueryClient();
@@ -133,9 +134,12 @@ export function usePushKeywordBids() {
     },
     onSuccess: (data, variables) => {
       console.log('Keyword bids pushed successfully:', {
-        push_id: data.push_id,
-        total_items: data.total_items,
-        dryrun: data.dryrun
+        message: data.message,
+        sp_items: data.summary.sp_items,
+        sb_items: data.summary.sb_items,
+        dryrun: data.summary.dryrun,
+        sp_push_id: data.push_results.sp?.push_id,
+        sb_push_id: data.push_results.sb?.push_id,
       });
       
       // Only invalidate queries if not a dry run
