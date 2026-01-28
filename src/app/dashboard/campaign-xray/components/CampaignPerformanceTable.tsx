@@ -36,21 +36,35 @@ const KeywordPerformanceTable = () => {
   // Local state for table data (to handle optimistic updates)
   const [tableData, setTableData] = useState<HierarchicalRow[]>([]);
   
-  // Track pending bid changes
+  // Track pending bid changes (Map: keyword_id -> BidChange)
   const [pendingChanges, setPendingChanges] = useState<Map<string, BidChange>>(new Map());
   
-  // Track edited rows (selected rows)
+  // Track edited rows for highlighting (Set of keyword_ids)
   const [editedRowIds, setEditedRowIds] = useState<Set<string>>(new Set());
   
   // Push result state
   const [pushResult, setPushResult] = useState<any>(null);
 
-  // Update local state when data changes
+  // Update local state when data changes and add highlighting flags
   useMemo(() => {
     if (data?.data) {
-      setTableData(data.data);
+      const processedData = data.data.map(group => {
+        if (!group._children) return group;
+        
+        const processedChildren = group._children.map(keyword => {
+          // Add highlight flag for edited keywords
+          if (editedRowIds.has(keyword.keyword_id)) {
+            return { ...keyword, _highlighted: true };
+          }
+          return keyword;
+        });
+        
+        return { ...group, _children: processedChildren };
+      });
+      
+      setTableData(processedData);
     }
-  }, [data]);
+  }, [data, editedRowIds]);
 
   // Custom cell renderer for Source badge
   const renderSourceCell = useCallback((row: any) => {
@@ -108,7 +122,10 @@ const KeywordPerformanceTable = () => {
   }, []);
 
   // Custom cell renderer for Name with product image (for ASIN groups)
+  // Shows an "Edited" badge for modified keywords
   const renderNameCell = useCallback((row: any) => {
+    const isHighlighted = row.type === "keyword" && row._highlighted;
+    
     if (row.type === "asin_group" && row.image_url) {
       return (
         <div className="flex items-center gap-3">
@@ -133,8 +150,20 @@ const KeywordPerformanceTable = () => {
       );
     }
     
+    if (isHighlighted) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{row.name}</span>
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5 py-0">
+            Edited
+          </Badge>
+        </div>
+      );
+    }
+    
     return <span className="font-medium">{row.name}</span>;
   }, []);
+
 
   // Define columns for the hierarchical table
   const columns: ColumnDefinition[] = useMemo(
@@ -158,6 +187,15 @@ const KeywordPerformanceTable = () => {
         filterable: true,
         width: 150,
         cellRenderer: renderSourceCell,
+      },
+      {
+        field: "cost_type",
+        headerName: "Cost Type",
+        type: "text",
+        sortable: true,
+        filterable: true,
+        width: 120,
+        cellRenderer: renderCostTypeCell,
       },
       {
         field: "campaign_name",
@@ -190,7 +228,10 @@ const KeywordPerformanceTable = () => {
         type: "number",
         sortable: true,
         filterable: true,
-        editable: true, 
+        editable: ((row: any) => {
+          // Allow editing for all keywords (SP and SB)
+          return row.is_editable;
+        }) as any,
         autoFitHeader: true,
         minWidth: 180,
       },
@@ -310,7 +351,7 @@ const KeywordPerformanceTable = () => {
         return newMap;
       });
 
-      // Track edited rows
+      // Track edited rows for highlighting
       setEditedRowIds(prev => {
         const newSet = new Set(prev);
         changes.forEach(change => newSet.add(change.keyword_id));
@@ -320,9 +361,40 @@ const KeywordPerformanceTable = () => {
     [data?.data]
   );
 
-  // Handle edited rows change (when rows are selected/deselected)
+  // Handle deselection - revert individual changes
+  const handleDeselectRow = useCallback((keywordId: string) => {
+    // Remove from pending changes
+    setPendingChanges(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(keywordId);
+      return newMap;
+    });
+
+    // Remove from edited rows
+    setEditedRowIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(keywordId);
+      return newSet;
+    });
+
+    // Revert to original value in tableData
+    if (data?.data) {
+      setTableData(prev => {
+        return revertKeywordBid(prev, data.data, keywordId);
+      });
+    }
+
+    toast({
+      title: "Change Reverted",
+      description: "Bid change has been removed.",
+      variant: "default",
+    });
+  }, [data?.data, toast]);
+
+  // Handle edited rows change (called by table when rows are selected/deselected)
   const handleEditedRowsChange = useCallback((editedRows: Set<number>) => {
-    // This gets called by the table when rows are selected
+    // This callback is for future use if the table component supports selection tracking
+    // Currently, deselection is handled via individual row actions
   }, []);
 
   // Save all pending changes
@@ -337,17 +409,6 @@ const KeywordPerformanceTable = () => {
     }
 
     const changesArray = Array.from(pendingChanges.values());
-    
-    // Check for SB keywords (not editable via this interface)
-    const sbChanges = changesArray.filter(c => c.source === 'sb');
-    if (sbChanges.length > 0) {
-      toast({
-        title: "Invalid Changes",
-        description: `${sbChanges.length} Sponsored Brand keyword(s) cannot be edited via this interface. Please remove these changes.`,
-        variant: "destructive",
-      });
-      return;
-    }
     
     try {
       setPushResult(null);
@@ -489,16 +550,17 @@ const KeywordPerformanceTable = () => {
             </h3>
             <p className="text-xs text-slate-600 mb-2">
               This table combines data from Sponsored Products (Keywords & Expressions) and Sponsored Brands campaigns.
+              <span className="font-semibold text-slate-700"> All keyword types are editable.</span>
             </p>
             <div className="flex flex-wrap gap-2">
               <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
-                SP Keyword - Keyword targeting
+                SP Keyword
               </Badge>
               <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
-                SP Expression - Auto/Product targeting
+                SP Expression
               </Badge>
               <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
-                Sponsored Brand - Brand campaigns
+                Sponsored Brand
               </Badge>
             </div>
           </div>
@@ -532,8 +594,8 @@ const KeywordPerformanceTable = () => {
                     </Badge>
                   )}
                   {changesBySource.sb > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      {changesBySource.sb} SB (Not Editable!)
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+                      {changesBySource.sb} SB
                     </Badge>
                   )}
                 </div>
@@ -554,7 +616,7 @@ const KeywordPerformanceTable = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSaveChanges(true)}
-                disabled={pushBidsMutation.isPending || changesBySource.sb > 0}
+                disabled={pushBidsMutation.isPending}
                 className="bg-blue-50 border-blue-300 hover:bg-blue-100 text-blue-700 font-medium"
               >
                 {pushBidsMutation.isPending ? (
@@ -567,7 +629,7 @@ const KeywordPerformanceTable = () => {
               <Button
                 size="sm"
                 onClick={() => handleSaveChanges(false)}
-                disabled={pushBidsMutation.isPending || changesBySource.sb > 0}
+                disabled={pushBidsMutation.isPending}
                 className="bg-green-500 hover:bg-green-600 text-white font-medium shadow-sm"
               >
                 {pushBidsMutation.isPending ? (
@@ -580,22 +642,32 @@ const KeywordPerformanceTable = () => {
             </div>
           </div>
           
-          {/* Changes Summary */}
+          {/* Changes Summary with Individual Revert */}
           {pendingChanges.size > 0 && (
             <div className="mt-3 pt-3 border-t border-amber-200">
               <div className="text-xs font-semibold text-slate-700 mb-2">Pending Changes:</div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                 {Array.from(pendingChanges.values()).map(change => (
-                  <div key={change.keyword_id} className="bg-white rounded px-3 py-2 text-xs border border-amber-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="font-medium text-slate-800 truncate flex-1">{change.keyword}</div>
-                      <Badge className={`${getSourceColor(change.source)} text-xs px-1 py-0`}>
-                        {change.source === 'sp_keyword' ? 'SP-K' : change.source === 'sp_expression' ? 'SP-E' : 'SB'}
-                      </Badge>
+                  <div key={change.keyword_id} className="bg-white rounded px-3 py-2 text-xs border border-amber-200 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium text-slate-800 truncate flex-1">{change.keyword}</div>
+                        <Badge className={`${getSourceColor(change.source)} text-xs px-1 py-0`}>
+                          {change.source === 'sp_keyword' ? 'SP-K' : change.source === 'sp_expression' ? 'SP-E' : 'SB'}
+                        </Badge>
+                      </div>
+                      <div className="text-slate-600">
+                        ${change.oldBid.toFixed(2)} → ${change.newBid.toFixed(2)}
+                      </div>
                     </div>
-                    <div className="text-slate-600">
-                      ${change.oldBid.toFixed(2)} → ${change.newBid.toFixed(2)}
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeselectRow(change.keyword_id)}
+                      className="ml-2 h-6 w-6 p-0 hover:bg-red-100"
+                    >
+                      <X className="h-3 w-3 text-red-600" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -615,10 +687,24 @@ const KeywordPerformanceTable = () => {
               <h3 className="text-sm font-bold text-slate-800">
                 {pushResult.message}
               </h3>
-              <p className="text-xs text-slate-600">
-                Push ID: {pushResult.push_id} • {pushResult.total_items} items • 
-                S3: {pushResult.s3_location.bucket}/{pushResult.s3_location.key}
-              </p>
+              
+              {/* Display results for SP and SB separately */}
+              <div className="mt-2 space-y-1">
+                {pushResult.push_results?.sp && (
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold">SP:</span> Push ID: {pushResult.push_results.sp.push_id} • 
+                    {pushResult.push_results.sp.total_items} items • 
+                    S3: {pushResult.push_results.sp.s3_location.bucket}/{pushResult.push_results.sp.s3_location.key}
+                  </p>
+                )}
+                {pushResult.push_results?.sb && (
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold">SB:</span> Push ID: {pushResult.push_results.sb.push_id} • 
+                    {pushResult.push_results.sb.total_items} items • 
+                    S3: {pushResult.push_results.sb.s3_location.bucket}/{pushResult.push_results.sb.s3_location.key}
+                  </p>
+                )}
+              </div>
             </div>
             <Button
               variant="ghost"
@@ -631,21 +717,36 @@ const KeywordPerformanceTable = () => {
           </div>
           
           {/* Lambda Response Details */}
-          {pushResult.lambda_response && pushResult.lambda_response !== 'Skipped (dryrun mode)' && (
+          {pushResult.push_results && (
             <div className="mt-3 pt-3 border-t border-green-200">
               <details className="text-xs">
                 <summary className="font-semibold text-slate-700 cursor-pointer hover:text-slate-900">
-                  View Lambda Response
+                  View Lambda Responses
                 </summary>
-                <pre className="mt-2 p-3 bg-slate-50 rounded border border-slate-200 overflow-x-auto">
-                  {JSON.stringify(pushResult.lambda_response, null, 2)}
-                </pre>
+                <div className="mt-2 space-y-2">
+                  {pushResult.push_results.sp && (
+                    <div>
+                      <div className="font-semibold text-slate-600">SP Response:</div>
+                      <pre className="p-3 bg-slate-50 rounded border border-slate-200 overflow-x-auto">
+                        {JSON.stringify(pushResult.push_results.sp.lambda_response, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                  {pushResult.push_results.sb && (
+                    <div>
+                      <div className="font-semibold text-slate-600">SB Response:</div>
+                      <pre className="p-3 bg-slate-50 rounded border border-slate-200 overflow-x-auto">
+                        {JSON.stringify(pushResult.push_results.sb.lambda_response, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               </details>
             </div>
           )}
         </div>
       )}
-
+      
       {/* Period Info Card */}
       {data?.period_info && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
@@ -680,9 +781,10 @@ const KeywordPerformanceTable = () => {
       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
         <p className="text-xs text-blue-800">
           <strong>Tip:</strong> Click on ASIN or Campaign rows to expand and view keywords. 
-          Click on a bid value to edit it (SP keywords only - SB not editable). 
-          Use "Dry Run" to test changes without applying them, 
-          or "Save Changes" to push all changes at once.
+          Edit keyword bids by clicking on the bid value. 
+          Edited keywords show an "Edited" badge. Click the × icon next to a change to revert it individually,
+          or use "Cancel All" to revert everything. Use "Dry Run" to test changes, or "Save Changes" to apply them.
+          Changes are automatically separated by campaign type (SP/SB) during push.
         </p>
       </div>
     </div>
@@ -718,7 +820,7 @@ function findChangedBids(
           campaign_id: oldKeyword.campaign_id,
           ad_group_id: oldKeyword.ad_group_id,
           match_type: oldKeyword.match_type,
-          source: oldKeyword.source, // NEW: Track source
+          source: oldKeyword.source,
           oldBid: oldKeyword.keyword_bid,
           newBid: newKeyword.keyword_bid,
         });
@@ -734,4 +836,34 @@ function findChangedBids(
   }
 
   return changes;
+}
+
+// Helper function to revert a specific keyword bid to original value
+function revertKeywordBid(
+  currentData: HierarchicalRow[],
+  originalData: HierarchicalRow[],
+  keywordId: string
+): HierarchicalRow[] {
+  return currentData.map(group => {
+    // Find matching original group
+    const originalGroup = originalData.find(og => og.id === group.id);
+    if (!originalGroup || !group._children || !originalGroup._children) {
+      return group;
+    }
+
+    // Revert the specific keyword
+    const revertedChildren = group._children.map(keyword => {
+      if (keyword.keyword_id === keywordId) {
+        const originalKeyword = originalGroup._children?.find(
+          ok => ok.keyword_id === keywordId
+        );
+        if (originalKeyword) {
+          return { ...keyword, keyword_bid: originalKeyword.keyword_bid };
+        }
+      }
+      return keyword;
+    });
+
+    return { ...group, _children: revertedChildren };
+  });
 }

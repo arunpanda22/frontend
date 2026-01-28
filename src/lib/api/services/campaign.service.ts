@@ -304,14 +304,30 @@ export interface KeywordBidPushPayload {
 
 export interface KeywordBidPushResponse {
   message: string;
-  push_id: string;
-  total_items: number;
-  s3_location: {
-    bucket: string;
-    key: string;
+  push_results: {
+    sp?: {
+      push_id: string;
+      total_items: number;
+      s3_location: { bucket: string; key: string };
+      campaign_type: string;
+      lambda_response: any;
+      dryrun: boolean;
+    };
+    sb?: {
+      push_id: string;
+      total_items: number;
+      s3_location: { bucket: string; key: string };
+      campaign_type: string;
+      lambda_response: any;
+      dryrun: boolean;
+    };
   };
-  dryrun: boolean;
-  lambda_response: any; // Raw Lambda response
+  summary: {
+    total_items: number;
+    sp_items: number;
+    sb_items: number;
+    dryrun: boolean;
+  };
 }
 
 export interface BidChange {
@@ -521,9 +537,10 @@ export const campaignService = {
     );
 
     console.log("Keyword bid push response received:", {
-      push_id: res.data.push_id,
-      total_items: res.data.total_items,
-      dryrun: res.data.dryrun,
+      message: res.data.message,
+      sp_items: res.data.summary.sp_items,
+      sb_items: res.data.summary.sb_items,
+      dryrun: res.data.summary.dryrun,
     });
 
     return res.data;
@@ -532,6 +549,7 @@ export const campaignService = {
   /**
    * Transform BidChange map to API payload format
    * Converts frontend data structure to backend requirements
+   * NOW INCLUDES: source field for SP/SB separation
    */
   transformBidChangesToPayload(
     changes: Map<string, BidChange>,
@@ -542,6 +560,7 @@ export const campaignService = {
       ad_group_id: change.ad_group_id,
       match_type: change.match_type,
       "New bid": change.newBid,
+      source: change.source, // NEW: Include source for backend separation
     }));
   },
 };
