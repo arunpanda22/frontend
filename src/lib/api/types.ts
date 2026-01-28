@@ -228,12 +228,11 @@ export interface ASINImagesResponse {
   };
 }
 
-
-export type DateRangePreset = '7d' | '30d' | '90d' | 'this month' |'custom';
+export type DateRangePreset = '7d' | '30d' | '90d' | 'this week' | 'last week' | 'this month' | 'last month' | 'custom';
 
 export interface DateRange {
-  startDate: string; // ISO date string (YYYY-MM-DD)
-  endDate: string;   // ISO date string (YYYY-MM-DD)
+  startDate: string;
+  endDate: string;
   preset: DateRangePreset;
 }
 
