@@ -87,8 +87,8 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
   const paddingWidth = 16;
   const resizeHandleWidth = 6;
 
-  const smallCharWidth = 8;  // a-z, 0-9
-  const largeCharWidth = 11; // A-Z and all symbols
+  const smallCharWidth = 6;  // a-z, 0-9
+  const largeCharWidth = 8; // A-Z and all symbols
 
   const isSmall = (ch: string) => /[a-z0-9]/.test(ch);   // lowercase + digits
   const isLargeOrSymbol = (ch: string) => !isSmall(ch);  // everything else
@@ -236,7 +236,7 @@ const CellRenderer = memo(function CellRenderer({
     >
       <div className="flex items-center flex-1 min-w-0">
         {isNameColumn && rowData?.image_url && <ImageCell imageUrl={rowData.image_url} />}
-        <span className="truncate text-sm font-medium text-slate-700">{displayValue}</span>
+        <span className="truncate text-xs font-medium text-slate-700">{displayValue}</span>
       </div>
       {column.editable && (
         <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-60 ml-2 text-slate-400 transition-all duration-200" />
@@ -332,11 +332,11 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
           variant="ghost"
           size="sm"
           className={cn(
-            "h-7 w-7 p-0 hover:bg-ocean-400 text-white rounded-md transition-all duration-200",
+            "h-7 w-4 p-0 hover:bg-ocean-400 text-white rounded-md transition-all duration-200",
             (currentSort || hasFilter || column.pinned) && "bg-ocean-300 shadow-sm",
           )}
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="h-4 w-2" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80 p-0 bg-white border-slate-200 shadow-xl rounded-lg" align="end">
@@ -521,7 +521,7 @@ export function AdvancedDataTable({
   const containerRef = useRef<HTMLDivElement>(null)
   
   const containerHeight = useMemo(() => {
-    return 48 + (minVisibleRows * 44) + 28
+    return 40 + (minVisibleRows * 36) + 28
   }, [minVisibleRows])
   
   const checkboxColumnWidth = showCheckboxColumn ? 80 : 0
@@ -907,7 +907,7 @@ export function AdvancedDataTable({
   return (
     <div className={cn("w-full bg-slate-50", className)}>
       {showExportCard && (
-        <div className={`flex items-center justify-between p-4 bg-white border border-slate-200 rounded-t-lg shadow-sm`}>
+        <div className={`flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-t-lg shadow-sm`}>
           <div className="flex items-center gap-4">
             {selectedRows.size > 0 && (
               <Button
@@ -976,7 +976,7 @@ export function AdvancedDataTable({
                 ))}
               </colgroup>
               <thead>
-                <tr className="bg-gradient-to-r from-cyan-100 via-cyan-200 to-cyan-300 border-b border-slate-600" style={{ height: '48px' }}>
+                <tr className="bg-gradient-to-r from-cyan-100 via-cyan-200 to-cyan-300 border-b border-slate-600" style={{ height: '40px' }}>
                   {showCheckboxColumn && (
                     <th className="sticky left-0 z-30 p-0 bg-gradient-to-r from-cyan-100 to-cyan-300 text-black border-r border-slate-600"
                         style={{ width: checkboxColumnWidth, minWidth: checkboxColumnWidth }}>
@@ -999,7 +999,7 @@ export function AdvancedDataTable({
                       <th
                         key={column.field}
                         className={cn(
-                          "text-left p-0 font-bold text-sm bg-ocean-100 border-r border-slate-200 relative group",
+                          "text-left p-0 font-bold text-xs bg-ocean-100 border-r border-slate-200 relative group",
                           isLeftPinned && "sticky z-20 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
                           isRightPinned && "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
                         )}
@@ -1011,14 +1011,14 @@ export function AdvancedDataTable({
                           right: rightOffset,
                         }}
                       >
-                        <div className="flex items-center justify-between h-12 px-2">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex items-center justify-between h-10 px-2">
+                          <div className="flex items-center flex-1 min-w-0">
                             {/* <GripVertical className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" /> */}
-                            <span className="truncate font-bold text-black text-sm tracking-wide">
+                            <span className="truncate font-bold text-black text-xs tracking-wide">
                               {column.headerName}
                             </span>
                           </div>
-                          <div className="flex items-center ml-3">
+                          <div className="flex items-center">
                             <ColumnActionsDropdown
                               column={column}
                               sorts={sorts}
@@ -1062,7 +1062,7 @@ export function AdvancedDataTable({
                         isEmpty && "opacity-30",
                         rowIndex % 2 === 1 && "bg-ocean-50",
                       )}
-                      style={{ height: '44px' }}
+                      style={{ height: '36px' }}
                     >
                       {showCheckboxColumn && (
                         <td className="sticky left-0 z-20 p-0 bg-white border-r border-slate-200"
@@ -1103,7 +1103,7 @@ export function AdvancedDataTable({
                               right: rightOffset,
                             }}
                           >
-                            <div className="h-11 px-2 flex items-center">
+                            <div className="h-9 px-2 flex items-center">
                               {!isEmpty && (
                                 <CellRenderer
                                   value={(row as TableData)[column.field as keyof TableData]}
@@ -1130,7 +1130,7 @@ export function AdvancedDataTable({
         </div>
       </div>
 
-      <div className="flex items-center  justify-between p-4 bg-white border border-slate-200 rounded-b-lg shadow-sm">
+      <div className="flex items-center  justify-between px-4 py-3 bg-white border border-slate-200 rounded-b-lg shadow-sm">
         <div className="flex items-center gap-4">
           <div className="text-sm text-slate-600 font-medium">
             Showing <span className="font-bold text-slate-800">{paginationData.startIndex + 1}</span> to{" "}

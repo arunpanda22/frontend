@@ -465,12 +465,12 @@ export default function AsinPerformanceTable({
           </div>
           <div className="flex items-center gap-4">
             {dateRangeDisplay && (
-              <span className="text-sm text-slate-600 font-medium">
+              <span className="text-xs text-slate-600 font-medium">
                 📅 {dateRangeDisplay}
               </span>
             )}
             {summaryStats && Object.keys(summaryStats).length > 0 && (
-              <span className="text-sm text-slate-500">
+              <span className="text-xs text-slate-500">
                 {asinData.length} ASINs
               </span>
             )}
