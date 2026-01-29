@@ -224,7 +224,7 @@ const KeywordPerformanceTable = () => {
       },
       {
         field: "keyword_bid",
-        headerName: "Bid",
+        headerName: "keyword Bid",
         type: "number",
         sortable: true,
         filterable: true,

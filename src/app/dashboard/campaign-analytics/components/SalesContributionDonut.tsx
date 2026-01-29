@@ -24,7 +24,7 @@ const SalesContributionDonut: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="h-full rounded-2xl bg-white shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
+      <div className="h-full rounded-2xl bg-white w-full shadow-lg transition-all duration-300 animate-fadein delay-500 flex flex-col">
         <div className="p-5 border-b-2 border-gray-300 flex-shrink-0">
           <h6 className="text-base font-semibold text-gray-900">
             Sales Contribution by Category

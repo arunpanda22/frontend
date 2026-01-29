@@ -118,7 +118,7 @@ const ComparisonBadge = memo(function ComparisonBadge({
       ) : (
         <TrendingDown className="h-3 w-3" />
       )}
-      <span className="whitespace-nowrap">{Math.abs(change).toFixed(2)}%</span>
+      <span className="whitespace-nowrap !text-[10px]">{Math.abs(change).toFixed(2)}%</span>
     </div>
   );
 });
@@ -128,8 +128,8 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
   const gapWidth = 8;
   const paddingWidth = 24;
 
-  const smallCharWidth = 9;
-  const largeCharWidth = 13;
+  const smallCharWidth = 7;
+  const largeCharWidth = 11;
 
   const isSmall = (ch: string) => /[a-z0-9]/.test(ch);
   const isLargeOrSymbol = (ch: string) => !isSmall(ch);
@@ -303,7 +303,7 @@ const CellRenderer = memo(function CellRenderer({
           )}
           <div className="relative group/tooltip flex-1 min-w-0">
             <span 
-              className="truncate text-sm font-medium text-slate-700 block"
+              className="truncate text-xs font-medium text-slate-700 block"
               title={displayValue !== "-" ? String(value || "") : ""}
             >
               {displayValue}
@@ -755,8 +755,8 @@ export function AdvancedDataTable({
       if (!r) return;
       const delta = e.clientX - r.startX;
       const col = internalColumns.find((c) => c.field === r.field);
-      const min = col?.minWidth ?? 120;
-      const max = col?.maxWidth ?? 400;
+      const min = col?.minWidth ?? 80;
+      const max = col?.maxWidth ?? 480;
       const newWidth = Math.max(min, Math.min(max, r.startWidth + delta));
       setColumnWidths((prev) => {
         if (prev[r.field] === newWidth) return prev;
@@ -1302,10 +1302,10 @@ export function AdvancedDataTable({
                   }}
                 />
               ))}</colgroup>
-              <thead>
+              <thead className="sticky top-0 z-30">
                 <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600">
-                  <th className="sticky left-0 z-20 w-14 p-0 bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600">
-                    <div className="flex items-center justify-center h-12 w-14">
+                  <th className="sticky left-0 z-20 w-1 p-0 bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600">
+                    <div className="flex items-center justify-center h-10 w-12">
                       <Checkbox
                         checked={
                           selectedRows.size === flattenedData.length &&
@@ -1338,7 +1338,7 @@ export function AdvancedDataTable({
                       <th
                         key={column.field}
                         className={cn(
-                          "text-left p-0 font-bold text-sm bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600 relative group",
+                          "text-left p-0 font-bold text-xs bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-200 relative group",
                           isLeftPinned &&
                             "sticky z-10 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
                           isRightPinned &&
@@ -1347,15 +1347,15 @@ export function AdvancedDataTable({
                         style={{
                           width:
                             columnWidths[column.field] ?? column.width ?? 180,
-                          minWidth: column.minWidth ?? 120,
+                          minWidth: column.minWidth ?? 80,
                           maxWidth: column.maxWidth ?? 500, // ADD THIS
                           left: leftOffset,
                           right: rightOffset,
                         }}
                       >
-                        <div className="flex items-center justify-between h-12 px-2">
+                        <div className="flex items-center justify-between h-10 px-2">
                           <div className="flex items-center flex-1 min-w-0">
-                            <span className="truncate font-bold text-white text-sm tracking-wide">
+                            <span className="truncate font-bold text-white text-xs tracking-wide">
                               {column.headerName}
                             </span>
                           </div>
@@ -1473,7 +1473,7 @@ export function AdvancedDataTable({
                                 columnWidths[column.field] ??
                                 column.width ??
                                 180,
-                              minWidth: column.minWidth ?? 120,
+                              minWidth: column.minWidth ?? 80,
                               maxWidth: column.maxWidth ?? 400, // ADD THIS
                               left: leftOffset,
                               right: rightOffset,

@@ -340,9 +340,9 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80 p-0 bg-white border-slate-200 shadow-xl rounded-lg" align="end">
-        <div className="p-5 space-y-5 bg-white">
+        <div className="p-4 space-y-3 bg-white">
           {column.sortable !== false && (
-            <div className="space-y-3">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Sort Options</label>
               <Button
                 variant="default"
@@ -358,11 +358,10 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
 
           {column.filterable !== false && (
             <>
-              <div className="h-px bg-slate-200"></div>
-              <div className="space-y-4">
+              <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter Options</label>
 
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-600">Filter Type</label>
                   <select
                     value={filterOperator}
@@ -377,13 +376,13 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
                   </select>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-600">Filter Value</label>
                   <Input
                     type={type === "number" ? "number" : type === "date" ? "date" : "text"}
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}
-                    className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white border-slate-200 rounded-lg py-2.5"
+                    className="focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black border-slate-200 rounded-lg py-2.5"
                     placeholder="Enter filter value..."
                   />
                 </div>
@@ -409,8 +408,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
             </>
           )}
 
-          <div className="h-px bg-slate-200"></div>
-          <div className="space-y-3">
+          <div className="space-y-1">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pin Column</label>
             <div className="grid grid-cols-3 gap-2">
               <Button
