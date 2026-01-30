@@ -248,7 +248,7 @@ export default function CampaignAdsSummary({
       </div>
       
       {/* Table Content */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 p-2">
         <AdvancedDataTable
           data={transformedData}
           columns={columns}

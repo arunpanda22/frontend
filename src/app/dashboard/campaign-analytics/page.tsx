@@ -42,7 +42,7 @@ const CampaignPerformancePage = () => {
       <div className="w-full transition-all duration-300 ">
         {/* Date Range Filter */}
         <FilterBar
-          title="🎯 Campaign Analytics"
+          title="Campaign Analytics"
           dateRange={filterBarDateRange}
           onDateRangeChange={handleDateRangeChange}
         />

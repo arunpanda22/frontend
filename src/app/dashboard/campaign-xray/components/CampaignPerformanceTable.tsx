@@ -189,15 +189,6 @@ const KeywordPerformanceTable = () => {
         cellRenderer: renderSourceCell,
       },
       {
-        field: "cost_type",
-        headerName: "Cost Type",
-        type: "text",
-        sortable: true,
-        filterable: true,
-        width: 120,
-        cellRenderer: renderCostTypeCell,
-      },
-      {
         field: "campaign_name",
         headerName: "Campaign Name",
         type: "text",
@@ -214,15 +205,6 @@ const KeywordPerformanceTable = () => {
         autoFitHeader: true,
       },
       {
-        field: "last_day_top_of_search_impression_share",
-        headerName: "TOS %",
-        type: "number",
-        sortable: true,
-        filterable: true,
-        width: 110,
-        autoFitHeader: true,
-      },
-      {
         field: "keyword_bid",
         headerName: "keyword Bid",
         type: "number",
@@ -233,7 +215,16 @@ const KeywordPerformanceTable = () => {
           return row.is_editable;
         }) as any,
         autoFitHeader: true,
-        minWidth: 180,
+        minWidth: 100,
+      },
+      {
+        field: "last_day_top_of_search_impression_share",
+        headerName: "TOS %",
+        type: "number",
+        sortable: true,
+        filterable: true,
+        width: 110,
+        autoFitHeader: true,
       },
       {
         field: "impressions",

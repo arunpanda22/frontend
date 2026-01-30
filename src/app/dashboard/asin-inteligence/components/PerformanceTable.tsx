@@ -62,8 +62,8 @@ export default function AsinPerformanceTable({
         editable: false,
         sortable: true,
         filterable: true,
-        width: 160,
-        minWidth: 220,
+        width: 120,
+        minWidth: 120,
         pinned: "left",
       },
       {
@@ -479,7 +479,7 @@ export default function AsinPerformanceTable({
       </div>
 
       {/* Table Content */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 p-2">
         <AdvancedDataTable
           data={asinData}
           columns={tableColumns}

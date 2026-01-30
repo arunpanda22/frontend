@@ -82,16 +82,16 @@ interface CellRendererProps {
 
 const calculateOptimalHeaderWidth = (headerText: string): number => {
   // const gripIconWidth = 16;
-  const menuButtonWidth = 28;
+  const menuButtonWidth = 20;
   const gapWidth = 8;
   const paddingWidth = 16;
   const resizeHandleWidth = 6;
 
-  const smallCharWidth = 6;  // a-z, 0-9
-  const largeCharWidth = 8; // A-Z and all symbols
+  const smallCharWidth = 6;
+  const largeCharWidth = 8;
 
-  const isSmall = (ch: string) => /[a-z0-9]/.test(ch);   // lowercase + digits
-  const isLargeOrSymbol = (ch: string) => !isSmall(ch);  // everything else
+  const isSmall = (ch: string) => /[a-z0-9]/.test(ch);   
+  const isLargeOrSymbol = (ch: string) => !isSmall(ch); 
 
   let textWidth = 0;
 
@@ -100,14 +100,11 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
   }
 
   const totalWidth =
-    // gripIconWidth +
     textWidth +
     gapWidth +
     menuButtonWidth +
     paddingWidth 
-    // resizeHandleWidth;
 
-  // Round to nearest 5 and keep minimum 120
   return Math.max(100, Math.ceil(totalWidth / 5) * 5);
 };
 
@@ -328,16 +325,14 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-7 w-4 p-0 hover:bg-ocean-400 text-white rounded-md transition-all duration-200",
-            (currentSort || hasFilter || column.pinned) && "bg-ocean-300 shadow-sm",
-          )}
-        >
-          <MoreVertical className="h-4 w-2" />
-        </Button>
+        <div className="cursor-pointer">
+          <MoreVertical 
+            className={cn(
+              "h-4 w-4  text-slate-400 hover:text-slate-800 transition-colors duration-200",
+              (currentSort || hasFilter || column.pinned) && "text-slate-600",
+            )}
+          />
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80 p-0 bg-white border-slate-200 shadow-xl rounded-lg" align="end">
         <div className="p-4 space-y-3 bg-white">
@@ -562,7 +557,7 @@ export function AdvancedDataTable({
       if (!r) return
       const delta = e.clientX - r.startX
       const col = internalColumns.find((c) => c.field === r.field)
-      const min = col?.minWidth ?? 120
+      const min = col?.minWidth ?? 80
       const max = col?.maxWidth ?? 400
       const newWidth = Math.max(min, Math.min(max, r.startWidth + delta))
       setColumnWidths((prev) => {
@@ -1002,8 +997,8 @@ export function AdvancedDataTable({
                           isRightPinned && "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
                         )}
                         style={{
-                          width: columnWidths[column.field] ?? column.width ?? 120,
-                          minWidth: column.minWidth ?? 120,
+                          width: columnWidths[column.field] ?? column.width ?? 80,
+                          minWidth: column.minWidth ?? 80,
                           maxWidth: column.maxWidth ?? 400,
                           left: leftOffset,
                           right: rightOffset,
@@ -1094,8 +1089,8 @@ export function AdvancedDataTable({
                               isSelected && (isLeftPinned || isRightPinned) && "bg-blue-50",
                             )}
                             style={{
-                              width: columnWidths[column.field] ?? column.width ?? 180,
-                              minWidth: column.minWidth ?? 120,
+                              width: columnWidths[column.field] ?? column.width ?? 80,
+                              minWidth: column.minWidth ?? 80,
                               maxWidth: column.maxWidth ?? 400,
                               left: leftOffset,
                               right: rightOffset,

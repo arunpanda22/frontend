@@ -176,7 +176,7 @@ const DashboardContent = () => {
         />
 
         <div className="flex flex-col ">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+          <h2 className="text-xl  font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Performance Snapshot
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mb-8">
@@ -199,7 +199,7 @@ const DashboardContent = () => {
         </div>
 
         <div className="flex flex-col ">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] tracking-tight px-2">
+          <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
             Highlights
           </h2>
 
@@ -226,7 +226,7 @@ const DashboardContent = () => {
         </div>
 
         <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c]  tracking-tight px-2">
+          <h2 className="text-xl font-bold text-[#1a2b3c]  tracking-tight px-2">
             Advertising Snapshot
           </h2>
           <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 md:gap-6 py-6">
@@ -242,7 +242,7 @@ const DashboardContent = () => {
         </div>
 
         <div className="flex flex-col">
-          <h2 className="text-xl md:text-2xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
+          <h2 className="text-xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Inventory
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">

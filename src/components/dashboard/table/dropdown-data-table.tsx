@@ -110,7 +110,7 @@ const ComparisonBadge = memo(function ComparisonBadge({
       className={cn(
         "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0",
         isPositive && "bg-green-100 text-green-700",
-        isNegative && "bg-red-100 text-red-700"
+        isNegative && "bg-red-100 text-red-700",
       )}
     >
       {isPositive ? (
@@ -118,7 +118,9 @@ const ComparisonBadge = memo(function ComparisonBadge({
       ) : (
         <TrendingDown className="h-3 w-3" />
       )}
-      <span className="whitespace-nowrap !text-[10px]">{Math.abs(change).toFixed(2)}%</span>
+      <span className="whitespace-nowrap !text-[10px]">
+        {Math.abs(change).toFixed(2)}%
+      </span>
     </div>
   );
 });
@@ -225,7 +227,7 @@ const CellRenderer = memo(function CellRenderer({
       if (e.key === "Enter") onSave();
       if (e.key === "Escape") onCancel();
     },
-    [onSave, onCancel]
+    [onSave, onCancel],
   );
 
   // Check if this row is editable - look for is_editable field or check if it's a keyword row
@@ -257,8 +259,8 @@ const CellRenderer = memo(function CellRenderer({
             column.type === "number"
               ? "number"
               : column.type === "date"
-              ? "date"
-              : "text"
+                ? "date"
+                : "text"
           }
           value={editValue}
           onChange={(e) => onEditValueChange(e.target.value)}
@@ -292,7 +294,7 @@ const CellRenderer = memo(function CellRenderer({
       className={cn(
         "flex items-center justify-between group w-full min-h-[1.75rem]",
         isCellEditable &&
-          "cursor-pointer hover:bg-blue-50/70 rounded-md px-2 py-1 -mx-2 -my-1 transition-all duration-200"
+          "cursor-pointer hover:bg-blue-50/70 rounded-md px-2 py-1 -mx-2 -my-1 transition-all duration-200",
       )}
       onClick={handleClick}
     >
@@ -302,7 +304,7 @@ const CellRenderer = memo(function CellRenderer({
             <ImageCell imageUrl={rowData.image_url} />
           )}
           <div className="relative group/tooltip flex-1 min-w-0">
-            <span 
+            <span
               className="truncate text-xs font-medium text-slate-700 block"
               title={displayValue !== "-" ? String(value || "") : ""}
             >
@@ -380,10 +382,10 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   data: TableData[];
 }) {
   const [filterOperator, setFilterOperator] = useState(
-    filters[column.field]?.operator || "contains"
+    filters[column.field]?.operator || "contains",
   );
   const [filterValue, setFilterValue] = useState(
-    filters[column.field]?.value || ""
+    filters[column.field]?.value || "",
   );
 
   const type = column.type || "text";
@@ -393,7 +395,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   const hasComparisonData = data.some(
     (row) =>
       row[`${column.field}_prev`] !== undefined &&
-      row[`${column.field}_prev`] !== null
+      row[`${column.field}_prev`] !== null,
   );
   const isNumericColumn = column.type === "number";
 
@@ -433,12 +435,12 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
     (sortByChange?: boolean) => {
       onSort(column.field, sortByChange);
     },
-    [onSort, column.field]
+    [onSort, column.field],
   );
 
   const getSortLabel = (sortByChange?: boolean) => {
     const currentSortForType = sorts.find(
-      (s) => s.field === column.field && s.sortByChange === sortByChange
+      (s) => s.field === column.field && s.sortByChange === sortByChange,
     );
     if (!currentSortForType)
       return sortByChange ? "Sort by Change %" : "Sort Ascending";
@@ -451,7 +453,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
 
   const getSortIcon = (sortByChange?: boolean) => {
     const currentSortForType = sorts.find(
-      (s) => s.field === column.field && s.sortByChange === sortByChange
+      (s) => s.field === column.field && s.sortByChange === sortByChange,
     );
     return currentSortForType ? (
       currentSortForType.direction === "asc" ? (
@@ -467,17 +469,14 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-7 w-7 p-0 hover:bg-slate-600/20 text-white rounded-md transition-all duration-200",
-            (currentSort || hasFilter || column.pinned) &&
-              "bg-slate-600/30 shadow-sm"
-          )}
-        >
-          <MoreVertical className="h-4 w-4" />
-        </Button>
+        <div className="cursor-pointer">
+          <MoreVertical
+            className={cn(
+              "h-4 w-4 text-slate-400 hover:text-slate-700 transition-colors duration-200",
+              (currentSort || hasFilter || column.pinned) && "text-slate-600",
+            )}
+          />
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className="w-80 max-w-[calc(100vw-2rem)] p-0 bg-white border-slate-200 shadow-xl rounded-lg max-h-[80vh] overflow-y-auto"
@@ -556,8 +555,8 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
                       type === "number"
                         ? "number"
                         : type === "date"
-                        ? "date"
-                        : "text"
+                          ? "date"
+                          : "text"
                     }
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}
@@ -601,7 +600,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
                   "text-xs font-medium py-2.5 rounded-lg transition-all duration-200",
                   column.pinned === "left"
                     ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
-                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700",
                 )}
               >
                 <Pin className="h-3 w-3 mr-1" />
@@ -615,7 +614,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
                   "text-xs font-medium py-2.5 rounded-lg transition-all duration-200",
                   !column.pinned
                     ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
-                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700",
                 )}
               >
                 <PinOff className="h-3 w-3 mr-1" />
@@ -629,7 +628,7 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
                   "text-xs font-medium py-2.5 rounded-lg transition-all duration-200",
                   column.pinned === "right"
                     ? "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
-                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700",
                 )}
               >
                 <Pin className="h-3 w-3 mr-1" />
@@ -719,9 +718,9 @@ export function AdvancedDataTable({
           typeof c.width === "number"
             ? Math.min(c.width, c.maxWidth || 560)
             : Math.min(180, c.maxWidth || 400),
-        ])
+        ]),
       ) as Record<string, number>,
-    [internalColumns] // ✅ Correct dependency
+    [internalColumns], // ✅ Correct dependency
   );
 
   const [columnWidths, setColumnWidths] =
@@ -746,7 +745,7 @@ export function AdvancedDataTable({
       document.body.style.cursor = "col-resize";
       document.body.classList.add("select-none");
     },
-    [columnWidths]
+    [columnWidths],
   );
 
   useEffect(() => {
@@ -798,7 +797,7 @@ export function AdvancedDataTable({
     const flattenChildren = (
       parent: TableData,
       parentIndex: number,
-      depth = 0
+      depth = 0,
     ) => {
       const parentRowId = rowId(parent, parentIndex);
       const children = parent._children || [];
@@ -980,7 +979,7 @@ export function AdvancedDataTable({
   const handleSort = useCallback((field: string, sortByChange?: boolean) => {
     setSorts((prev) => {
       const existingIndex = prev.findIndex(
-        (s) => s.field === field && s.sortByChange === sortByChange
+        (s) => s.field === field && s.sortByChange === sortByChange,
       );
 
       if (existingIndex >= 0) {
@@ -1003,7 +1002,7 @@ export function AdvancedDataTable({
         [field]: { type: type as any, operator, value },
       }));
     },
-    []
+    [],
   );
 
   const clearFilter = useCallback((field: string) => {
@@ -1019,7 +1018,7 @@ export function AdvancedDataTable({
       setEditingCell({ row: rowIndex, field });
       setEditValue(value);
     },
-    []
+    [],
   );
 
   const saveEdit = useCallback(() => {
@@ -1102,7 +1101,7 @@ export function AdvancedDataTable({
         return newSet;
       });
     },
-    [displayData]
+    [displayData],
   );
 
   const handleSelectAll = useCallback(
@@ -1114,7 +1113,7 @@ export function AdvancedDataTable({
         setSelectedRows(new Set());
       }
     },
-    [flattenedData]
+    [flattenedData],
   );
 
   const deleteSelectedRows = useCallback(() => {
@@ -1163,7 +1162,7 @@ export function AdvancedDataTable({
                     (row) =>
                       `<tr>${internalColumns
                         .map((col) => `<td>${row[col.field] ?? ""}</td>`)
-                        .join("")}</tr>`
+                        .join("")}</tr>`,
                   )
                   .join("")}
               </tbody>
@@ -1187,7 +1186,7 @@ export function AdvancedDataTable({
           .join(",");
         const rows = filteredData
           .map((row) =>
-            internalColumns.map((col) => escapeCSV(row[col.field])).join(",")
+            internalColumns.map((col) => escapeCSV(row[col.field])).join(","),
           )
           .join("\n");
 
@@ -1202,18 +1201,18 @@ export function AdvancedDataTable({
         URL.revokeObjectURL(url);
       }
     },
-    [filteredData, internalColumns]
+    [filteredData, internalColumns],
   );
 
   const handleColumnPin = useCallback(
     (field: string, position: "left" | "right" | null) => {
       const updatedColumns = internalColumns.map((col) =>
-        col.field === field ? { ...col, pinned: position } : col
+        col.field === field ? { ...col, pinned: position } : col,
       );
       setInternalColumns(updatedColumns);
       onColumnsChange?.(updatedColumns);
     },
-    [internalColumns, onColumnsChange]
+    [internalColumns, onColumnsChange],
   );
 
   const handleRowExpandToggle = useCallback((rowId: string | number) => {
@@ -1294,17 +1293,21 @@ export function AdvancedDataTable({
         <div className="overflow-auto" style={{ height: containerHeight }}>
           <div className="relative">
             <table className="table-fixed w-full border-collapse min-w-full">
-              <colgroup><col style={{ width: 56 }} />{orderedColumns.map((col) => (
-                <col
-                  key={col.field}
-                  style={{
-                    width: columnWidths[col.field] ?? col.width ?? 180,
-                  }}
-                />
-              ))}</colgroup>
+              <colgroup>
+                <col style={{ width: 56 }} />
+                {orderedColumns.map((col) => (
+                  <col
+                    key={col.field}
+                    style={{
+                      width: columnWidths[col.field] ?? col.width ?? 180,
+                    }}
+                  />
+                ))}
+              </colgroup>
               <thead className="sticky top-0 z-30">
-                <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600">
-                  <th className="sticky left-0 z-20 w-1 p-0 bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-600">
+                <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 ">
+                  <th className="sticky left-0 z-20 w-1 p-0 bg-ocean-100 border-r border-slate-200">
+                    <div className="flex items-center justify-between h-10 px-2 border-b border-slate-600">
                     <div className="flex items-center justify-center h-10 w-12">
                       <Checkbox
                         checked={
@@ -1314,6 +1317,7 @@ export function AdvancedDataTable({
                         onCheckedChange={handleSelectAll}
                         className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-400 rounded"
                       />
+                    </div>
                     </div>
                   </th>
                   {orderedColumns.map((column) => {
@@ -1338,24 +1342,24 @@ export function AdvancedDataTable({
                       <th
                         key={column.field}
                         className={cn(
-                          "text-left p-0 font-bold text-xs bg-gradient-to-r from-slate-800 to-slate-700 text-white border-r border-slate-200 relative group",
+                          "text-left p-0 font-bold text-xs bg-ocean-100 relative group",
                           isLeftPinned &&
-                            "sticky z-10 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
+                            "sticky z-20 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
                           isRightPinned &&
-                            "sticky z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]"
+                            "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
                         )}
                         style={{
                           width:
-                            columnWidths[column.field] ?? column.width ?? 180,
+                            columnWidths[column.field] ?? column.width ?? 80,
                           minWidth: column.minWidth ?? 80,
-                          maxWidth: column.maxWidth ?? 500, // ADD THIS
+                          maxWidth: column.maxWidth ?? 500,
                           left: leftOffset,
                           right: rightOffset,
                         }}
                       >
-                        <div className="flex items-center justify-between h-10 px-2">
+                        <div className="flex items-center justify-between h-10 px-2 border-b border-slate-600">
                           <div className="flex items-center flex-1 min-w-0">
-                            <span className="truncate font-bold text-white text-xs tracking-wide">
+                            <span className="truncate font-bold text-black text-xs tracking-wide">
                               {column.headerName}
                             </span>
                           </div>
@@ -1415,7 +1419,7 @@ export function AdvancedDataTable({
                         rowIndex % 2 === 0 &&
                           !isSelected &&
                           !isEdited &&
-                          "bg-slate-50/30"
+                          "bg-slate-50/30",
                       )}
                     >
                       <td className="sticky left-0 z-10 p-0 bg-white border-r border-slate-200">
@@ -1466,7 +1470,7 @@ export function AdvancedDataTable({
                               isEdited &&
                                 !isSelected &&
                                 (isLeftPinned || isRightPinned) &&
-                                "bg-yellow-50"
+                                "bg-yellow-50",
                             )}
                             style={{
                               width:
@@ -1505,7 +1509,7 @@ export function AdvancedDataTable({
                                     handleCellEdit(
                                       rowIndex,
                                       column.field,
-                                      value
+                                      value,
                                     )
                                   }
                                   onSave={saveEdit}
@@ -1574,7 +1578,7 @@ export function AdvancedDataTable({
             size="sm"
             onClick={() =>
               setCurrentPage((prev) =>
-                Math.min(paginationData.totalPages, prev + 1)
+                Math.min(paginationData.totalPages, prev + 1),
               )
             }
             disabled={

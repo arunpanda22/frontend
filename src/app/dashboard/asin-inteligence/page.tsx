@@ -331,7 +331,7 @@ const AsinIntelligenceContent = () => {
       <div className="w-full transition-all duration-300">
         {/* Filter Bar with date range integration */}
         <FilterBar
-          title={hasVendorAccount ? "📊 ASIN Intelligence (SC + VC)" : "📊 ASIN Intelligence"}
+          title={hasVendorAccount ? "ASIN Intelligence (SC + VC)" : "ASIN Intelligence"}
           dateRange={filterBarDateRange}
           onDateRangeChange={handleDateRangeChange}
         />

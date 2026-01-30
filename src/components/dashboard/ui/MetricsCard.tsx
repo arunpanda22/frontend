@@ -32,7 +32,7 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const width = entry.contentRect.width;
-        setShowIcon(width >= 200); // w-60 is 240px
+        setShowIcon(width >= 180); // w-60 is 240px
       }
     });
 
@@ -78,10 +78,10 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
             {/* Top row: title + value + icon */}
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-sm font-medium text-gray-700 uppercase tracking-wide font-montserrat">
+                <h3 className="text-xs font-medium text-gray-700 uppercase tracking-wide font-montserrat">
                   {title}
                 </h3>
-                <p className="text-xl font-semibold text-gray-900 mt-1 font-montserrat">
+                <p className="text-lg font-semibold text-gray-900 mt-1 font-montserrat">
                   {value}
                 </p>
                 {(change && changeType) || showTrendButton ? (
@@ -92,7 +92,7 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
                       <div className="relative group">
                         <span
                           onClick={handleViewTrends}
-                          className="px-2 py-1 bg-ocean-600 border  text-white hover:bg-powder-blue-800 text-xs font-semibold rounded-full flex items-center gap-1 font-montserrat"
+                          className="px-2 py-1 bg-ocean-600 border  text-white hover:bg-powder-blue-800 text-[10px] font-semibold rounded-full flex items-center gap-1 font-montserrat"
                         >
                           <TrendingUpIcon className="w-3 h-3" />
                           View trends

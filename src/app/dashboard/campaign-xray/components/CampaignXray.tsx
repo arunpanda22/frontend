@@ -470,7 +470,7 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
               margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#DEE6ED" />
-              <XAxis dataKey="date" stroke="#9BB2CA" />
+              <XAxis dataKey="date" stroke="#9BB2CA" tick={{ fontSize: 12 }}/>
 
               {yAxisConfig.map((config) => {
                 const metric = chartMetrics[config.index];
@@ -483,6 +483,7 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
                     orientation={config.orientation}
                     stroke={kpi?.color}
                     width={80}
+                    tick={{ fontSize: 12 }}
                   />
                 );
               })}
@@ -495,7 +496,7 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
                   boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                 }}
               />
-              <Legend />
+              <Legend wrapperStyle={{ fontSize: '12px' }}/>
 
               {chartMetrics.map((metricId, index) => {
                 const kpi = KPI_OPTIONS.find((k) => k.id === metricId);

@@ -183,7 +183,7 @@ export default function InventoryPulseLayout() {
       {/* --- Page Heading --- */}
       
       <FilterBar
-          title="📦 InventoryPulse"
+          title="InventoryPulse"
       />
       <InventoryStats hasVendorAccounts={hasVendorAccounts} />
       

@@ -55,8 +55,8 @@ export default function InventoryHealthTable({
         editable: false,
         sortable: true,
         filterable: true,
-        width: 160,
-        minWidth: 220,
+        width: 120,
+        minWidth: 120,
         pinned: "left",
       },
       {
@@ -66,8 +66,8 @@ export default function InventoryHealthTable({
         editable: false,
         sortable: true,
         filterable: true,
-        width: 450,
-        minWidth: 300,
+        width: 260,
+        minWidth: 200,
         maxWidth: 600,
         pinned: "left",
       },
@@ -370,7 +370,7 @@ export default function InventoryHealthTable({
       </div>
 
       {/* Table Content */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 p-2">
         <AdvancedDataTable
           data={transformedData}
           columns={columns}
