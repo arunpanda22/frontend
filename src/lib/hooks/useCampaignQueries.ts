@@ -84,7 +84,7 @@ export function useCampaignXrayData(options: XrayDataOptions) {
 export function useKeywordPerformanceHierarchical(options?: KeywordPerformanceOptions) {
   console.log('useKeywordPerformanceHierarchical called with:', options);
 
-  // Create stable query key
+  // Create stable query key that includes all date parameters
   const queryKey = ['keywords', 'performance', 'hierarchical'];
   
   if (options?.start_date) {
@@ -95,6 +95,7 @@ export function useKeywordPerformanceHierarchical(options?: KeywordPerformanceOp
     queryKey.push('end', options.end_date);
   }
 
+  //Include comparison dates in query key for proper cache invalidation
   if (options?.comparison_start_date) {
     queryKey.push('comp_start', options.comparison_start_date);
   }
@@ -109,9 +110,16 @@ export function useKeywordPerformanceHierarchical(options?: KeywordPerformanceOp
       console.log('Fetching hierarchical keyword performance with options:', options);
       return campaignService.getKeywordPerformanceHierarchical(options);
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000, 
     refetchOnWindowFocus: false,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 400) {
+        return false;
+      }
+      // Retry up to 2 times for other errors
+      return failureCount < 2;
+    },
   });
 }
 

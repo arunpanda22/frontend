@@ -5,6 +5,7 @@ import { useKeywordPerformanceHierarchical, usePushKeywordBids } from "@/lib/hoo
 import { useDateRange } from "@/lib/context/DateRangeContext";
 import { Loader2, AlertCircle, Target, Save, X, CheckCircle, Info } from "lucide-react";
 import { useMemo, useState, useCallback } from "react";
+import { PeriodSelector } from "@/components/dashboard/ui/PeriodSlector";
 import { 
   HierarchicalRow, 
   BidChange, 
@@ -19,16 +20,47 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { format, subDays } from "date-fns";
 
 const KeywordPerformanceTable = () => {
   const { dateRange } = useDateRange();
   const { toast } = useToast();
 
-  // Fetch hierarchical keyword performance data
-  const { data, isLoading, isError, error, refetch } = useKeywordPerformanceHierarchical({
-    start_date: dateRange.startDate,
-    end_date: dateRange.endDate,
+  // Custom period state - initialized with defaults
+  const [customPeriodEnabled, setCustomPeriodEnabled] = useState(false);
+  const [currentPeriod, setCurrentPeriod] = useState<{ start: Date; end: Date }>(() => {
+    const end = subDays(new Date(), 2);
+    const start = subDays(end, 6);
+    return { start, end };
   });
+  const [comparisonPeriod, setComparisonPeriod] = useState<{ start: Date; end: Date }>(() => {
+    const end = subDays(new Date(), 2);
+    const start = subDays(end, 6);
+    const compEnd = subDays(start, 1);
+    const compStart = subDays(compEnd, 6);
+    return { start: compStart, end: compEnd };
+  });
+
+  // Determine which dates to use for the API call
+  const apiDates = useMemo(() => {
+    if (customPeriodEnabled) {
+      return {
+        start_date: format(currentPeriod.start, 'yyyy-MM-dd'),
+        end_date: format(currentPeriod.end, 'yyyy-MM-dd'),
+        comparison_start_date: format(comparisonPeriod.start, 'yyyy-MM-dd'),
+        comparison_end_date: format(comparisonPeriod.end, 'yyyy-MM-dd'),
+      };
+    }
+    // Use default date range from context
+    return {
+      start_date: dateRange.startDate,
+      end_date: dateRange.endDate,
+      // Let backend calculate comparison period automatically
+    };
+  }, [customPeriodEnabled, currentPeriod, comparisonPeriod, dateRange]);
+
+  // Fetch hierarchical keyword performance data
+  const { data, isLoading, isError, error, refetch } = useKeywordPerformanceHierarchical(apiDates);
 
   // Mutation for pushing keyword bids
   const pushBidsMutation = usePushKeywordBids();
@@ -65,6 +97,21 @@ const KeywordPerformanceTable = () => {
       setTableData(processedData);
     }
   }, [data, editedRowIds]);
+
+  // Handle period change from PeriodSelector
+  const handlePeriodChange = useCallback((
+    current: { start: Date; end: Date },
+    comparison: { start: Date; end: Date }
+  ) => {
+    setCurrentPeriod(current);
+    setComparisonPeriod(comparison);
+    setCustomPeriodEnabled(true);
+    
+    toast({
+      title: "Period Updated",
+      description: `Comparing ${format(current.start, 'MMM dd')} - ${format(current.end, 'MMM dd')} with ${format(comparison.start, 'MMM dd')} - ${format(comparison.end, 'MMM dd')}`,
+    });
+  }, [toast]);
 
   // Custom cell renderer for Source badge
   const renderSourceCell = useCallback((row: any) => {
@@ -531,32 +578,14 @@ const KeywordPerformanceTable = () => {
 
   return (
     <div className="space-y-4">
-      {/* Data Source Info Banner */}
-      {/* <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-indigo-600 mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-slate-800 mb-1">
-              Combined Data Sources
-            </h3>
-            <p className="text-xs text-slate-600 mb-2">
-              This table combines data from Sponsored Products (Keywords & Expressions) and Sponsored Brands campaigns.
-              <span className="font-semibold text-slate-700"> All keyword types are editable.</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">
-                SP Keyword
-              </Badge>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
-                SP Expression
-              </Badge>
-              <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
-                Sponsored Brand
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </div> */}
+      {/* Period Selector */}
+      <PeriodSelector
+        currentStart={currentPeriod.start}
+        currentEnd={currentPeriod.end}
+        comparisonStart={comparisonPeriod.start}
+        comparisonEnd={comparisonPeriod.end}
+        onPeriodChange={handlePeriodChange}
+      />
 
       {/* Pending Changes Banner */}
       {pendingChanges.size > 0 && (
@@ -735,27 +764,6 @@ const KeywordPerformanceTable = () => {
               </details>
             </div>
           )}
-        </div>
-      )}
-      
-      {/* Period Info Card */}
-      {data?.period_info && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-700">Current Period</h3>
-              <p className="text-xs text-slate-600">
-                {data.period_info.current_start} to {data.period_info.current_end} (
-                {data.period_info.period_days} days)
-              </p>
-            </div>
-            <div className="text-right">
-              <h3 className="text-sm font-semibold text-slate-700">Compared To</h3>
-              <p className="text-xs text-slate-600">
-                {data.period_info.comparison_start} to {data.period_info.comparison_end}
-              </p>
-            </div>
-          </div>
         </div>
       )}
 
