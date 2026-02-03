@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useInvokeAdsOptimizer } from "@/lib/hooks/queries/use-ads-optimizer";
 import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
+import { LoadingWidget } from "@/components/ui/loading-widget";
 import type { AdsOptimizerRequest } from "./lib/types";
 
 export default function AdsOptimizerPage() {
@@ -23,6 +24,9 @@ export default function AdsOptimizerPage() {
   const setOptimizationData = useAdsOptimizerStore(
     (state) => state.setOptimizationData
   );
+
+  // Loading widget state
+  const [showLoading, setShowLoading] = useState(false);
 
   const [isCombined, setIsCombined] = useState(true);
   const [targetAcos, setTargetAcos] = useState({
@@ -116,18 +120,29 @@ export default function AdsOptimizerPage() {
       }),
     };
 
+    // Show loading widget immediately
+    setShowLoading(true);
+
     invokeOptimizer(payload, {
       onSuccess: (data) => {
         setOptimizationData(data);
-        router.push("/dashboard/ads-optimizer/results");
+        // Loading widget will complete after 35s, then navigate
       },
       onError: (error: any) => {
+        // Hide loading on error
+        setShowLoading(false);
+
         // Handle API validation errors
         if (error?.response?.data?.details) {
           setValidationErrors(error.response.data.details);
         }
       },
     });
+  };
+
+  const handleLoadingComplete = () => {
+    // Navigate to results when loading completes
+    router.push("/dashboard/ads-optimizer/results");
   };
 
   const modes: Array<{ value: typeof mode; label: string; tooltip: string }> = [
@@ -150,6 +165,11 @@ export default function AdsOptimizerPage() {
         "Prioritizes sales volume while loosely maintaining ACOS thresholds",
     },
   ];
+
+  // Show loading widget when optimization starts
+  if (showLoading) {
+    return <LoadingWidget totalSteps={12} onComplete={handleLoadingComplete} />;
+  }
 
   return (
     <div className="w-full h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl overflow-hidden font-montserrat">
@@ -480,7 +500,6 @@ export default function AdsOptimizerPage() {
                     </div>
                   </div>
 
-                  {/* Inventory Aware Bidding Toggle */}
                   {/* Inventory Aware Bidding Toggle */}
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="flex items-center justify-between">

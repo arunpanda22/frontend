@@ -103,7 +103,7 @@ const KPI_OPTIONS = [
     title: "Ad Sales (30d)",
     keys: ["sales_30d"],
     format: "currency",
-    color: "#14B8A6",
+    color: "#F54927",
     category: "Advertising",
   },
   {
@@ -182,8 +182,9 @@ const CampaignXrayChart: React.FC<CampaignXrayChartProps> = ({
 }) => {
   // State management
   const [chartMetrics, setChartMetrics] = useState<KPIKey[]>([
-    "total_sales",
+    "sales_30d",
     "impressions",
+    "total_sales"
   ]);
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
   const [metricsFilterOpen, setMetricsFilterOpen] = useState(false);

@@ -74,7 +74,8 @@ interface AdvancedDataTableProps<T extends TableData = TableData> {
   columns: ColumnDefinition[];
   onDataChange?: (data: T[]) => void;
   onEditedRowsChange?: (editedRows: Set<number>) => void;
-  onColumnsChange?: (columns: ColumnDefinition[]) => void; // ADD THIS
+  onColumnsChange?: (columns: ColumnDefinition[]) => void;
+  onCellEdit?: (keywordId: string, field: string, value: any) => void; // ADD THIS LINE
   className?: string;
   autoFitHeaders?: boolean;
   showExportCard?: boolean;
@@ -89,6 +90,7 @@ interface CellRendererProps {
   onSave: () => void;
   onCancel: () => void;
   onEditValueChange: (value: any) => void;
+  onCellEdit?: (keywordId: string, field: string, value: any) => void;
   rowData: TableData;
 }
 
@@ -222,13 +224,37 @@ const CellRenderer = memo(function CellRenderer({
   onEditValueChange,
   rowData,
 }: CellRendererProps) {
+  // NEW: Prevent double-save from Enter + Blur
+  const isSavingRef = useRef(false);
+
+  const handleSave = useCallback(() => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    onSave();
+    // Reset after a short delay
+    setTimeout(() => {
+      isSavingRef.current = false;
+    }, 100);
+  }, [onSave]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") onSave();
-      if (e.key === "Escape") onCancel();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSave();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
     },
-    [onSave, onCancel],
+    [handleSave, onCancel],
   );
+
+  // Auto-save on blur (clicking outside)
+  const handleBlur = useCallback(() => {
+    handleSave();
+  }, [handleSave]);
 
   // Check if this row is editable - look for is_editable field or check if it's a keyword row
   const isRowEditable = rowData.is_editable !== false && !rowData._isParent;
@@ -253,7 +279,7 @@ const CellRenderer = memo(function CellRenderer({
 
   if (isEditing && isCellEditable) {
     return (
-      <div className="flex items-center gap-2 w-full">
+      <div className="flex items-center w-full">
         <Input
           type={
             column.type === "number"
@@ -267,24 +293,9 @@ const CellRenderer = memo(function CellRenderer({
           className="h-8 text-sm flex-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 text-black rounded-md"
           autoFocus
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           step={column.type === "number" ? "0.01" : undefined}
         />
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 w-7 p-0 hover:bg-green-100 hover:text-green-700 rounded-md transition-all duration-200"
-          onClick={onSave}
-        >
-          <Check className="h-3 w-3" />
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-700 rounded-md transition-all duration-200"
-          onClick={onCancel}
-        >
-          <X className="h-3 w-3" />
-        </Button>
       </div>
     );
   }
@@ -642,17 +653,17 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   );
 });
 
-// PART 2: Main AdvancedDataTable Component
-
-export function AdvancedDataTable({
+// Main AdvancedDataTable Component
+export function AdvancedDataTable<T extends TableData = TableData>({
   data,
   columns: initialColumns,
   onDataChange,
   onEditedRowsChange,
-  onColumnsChange, // ADD THIS
+  onColumnsChange,
+  onCellEdit, 
   className,
-  autoFitHeaders = false, // ADD THIS
-}: AdvancedDataTableProps) {
+  autoFitHeaders = false,
+}: AdvancedDataTableProps<T>) {
   const processedColumns = useMemo(() => {
     return initialColumns.map((col) => {
       const shouldAutoFit = autoFitHeaders || col.autoFitHeader;
@@ -959,6 +970,13 @@ export function AdvancedDataTable({
     return result;
   }, [data, filters, sorts]);
 
+  // Sync filteredData with data prop when no filters/sorts applied
+  useEffect(() => {
+    if (sorts.length === 0 && Object.keys(filters).length === 0) {
+      setFilteredData(data);
+    }
+  }, [data, sorts.length, filters]);
+
   useEffect(() => {
     setFilteredData(processedData);
     setCurrentPage(1);
@@ -1026,58 +1044,19 @@ export function AdvancedDataTable({
 
     const pageRowIndex = editingCell.row;
     const rowData = displayData[pageRowIndex];
-    const flatIndex = rowData._flatIndex;
 
-    if (flatIndex === undefined) return;
+    if (!rowData.keyword_id) return;
 
-    // Create deep copy of data
-    const newData = JSON.parse(JSON.stringify(data));
+    const value = editingCell.field === "keyword_bid" ||
+      internalColumns.find((c) => c.field === editingCell.field)?.type === "number"
+      ? Number(editValue)
+      : editValue;
 
-    // Find and update the correct row
-    let updated = false;
-
-    for (let i = 0; i < newData.length; i++) {
-      if (newData[i]._children) {
-        for (let j = 0; j < newData[i]._children.length; j++) {
-          if (newData[i]._children[j].keyword_id === rowData.keyword_id) {
-            newData[i]._children[j][editingCell.field] =
-              editingCell.field === "keyword_bid" ||
-              internalColumns.find((c) => c.field === editingCell.field)
-                ?.type === "number"
-                ? Number(editValue)
-                : editValue;
-            updated = true;
-            break;
-          }
-        }
-      }
-      if (updated) break;
-    }
-
-    if (updated) {
-      onDataChange?.(newData);
-
-      // Mark row as edited and select it
-      const newEditedRows = new Set(editedRows);
-      newEditedRows.add(flatIndex);
-      setEditedRows(newEditedRows);
-
-      const newSelectedRows = new Set(selectedRows);
-      newSelectedRows.add(flatIndex);
-      setSelectedRows(newSelectedRows);
-    }
+    onCellEdit?.(rowData.keyword_id, editingCell.field, value);
 
     setEditingCell(null);
-  }, [
-    editingCell,
-    editValue,
-    data,
-    displayData,
-    internalColumns,
-    onDataChange,
-    editedRows,
-    selectedRows,
-  ]);
+    setEditValue("");
+  }, [editingCell, editValue, displayData, internalColumns, onCellEdit]);
 
   const cancelEdit = useCallback(() => {
     setEditingCell(null);
@@ -1308,16 +1287,16 @@ export function AdvancedDataTable({
                 <tr className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 ">
                   <th className="sticky left-0 z-20 w-1 p-0 bg-ocean-100 border-r border-slate-200">
                     <div className="flex items-center justify-between h-10 px-2 border-b border-slate-600">
-                    <div className="flex items-center justify-center h-10 w-12">
-                      <Checkbox
-                        checked={
-                          selectedRows.size === flattenedData.length &&
-                          flattenedData.length > 0
-                        }
-                        onCheckedChange={handleSelectAll}
-                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-400 rounded"
-                      />
-                    </div>
+                      <div className="flex items-center justify-center h-10 w-12">
+                        <Checkbox
+                          checked={
+                            selectedRows.size === flattenedData.length &&
+                            flattenedData.length > 0
+                          }
+                          onCheckedChange={handleSelectAll}
+                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-400 rounded"
+                        />
+                      </div>
                     </div>
                   </th>
                   {orderedColumns.map((column) => {

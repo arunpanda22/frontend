@@ -323,7 +323,17 @@ export const PeriodSelector: React.FC<PeriodSelectorProps> = ({
 
       {/* Inline Dropdown */}
       {pickerOpen && (
-          <div className="absolute right-0 mt-2 bg-white rounded-lg border border-gray-200 shadow-lg p-4 z-50" style={{ width: 'max-content' }}>          <div className="flex items-center justify-between mb-3">
+      <div 
+        className="fixed bg-white rounded-lg border border-gray-200 shadow-lg p-4 z-[9999]" 
+        style={{ 
+          minWidth: '600px',
+          right: '1rem',
+          bottom: '1rem',
+          maxHeight: 'calc(100vh - 2rem)',
+          overflowY: 'auto'
+        }}
+      >       
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-800">Select Comparison Periods</h3>
             <button
               onClick={handleReset}

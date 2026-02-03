@@ -189,6 +189,15 @@ export default function AsinPerformanceTable({
         autoFitHeader: true,
       },
       {
+        field: "ads_cost",
+        headerName: `Cost (${currency})`,
+        type: "number",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
+      {
         field: "buybox",
         headerName: "Buy Box %",
         type: "number",
@@ -285,6 +294,8 @@ export default function AsinPerformanceTable({
         product_name: actualItem.product_name || "",
         image_url: actualItem.image_url || "",
         ads_sales: actualItem.total_ad_sales || 0,
+        ads_cost: actualItem.total_ad_cost || 0 ,
+
         conversion: formatPercentage(
           actualItem.sc_conversion_rate || actualItem.conversion_rate
         ) || 0,

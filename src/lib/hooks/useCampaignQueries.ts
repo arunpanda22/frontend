@@ -2,43 +2,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   campaignService,
-  CampaignSegmentationOptions,
   XrayDataOptions,
   KeywordPerformanceOptions,
   KeywordBidPushPayload,
 } from '../api/services/campaign.service';
 import { useMemo } from 'react';
 
-/**
- * Hook to fetch campaign segmentation data
- * Categorizes campaigns into 4 segments: Scalers, Efficient Low-Scale, 
- * Inefficient/Wasteful, and Decline/Diagnostic
- */
-export function useCampaignSegmentation(options?: CampaignSegmentationOptions) {
-  console.log('useCampaignSegmentation called with:', options);
 
-  // Create stable query key
-  const queryKey = ['campaigns', 'segments'];
-  
-  if (options?.start_date) {
-    queryKey.push(options.start_date);
-  }
-  
-  if (options?.end_date) {
-    queryKey.push(options.end_date);
-  }
-
-  return useQuery({
-    queryKey,
-    queryFn: () => {
-      console.log('Fetching campaign segments with options:', options);
-      return campaignService.getCampaignSegments(options);
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes - segmentation data changes less frequently
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    refetchOnWindowFocus: false, // Don't refetch on window focus for this data
-  });
-}
 
 /**
  * Hook to fetch campaign X-ray data
@@ -163,24 +133,4 @@ export function usePushKeywordBids() {
       // Error handling is done in the component using onError callback
     }
   });
-}
-
-/**
- * Combined hook for pages that need both segmentation and X-ray data
- * Useful for campaign analysis pages
- */
-export function useCampaignAnalysis(
-  segmentOptions?: CampaignSegmentationOptions,
-  xrayOptions?: XrayDataOptions
-) {
-  const segmentation = useCampaignSegmentation(segmentOptions);
-  const xrayData = useCampaignXrayData(xrayOptions || { focus_level: 'all' });
-
-  return {
-    segmentation,
-    xrayData,
-    isLoading: segmentation.isLoading || xrayData.isLoading,
-    isError: segmentation.isError || xrayData.isError,
-    error: segmentation.error || xrayData.error,
-  };
 }

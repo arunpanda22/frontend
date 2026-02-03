@@ -6,56 +6,7 @@ import { apiClient } from "../config";
 // TYPES
 // ============================================================================
 
-// Campaign Segmentation Types (unchanged)
-export interface CampaignSegmentData {
-  campaign_name: string;
-  condition: string;
-  cost: number;
-  sales: number;
-  impressions: number;
-  clicks: number;
-  orders: number;
-  acos: number;
-  ctr: number;
-  cpc: number;
-  roas: number;
-  cost_change_pct: number;
-  sales_change_pct: number;
-  acos_change_pct: number;
-  spend_status: "increased" | "decreased" | "stable";
-  sales_status: "increased" | "decreased" | "stable";
-  acos_status: "increased" | "decreased" | "stable";
-}
 
-export interface CampaignSegmentationSummary {
-  total_campaigns_analyzed: number;
-  top_80_campaigns: number;
-  scalers_count: number;
-  efficient_low_scale_count: number;
-  inefficient_wasteful_count: number;
-  decline_diagnostic_count: number;
-}
-
-export interface CampaignSegmentationPeriodInfo {
-  current_start: string;
-  current_end: string;
-  previous_start: string;
-  previous_end: string;
-}
-
-export interface CampaignSegmentationResponse {
-  scalers: CampaignSegmentData[];
-  efficient_low_scale: CampaignSegmentData[];
-  inefficient_wasteful: CampaignSegmentData[];
-  decline_diagnostic: CampaignSegmentData[];
-  summary: CampaignSegmentationSummary;
-  period_info: CampaignSegmentationPeriodInfo;
-}
-
-export interface CampaignSegmentationOptions {
-  start_date?: string; // Format: YYYY-MM-DD
-  end_date?: string; // Format: YYYY-MM-DD
-}
 
 // Campaign X-Ray Types (unchanged)
 export interface XrayDataItem {
@@ -405,34 +356,6 @@ export function getSourceColor(source: KeywordSource): string {
 
 export const campaignService = {
   /**
-   * Get campaign segmentation data
-   * Categorizes campaigns into 4 segments based on performance trends
-   */
-  async getCampaignSegments(options?: CampaignSegmentationOptions) {
-    console.log("Fetching campaign segmentation data with options:", options);
-
-    const params: Record<string, string> = {};
-
-    if (options?.start_date) {
-      params.start_date = options.start_date;
-    }
-
-    if (options?.end_date) {
-      params.end_date = options.end_date;
-    }
-
-    console.log("Request params:", params);
-
-    const res = await apiClient.get<CampaignSegmentationResponse>(
-      "/api/v1/dashboard-api/campaign-segments/",
-      { params },
-    );
-
-    console.log("Campaign segmentation response received:", res.data);
-    return res.data;
-  },
-
-  /**
    * Get campaign X-ray data
    * Provides detailed metrics for selected campaigns
    * Uses POST to handle large campaign lists
@@ -560,7 +483,7 @@ export const campaignService = {
       ad_group_id: change.ad_group_id,
       match_type: change.match_type,
       "New bid": change.newBid,
-      source: change.source, // NEW: Include source for backend separation
+      source: change.source, 
     }));
   },
 };
