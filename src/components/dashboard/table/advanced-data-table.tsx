@@ -81,9 +81,6 @@ interface CellRendererProps {
 }
 
 const calculateOptimalHeaderWidth = (headerText: string): number => {
-  // const gripIconWidth = 16;
-  const menuButtonWidth = 20;
-  const gapWidth = 8;
   const paddingWidth = 16;
   const resizeHandleWidth = 6;
 
@@ -99,11 +96,7 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
     textWidth += isSmall(ch) ? smallCharWidth : largeCharWidth;
   }
 
-  const totalWidth =
-    textWidth +
-    gapWidth +
-    menuButtonWidth +
-    paddingWidth 
+  const totalWidth = textWidth + paddingWidth;
 
   return Math.max(100, Math.ceil(totalWidth / 5) * 5);
 };
@@ -233,7 +226,7 @@ const CellRenderer = memo(function CellRenderer({
     >
       <div className="flex items-center flex-1 min-w-0">
         {isNameColumn && rowData?.image_url && <ImageCell imageUrl={rowData.image_url} />}
-        <span className="truncate text-xs font-medium text-slate-700">{displayValue}</span>
+        <span className="truncate font-normal text-slate-700" style={{ fontSize: '13px', lineHeight: '1.4' }}>{displayValue}</span>
       </div>
       {column.editable && (
         <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-60 ml-2 text-slate-400 transition-all duration-200" />
@@ -251,6 +244,8 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   onClearFilter,
   onPin,
   data,
+  open,
+  onOpenChange,
 }: {
   column: ColumnDefinition
   sorts: SortState[]
@@ -260,6 +255,8 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   onClearFilter: (field: string) => void
   onPin: (field: string, position: "left" | "right" | null) => void
   data: TableData[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const [filterOperator, setFilterOperator] = useState(filters[column.field]?.operator || "contains")
   const [filterValue, setFilterValue] = useState(filters[column.field]?.value || "")
@@ -323,16 +320,9 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   )
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <div className="cursor-pointer">
-          <MoreVertical 
-            className={cn(
-              "h-4 w-4  text-slate-400 hover:text-slate-800 transition-colors duration-200",
-              (currentSort || hasFilter || column.pinned) && "text-slate-600",
-            )}
-          />
-        </div>
+        <div className="w-full h-full" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-80 p-0 bg-white border-slate-200 shadow-xl rounded-lg" align="end">
         <div className="p-4 space-y-3 bg-white">
@@ -509,6 +499,7 @@ export function AdvancedDataTable({
   const [filters, setFilters] = useState<FilterState>({})
   const [sorts, setSorts] = useState<SortState[]>(initialSort || [])
   const [hasChanges, setHasChanges] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   const minVisibleRows = rowsPerPage
   const containerRef = useRef<HTMLDivElement>(null)
@@ -675,7 +666,7 @@ export function AdvancedDataTable({
       })
     })
 
-    // Apply sorts - FIXED: Only one sort at a time
+    // Apply sorts
     if (sorts.length > 0) {
       result.sort((a, b) => {
         for (const sort of sorts) {
@@ -703,7 +694,6 @@ export function AdvancedDataTable({
     return [...pinnedColumns.left, ...pinnedColumns.center, ...pinnedColumns.right]
   }, [pinnedColumns])
 
-  // FIXED: Clear previous sort when sorting a new column
   const handleSort = useCallback((field: string) => {
     setSorts((prev) => {
       const existingSort = prev.find((s) => s.field === field)
@@ -796,7 +786,6 @@ export function AdvancedDataTable({
     setHasChanges(true)
   }, [data, selectedRows, onDataChange])
 
-  // FIXED: Properly escape CSV values
   const escapeCSV = (value: any): string => {
     if (value === null || value === undefined) return ""
     const str = String(value)
@@ -897,10 +886,18 @@ export function AdvancedDataTable({
     return offset
   }, [pinnedColumns.right, columnWidths])
 
+  const handleHeaderClick = useCallback((e: React.MouseEvent, field: string) => {
+    // Prevent opening dropdown if clicking on resize handle
+    if (resizingRef.current) return
+    
+    e.stopPropagation()
+    setOpenDropdown(prev => prev === field ? null : field)
+  }, [])
+
   return (
-    <div className={cn("w-full bg-slate-50", className)}>
+    <div className={cn("w-full bg-white", className)}>
       {showExportCard && (
-        <div className={`flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-t-lg shadow-sm`}>
+        <div className={`flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200`}>
           <div className="flex items-center gap-4">
             {selectedRows.size > 0 && (
               <Button
@@ -953,7 +950,7 @@ export function AdvancedDataTable({
         </div>
       )}
 
-      <div className={`bg-white border border-slate-200 ${!showExportCard && "rounded-t-lg"} overflow-hidden shadow-sm`}>
+      <div className={`bg-white border-x border-b border-slate-200 overflow-hidden`}>
         <div className="overflow-auto" style={{ height: `${containerHeight}px` }}>
           <div className="relative">
             <table className="table-fixed w-full border-collapse min-w-full">
@@ -969,15 +966,15 @@ export function AdvancedDataTable({
                 ))}
               </colgroup>
               <thead>
-                <tr className="bg-gradient-to-r from-cyan-100 via-cyan-200 to-cyan-300 border-b border-slate-600" style={{ height: '40px' }}>
+                <tr className="bg-white border-b border-slate-200" style={{ height: '40px' }}>
                   {showCheckboxColumn && (
-                    <th className="sticky left-0 z-30 p-0 bg-gradient-to-r from-cyan-100 to-cyan-300 text-black border-r border-slate-600"
+                    <th className="sticky left-0 z-30 p-0 bg-white border-r border-slate-200"
                         style={{ width: checkboxColumnWidth, minWidth: checkboxColumnWidth }}>
                       <div className="flex items-center justify-center h-12">
                         <Checkbox
                           checked={selectedRows.size === filteredData.length && filteredData.length > 0}
                           onCheckedChange={handleSelectAll}
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-400 rounded"
+                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-300 rounded"
                         />
                       </div>
                     </th>
@@ -987,14 +984,16 @@ export function AdvancedDataTable({
                     const isRightPinned = column.pinned === "right"
                     const leftOffset = getLeftOffset(column)
                     const rightOffset = getRightOffset(column)
+                    const currentSort = sorts.find((s) => s.field === column.field)
+                    const hasFilter = filters[column.field]
 
                     return (
                       <th
                         key={column.field}
                         className={cn(
-                          "text-left p-0 font-bold text-xs bg-ocean-100 border-r border-slate-200 relative group",
-                          isLeftPinned && "sticky z-20 shadow-[4px_0_8px_rgba(0,0,0,0.15)]",
-                          isRightPinned && "sticky z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]",
+                          "text-left p-0 font-semibold text-xs bg-white border-r border-slate-200 relative group text-slate-700 cursor-pointer hover:bg-slate-50",
+                          isLeftPinned && "sticky z-20 shadow-[2px_0_4px_rgba(0,0,0,0.08)]",
+                          isRightPinned && "sticky z-20 shadow-[-2px_0_4px_rgba(0,0,0,0.08)]",
                         )}
                         style={{
                           width: columnWidths[column.field] ?? column.width ?? 80,
@@ -1003,36 +1002,46 @@ export function AdvancedDataTable({
                           left: leftOffset,
                           right: rightOffset,
                         }}
+                        onClick={(e) => handleHeaderClick(e, column.field)}
                       >
-                        <div className="flex items-center justify-between h-10 px-2">
+                        <div className="flex items-center justify-between h-10 px-3">
                           <div className="flex items-center flex-1 min-w-0">
-                            {/* <GripVertical className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" /> */}
-                            <span className="truncate font-bold text-black text-xs tracking-wide">
+                            <span className="truncate font-bold text-slate-700" style={{ fontSize: '12px', lineHeight: '1.4' }}>
                               {column.headerName}
                             </span>
-                          </div>
-                          <div className="flex items-center">
-                            <ColumnActionsDropdown
-                              column={column}
-                              sorts={sorts}
-                              filters={filters}
-                              onSort={handleSort}
-                              onFilter={handleFilter}
-                              onClearFilter={clearFilter}
-                              onPin={handleColumnPin}
-                              data={data}
-                            />
+                            {currentSort && (
+                              <span className="ml-1 text-blue-600">
+                                {currentSort.direction === "asc" ? "↑" : "↓"}
+                              </span>
+                            )}
+                            {hasFilter && (
+                              <span className="ml-1 h-1.5 w-1.5 rounded-full bg-blue-500" />
+                            )}
                           </div>
                         </div>
+
+                        <ColumnActionsDropdown
+                          column={column}
+                          sorts={sorts}
+                          filters={filters}
+                          onSort={handleSort}
+                          onFilter={handleFilter}
+                          onClearFilter={clearFilter}
+                          onPin={handleColumnPin}
+                          data={data}
+                          open={openDropdown === column.field}
+                          onOpenChange={(open) => setOpenDropdown(open ? column.field : null)}
+                        />
 
                         <div
                           role="separator"
                           aria-orientation="vertical"
                           aria-label={`Resize ${column.headerName} column`}
                           onMouseDown={(e) => onResizeMouseDown(e, column.field)}
-                          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none"
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute top-0 right-0 h-full w-1 cursor-col-resize select-none z-30"
                         >
-                          <div className="h-full w-px mx-auto bg-transparent group-hover:bg-slate-400/60" />
+                          <div className="h-full w-px mx-auto bg-transparent group-hover:bg-slate-300/60" />
                         </div>
                       </th>
                     )
@@ -1050,22 +1059,25 @@ export function AdvancedDataTable({
                     <tr
                       key={row?.__isEmpty ? `empty-${row.__emptyIndex}` : rowIndex}
                       className={cn(
-                        "border-b border-slate-100 hover:bg-ocean-50/50 transition-all duration-150",
+                        "border-b border-slate-150 hover:bg-slate-50 transition-all duration-150",
                         isSelected && !isEmpty && "bg-blue-50 border-blue-200",
                         isEmpty && "opacity-30",
-                        rowIndex % 2 === 1 && "bg-ocean-50",
+                        rowIndex % 2 === 1 && !isEmpty && "bg-slate-50/40",
                       )}
                       style={{ height: '36px' }}
                     >
                       {showCheckboxColumn && (
-                        <td className="sticky left-0 z-20 p-0 bg-white border-r border-slate-200"
+                        <td className={cn("sticky left-0 z-20 p-0 border-r border-slate-200",
+                            rowIndex % 2 === 1 && !isEmpty ? "bg-slate-50/40" : "bg-white",
+                            isSelected && !isEmpty && "bg-blue-50"
+                          )}
                             style={{ width: checkboxColumnWidth, minWidth: checkboxColumnWidth }}>
                           <div className="flex items-center justify-center h-11">
                             {!isEmpty && (
                               <Checkbox
                                 checked={isSelected}
                                 onCheckedChange={(checked) => handleRowSelect(rowIndex, checked as boolean)}
-                                className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-300 rounded"
+                                className="data-[state=checked]:bg-teal-500 data-[state=checked]:border-teal-500 border-slate-300 rounded"
                               />
                             )}
                           </div>
@@ -1082,9 +1094,9 @@ export function AdvancedDataTable({
                             key={column.field}
                             className={cn(
                               "p-0 border-r border-slate-200 relative",
-                              isLeftPinned && "sticky z-10 shadow-[4px_0_8px_rgba(0,0,0,0.08)]",
-                              isRightPinned && "sticky z-10 shadow-[-4px_0_8px_rgba(0,0,0,0.08)]",
-                              !isEmpty && rowIndex % 2 === 1 && (isLeftPinned || isRightPinned) && "bg-ocean-50",
+                              isLeftPinned && "sticky z-10 shadow-[2px_0_4px_rgba(0,0,0,0.06)]",
+                              isRightPinned && "sticky z-10 shadow-[-2px_0_4px_rgba(0,0,0,0.06)]",
+                              !isEmpty && rowIndex % 2 === 1 && (isLeftPinned || isRightPinned) && "bg-slate-50",
                               !isEmpty && rowIndex % 2 === 0 && (isLeftPinned || isRightPinned) && "bg-white",
                               isSelected && (isLeftPinned || isRightPinned) && "bg-blue-50",
                             )}
@@ -1096,7 +1108,10 @@ export function AdvancedDataTable({
                               right: rightOffset,
                             }}
                           >
-                            <div className="h-9 px-2 flex items-center">
+                            <div className={cn("h-9 px-3 flex items-center",
+                              rowIndex % 2 === 1 && !isEmpty ? "bg-slate-50/40" : "bg-white",
+                              isSelected && !isEmpty && "bg-blue-50"
+                            )}>
                               {!isEmpty && (
                                 <CellRenderer
                                   value={(row as TableData)[column.field as keyof TableData]}
@@ -1123,7 +1138,7 @@ export function AdvancedDataTable({
         </div>
       </div>
 
-      <div className="flex items-center  justify-between px-4 py-3 bg-white border border-slate-200 rounded-b-lg shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-x border-b border-slate-200">
         <div className="flex items-center gap-4">
           <div className="text-sm text-slate-600 font-medium">
             Showing <span className="font-bold text-slate-800">{paginationData.startIndex + 1}</span> to{" "}
@@ -1148,7 +1163,7 @@ export function AdvancedDataTable({
           </Button>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">Page</span>
-            <div className="px-4 py-2 bg-gradient-to-r from-ocean-400 to-ocean-500 text-white rounded-lg text-sm font-bold min-w-[3rem] text-center shadow-sm">
+            <div className="px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg text-sm font-bold min-w-[3rem] text-center shadow-sm">
               {currentPage}
             </div>
             <span className="text-sm font-medium text-slate-600">of {paginationData.totalPages || 1}</span>
