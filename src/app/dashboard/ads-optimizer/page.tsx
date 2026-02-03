@@ -76,18 +76,18 @@ export default function AdsOptimizerPage() {
     const errors: Record<string, string> = {};
 
     if (isCombined) {
-      if (targetAcos.combined <= 0 || targetAcos.combined > 100) {
-        errors.combined = "Target ACOS must be between 0 and 100";
+      if (targetAcos.combined <= 0 ) {
+        errors.combined = "Target ACOS must be above 0";
       }
     } else {
-      if (targetAcos.sp <= 0 || targetAcos.sp > 100) {
-        errors.sp = "SP ACOS must be between 0 and 100";
+      if (targetAcos.sp <= 0 ) {
+        errors.sp = "SP ACOS must be above 0";
       }
-      if (targetAcos.sb <= 0 || targetAcos.sb > 100) {
-        errors.sb = "SB ACOS must be between 0 and 100";
+      if (targetAcos.sb <= 0 ) {
+        errors.sb = "SB ACOS must be above 0";
       }
-      if (targetAcos.sd <= 0 || targetAcos.sd > 100) {
-        errors.sd = "SD ACOS must be between 0 and 100";
+      if (targetAcos.sd <= 0 ) {
+        errors.sd = "SD ACOS must be above 0";
       }
     }
 
