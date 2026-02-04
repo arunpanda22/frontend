@@ -473,7 +473,7 @@ export const campaignService = {
    * Transform BidChange map to API payload format
    * Converts frontend data structure to backend requirements
    * NOW INCLUDES: source field for SP/SB separation
-   */
+  */
   transformBidChangesToPayload(
     changes: Map<string, BidChange>,
   ): KeywordBidUpdate[] {

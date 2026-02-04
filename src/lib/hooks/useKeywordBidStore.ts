@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
 export interface KeywordEdit {
   keyword_id: string;
   field: string;
@@ -9,85 +13,114 @@ export interface KeywordEdit {
   timestamp: number;
 }
 
-export interface KeywordBidState {
+interface KeywordBidState {
   serverData: any[] | null;
   editedKeywords: Map<string, Record<string, any>>;
   dirtyKeywords: Set<string>;
   pushedKeywords: Set<string>;
+  pushedValues: Map<string, Record<string, any>>;
   selectedKeywords: Set<string>;
-
   historyStack: KeywordEdit[][];
   historyIndex: number;
-
-  filters: Record<string, any>;
-  sorts: any[];
   expandedRows: Set<string>;
 }
 
-export interface KeywordBidActions {
+interface KeywordBidActions {
+  // Data management
   setServerData: (data: any[]) => void;
   updateKeyword: (keywordId: string, field: string, value: any) => void;
   revertKeyword: (keywordId: string) => void;
   markAsPushed: (keywordIds: string[]) => void;
+  
+  // Selection management
   toggleSelection: (keywordId: string) => void;
   clearSelection: () => void;
-  selectAll: () => void;
-
+  selectMultiple: (keywordIds: string[]) => void;
+  
+  // Bulk operations
+  applyPercentageChange: (percentage: number, keywordIds?: string[]) => void;
+  
+  // History
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
-
-  batchUpdate: (
-    updates: Array<{ keywordId: string; field: string; value: any }>,
-  ) => void;
-
-  setFilters: (filters: Record<string, any>) => void;
-  setSorts: (sorts: any[]) => void;
+  
+  // UI state
   toggleExpanded: (rowId: string) => void;
-
+  
+  // Getters
   getDisplayData: () => any[];
   getPendingChanges: () => any[];
-  getKeywordById: (id: string) => any | null;
-
+  getSelectedKeywords: () => string[];
+  
+  // Utility
   reset: () => void;
 }
 
 type KeywordBidStore = KeywordBidState & KeywordBidActions;
+
+// ============================================================================
+// INITIAL STATE
+// ============================================================================
 
 const initialState: KeywordBidState = {
   serverData: null,
   editedKeywords: new Map(),
   dirtyKeywords: new Set(),
   pushedKeywords: new Set(),
+  pushedValues: new Map(),
   selectedKeywords: new Set(),
   historyStack: [],
   historyIndex: -1,
-  filters: {},
-  sorts: [],
   expandedRows: new Set(),
 };
+
+// ============================================================================
+// STORE
+// ============================================================================
 
 export const useKeywordBidStore = create<KeywordBidStore>()(
   devtools(
     (set, get) => ({
       ...initialState,
 
+      // ========================================================================
+      // DATA MANAGEMENT
+      // ========================================================================
+
       setServerData: (data) => {
-        console.log('🗄️ setServerData called with:', {
-          dataType: typeof data,
-          isArray: Array.isArray(data),
-          length: data?.length,
-          firstItem: data?.[0]
+        const state = get();
+        const newPushedValues = new Map(state.pushedValues);
+        const newPushedKeywords = new Set(state.pushedKeywords);
+        
+        // Clear pushed values if server now has them
+        state.pushedValues.forEach((pushedEdits, keywordId) => {
+          const serverKeyword = data
+            ?.flatMap((g) => g._children || [])
+            .find((k) => k.keyword_id === keywordId);
+          
+          if (serverKeyword) {
+            const allMatched = Object.entries(pushedEdits).every(
+              ([field, value]) => serverKeyword[field] === value
+            );
+            
+            if (allMatched) {
+              newPushedValues.delete(keywordId);
+              newPushedKeywords.delete(keywordId);
+            }
+          }
         });
         
         set({
           serverData: data,
           editedKeywords: new Map(),
           dirtyKeywords: new Set(),
-          selectedKeywords: new Set(),
+          pushedValues: newPushedValues,
+          pushedKeywords: newPushedKeywords,
           historyStack: [],
           historyIndex: -1,
+          // Keep selectedKeywords and expandedRows
         });
       },
 
@@ -96,35 +129,34 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
           const newEdited = new Map(state.editedKeywords);
           const existing = newEdited.get(keywordId) || {};
 
-          // Find original value from server data
+          // Find original keyword
           const original = state.serverData
             ?.flatMap((g) => g._children || [])
             .find((k) => k.keyword_id === keywordId);
 
-          if (!original) {
-            console.warn('⚠️ Cannot find keyword in server data:', keywordId);
-            return state;
-          }
+          if (!original) return state;
 
           const oldValue = existing[field] ?? original[field];
-
-          // ✅ FIX: Convert string to number for numeric fields
+          
+          // Type conversion for numeric fields
           const processedValue = 
-            field === 'keyword_bid' || original[field] !== undefined && typeof original[field] === 'number'
-              ? Number(value)
-              : value;
+            typeof original[field] === 'number' ? Number(value) : value;
 
-          // Check if value actually changed
-          if (oldValue === processedValue) {
-            console.log('ℹ️ Value unchanged, skipping update');
-            return state;
-          }
+          // Skip if unchanged
+          if (oldValue === processedValue) return state;
 
+          // Update edited keywords
           newEdited.set(keywordId, { ...existing, [field]: processedValue });
 
+          // Mark as dirty
           const newDirty = new Set(state.dirtyKeywords);
           newDirty.add(keywordId);
 
+          // ✅ Auto-select when edited (but allow manual deselection)
+          const newSelected = new Set(state.selectedKeywords);
+          newSelected.add(keywordId);
+
+          // Add to history
           const edit: KeywordEdit = {
             keyword_id: keywordId,
             field,
@@ -133,23 +165,15 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
             timestamp: Date.now(),
           };
 
-          const newHistory = state.historyStack.slice(
-            0,
-            state.historyIndex + 1,
-          );
+          const newHistory = state.historyStack.slice(0, state.historyIndex + 1);
           newHistory.push([edit]);
 
-          console.log('✅ Keyword updated:', {
-            keywordId,
-            field,
-            oldValue,
-            newValue: processedValue,
-            dirtyCount: newDirty.size
-          });
+          console.log('✅ Updated keyword:', keywordId, field, processedValue);
 
           return {
             editedKeywords: newEdited,
             dirtyKeywords: newDirty,
+            selectedKeywords: newSelected,
             historyStack: newHistory,
             historyIndex: newHistory.length - 1,
           };
@@ -163,10 +187,11 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
           const newDirty = new Set(state.dirtyKeywords);
           newDirty.delete(keywordId);
 
+          // ✅ Deselect when reverted
           const newSelected = new Set(state.selectedKeywords);
           newSelected.delete(keywordId);
 
-          console.log('✅ Keyword reverted:', keywordId);
+          console.log('✅ Reverted keyword:', keywordId);
 
           return {
             editedKeywords: newEdited,
@@ -178,153 +203,132 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
       markAsPushed: (keywordIds) =>
         set((state) => {
           const newPushed = new Set(state.pushedKeywords);
-          keywordIds.forEach((id) => newPushed.add(id));
-
           const newDirty = new Set(state.dirtyKeywords);
-          keywordIds.forEach((id) => newDirty.delete(id));
-
-          // Also remove from edited keywords after successful push
+          const newPushedValues = new Map(state.pushedValues);
           const newEdited = new Map(state.editedKeywords);
-          keywordIds.forEach((id) => newEdited.delete(id));
+          
+          // ✅ Clear selection after push
+          const newSelected = new Set(state.selectedKeywords);
 
-          console.log('✅ Keywords marked as pushed:', keywordIds.length);
+          keywordIds.forEach((id) => {
+            newPushed.add(id);
+            newDirty.delete(id);
+            newSelected.delete(id);
+            
+            // Save pushed values
+            const edits = state.editedKeywords.get(id);
+            if (edits) {
+              newPushedValues.set(id, edits);
+            }
+            
+            newEdited.delete(id);
+          });
+
+          console.log('✅ Marked as pushed:', keywordIds.length, 'keywords');
 
           return {
             pushedKeywords: newPushed,
             dirtyKeywords: newDirty,
             editedKeywords: newEdited,
+            pushedValues: newPushedValues,
+            selectedKeywords: newSelected,
           };
         }),
+
+      // ========================================================================
+      // SELECTION MANAGEMENT
+      // ========================================================================
 
       toggleSelection: (keywordId) =>
         set((state) => {
           const newSelected = new Set(state.selectedKeywords);
+          
           if (newSelected.has(keywordId)) {
             newSelected.delete(keywordId);
+            console.log('✅ Deselected:', keywordId);
           } else {
             newSelected.add(keywordId);
+            console.log('✅ Selected:', keywordId);
           }
+          
           return { selectedKeywords: newSelected };
         }),
 
-      clearSelection: () => set({ selectedKeywords: new Set() }),
+      clearSelection: () => {
+        console.log('✅ Cleared selection');
+        return set({ selectedKeywords: new Set() });
+      },
 
-      selectAll: () =>
+      selectMultiple: (keywordIds) =>
         set((state) => {
-          const allKeywordIds =
-            state.serverData
-              ?.flatMap((g) => g._children || [])
-              .map((k) => k.keyword_id) || [];
-          return { selectedKeywords: new Set(allKeywordIds) };
+          const newSelected = new Set(state.selectedKeywords);
+          keywordIds.forEach(id => newSelected.add(id));
+          console.log('✅ Selected multiple:', keywordIds.length, 'keywords');
+          return { selectedKeywords: newSelected };
         }),
 
-      undo: () =>
+      // ========================================================================
+      // BULK OPERATIONS
+      // ========================================================================
+
+      applyPercentageChange: (percentage, keywordIds) =>
         set((state) => {
-          if (state.historyIndex < 0) {
-            console.log('ℹ️ Nothing to undo');
+          const idsToUpdate = keywordIds || Array.from(state.selectedKeywords);
+          
+          if (idsToUpdate.length === 0) {
+            console.warn('No keywords selected for percentage change');
             return state;
           }
 
-          const editsToUndo = state.historyStack[state.historyIndex];
           const newEdited = new Map(state.editedKeywords);
           const newDirty = new Set(state.dirtyKeywords);
+          const edits: KeywordEdit[] = [];
 
-          editsToUndo.forEach((edit) => {
-            const current = newEdited.get(edit.keyword_id) || {};
-            
-            if (edit.oldValue === undefined) {
-              // This was a new field, remove it
-              delete current[edit.field];
-              if (Object.keys(current).length === 0) {
-                newEdited.delete(edit.keyword_id);
-                newDirty.delete(edit.keyword_id);
-              } else {
-                newEdited.set(edit.keyword_id, current);
-              }
-            } else {
-              // Restore old value
-              newEdited.set(edit.keyword_id, {
-                ...current,
-                [edit.field]: edit.oldValue,
-              });
-            }
-          });
-
-          console.log('✅ Undo performed, new index:', state.historyIndex - 1);
-
-          return {
-            editedKeywords: newEdited,
-            dirtyKeywords: newDirty,
-            historyIndex: state.historyIndex - 1,
-          };
-        }),
-
-      redo: () =>
-        set((state) => {
-          if (state.historyIndex >= state.historyStack.length - 1) {
-            console.log('ℹ️ Nothing to redo');
-            return state;
-          }
-
-          const nextIndex = state.historyIndex + 1;
-          const editsToRedo = state.historyStack[nextIndex];
-          const newEdited = new Map(state.editedKeywords);
-          const newDirty = new Set(state.dirtyKeywords);
-
-          editsToRedo.forEach((edit) => {
-            const current = newEdited.get(edit.keyword_id) || {};
-            newEdited.set(edit.keyword_id, {
-              ...current,
-              [edit.field]: edit.newValue,
-            });
-            newDirty.add(edit.keyword_id);
-          });
-
-          console.log('✅ Redo performed, new index:', nextIndex);
-
-          return {
-            editedKeywords: newEdited,
-            dirtyKeywords: newDirty,
-            historyIndex: nextIndex,
-          };
-        }),
-
-      canUndo: () => get().historyIndex >= 0,
-      canRedo: () => get().historyIndex < get().historyStack.length - 1,
-
-      batchUpdate: (updates) =>
-        set((state) => {
-          const newEdited = new Map(state.editedKeywords);
-          const newDirty = new Set(state.dirtyKeywords);
-          const batchEdits: KeywordEdit[] = [];
-
-          updates.forEach(({ keywordId, field, value }) => {
-            const existing = newEdited.get(keywordId) || {};
+          idsToUpdate.forEach((keywordId) => {
             const original = state.serverData
               ?.flatMap((g) => g._children || [])
               .find((k) => k.keyword_id === keywordId);
 
-            const oldValue = existing[field] ?? original?.[field];
+            if (!original || !original.is_editable) return;
 
-            newEdited.set(keywordId, { ...existing, [field]: value });
+            const existing = newEdited.get(keywordId) || {};
+            const currentBid = existing.keyword_bid ?? original.keyword_bid;
+            
+            if (currentBid === null || currentBid === undefined) return;
+
+            // Calculate new bid
+            const multiplier = 1 + (percentage / 100);
+            const newBid = Number((currentBid * multiplier).toFixed(2));
+
+            // Respect min/max bounds
+            const bid_min = original.bid_min || 0.02;
+            const bid_max = original.bid_max || 1000;
+            const boundedBid = Math.max(bid_min, Math.min(bid_max, newBid));
+
+            // Update
+            newEdited.set(keywordId, { ...existing, keyword_bid: boundedBid });
             newDirty.add(keywordId);
 
-            batchEdits.push({
+            // Track in history
+            edits.push({
               keyword_id: keywordId,
-              field,
-              oldValue,
-              newValue: value,
+              field: 'keyword_bid',
+              oldValue: currentBid,
+              newValue: boundedBid,
               timestamp: Date.now(),
             });
           });
 
-          const newHistory = state.historyStack.slice(
-            0,
-            state.historyIndex + 1,
-          );
-          newHistory.push(batchEdits);
+          if (edits.length === 0) {
+            console.warn('No editable keywords found');
+            return state;
+          }
 
-          console.log('✅ Batch update performed:', updates.length, 'keywords');
+          // Add batch to history
+          const newHistory = state.historyStack.slice(0, state.historyIndex + 1);
+          newHistory.push(edits);
+
+          console.log(`✅ Applied ${percentage}% change to ${edits.length} keywords`);
 
           return {
             editedKeywords: newEdited,
@@ -334,52 +338,133 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
           };
         }),
 
-      setFilters: (filters) => set({ filters }),
-      setSorts: (sorts) => set({ sorts }),
+      // ========================================================================
+      // HISTORY
+      // ========================================================================
+
+      undo: () =>
+        set((state) => {
+          if (state.historyIndex < 0) {
+            console.warn('Nothing to undo');
+            return state;
+          }
+
+          const editsToUndo = state.historyStack[state.historyIndex];
+          const newEdited = new Map(state.editedKeywords);
+          const newDirty = new Set(state.dirtyKeywords);
+          const newSelected = new Set(state.selectedKeywords);
+
+          editsToUndo.forEach((edit) => {
+            const current = newEdited.get(edit.keyword_id) || {};
+            
+            if (edit.oldValue === undefined || edit.oldValue === null) {
+              delete current[edit.field];
+              if (Object.keys(current).length === 0) {
+                newEdited.delete(edit.keyword_id);
+                newDirty.delete(edit.keyword_id);
+                newSelected.delete(edit.keyword_id);
+              } else {
+                newEdited.set(edit.keyword_id, current);
+              }
+            } else {
+              newEdited.set(edit.keyword_id, {
+                ...current,
+                [edit.field]: edit.oldValue,
+              });
+            }
+          });
+
+          console.log('✅ Undo applied:', editsToUndo.length, 'changes');
+
+          return {
+            editedKeywords: newEdited,
+            dirtyKeywords: newDirty,
+            selectedKeywords: newSelected,
+            historyIndex: state.historyIndex - 1,
+          };
+        }),
+
+      redo: () =>
+        set((state) => {
+          if (state.historyIndex >= state.historyStack.length - 1) {
+            console.warn('Nothing to redo');
+            return state;
+          }
+
+          const nextIndex = state.historyIndex + 1;
+          const editsToRedo = state.historyStack[nextIndex];
+          const newEdited = new Map(state.editedKeywords);
+          const newDirty = new Set(state.dirtyKeywords);
+          const newSelected = new Set(state.selectedKeywords);
+
+          editsToRedo.forEach((edit) => {
+            const current = newEdited.get(edit.keyword_id) || {};
+            newEdited.set(edit.keyword_id, {
+              ...current,
+              [edit.field]: edit.newValue,
+            });
+            newDirty.add(edit.keyword_id);
+            newSelected.add(edit.keyword_id);
+          });
+
+          console.log('✅ Redo applied:', editsToRedo.length, 'changes');
+
+          return {
+            editedKeywords: newEdited,
+            dirtyKeywords: newDirty,
+            selectedKeywords: newSelected,
+            historyIndex: nextIndex,
+          };
+        }),
+
+      canUndo: () => get().historyIndex >= 0,
+      canRedo: () => get().historyIndex < get().historyStack.length - 1,
+
+      // ========================================================================
+      // UI STATE
+      // ========================================================================
 
       toggleExpanded: (rowId) =>
         set((state) => {
           const newExpanded = new Set(state.expandedRows);
+          
           if (newExpanded.has(rowId)) {
             newExpanded.delete(rowId);
           } else {
             newExpanded.add(rowId);
           }
+          
           return { expandedRows: newExpanded };
         }),
+
+      // ========================================================================
+      // GETTERS
+      // ========================================================================
 
       getDisplayData: () => {
         const state = get();
         
-        console.log('🔍 getDisplayData called:', {
-          hasServerData: !!state.serverData,
-          serverDataLength: state.serverData?.length,
-          serverDataType: typeof state.serverData,
-          isArray: Array.isArray(state.serverData),
-        });
-
-        // ✅ FIX: Return empty array if no server data
         if (!state.serverData || !Array.isArray(state.serverData)) {
-          console.warn('⚠️ No server data available, returning empty array');
           return [];
         }
 
-        const result = state.serverData.map((group) => {
-          if (!group._children) {
-            console.log('ℹ️ Group has no children:', group.id || group.name);
-            return group;
-          }
+        return state.serverData.map((group) => {
+          if (!group._children) return group;
 
           const children = group._children.map((keyword: any) => {
+            const pushedEdits = state.pushedValues.get(keyword.keyword_id);
             const edits = state.editedKeywords.get(keyword.keyword_id);
             const isPushed = state.pushedKeywords.has(keyword.keyword_id);
             const isDirty = state.dirtyKeywords.has(keyword.keyword_id);
+            const isSelected = state.selectedKeywords.has(keyword.keyword_id);
 
             return {
               ...keyword,
-              ...edits, // ✅ Apply edits on top of original data
+              ...pushedEdits,
+              ...edits,
               _isDirty: isDirty,
               _isPushed: isPushed,
+              _isSelected: isSelected,
               _highlighted: isDirty && !isPushed,
               is_editable: keyword.is_editable !== false,
             };
@@ -387,31 +472,22 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
 
           return { ...group, _children: children };
         });
-
-        console.log('✅ getDisplayData returning:', {
-          length: result.length,
-          firstItem: result[0],
-          hasChildren: result[0]?._children?.length,
-        });
-
-        return result;
       },
 
+      // ✅ FIXED: Only return pending changes for SELECTED keywords
       getPendingChanges: () => {
         const state = get();
         const changes: any[] = [];
 
-        // ✅ FIX: Only include keywords that are dirty AND not pushed
         state.editedKeywords.forEach((edits, keywordId) => {
-          if (state.pushedKeywords.has(keywordId)) {
-            // Skip already pushed changes
-            return;
-          }
-
-          if (!state.dirtyKeywords.has(keywordId)) {
-            // Skip non-dirty keywords (shouldn't happen, but safety check)
-            return;
-          }
+          // Skip if pushed
+          if (state.pushedKeywords.has(keywordId)) return;
+          
+          // Skip if not dirty
+          if (!state.dirtyKeywords.has(keywordId)) return;
+          
+          // ✅ NEW: Skip if not selected
+          if (!state.selectedKeywords.has(keywordId)) return;
 
           const original = state.serverData
             ?.flatMap((g) => g._children || [])
@@ -434,21 +510,16 @@ export const useKeywordBidStore = create<KeywordBidStore>()(
           });
         });
 
-        console.log('📊 Pending changes:', changes.length);
         return changes;
       },
 
-      getKeywordById: (id) => {
-        const state = get();
-        const original = state.serverData
-          ?.flatMap((g) => g._children || [])
-          .find((k) => k.keyword_id === id);
-
-        if (!original) return null;
-
-        const edits = state.editedKeywords.get(id);
-        return { ...original, ...edits };
+      getSelectedKeywords: () => {
+        return Array.from(get().selectedKeywords);
       },
+
+      // ========================================================================
+      // UTILITY
+      // ========================================================================
 
       reset: () => set(initialState),
     }),

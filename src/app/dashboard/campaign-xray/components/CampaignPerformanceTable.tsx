@@ -4,15 +4,16 @@ import { AdvancedDataTable, ColumnDefinition } from "@/components/dashboard/tabl
 import { useKeywordPerformanceHierarchical, usePushKeywordBids } from "@/lib/hooks/useCampaignQueries";
 import { useDateRange } from "@/lib/context/DateRangeContext";
 import { useKeywordBidStore } from "@/lib/hooks/useKeywordBidStore";
-import { Loader2, AlertCircle, Target, Save, X, CheckCircle, Undo, Redo } from "lucide-react";
+import { Loader2, AlertCircle, Target, Save, X, CheckCircle, Undo, Redo, Percent } from "lucide-react";
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { PeriodSelector } from "@/components/dashboard/ui/PeriodSlector";
 import { 
   getSourceColor,
 } from "@/lib/api/services/campaign.service";
 import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/dashboard/ui/table/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/dashboard/ui/table/input";
 import { format, subDays } from "date-fns";
 
 const KeywordPerformanceTable = () => {
@@ -32,6 +33,10 @@ const KeywordPerformanceTable = () => {
     const compStart = subDays(compEnd, 6);
     return { start: compStart, end: compEnd };
   });
+
+  // ✅ NEW: Percentage increase state
+  const [percentageInput, setPercentageInput] = useState<string>("");
+  const [showPercentageInput, setShowPercentageInput] = useState(false);
 
   const apiDates = useMemo(() => {
     if (customPeriodEnabled) {
@@ -55,82 +60,61 @@ const KeywordPerformanceTable = () => {
     markAsPushed,
     getDisplayData,
     getPendingChanges,
+    getSelectedKeywords,
+    toggleSelection,
+    clearSelection,
+    applyPercentageChange,
     undo,
     redo,
     canUndo,
     canRedo,
-    clearSelection,
   } = useKeywordBidStore();
 
   const { data, isLoading, isError, error, refetch } = useKeywordPerformanceHierarchical(apiDates);
   const pushBidsMutation = usePushKeywordBids();
 
-  // ✅ DEBUG: Log the raw API response
-  useEffect(() => {
-    console.log('🔍 RAW API RESPONSE:', {
-      hasData: !!data,
-      dataKeys: data ? Object.keys(data) : null,
-      dataDataArray: data?.data,
-      dataDataLength: data?.data?.length,
-      firstItem: data?.data?.[0],
-      summary: data?.summary,
-    });
-  }, [data]);
-
-  // ✅ FIX: Update server data whenever API data changes
+  // ✅ Update server data whenever API data changes
   useEffect(() => {
     if (data?.data) {
-      console.log('📥 Setting server data from API:', {
-        groups: data.data.length,
-        firstGroup: data.data[0],
-        hasChildren: data.data[0]?._children?.length,
-      });
+      console.log('📥 Setting server data from API:', data.data.length, 'groups');
       setServerData(data.data);
     }
   }, [data, setServerData]);
 
-  // ✅ FIX: Force re-render when store updates by subscribing to store changes
+  // ✅ Subscribe to ALL store changes to force re-render
   const [renderTrigger, setRenderTrigger] = useState(0);
   
-  // Subscribe to store changes to force component re-render
   useEffect(() => {
-    const unsubscribe = useKeywordBidStore.subscribe((state) => {
-      // Trigger re-render when edited keywords change
+    const unsubscribe = useKeywordBidStore.subscribe(() => {
       setRenderTrigger(prev => prev + 1);
     });
     
     return unsubscribe;
   }, []);
 
-  // Get display data - this will update when renderTrigger changes
+  // Get display data - updates when renderTrigger changes
   const displayData = useMemo(() => {
     const data = getDisplayData();
-    console.log('🔄 Display data generated:', {
-      length: data?.length,
-      isArray: Array.isArray(data),
-      firstItem: data?.[0],
+    console.log('🔄 Display data updated:', {
+      groups: data?.length,
       trigger: renderTrigger
     });
     return data;
   }, [getDisplayData, renderTrigger]);
 
-  // ✅ DEBUG: Log displayData whenever it changes
-  useEffect(() => {
-    console.log('📊 DISPLAY DATA UPDATED:', {
-      displayData,
-      length: displayData?.length,
-      isNull: displayData === null,
-      isUndefined: displayData === undefined,
-      isEmpty: displayData?.length === 0,
-    });
-  }, [displayData]);
-
-  // Get pending changes - this will also update when renderTrigger changes
+  // Get pending changes - updates when renderTrigger changes
   const pendingChanges = useMemo(() => {
     const changes = getPendingChanges();
     console.log('📝 Pending changes:', changes.length);
     return changes;
   }, [getPendingChanges, renderTrigger]);
+
+  // ✅ Get selected keywords count
+  const selectedKeywords = useMemo(() => {
+    const selected = getSelectedKeywords();
+    console.log('✅ Selected keywords:', selected.length);
+    return selected;
+  }, [getSelectedKeywords, renderTrigger]);
 
   const handlePeriodChange = useCallback((
     current: { start: Date; end: Date },
@@ -183,7 +167,7 @@ const KeywordPerformanceTable = () => {
     },
     {
       field: "keyword_bid",
-      headerName: "Keyword Bid",
+      headerName: "keyword Bid",
       type: "number",
       sortable: true,
       filterable: true,
@@ -290,7 +274,6 @@ const KeywordPerformanceTable = () => {
     },
   ], []);
 
-  // ✅ FIX: Simplified cell edit handler
   const handleCellEdit = useCallback((keywordId: string, field: string, value: any) => {
     console.log('🎯 Cell Edit Called:', { keywordId, field, value, type: typeof value });
     updateKeyword(keywordId, field, value);
@@ -304,6 +287,40 @@ const KeywordPerformanceTable = () => {
       variant: "default",
     });
   }, [revertKeyword, toast]);
+
+  // ✅ NEW: Handle percentage increase
+  const handlePercentageIncrease = useCallback(() => {
+    const percentage = parseFloat(percentageInput);
+    
+    if (isNaN(percentage)) {
+      toast({
+        title: "Invalid Percentage",
+        description: "Please enter a valid number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedKeywords.length === 0) {
+      toast({
+        title: "No Keywords Selected",
+        description: "Please select keywords to apply the percentage change.",
+        variant: "default",
+      });
+      return;
+    }
+
+    applyPercentageChange(percentage);
+    
+    toast({
+      title: "Percentage Change Applied",
+      description: `Applied ${percentage > 0 ? '+' : ''}${percentage}% to ${selectedKeywords.length} keyword${selectedKeywords.length !== 1 ? 's' : ''}`,
+      variant: "default",
+    });
+
+    setPercentageInput("");
+    setShowPercentageInput(false);
+  }, [percentageInput, selectedKeywords, applyPercentageChange, toast]);
 
   const handleSave = useCallback(async (dryrun: boolean = false) => {
     if (pendingChanges.length === 0) {
@@ -367,6 +384,30 @@ const KeywordPerformanceTable = () => {
       });
     }
   }, [pendingChanges, toast, refetch, pushBidsMutation, markAsPushed, clearSelection]);
+
+  // ✅ NEW: Undo handler with feedback
+  const handleUndo = useCallback(() => {
+    if (canUndo()) {
+      undo();
+      toast({
+        title: "Undo",
+        description: "Last change has been undone.",
+        variant: "default",
+      });
+    }
+  }, [undo, canUndo, toast]);
+
+  // ✅ NEW: Redo handler with feedback
+  const handleRedo = useCallback(() => {
+    if (canRedo()) {
+      redo();
+      toast({
+        title: "Redo",
+        description: "Change has been reapplied.",
+        variant: "default",
+      });
+    }
+  }, [redo, canRedo, toast]);
 
   const changesBySource = useMemo(() => {
     const stats = {
@@ -434,18 +475,7 @@ const KeywordPerformanceTable = () => {
     );
   }
 
-  // ✅ FIX: Check both null and empty array
-  const hasNoData = !displayData || displayData.length === 0;
-  
-  console.log('🚨 RENDER CHECK:', {
-    hasNoData,
-    displayDataExists: !!displayData,
-    displayDataLength: displayData?.length,
-    displayDataType: typeof displayData,
-    displayDataIsArray: Array.isArray(displayData),
-  });
-
-  if (hasNoData) {
+  if (!displayData || displayData.length === 0) {
     return (
       <div className="space-y-4">
         <PeriodSelector
@@ -463,15 +493,6 @@ const KeywordPerformanceTable = () => {
             <p className="text-slate-500 text-sm">
               No keyword performance data found for the selected date range.
             </p>
-            {/* ✅ DEBUG INFO */}
-            <div className="mt-4 p-4 bg-slate-100 rounded text-xs text-left">
-              <div className="font-bold mb-2">Debug Info:</div>
-              <div>API Data: {data?.data?.length || 0} groups</div>
-              <div>Display Data: {displayData?.length || 0} items</div>
-              <div>Has Data: {!!data ? 'Yes' : 'No'}</div>
-              <div>Data Type: {typeof displayData}</div>
-              <div>Is Array: {Array.isArray(displayData) ? 'Yes' : 'No'}</div>
-            </div>
           </div>
         </div>
       </div>
@@ -487,6 +508,84 @@ const KeywordPerformanceTable = () => {
         comparisonEnd={comparisonPeriod.end}
         onPeriodChange={handlePeriodChange}
       />
+
+      {/* ✅ NEW: Selection info bar */}
+      {selectedKeywords.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-300 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-500 rounded-full p-2">
+                <CheckCircle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  {selectedKeywords.length} Keyword{selectedKeywords.length !== 1 ? 's' : ''} Selected
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Apply bulk changes or deselect individually using checkboxes
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {!showPercentageInput ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPercentageInput(true)}
+                  className="bg-white border-blue-300 hover:bg-blue-50 text-blue-700 font-medium"
+                >
+                  <Percent className="h-4 w-4 mr-2" />
+                  Adjust Bids by %
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={percentageInput}
+                    onChange={(e) => setPercentageInput(e.target.value)}
+                    placeholder="e.g., 10 or -15"
+                    className="w-32 h-8 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handlePercentageIncrease();
+                      if (e.key === 'Escape') {
+                        setShowPercentageInput(false);
+                        setPercentageInput("");
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handlePercentageIncrease}
+                    className="bg-blue-500 hover:bg-blue-600 text-white h-8"
+                  >
+                    Apply
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowPercentageInput(false);
+                      setPercentageInput("");
+                    }}
+                    className="h-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => clearSelection()}
+                className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium"
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pendingChanges.length > 0 && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-300 shadow-sm">
@@ -525,7 +624,7 @@ const KeywordPerformanceTable = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => undo()}
+                onClick={handleUndo}
                 disabled={!canUndo()}
                 className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium"
               >
@@ -535,7 +634,7 @@ const KeywordPerformanceTable = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => redo()}
+                onClick={handleRedo}
                 disabled={!canRedo()}
                 className="bg-white border-slate-300 hover:bg-slate-50 text-slate-700 font-medium"
               >
@@ -607,12 +706,14 @@ const KeywordPerformanceTable = () => {
         data={displayData}
         columns={columns}
         onCellEdit={handleCellEdit}
+        onToggleSelection={toggleSelection}
         className="shadow-sm"
       />
 
       <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
         <p className="text-xs text-blue-800">
           <strong>Tip:</strong> Click on ASIN or Campaign rows to expand and view keywords. 
+          Use checkboxes to select keywords, then apply bulk percentage changes or edit individual bids.
           Edit keyword bids by clicking on the bid value. Press Enter or click outside to save.
           Use Undo/Redo to manage changes. Click × next to a change to revert it individually.
         </p>

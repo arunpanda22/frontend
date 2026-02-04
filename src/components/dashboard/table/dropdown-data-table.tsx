@@ -16,14 +16,11 @@ import {
   Download,
   Trash2,
   Edit3,
-  Check,
-  X,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Pin,
   PinOff,
-  GripVertical,
   MoreVertical,
   TrendingUp,
   TrendingDown,
@@ -75,7 +72,8 @@ interface AdvancedDataTableProps<T extends TableData = TableData> {
   onDataChange?: (data: T[]) => void;
   onEditedRowsChange?: (editedRows: Set<number>) => void;
   onColumnsChange?: (columns: ColumnDefinition[]) => void;
-  onCellEdit?: (keywordId: string, field: string, value: any) => void; // ADD THIS LINE
+  onCellEdit?: (keywordId: string, field: string, value: any) => void;
+  onToggleSelection?: (keywordId: string) => void; // ✅ NEW
   className?: string;
   autoFitHeaders?: boolean;
   showExportCard?: boolean;
@@ -90,7 +88,6 @@ interface CellRendererProps {
   onSave: () => void;
   onCancel: () => void;
   onEditValueChange: (value: any) => void;
-  onCellEdit?: (keywordId: string, field: string, value: any) => void;
   rowData: TableData;
 }
 
@@ -136,7 +133,6 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
   const largeCharWidth = 11;
 
   const isSmall = (ch: string) => /[a-z0-9]/.test(ch);
-  const isLargeOrSymbol = (ch: string) => !isSmall(ch);
 
   let textWidth = 0;
 
@@ -146,7 +142,6 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
 
   const totalWidth = textWidth + gapWidth + menuButtonWidth + paddingWidth;
 
-  // Round to nearest 5 and keep minimum 100
   return Math.max(100, Math.ceil(totalWidth / 5) * 5);
 };
 
@@ -224,14 +219,12 @@ const CellRenderer = memo(function CellRenderer({
   onEditValueChange,
   rowData,
 }: CellRendererProps) {
-  // NEW: Prevent double-save from Enter + Blur
   const isSavingRef = useRef(false);
 
   const handleSave = useCallback(() => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
     onSave();
-    // Reset after a short delay
     setTimeout(() => {
       isSavingRef.current = false;
     }, 100);
@@ -251,12 +244,10 @@ const CellRenderer = memo(function CellRenderer({
     [handleSave, onCancel],
   );
 
-  // Auto-save on blur (clicking outside)
   const handleBlur = useCallback(() => {
     handleSave();
   }, [handleSave]);
 
-  // Check if this row is editable - look for is_editable field or check if it's a keyword row
   const isRowEditable = rowData.is_editable !== false && !rowData._isParent;
   const isCellEditable = column.editable && isRowEditable;
 
@@ -370,8 +361,6 @@ const ExpandButton = memo(function ExpandButton({
     </button>
   );
 });
-
-// PART 1: Helper Components and Column Actions Dropdown
 
 const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   column,
@@ -653,14 +642,14 @@ const ColumnActionsDropdown = memo(function ColumnActionsDropdown({
   );
 });
 
-// Main AdvancedDataTable Component
 export function AdvancedDataTable<T extends TableData = TableData>({
   data,
   columns: initialColumns,
   onDataChange,
   onEditedRowsChange,
   onColumnsChange,
-  onCellEdit, 
+  onCellEdit,
+  onToggleSelection, // ✅ NEW
   className,
   autoFitHeaders = false,
 }: AdvancedDataTableProps<T>) {
@@ -697,11 +686,9 @@ export function AdvancedDataTable<T extends TableData = TableData>({
   }, [initialColumns, autoFitHeaders]);
 
   const [internalColumns, setInternalColumns] =
-    useState<ColumnDefinition[]>(processedColumns); // ADD THIS
+    useState<ColumnDefinition[]>(processedColumns);
   const [filteredData, setFilteredData] = useState<TableData[]>(data);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [editedRows, setEditedRows] = useState<Set<number>>(new Set());
   const [editingCell, setEditingCell] = useState<{
     row: number;
     field: string;
@@ -713,10 +700,8 @@ export function AdvancedDataTable<T extends TableData = TableData>({
 
   const rowsPerPage = 100;
   const minVisibleRows = 10;
-  const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight] = useState(600);
 
-  // Update columns when initialColumns change
   useEffect(() => {
     setInternalColumns(processedColumns);
   }, [processedColumns]);
@@ -731,7 +716,7 @@ export function AdvancedDataTable<T extends TableData = TableData>({
             : Math.min(180, c.maxWidth || 400),
         ]),
       ) as Record<string, number>,
-    [internalColumns], // ✅ Correct dependency
+    [internalColumns],
   );
 
   const [columnWidths, setColumnWidths] =
@@ -795,8 +780,6 @@ export function AdvancedDataTable<T extends TableData = TableData>({
     return { left, center, right };
   }, [internalColumns]);
 
-  // REMOVED: calculateAggregatedRow function - no longer needed since API returns aggregated data
-
   const flattenedData = useMemo(() => {
     const result: (TableData & {
       _isChild?: boolean;
@@ -814,7 +797,6 @@ export function AdvancedDataTable<T extends TableData = TableData>({
       const children = parent._children || [];
 
       if (children.length > 0) {
-        // Use parent data as-is (already aggregated by API)
         const flatIndex = result.length;
         result.push({
           ...parent,
@@ -970,7 +952,6 @@ export function AdvancedDataTable<T extends TableData = TableData>({
     return result;
   }, [data, filters, sorts]);
 
-  // Sync filteredData with data prop when no filters/sorts applied
   useEffect(() => {
     if (sorts.length === 0 && Object.keys(filters).length === 0) {
       setFilteredData(data);
@@ -981,10 +962,6 @@ export function AdvancedDataTable<T extends TableData = TableData>({
     setFilteredData(processedData);
     setCurrentPage(1);
   }, [processedData]);
-
-  useEffect(() => {
-    onEditedRowsChange?.(editedRows);
-  }, [editedRows, onEditedRowsChange]);
 
   const orderedColumns = useMemo(() => {
     return [
@@ -1047,10 +1024,12 @@ export function AdvancedDataTable<T extends TableData = TableData>({
 
     if (!rowData.keyword_id) return;
 
-    const value = editingCell.field === "keyword_bid" ||
-      internalColumns.find((c) => c.field === editingCell.field)?.type === "number"
-      ? Number(editValue)
-      : editValue;
+    const value =
+      editingCell.field === "keyword_bid" ||
+      internalColumns.find((c) => c.field === editingCell.field)?.type ===
+        "number"
+        ? Number(editValue)
+        : editValue;
 
     onCellEdit?.(rowData.keyword_id, editingCell.field, value);
 
@@ -1062,46 +1041,6 @@ export function AdvancedDataTable<T extends TableData = TableData>({
     setEditingCell(null);
     setEditValue("");
   }, []);
-
-  const handleRowSelect = useCallback(
-    (rowIndex: number, checked: boolean) => {
-      const rowData = displayData[rowIndex];
-      const flatIndex = rowData._flatIndex;
-
-      if (flatIndex === undefined) return;
-
-      setSelectedRows((prev) => {
-        const newSet = new Set(prev);
-        if (checked) {
-          newSet.add(flatIndex);
-        } else {
-          newSet.delete(flatIndex);
-        }
-        return newSet;
-      });
-    },
-    [displayData],
-  );
-
-  const handleSelectAll = useCallback(
-    (checked: boolean) => {
-      if (checked) {
-        const allIndices = new Set(flattenedData.map((_, i) => i));
-        setSelectedRows(allIndices);
-      } else {
-        setSelectedRows(new Set());
-      }
-    },
-    [flattenedData],
-  );
-
-  const deleteSelectedRows = useCallback(() => {
-    if (selectedRows.size === 0) return;
-
-    const newData = data.filter((_, index) => !selectedRows.has(index));
-    onDataChange?.(newData);
-    setSelectedRows(new Set());
-  }, [data, selectedRows, onDataChange]);
 
   const escapeCSV = (value: any): string => {
     if (value === null || value === undefined) return "";
@@ -1201,25 +1140,40 @@ export function AdvancedDataTable<T extends TableData = TableData>({
     }));
   }, []);
 
-  // Return statement starts on next part (Part 4)
+  // ============================================================================
+  // ✅ SELECTION HANDLERS
+  // ============================================================================
 
-  // PART 4: JSX Return Statement (continues from Part 3)
+  const handleCheckboxToggle = useCallback(
+    (keywordId: string) => {
+      if (onToggleSelection) {
+        onToggleSelection(keywordId);
+      }
+    },
+    [onToggleSelection],
+  );
+
+  const handleParentCheckboxToggle = useCallback(
+    (children: any[], currentState: boolean) => {
+      if (!onToggleSelection) return;
+
+      children.forEach((child) => {
+        if (child.keyword_id && child._isSelected !== currentState) {
+          onToggleSelection(child.keyword_id);
+        }
+      });
+    },
+    [onToggleSelection],
+  );
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   return (
     <div className={cn("w-full space-y-6 bg-slate-50", className)}>
       <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm">
         <div className="flex items-center gap-4">
-          {selectedRows.size > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={deleteSelectedRows}
-              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:shadow-md"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete ({selectedRows.size})
-            </Button>
-          )}
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
             <div>
@@ -1230,8 +1184,6 @@ export function AdvancedDataTable<T extends TableData = TableData>({
                 </span>
               </div>
               <div className="text-xs text-slate-500">
-                {selectedRows.size > 0 && `${selectedRows.size} selected • `}
-                {editedRows.size > 0 && `${editedRows.size} edited • `}
                 Page {currentPage} of {paginationData.totalPages || 1}
               </div>
             </div>
@@ -1288,14 +1240,7 @@ export function AdvancedDataTable<T extends TableData = TableData>({
                   <th className="sticky left-0 z-20 w-1 p-0 bg-ocean-100 border-r border-slate-200">
                     <div className="flex items-center justify-between h-10 px-2 border-b border-slate-600">
                       <div className="flex items-center justify-center h-10 w-12">
-                        <Checkbox
-                          checked={
-                            selectedRows.size === flattenedData.length &&
-                            flattenedData.length > 0
-                          }
-                          onCheckedChange={handleSelectAll}
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-400 rounded"
-                        />
+                        {/* Header checkbox (select all) - optional */}
                       </div>
                     </div>
                   </th>
@@ -1376,21 +1321,33 @@ export function AdvancedDataTable<T extends TableData = TableData>({
               <tbody>
                 {displayData.map((row, rowIndex) => {
                   const flatIndex = row._flatIndex;
-                  const isSelected =
-                    flatIndex !== undefined && selectedRows.has(flatIndex);
-                  const isEdited =
-                    flatIndex !== undefined && editedRows.has(flatIndex);
                   const isEmpty = Object.keys(row).length === 0;
                   const rowId = row.id || row._rowId || rowIndex;
                   const isParent = row._isParent;
                   const isExpanded = expandedRows[rowId];
+
+                  // ✅ Selection state from data
+                  const isSelected = row._isSelected || false;
+                  const isEdited = row._isDirty || false;
+
+                  // ✅ Parent checkbox state
+                  const children = row._children || [];
+                  const selectedChildren = children.filter(
+                    (c: any) => c._isSelected,
+                  ).length;
+                  const allChildrenSelected =
+                    children.length > 0 && selectedChildren === children.length;
+                  const someChildrenSelected =
+                    children.length > 0 &&
+                    selectedChildren > 0 &&
+                    selectedChildren < children.length;
 
                   return (
                     <tr
                       key={rowIndex}
                       className={cn(
                         "border-b border-slate-100 hover:bg-blue-50/50 transition-all duration-150",
-                        isSelected && "bg-blue-100 border-blue-300",
+                        isSelected && "bg-blue-100 border-blue-300", // ✅ Selected state
                         isEdited &&
                           !isSelected &&
                           "bg-yellow-50 border-yellow-200",
@@ -1401,19 +1358,48 @@ export function AdvancedDataTable<T extends TableData = TableData>({
                           "bg-slate-50/30",
                       )}
                     >
+                      {/* ✅ CHECKBOX COLUMN */}
                       <td className="sticky left-0 z-10 p-0 bg-white border-r border-slate-200">
                         <div className="flex items-center justify-center h-11">
                           {!isEmpty && (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) =>
-                                handleRowSelect(rowIndex, checked as boolean)
-                              }
-                              className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-300 rounded"
-                            />
+                            <>
+                              {/* Parent Row Checkbox */}
+                              {isParent && children.length > 0 && (
+                                <Checkbox
+                                  checked={allChildrenSelected}
+                                  data-state={
+                                    allChildrenSelected
+                                      ? "checked"
+                                      : someChildrenSelected
+                                        ? "indeterminate"
+                                        : "unchecked"
+                                  }
+                                  onCheckedChange={(checked) =>
+                                    handleParentCheckboxToggle(
+                                      children,
+                                      checked as boolean,
+                                    )
+                                  }
+                                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 data-[state=indeterminate]:bg-blue-300 data-[state=indeterminate]:border-blue-500 border-slate-300 rounded"
+                                />
+                              )}
+
+                              {/* Child Row Checkbox */}
+                              {!isParent && row.keyword_id && (
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() =>
+                                    handleCheckboxToggle(row.keyword_id)
+                                  }
+                                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 border-slate-300 rounded"
+                                />
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
+
+                      {/* DATA COLUMNS */}
                       {orderedColumns.map((column, colIndex) => {
                         const isLeftPinned = column.pinned === "left";
                         const isRightPinned = column.pinned === "right";
@@ -1457,7 +1443,7 @@ export function AdvancedDataTable<T extends TableData = TableData>({
                                 column.width ??
                                 180,
                               minWidth: column.minWidth ?? 80,
-                              maxWidth: column.maxWidth ?? 400, // ADD THIS
+                              maxWidth: column.maxWidth ?? 400,
                               left: leftOffset,
                               right: rightOffset,
                             }}
