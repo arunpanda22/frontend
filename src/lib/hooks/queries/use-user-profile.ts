@@ -6,6 +6,7 @@ export interface ConnectedAdvertisingProfile {
   profile_id: string;
   account_name: string;
   account_type: string;
+  target_acos: string;
   account_subtype: string;
   country_code: string; 
   currency_code: string;

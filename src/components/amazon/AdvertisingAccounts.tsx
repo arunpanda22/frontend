@@ -7,6 +7,7 @@ import { AlertCircle, Check, Globe2, Store, Tag, Info, Building2, Clock, DollarS
 import { useUserProfile, ConnectedAdvertisingProfile, type UserProfile } from '@/lib/hooks/queries/use-user-profile'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import * as Tooltip from '@radix-ui/react-tooltip'
+import { TargetAcosEditor } from './TargetAcosEditor'
 
 interface AdvertisingAccountsProps {
   userProfile?: UserProfile | null
@@ -110,6 +111,7 @@ export function AdvertisingAccounts({ userProfile: userProfileProp, onRefresh }:
                                     <p><span className="font-medium">Subtype:</span> {profile.account_subtype}</p>
                                     <p><span className="font-medium">Country:</span> {profile.country_code}</p>
                                     <p><span className="font-medium">Currency:</span> {profile.currency_code}</p>
+                                    <p><span className="font-medium">Target ACOS:</span> {profile.target_acos}</p>
                                     <p><span className="font-medium">Timezone:</span> {profile.timezone}</p>
                                     <p><span className="font-medium">Last Synced:</span> {new Date(profile.last_synced_at).toLocaleString()}</p>
                                   </div>
@@ -134,8 +136,8 @@ export function AdvertisingAccounts({ userProfile: userProfileProp, onRefresh }:
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-gray-400" />
-                          <span className="font-medium">Type:</span>{' '}
-                          <span className="capitalize">{profile.account_type}</span>
+                          <span className="font-medium">Target ACOS:</span>
+                          <TargetAcosEditor targetAcos={profile.target_acos} />
                         </div>
 
                         <div className="flex items-center gap-2">
