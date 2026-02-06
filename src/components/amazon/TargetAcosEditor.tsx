@@ -18,8 +18,8 @@ export function TargetAcosEditor({ targetAcos }: TargetAcosEditorProps) {
   const save = () => {
     const numericValue = Number(value)
 
-    if (isNaN(numericValue) || numericValue <= 0 || numericValue >= 100) {
-      alert('Target ACOS must be between 0 and 100')
+    if (isNaN(numericValue) || numericValue <= 0 ) {
+      alert('Target ACOS must be above 0 ')
       return
     }
 

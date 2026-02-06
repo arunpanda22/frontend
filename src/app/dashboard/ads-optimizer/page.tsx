@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Info,
@@ -17,6 +17,7 @@ import { useInvokeAdsOptimizer } from "@/lib/hooks/queries/use-ads-optimizer";
 import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
 import { LoadingWidget } from "@/components/ui/loading-widget";
 import type { AdsOptimizerRequest } from "./lib/types";
+import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 
 export default function AdsOptimizerPage() {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function AdsOptimizerPage() {
   const setOptimizationData = useAdsOptimizerStore(
     (state) => state.setOptimizationData
   );
+  
+  // Fetch user profile to get target_acos
+  const { data: userProfile, isLoading: isProfileLoading } = useUserProfile();
 
   // Loading widget state
   const [showLoading, setShowLoading] = useState(false);
@@ -55,9 +59,32 @@ export default function AdsOptimizerPage() {
     Record<string, string>
   >({});
 
+  // Set default target ACOS from user profile when it loads
+  useEffect(() => {
+    if (userProfile?.connected_advertising_profiles?.[0]?.target_acos) {
+      const profileTargetAcos = parseFloat(userProfile.connected_advertising_profiles[0].target_acos);
+      if (!isNaN(profileTargetAcos) && profileTargetAcos > 0) {
+        setTargetAcos(prev => ({
+          ...prev,
+          combined: profileTargetAcos,
+        }));
+      }
+    }
+  }, [userProfile]);
+
   const resetToDefaults = () => {
+    // Use profile target_acos or fallback to 25
+    const defaultAcos = userProfile?.connected_advertising_profiles?.[0]?.target_acos 
+      ? parseFloat(userProfile.connected_advertising_profiles[0].target_acos) 
+      : 25;
+    
     setIsCombined(true);
-    setTargetAcos({ combined: 25, sp: 20, sb: 30, sd: 40 });
+    setTargetAcos({ 
+      combined: !isNaN(defaultAcos) && defaultAcos > 0 ? defaultAcos : 25, 
+      sp: 20, 
+      sb: 30, 
+      sd: 40 
+    });
     setMode("Balanced Optimisation");
     setMultipliers({
       brand: 1,
