@@ -105,6 +105,13 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
+    name: 'Catalogue',
+    href: '/dashboard/catalogue',
+    description: 'Catalogue creation page',
+    permission: 'access_catalogue_creation',
+    requiresSellerAccount: true,
+  },
+  {
     name: 'Opportunity Optimizer',
     href: '/dashboard/opportunities',
     description: 'Find oppurtunities to increase profits',
