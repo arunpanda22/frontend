@@ -2,83 +2,51 @@
 
 import { useState, useMemo, useCallback } from "react"
 import { ChevronDown, Copy, Zap, BarChart3 } from "lucide-react"
-import { Button } from "./components/ui/button"
-import { Card } from "./components/ui/card"
-import { Input } from "./components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { KeywordsList } from "./components/keywords-list"
 import { ContentEditor } from "./components/content-editor"
 import { CatalogueForm } from "./components/catalogue-form"
 import { KeywordFilterTable } from "./components/keyword-filter-table"
 import { useToast } from "@/components/ui/use-toast"
-
-const SAMPLE_KEYWORDS = [
-  "ready to eat meals",
-  "camping food",
-  "dehydrated food",
-  "frozen food",
-  "instant rice",
-  "instant breakfast",
-  "ready to eat food",
-  "meal prep",
-  "instant meals",
-  "breakfast cereals",
-  "instant noodles",
-  "quick meals",
-  "freeze dried meals",
-  "long shelf life food",
-  "survival food",
-]
-
-const SAMPLE_KEYWORD_DATA = [
-  {
-    keywordPhrase: "water purifier for home",
-    searchVolume: 25000,
-    kwType: "Listing Ranking & SB",
-    position: 8,
-    competitorCount: 12,
-    relevance: "Excellent",
-    wordCount: 4,
-    sponsoredRank: 5,
-    manualScore: 0,
-  },
-  {
-    keywordPhrase: "best water filter",
-    searchVolume: 12000,
-    kwType: "Listing & SB & Ranking",
-    position: 15,
-    competitorCount: 8,
-    relevance: "Good",
-    wordCount: 3,
-    sponsoredRank: 3,
-    manualScore: 0,
-  },
-  {
-    keywordPhrase: "ro water purifier",
-    searchVolume: 8500,
-    kwType: "Listing Priority",
-    position: 22,
-    competitorCount: 10,
-    relevance: "Good",
-    wordCount: 3,
-    sponsoredRank: 12,
-    manualScore: 0,
-  },
-]
+import { useCatalogStore } from "@/lib/hooks/queries/use-catalog-store"
+import { useCatalogOperations } from "@/lib/hooks/use-catalogue-operations"
 
 export default function CataloguePage() {
-  const [keywords, setKeywords] = useState<string[]>(SAMPLE_KEYWORDS)
+  const { toast } = useToast()
+  const { generateCatalog, filterKeywords } = useCatalogOperations()
+  
+  // Zustand store
+  const {
+    keywords,
+    keywordFilterData,
+    isKeywordFiltering,
+    isCatalogGenerating,
+    title,
+    bullets,
+    description,
+    backendKeywords,
+    selectedKeywords,
+    catalogueFormState,              
+   setCatalogueFormState, 
+    toggleKeywordSelection,
+    addSelectedKeywordsToList,
+    setKeywords,
+    setTitle,
+    setBullets,
+    setDescription,
+    setBackendKeywords,
+  } = useCatalogStore()
+  
+  // Local UI state
   const [keywordInput, setKeywordInput] = useState("")
-  const [title, setTitle] = useState("")
-  const [bullets, setBullets] = useState<string[]>(["", "", "", "", "", "", ""])
-  const [description, setDescription] = useState("")
-  const [backendKeywords, setBackendKeywords] = useState("")
   const [hideUsed, setHideUsed] = useState(false)
   const [showKeywordInput, setShowKeywordInput] = useState(false)
-  const [keywordFilterData, setKeywordFilterData] = useState<typeof SAMPLE_KEYWORD_DATA>([])
   const [formCollapsed, setFormCollapsed] = useState(false)
   const [tableCollapsed, setTableCollapsed] = useState(false)
-  const { toast } = useToast()
 
+  // Extract individual words from keywords
   const words = useMemo(() => {
     const wordSet = new Set<string>()
     keywords.forEach((keyword) => {
@@ -92,10 +60,12 @@ export default function CataloguePage() {
     return Array.from(wordSet).sort()
   }, [keywords])
 
+  // Get all content text
   const allContent = useMemo(() => {
     return (title + " " + bullets.join(" ") + " " + description + " " + backendKeywords).toLowerCase()
   }, [title, bullets, description, backendKeywords])
 
+  // Track usage of keywords and words
   const keywordUsage = useMemo(() => {
     const usage = new Map<string, number>()
     keywords.forEach((keyword) => {
@@ -157,26 +127,84 @@ export default function CataloguePage() {
     setKeywords(keywords.filter((k) => k !== keyword))
   }
 
-  const handleFormSubmit = (data: FormData) => {
-    console.log("Form submitted:", data)
-    toast({
-      description: "Generating catalogue content...",
+  const handleFormSubmit = async (data: FormData) => {
+    const asin = data.get('asin') as string
+    const competitorAsins = data.get('competitor_asins') as string  // ✅ CHANGED: competitor_asin → competitor_asins
+    const brand = data.get('brand') as string
+    const description = data.get('description') as string
+    const tone = data.get('tone') as string
+    const cerebroFile = data.get('cerebro_file') as File
+
+    // ✅ UPDATED: Check for competitorAsins instead of competitorAsin
+    if (!asin || !competitorAsins || !brand || !description || !tone || !cerebroFile) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // ✅ UPDATED: Pass competitor_asins instead of competitor_asin
+    const result = await generateCatalog({
+      asin,
+      competitor_asins: competitorAsins,  // ✅ CHANGED
+      cerebro_file: cerebroFile,
+      brand,
+      description,
+      tone,
     })
+
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Catalog generated successfully!",
+      })
+      setFormCollapsed(true)
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to generate catalog",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleKeywordFilter = (data: FormData) => {
-    console.log("Keyword filter clicked:", data)
-    setKeywordFilterData(SAMPLE_KEYWORD_DATA)
-    toast({
-      description: "Loading keyword filter results...",
+  const handleKeywordFilter = async (data: FormData) => {
+    const cerebroFile = data.get('cerebro_file') as File
+
+    if (!cerebroFile) {
+      toast({
+        title: "Missing file",
+        description: "Please upload a Cerebro file",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const result = await filterKeywords({
+      cerebro_file: cerebroFile,
+      min_search_volume: 200,
     })
+
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Keywords filtered successfully!",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to filter keywords",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleAddKeywordsFromTable = (selectedKeywords: string[]) => {
-    const newKeywords = selectedKeywords.filter((k) => !keywords.includes(k))
-    setKeywords([...keywords, ...newKeywords])
+  const handleAddKeywordsFromTable = (selectedKeywordPhrases: string[]) => {
+    addSelectedKeywordsToList()
     toast({
-      description: `Added ${newKeywords.length} keywords`,
+      description: `Added ${selectedKeywordPhrases.length} keywords`,
     })
   }
 
@@ -205,13 +233,23 @@ export default function CataloguePage() {
               onClick={() => setFormCollapsed(!formCollapsed)}
               className="flex items-center justify-between w-full text-left"
             >
-              <h2 className="text-lg font-semibold text-slate-900">Catalogue Setup</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-slate-900">Catalogue Setup</h2>
+                {isCatalogGenerating && (
+                  <span className="text-sm text-cyan-600 animate-pulse">Generating...</span>
+                )}
+              </div>
               <ChevronDown className={`w-5 h-5 transition-transform ${formCollapsed ? "" : "rotate-180"}`} />
             </button>
           </div>
           {!formCollapsed && (
             <div className="p-6">
-              <CatalogueForm onSubmit={handleFormSubmit} onKeywordFilter={handleKeywordFilter} />
+              <CatalogueForm
+                formState={catalogueFormState}
+                onFormStateChange={setCatalogueFormState}
+                onSubmit={handleFormSubmit}
+                onKeywordFilter={handleKeywordFilter}
+              />
             </div>
           )}
         </Card>
@@ -222,13 +260,23 @@ export default function CataloguePage() {
               onClick={() => setTableCollapsed(!tableCollapsed)}
               className="flex items-center justify-between w-full text-left"
             >
-              <h2 className="text-lg font-semibold text-slate-900">Keyword Filter Results</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-slate-900">Keyword Filter Results</h2>
+                {isKeywordFiltering && (
+                  <span className="text-sm text-cyan-600 animate-pulse">Loading...</span>
+                )}
+              </div>
               <ChevronDown className={`w-5 h-5 transition-transform ${tableCollapsed ? "" : "rotate-180"}`} />
             </button>
           </div>
           {!tableCollapsed && (
             <div className="p-6">
-              <KeywordFilterTable data={keywordFilterData} onAddKeywords={handleAddKeywordsFromTable} />
+              <KeywordFilterTable 
+                data={keywordFilterData} 
+                onAddKeywords={handleAddKeywordsFromTable}
+                selectedKeywords={selectedKeywords}
+                onToggleKeyword={toggleKeywordSelection}
+              />
             </div>
           )}
         </Card>
