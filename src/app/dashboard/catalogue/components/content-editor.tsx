@@ -1,7 +1,10 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { RichTextEditor } from "./rich-text-editor"
+import { Sparkles } from "lucide-react"
 
 interface ContentEditorProps {
   title: string
@@ -32,6 +35,16 @@ export function ContentEditor({
   keywordUsage,
   wordUsage,
 }: ContentEditorProps) {
+  const handleOptimizeBullets = () => {
+    // TODO: API call will be added later
+    console.log("Optimize bullets clicked")
+  }
+
+  const handleOptimizeDescription = () => {
+    // TODO: API call will be added later
+    console.log("Optimize description clicked")
+  }
+
   return (
     <div className="space-y-3">
       {/* Title */}
@@ -76,10 +89,23 @@ export function ContentEditor({
               </div>
             ))}
           </div>
+          
+          {/* Optimize Bullet Points Button */}
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <Button
+              onClick={handleOptimizeBullets}
+              variant="outline"
+              size="sm"
+              className="w-full bg-white hover:bg-slate-50 text-slate-900"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Optimize Bullet Points
+            </Button>
+          </div>
         </div>
       </Card>
 
-      {/* Description - Taller */}
+      {/* Description */}
       <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4">
           <h2 className="text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">Description</h2>
@@ -92,8 +118,20 @@ export function ContentEditor({
             keywordUsage={keywordUsage}
             wordUsage={wordUsage}
             maxLength={2000}
-            // minHeight="min-h-48"
           />
+          
+          {/* Optimize Description Button */}
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <Button
+              onClick={handleOptimizeDescription}
+              variant="outline"
+              size="sm"
+              className="w-full bg-white hover:bg-slate-50 text-slate-900"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Optimize Description
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -101,16 +139,17 @@ export function ContentEditor({
       <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4">
           <h2 className="text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">Backend Keywords</h2>
-          <RichTextEditor
+          <Textarea
             value={backendKeywords}
-            onChange={setBackendKeywords}
-            placeholder="Enter backend keywords..."
-            usedKeywords={usedKeywords}
-            usedWords={usedWords}
-            keywordUsage={keywordUsage}
-            wordUsage={wordUsage}
+            onChange={(e) => setBackendKeywords(e.target.value.substring(0, 250))}
+            placeholder="Keywords not used in content will appear here after optimization..."
+            className="min-h-[100px] bg-white border-slate-300 text-black resize-none"
             maxLength={250}
           />
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>{backendKeywords.length}/250 characters</span>
+            <span>{backendKeywords.split(/\s+/).filter(w => w).length} words</span>
+          </div>
         </div>
       </Card>
     </div>

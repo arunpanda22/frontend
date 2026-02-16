@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "./ui/badge"
-import { X } from "lucide-react"
+import { X, Loader2 } from "lucide-react"
 
 export interface CatalogueFormState {
   asin: string
@@ -28,9 +28,18 @@ interface CatalogueFormProps {
   onFormStateChange: (state: CatalogueFormState) => void
   onSubmit: (data: FormData) => void
   onKeywordFilter: (data: FormData) => void
+  isGenerating?: boolean
+  isFiltering?: boolean
 }
 
-export function CatalogueForm({ formState, onFormStateChange, onSubmit, onKeywordFilter }: CatalogueFormProps) {
+export function CatalogueForm({ 
+  formState, 
+  onFormStateChange, 
+  onSubmit, 
+  onKeywordFilter,
+  isGenerating = false,
+  isFiltering = false
+}: CatalogueFormProps) {
   const update = (patch: Partial<CatalogueFormState>) =>
     onFormStateChange({ ...formState, ...patch })
 
@@ -179,36 +188,74 @@ export function CatalogueForm({ formState, onFormStateChange, onSubmit, onKeywor
 
       <div className="space-y-2">
         <Label htmlFor="cerebro">Cerebro File</Label>
-        <div className="relative">
-          <Input
-            id="cerebro"
-            type="file"
-            onChange={(e) => update({ cerebroFile: e.target.files?.[0] || null })}
-            className="bg-white border-slate-300 text-black"
-            accept=".csv,.xlsx,.xls"
-          />
-          {formState.cerebroFile && (
-            <p className="text-xs text-slate-600 mt-1">{formState.cerebroFile.name}</p>
-          )}
-        </div>
+        {formState.cerebroFile ? (
+          <div className="bg-slate-50 border border-slate-300 rounded-md p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <svg className="w-5 h-5 text-cyan-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{formState.cerebroFile.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {(formState.cerebroFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => update({ cerebroFile: null })}
+                className="text-slate-500 hover:text-red-600 hover:bg-red-50 ml-2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            <Input
+              id="cerebro"
+              type="file"
+              onChange={(e) => update({ cerebroFile: e.target.files?.[0] || null })}
+              className="bg-white border-slate-300 text-black"
+              accept=".csv,.xlsx,.xls"
+            />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 pt-4">
         <Button 
           type="submit" 
           className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
-          disabled={!formState.asin || !formState.competitorAsins || !formState.cerebroFile}
+          disabled={!formState.asin || !formState.competitorAsins || !formState.cerebroFile || isGenerating}
         >
-          Generate Catalog
+          {isGenerating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating Catalog...
+            </>
+          ) : (
+            'Generate Catalog'
+          )}
         </Button>
         <Button
           type="button"
           onClick={handleKeywordFilter}
           variant="outline"
-          className="w-full bg-white border-slate-300 hover:bg-slate-50"
-          disabled={!formState.cerebroFile}
+          className="w-full bg-white border-slate-300 text-black hover:bg-slate-50"
+          disabled={!formState.cerebroFile || isFiltering}
         >
-          Filter Keywords
+          {isFiltering ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Filtering Keywords...
+            </>
+          ) : (
+            'Filter Keywords'
+          )}
         </Button>
       </div>
     </form>

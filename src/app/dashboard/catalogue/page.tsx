@@ -60,10 +60,10 @@ export default function CataloguePage() {
     return Array.from(wordSet).sort()
   }, [keywords])
 
-  // Get all content text
+  // Get all content text (exclude backendKeywords to prevent them from being counted as used)
   const allContent = useMemo(() => {
-    return (title + " " + bullets.join(" ") + " " + description + " " + backendKeywords).toLowerCase()
-  }, [title, bullets, description, backendKeywords])
+    return (title + " " + bullets.join(" ") + " " + description).toLowerCase()
+  }, [title, bullets, description])
 
   // Track usage of keywords and words
   const keywordUsage = useMemo(() => {
@@ -129,13 +129,12 @@ export default function CataloguePage() {
 
   const handleFormSubmit = async (data: FormData) => {
     const asin = data.get('asin') as string
-    const competitorAsins = data.get('competitor_asins') as string  // ✅ CHANGED: competitor_asin → competitor_asins
+    const competitorAsins = data.get('competitor_asins') as string
     const brand = data.get('brand') as string
     const description = data.get('description') as string
     const tone = data.get('tone') as string
     const cerebroFile = data.get('cerebro_file') as File
 
-    // ✅ UPDATED: Check for competitorAsins instead of competitorAsin
     if (!asin || !competitorAsins || !brand || !description || !tone || !cerebroFile) {
       toast({
         title: "Missing fields",
@@ -145,10 +144,9 @@ export default function CataloguePage() {
       return
     }
 
-    // ✅ UPDATED: Pass competitor_asins instead of competitor_asin
     const result = await generateCatalog({
       asin,
-      competitor_asins: competitorAsins,  // ✅ CHANGED
+      competitor_asins: competitorAsins,
       cerebro_file: cerebroFile,
       brand,
       description,
@@ -249,6 +247,8 @@ export default function CataloguePage() {
                 onFormStateChange={setCatalogueFormState}
                 onSubmit={handleFormSubmit}
                 onKeywordFilter={handleKeywordFilter}
+                isGenerating={isCatalogGenerating}
+                isFiltering={isKeywordFiltering}
               />
             </div>
           )}
