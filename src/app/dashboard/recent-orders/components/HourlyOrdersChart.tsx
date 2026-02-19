@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { ApexOptions } from "apexcharts";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 import { RevenueCard } from "./RevenueCard";
+import { useCurrency } from "@/lib/context/CurrencyContext";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
@@ -85,14 +86,6 @@ const formatDateShort = (dateStr: string | null) => {
   }
 };
 
-const formatRevenue = (value: number) => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
 const HourlyOrdersChart = ({
   hourlyData,
   hourlyTotals,
@@ -100,6 +93,7 @@ const HourlyOrdersChart = ({
   isLoading = false,
 }: HourlyOrdersChartProps) => {
   const [isMounted, setIsMounted] = useState(false);
+  const { formatCurrencyNoDecimal, formatNumber, getCurrencySymbol } = useCurrency();
 
   const lineColors = ["#3B82F6", "#8B5CF6", "#EC4899"];
   const barColors = ["#60A5FA", "#A78BFA"];
@@ -111,6 +105,9 @@ const HourlyOrdersChart = ({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const formatRevenue = (value: number) =>
+  `${getCurrencySymbol()}${Math.round(value).toLocaleString()}`;
 
   const chartData = useMemo(() => {
     if (!hourlyData || hourlyData.length === 0) {

@@ -1,8 +1,7 @@
 "use client"
 
-import React, { useRef, useMemo, useEffect, useState } from "react"
-import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
+import React, { useRef, useMemo, useEffect } from "react"
+import { Copy } from "lucide-react"
 
 interface RichTextEditorProps {
   value: string
@@ -25,12 +24,6 @@ interface HighlightRange {
   usageCount: number
 }
 
-interface BoldRange {
-  start: number
-  end: number
-  text: string
-}
-
 export function RichTextEditor({
   value,
   onChange,
@@ -40,99 +33,16 @@ export function RichTextEditor({
   keywordUsage,
   wordUsage,
   maxLength,
-  minHeight = 100,
+  minHeight = 80,
   maxHeight = 400,
 }: RichTextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
-  const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({})
-
-  // Copy exact computed styles from textarea to highlight overlay
-  useEffect(() => {
-    if (textareaRef.current) {
-      const computed = window.getComputedStyle(textareaRef.current)
-      setHighlightStyle({
-        fontSize: computed.fontSize,
-        fontFamily: computed.fontFamily,
-        fontWeight: computed.fontWeight,
-        lineHeight: computed.lineHeight,
-        letterSpacing: computed.letterSpacing,
-        wordSpacing: computed.wordSpacing,
-        paddingTop: computed.paddingTop,
-        paddingRight: computed.paddingRight,
-        paddingLeft: computed.paddingLeft,
-        border: `${computed.borderWidth} solid transparent`,
-        boxSizing: 'border-box',
-      })
-    }
-  }, [])
-
-  // Auto-resize textarea and highlight overlay based on content
-  useEffect(() => {
-    const textarea = textareaRef.current
-    const highlight = highlightRef.current
-    
-    if (textarea && highlight) {
-      // Reset height to recalculate
-      textarea.style.height = 'auto'
-      
-      // Calculate new height based on content
-      const scrollHeight = textarea.scrollHeight
-      const newHeight = Math.max(
-        minHeight,
-        Math.min(scrollHeight, maxHeight)
-      )
-      
-      // Apply new height to both textarea and highlight overlay
-      textarea.style.height = `${newHeight}px`
-      highlight.style.height = `${newHeight}px`
-      
-      // Enable scrolling only if content exceeds maxHeight
-      if (scrollHeight > maxHeight) {
-        textarea.style.overflowY = 'auto'
-        highlight.style.overflowY = 'auto'
-      } else {
-        textarea.style.overflowY = 'hidden'
-        highlight.style.overflowY = 'hidden'
-      }
-    }
-  }, [value, minHeight, maxHeight])
-
-  // Sync scroll between textarea and highlight overlay
-  const handleScroll = () => {
-    if (textareaRef.current && highlightRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft
-    }
-  }
-
-  // Find bold ranges (text between **)
-  const boldRanges = useMemo(() => {
-    if (!value) return []
-
-    const ranges: BoldRange[] = []
-    const regex = /\*\*(.+?)\*\*/g
-    let match
-
-    while ((match = regex.exec(value)) !== null) {
-      if (match.index !== undefined && match[1]) {
-        ranges.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[1], // Text without the **
-        })
-      }
-    }
-
-    return ranges
-  }, [value])
 
   const highlightRanges = useMemo(() => {
     if (!value) return []
 
-    const ranges: { start: number; end: number; type: "phrase" | "word" }[] = []
-
-    // First, highlight phrases (longer matches first to avoid partial replacements)
+    const ranges: HighlightRange[] = []
     const sortedKeywords = [...usedKeywords].sort((a, b) => b.length - a.length)
 
     sortedKeywords.forEach((keyword) => {
@@ -144,12 +54,13 @@ export function RichTextEditor({
             start: m.index,
             end: m.index + m[0].length,
             type: "phrase",
+            text: m[0],
+            usageCount: keywordUsage.get(m[0].toLowerCase()) || 0,
           })
         }
       })
     })
 
-    // Then highlight individual words (only if not already highlighted as phrase)
     usedWords.forEach((word) => {
       const regex = new RegExp(`\\b(${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi")
       const matches = Array.from(value.matchAll(regex))
@@ -163,344 +74,296 @@ export function RichTextEditor({
               start: m.index,
               end: m.index + m[0].length,
               type: "word",
+              text: m[0],
+              usageCount: wordUsage.get(m[0].toLowerCase()) || 0,
             })
           }
         }
       })
     })
 
-    // Merge overlapping ranges to prevent broken highlights
-    const merged: typeof ranges = []
-    const sorted = [...ranges].sort((a, b) => a.start - b.start)
-    
-    sorted.forEach(range => {
-      const overlapping = merged.find(m => 
-        (range.start >= m.start && range.start < m.end) ||
-        (range.end > m.start && range.end <= m.end) ||
-        (range.start <= m.start && range.end >= m.end)
-      )
-      
-      if (overlapping) {
-        // Extend existing range
-        overlapping.start = Math.min(overlapping.start, range.start)
-        overlapping.end = Math.max(overlapping.end, range.end)
-        // Phrases take priority over words
-        if (range.type === "phrase") overlapping.type = "phrase"
-      } else {
-        merged.push({ ...range })
-      }
-    })
-
-    // Extract text and usageCount after merging
-    const highlightRanges: HighlightRange[] = merged.map(range => {
-      const text = value.substring(range.start, range.end)
-      const usageCount = range.type === "phrase" 
-        ? (keywordUsage.get(text.toLowerCase()) || 0)
-        : (wordUsage.get(text.toLowerCase()) || 0)
-      
-      return {
-        ...range,
-        text,
-        usageCount
-      }
-    })
-
-    return highlightRanges
+    return ranges.sort((a, b) => a.start - b.start)
   }, [value, usedKeywords, usedWords, keywordUsage, wordUsage])
 
   const wordCount = value.split(/\s+/).filter((w) => w).length
   const charCount = value.length
+  const byteCount = new TextEncoder().encode(value).length
+  
+  const isOverLimit = byteCount > maxLength
+
+  // Sync scroll on mount
+  useEffect(() => {
+    if (textareaRef.current && highlightRef.current) {
+      handleScroll()
+    }
+  }, [])
+
+  const handleScroll = () => {
+    // Sync highlight overlay scroll position with textarea scroll
+    if (textareaRef.current && highlightRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop
+      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft
+    }
+  }
 
   const transformText = (transform: "uppercase" | "lowercase" | "camelcase") => {
-    const textarea = textareaRef.current
-    if (!textarea) return
+    if (!textareaRef.current) return
 
+    const textarea = textareaRef.current
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
     const hasSelection = start !== end
 
     let transformed = value
-    const selectedText = value.substring(start, end)
 
     if (!hasSelection) {
-      // Apply to entire text if no selection
       if (transform === "uppercase") {
         transformed = value.toUpperCase()
       } else if (transform === "lowercase") {
         transformed = value.toLowerCase()
       } else if (transform === "camelcase") {
         transformed = value
-          .toLowerCase()
-          .replace(/(?:^\w|[A-Z]|\b\w)/g, (match) => match.toUpperCase())
-          .replace(/\s+/g, "")
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ')
       }
     } else {
-      // Apply only to selection
+      const selectedText = value.substring(start, end)
       let transformedSelection = selectedText
+
       if (transform === "uppercase") {
         transformedSelection = selectedText.toUpperCase()
       } else if (transform === "lowercase") {
         transformedSelection = selectedText.toLowerCase()
       } else if (transform === "camelcase") {
         transformedSelection = selectedText
-          .toLowerCase()
-          .replace(/(?:^\w|[A-Z]|\b\w)/g, (match) => match.toUpperCase())
-          .replace(/\s+/g, "")
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ')
       }
+
       transformed = value.substring(0, start) + transformedSelection + value.substring(end)
     }
 
-    onChange(transformed.substring(0, maxLength))
+    onChange(transformed)
   }
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value)
+  }
+
+  // Shared text style constants - exact same for both layers
+  const textStyle: React.CSSProperties = {
+    fontFamily: 'var(--font-montserrat), ui-sans-serif, system-ui, sans-serif',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    letterSpacing: 'normal',
+    wordSpacing: 'normal',
+  }
+
+  const sharedPadding = '10px'
+
   return (
-    <div className="space-y-1">
-      {/* Editor Container with internal toolbar */}
-      <div className="relative w-full border border-slate-200 rounded-md bg-white">
-        {/* Highlight overlay - Shows styled text */}
-        <div
-          ref={highlightRef}
-          className="absolute top-0 left-0 right-0 pointer-events-none overflow-hidden"
-          style={{
-            ...highlightStyle,
-            whiteSpace: "pre-wrap",
-            wordWrap: "break-word",
-            overflowWrap: "break-word",
-            paddingBottom: "38px",
-            zIndex: 2, // Above textarea
-            overflowX: "hidden",
-          }}
-        >
-          {renderStyledText(value, highlightRanges, boldRanges)}
+    // data-highlight-scope marks this as the boundary for highlight rendering.
+    // Any ancestor with data-no-highlight="true" will suppress highlighting
+    // via the renderHighlights guard, preventing leakage into drawers/portals.
+    <div data-highlight-scope="true">
+      {/* Toolbar row - above textarea */}
+      <div className="flex items-center justify-between border border-b-0 border-slate-200 rounded-t-md bg-slate-50 px-2 py-1">
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => transformText("uppercase")}
+            title="UPPERCASE"
+            className="px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded transition-colors"
+          >
+            AB
+          </button>
+          <button
+            onClick={() => transformText("lowercase")}
+            title="lowercase"
+            className="px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded transition-colors"
+          >
+            ab
+          </button>
+          <button
+            onClick={() => transformText("camelcase")}
+            title="Title Case"
+            className="px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded transition-colors"
+          >
+            Ab
+          </button>
+          <div className="w-px h-4 bg-slate-300 mx-1" />
+          <button
+            onClick={handleCopy}
+            title="Copy to clipboard"
+            className="px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-200 rounded transition-colors flex items-center gap-1"
+          >
+            <Copy className="w-3 h-3" />
+            <span>Copy</span>
+          </button>
         </div>
-        
-        {/* Textarea - Shows text transparently where styled */}
-        <Textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value.substring(0, maxLength))}
-          onScroll={handleScroll}
-          placeholder={placeholder}
-          className="border-0 placeholder:text-slate-400 focus:ring-0 focus:outline-none resize-none relative z-1 text-sm px-3 py-2"
-          style={{
-            caretColor: "#1e293b",
-            paddingBottom: "38px",
-            minHeight: `${minHeight}px`,
-            color: "transparent",
-            backgroundColor: "transparent",
-            WebkitTextFillColor: "transparent", // For Safari
-          }}
-        />
-
-        {/* Internal Toolbar - positioned at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1.5 bg-white border-t border-slate-200 z-20 pointer-events-auto rounded-b-md">
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => transformText("uppercase")}
-              title="Convert to uppercase"
-              className="h-6 w-6 p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-xs font-semibold"
-            >
-              AB
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => transformText("lowercase")}
-              title="Convert to lowercase"
-              className="h-6 w-6 p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-xs font-semibold"
-            >
-              ab
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => transformText("camelcase")}
-              title="Convert to camelCase"
-              className="h-6 w-6 p-0 text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-xs font-semibold"
-            >
-              Ab
-            </Button>
-          </div>
-
-          {/* Stats on the right */}
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span>{charCount}/{maxLength} bytes</span>
-            <span>{charCount} characters</span>
-            <span>{wordCount} words</span>
-          </div>
+        <div className="flex items-center gap-3 text-[11px] text-slate-500">
+          <span className={byteCount > maxLength ? "text-red-600 font-semibold" : ""}>
+            {byteCount}/{maxLength} bytes
+          </span>
+          <span className={charCount > maxLength ? "text-red-600 font-semibold" : ""}>
+            {charCount} chars
+          </span>
+          <span>{wordCount} words</span>
         </div>
       </div>
 
-      {/* Bottom info bar */}
-      <div className="flex items-center justify-between text-xs">
-        <div className="text-slate-500">
-          {highlightRanges.length > 0 && (
-            <span className="text-slate-600 font-medium">
-              {highlightRanges.length} keyword{highlightRanges.length !== 1 ? 's' : ''} matched
-            </span>
-          )}
+      {/* Editor area — height is driven by the overlay div in normal flow.
+          The textarea is absolute on top, stretching to match. This ensures
+          the wrapper always has the right height and selection never misaligns. */}
+      <div
+        className="relative w-full border border-slate-200 rounded-b-md bg-white focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300/50"
+        style={{ isolation: "isolate" }}
+      >
+        {/* Overlay — IN normal flow, drives the wrapper height.
+            pointer-events:none so the textarea above receives all input.
+            data-no-highlight guards against external DOM walkers. */}
+        <div
+          data-no-highlight="true"
+          aria-hidden="true"
+          className="pointer-events-none"
+          style={{
+            ...textStyle,
+            padding: sharedPadding,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+            color: "#0f172a",
+            boxSizing: "border-box",
+            overflowY: "hidden",
+            margin: 0,
+            minHeight: `${minHeight}px`,
+            maxHeight: `${maxHeight}px`,
+            // Visibility hidden — it takes up space and drives height,
+            // but we paint over it with the textarea layer above
+            visibility: "hidden",
+          }}
+        >
+          {/* Extra trailing space ensures the last line always has height */}
+          {value + " "}
         </div>
+
+        {/* Highlight overlay — absolute, sits between the invisible spacer div
+            and the textarea. Renders colored spans + border-bottom highlights. */}
+        <div
+          ref={highlightRef}
+          data-no-highlight="true"
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            ...textStyle,
+            padding: sharedPadding,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+            color: "#0f172a",
+            zIndex: 1,
+            boxSizing: "border-box",
+            overflow: "hidden",
+            margin: 0,
+          }}
+        >
+          {renderHighlights(value, highlightRanges)}
+        </div>
+
+        {/* Textarea — absolute, fills the wrapper exactly.
+            Transparent text so the highlight overlay shows through.
+            caretColor keeps the cursor visible. */}
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onScroll={handleScroll}
+          placeholder={placeholder}
+          className="absolute inset-0 w-full h-full bg-transparent placeholder:text-slate-400 resize-none outline-none"
+          style={{
+            ...textStyle,
+            padding: sharedPadding,
+            boxSizing: "border-box",
+            overflowY: "auto",
+            color: "transparent",
+            caretColor: "#0f172a",
+            zIndex: 2,
+            margin: 0,
+          }}
+        />
       </div>
     </div>
   )
 }
 
-function renderStyledText(text: string, highlightRanges: HighlightRange[], boldRanges: BoldRange[]) {
+function renderHighlights(text: string, ranges: HighlightRange[]) {
   if (!text) return null
 
-  // Build an array to track formatting at each character position
-  const chars = text.split('')
-  const formatting: Array<{
-    isBold: boolean
-    highlight?: HighlightRange
-    isAsterisk: boolean
-  }> = chars.map(() => ({ isBold: false, isAsterisk: false }))
-
-  // Mark bold ranges and asterisks
-  boldRanges.forEach(bold => {
-    // Mark the opening **
-    formatting[bold.start].isAsterisk = true
-    formatting[bold.start + 1].isAsterisk = true
-    
-    // Mark the content as bold (skip the **)
-    for (let i = bold.start + 2; i < bold.end - 2; i++) {
-      formatting[i].isBold = true
-    }
-    
-    // Mark the closing **
-    formatting[bold.end - 2].isAsterisk = true
-    formatting[bold.end - 1].isAsterisk = true
-  })
-
-  // Mark highlights
-  highlightRanges.forEach(highlight => {
-    for (let i = highlight.start; i < highlight.end; i++) {
-      if (!formatting[i].isAsterisk) {
-        formatting[i].highlight = highlight
-      }
-    }
-  })
-
-  // Build the JSX elements
   const elements: React.ReactNode[] = []
-  let i = 0
+  let pos = 0
+  const sortedRanges = [...ranges].sort((a, b) => a.start - b.start)
 
-  while (i < chars.length) {
-    const fmt = formatting[i]
+  while (pos < text.length) {
+    const nextHL = sortedRanges.find((r) => r.start >= pos)
 
-    if (fmt.isAsterisk) {
-      // Render asterisk as invisible but preserve space
+    if (!nextHL) {
+      // Non-highlighted text — renders in normal text color
       elements.push(
-        <span key={`asterisk-${i}`} style={{ opacity: 0 }}>
-          {chars[i]}
+        <span key={`text-${pos}`} style={{ color: "#0f172a" }}>
+          {text.substring(pos)}
         </span>
       )
-      i++
-    } else if (fmt.isBold) {
-      // Collect consecutive bold characters
-      let boldText = ''
-      let boldHighlight: HighlightRange | undefined
-      const startIdx = i
-      
-      while (i < chars.length && formatting[i].isBold) {
-        boldText += chars[i]
-        if (formatting[i].highlight) {
-          boldHighlight = formatting[i].highlight
-        }
-        i++
-      }
+      break
+    }
 
+    if (nextHL.start > pos) {
+      // Gap between highlights — normal text color
       elements.push(
-        <strong
-          key={`bold-${startIdx}`}
-          style={{
-            fontWeight: 700,
-            color: "#1e293b",
-            backgroundColor: boldHighlight
-              ? boldHighlight.type === "phrase"
-                ? "rgba(6, 182, 212, 0.25)"
-                : "rgba(245, 158, 11, 0.25)"
-              : "transparent",
-            borderRadius: boldHighlight ? "2px" : "0",
-            position: "relative",
-          }}
-        >
-          {boldText}
-          {boldHighlight && boldHighlight.usageCount > 0 && (
-            <sup
-              style={{
-                position: "absolute",
-                fontSize: "9px",
-                fontWeight: "600",
-                top: "-2px",
-                marginLeft: "1px",
-                color: boldHighlight.type === "phrase" ? "#2563eb" : "#ca8a04",
-              }}
-            >
-              {boldHighlight.usageCount}
-            </sup>
-          )}
-        </strong>
-      )
-    } else if (fmt.highlight) {
-      // Collect consecutive highlighted characters
-      let highlightText = ''
-      const highlight = fmt.highlight
-      const startIdx = i
-      
-      while (i < chars.length && formatting[i].highlight === highlight && !formatting[i].isBold && !formatting[i].isAsterisk) {
-        highlightText += chars[i]
-        i++
-      }
-
-      elements.push(
-        <mark
-          key={`highlight-${startIdx}`}
-          style={{
-            backgroundColor: highlight.type === "phrase"
-              ? "rgba(6, 182, 212, 0.25)"
-              : "rgba(245, 158, 11, 0.25)",
-            color: "#1e293b",
-            borderRadius: "2px",
-            padding: 0,
-            position: "relative",
-          }}
-        >
-          {highlightText}
-          {highlight.usageCount > 0 && (
-            <sup
-              style={{
-                position: "absolute",
-                fontSize: "9px",
-                fontWeight: "600",
-                top: "-2px",
-                marginLeft: "1px",
-                color: highlight.type === "phrase" ? "#2563eb" : "#ca8a04",
-              }}
-            >
-              {highlight.usageCount}
-            </sup>
-          )}
-        </mark>
-      )
-    } else {
-      // Regular text
-      let regularText = ''
-      const startIdx = i
-      
-      while (i < chars.length && !formatting[i].isBold && !formatting[i].highlight && !formatting[i].isAsterisk) {
-        regularText += chars[i]
-        i++
-      }
-
-      elements.push(
-        <span key={`text-${startIdx}`} style={{ color: "#1e293b" }}>
-          {regularText}
+        <span key={`text-${pos}`} style={{ color: "#0f172a" }}>
+          {text.substring(pos, nextHL.start)}
         </span>
       )
     }
+
+    const isPhrase = nextHL.type === "phrase"
+    const color = isPhrase ? "#0ea5e9" : "#f59e0b"
+
+    // Highlighted span: text takes the highlight color, border-bottom is the
+    // underline. This mirrors mwl-text-input-highlight exactly —
+    // color + border-bottom in the same color, no text-decoration involved.
+    elements.push(
+      <span
+        key={`hl-${nextHL.start}`}
+        style={{
+          color: color,
+          borderBottom: `0.8px solid ${color}`,
+          boxSizing: "border-box",
+        }}
+      >
+        {text.substring(nextHL.start, nextHL.end)}
+      </span>
+    )
+
+    if (nextHL.usageCount > 0) {
+      elements.push(
+        <sup
+          key={`sup-${nextHL.start}`}
+          style={{
+            fontSize: "7px",
+            fontWeight: "700",
+            color: color,
+            marginLeft: "1px",
+            lineHeight: "0",
+            verticalAlign: "super",
+          }}
+        >
+          {nextHL.usageCount}
+        </sup>
+      )
+    }
+
+    pos = nextHL.end
   }
 
   return <>{elements}</>

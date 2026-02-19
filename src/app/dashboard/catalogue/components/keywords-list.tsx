@@ -8,42 +8,46 @@ interface KeywordsListProps {
 }
 
 export function KeywordsList({ keywords, usage, onRemove, type = "phrases" }: KeywordsListProps) {
-  return (
-    <div className="space-y-3">
-      {keywords.length === 0 ? (
-        <div className="flex items-center gap-2 text-slate-500 text-sm py-4">
-          <span>No keywords to display</span>
-        </div>
-      ) : (
-        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-          <div className="flex flex-wrap gap-2">
-            {keywords.map((keyword, index) => {
-              const lowerKeyword = keyword.toLowerCase()
-              const count = usage.get(lowerKeyword) || 0
-              const isUsed = count > 0
+  if (keywords.length === 0) {
+    return (
+      <p className="text-sm text-slate-400 py-3">No {type} to display</p>
+    )
+  }
 
-              return (
-                <span key={keyword} className="inline-flex items-center">
-                  <span
-                    className={`text-sm font-medium transition-all ${
-                      isUsed ? "text-cyan-700 line-through decoration-2" : "text-slate-700"
-                    }`}
-                  >
-                    {keyword}
-                    {isUsed && <sup className="text-xs ml-0.5 text-cyan-600 no-underline">{count}</sup>}
-                  </span>
-                  {index < keywords.length - 1 && <span className="text-slate-400 mx-1.5">,</span>}
-                </span>
-              )
-            })}
-          </div>
-          {/* Copy button integrated at the bottom */}
-          <div className="mt-3 text-xs text-slate-500">
-            {keywords.length} {type === "words" ? "word" : "phrase"}
-            {keywords.length !== 1 ? "s" : ""}
-          </div>
-        </div>
-      )}
+  return (
+    <div className="bg-slate-50 rounded-md p-3 border border-slate-100 max-h-52 overflow-y-auto">
+      <div className="flex flex-wrap items-center">
+        {keywords.map((keyword, index) => {
+          const lowerKeyword = keyword.toLowerCase()
+          const count = usage.get(lowerKeyword) || 0
+          const isUsed = count > 0
+
+          return (
+            <span key={keyword} className="inline-flex items-baseline">
+              <span
+                className={`text-[13px] transition-colors ${
+                  isUsed
+                    ? "text-emerald-700 line-through decoration-emerald-400/60 decoration-1"
+                    : "text-slate-700"
+                }`}
+              >
+                {keyword}
+              </span>
+              {isUsed && (
+                <sup className="text-[9px] font-bold text-emerald-600 ml-px relative -top-1">
+                  {count}
+                </sup>
+              )}
+              {index < keywords.length - 1 && (
+                <span className="text-slate-400 mr-1">,</span>
+              )}
+            </span>
+          )
+        })}
+      </div>
+      <p className="text-[11px] text-slate-400 mt-2">
+        {keywords.length} {type === "words" ? "word" : "phrase"}{keywords.length !== 1 ? "s" : ""}
+      </p>
     </div>
   )
 }

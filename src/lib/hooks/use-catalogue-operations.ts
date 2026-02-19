@@ -12,6 +12,23 @@ import type {
   ImageEditResponse,
 } from  '@/app/dashboard/catalogue/lib/types'
 
+interface ContentOptimizationRequest {
+  bullets: string[]
+  description: string
+  keywords: string[]
+}
+
+interface ContentOptimizationResponse {
+  success: boolean
+  data: {
+    bullets: string[]
+    description: string
+    backend_keywords: string
+    unused_keywords_count: number
+  }
+  message: string
+}
+
 export function useCatalogOperations() {
   const {
     setCatalogData,
@@ -21,6 +38,9 @@ export function useCatalogOperations() {
     setIsKeywordFiltering,
     setKeywordFilterError,
     populateFromCatalog,
+    setBullets,
+    setDescription,
+    setBackendKeywords,
   } = useCatalogStore()
 
   /**
@@ -133,6 +153,38 @@ export function useCatalogOperations() {
   )
 
   /**
+   * Optimize content (bullets and description) with keywords
+   */
+  const optimizeContent = useCallback(
+    async (params: ContentOptimizationRequest): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const response = await apiClient.post<ContentOptimizationResponse>(
+          '/api/v1/catalogue-api/catalog/optimize/',
+          params
+        )
+
+        if (response.data.success) {
+          // Update store with optimized content
+          setBullets(response.data.data.bullets)
+          setDescription(response.data.data.description)
+          setBackendKeywords(response.data.data.backend_keywords)
+          
+          console.log('✅ Content optimized successfully:', response.data)
+          return { success: true }
+        } else {
+          const error = 'Content optimization failed'
+          return { success: false, error }
+        }
+      } catch (error: any) {
+        console.error('❌ Content optimization failed:', error)
+        const errorMsg = error.response?.data?.error || error.message || 'Unknown error'
+        return { success: false, error: errorMsg }
+      }
+    },
+    [setBullets, setDescription, setBackendKeywords]
+  )
+
+  /**
    * Generate AI image (for future use)
    */
   const generateImage = useCallback(
@@ -203,6 +255,7 @@ export function useCatalogOperations() {
   return {
     generateCatalog,
     filterKeywords,
+    optimizeContent,
     generateImage,
     editImage,
   }
