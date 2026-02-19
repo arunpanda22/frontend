@@ -26,29 +26,43 @@ export interface CatalogGenerationResponse {
 
 // Cerebro/Keyword Filter Types
 export interface KeywordFilterRequest {
-  cerebro_file: File
-  min_search_volume?: number
+  asin: string
+  competitor_asins: string  
 }
 
 export interface KeywordData {
-  keywordPhrase: string
-  searchVolume: number
-  kwType: string
-  position: number
-  competitorCount: number
-  relevance: string
-  wordCount: number
-  sponsoredRank: number
-  manualScore: number
+  keyword: string
+  is_primary: boolean
+  frequency: number
+  word_count: number
+  keyword_type: "long_tail" | "standard"
+  searchTermImpressionRank?: number
+  searchTermImpressionShare?: number
+  // match-type pivoted columns (present when API returns them)
+  broad_bid?: number
+  broad_rank?: number
+  broad_bid_lower?: number
+  broad_bid_median?: number
+  broad_bid_upper?: number
+  phrase_bid?: number
+  phrase_rank?: number
+  phrase_bid_lower?: number
+  phrase_bid_median?: number
+  phrase_bid_upper?: number
+  exact_bid?: number
+  exact_rank?: number
+  exact_bid_lower?: number
+  exact_bid_median?: number
+  exact_bid_upper?: number
 }
 
 export interface KeywordFilterResponse {
   success: boolean
   data: {
+    primary_asin: string
+    competitor_asins: string[]
     total_keywords: number
-    unique_keywords: number
     keywords: KeywordData[]
-    download_url: string
     columns: string[]
   }
   message: string

@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useRef, useMemo, useEffect } from "react"
-import { Copy } from "lucide-react"
+import React, { useRef, useMemo, useEffect, useId, useState } from "react"
+import { Copy, Check } from "lucide-react"
 
 interface RichTextEditorProps {
   value: string
@@ -24,6 +24,261 @@ interface HighlightRange {
   usageCount: number
 }
 
+interface TextToken {
+  start: number
+  end: number
+  bold: boolean
+  marker: boolean
+}
+
+// ─── Token Parser ─────────────────────────────────────────────────────────────
+
+function parseTokens(text: string): TextToken[] {
+  const tokens: TextToken[] = []
+  const re = /\*\*/g
+  let match: RegExpExecArray | null
+  let pos = 0
+  let bold = false
+
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > pos) {
+      tokens.push({ start: pos, end: match.index, bold, marker: false })
+    }
+    tokens.push({ start: match.index, end: match.index + 2, bold: false, marker: true })
+    bold = !bold
+    pos = match.index + 2
+  }
+
+  if (pos < text.length) {
+    tokens.push({ start: pos, end: text.length, bold, marker: false })
+  }
+
+  return tokens
+}
+
+// ─── Content Renderer ─────────────────────────────────────────────────────────
+// Renders the contentEditable innerHTML with proper keyword highlighting and bold
+
+function renderContent(text: string, ranges: HighlightRange[]): string {
+  if (!text) return ""
+
+  const tokens = parseTokens(text)
+  const sortedRanges = [...ranges].sort((a, b) => a.start - b.start)
+  let html = ""
+
+  tokens.forEach((token) => {
+    if (token.marker) {
+      // ** markers are visibility:hidden — occupy space but invisible
+      html += `<span style="visibility:hidden">**</span>`
+      return
+    }
+
+    let localPos = token.start
+
+    while (localPos < token.end) {
+      const hl = sortedRanges.find((r) => r.end > localPos && r.start < token.end)
+
+      if (!hl) {
+        // Plain text
+        const content = text.substring(localPos, token.end)
+        const escaped = escapeHtml(content)
+        html += token.bold ? `<strong>${escaped}</strong>` : escaped
+        localPos = token.end
+        break
+      }
+
+      // Plain text before highlight
+      if (hl.start > localPos) {
+        const end = Math.min(hl.start, token.end)
+        const content = text.substring(localPos, end)
+        const escaped = escapeHtml(content)
+        html += token.bold ? `<strong>${escaped}</strong>` : escaped
+        localPos = hl.start
+        if (localPos >= token.end) break
+      }
+
+      // Highlighted portion
+      const hlStart = Math.max(hl.start, localPos)
+      const hlEnd = Math.min(hl.end, token.end)
+      const color = hl.type === "phrase" ? "#f59e0b" : "#0ea5e9"
+      const content = text.substring(hlStart, hlEnd)
+      const escaped = escapeHtml(content)
+      
+      const style = `color:${color};border-bottom:0.8px solid ${color};`
+      const innerHtml = token.bold ? `<strong>${escaped}</strong>` : escaped
+      html += `<span style="${style}">${innerHtml}</span>`
+
+      // Usage count superscript
+      if (hlEnd === hl.end && hl.usageCount > 0) {
+        html += `<sup style="font-size:7px;font-weight:700;color:${color};margin-left:1px;">${hl.usageCount}</sup>`
+      }
+
+      localPos = hlEnd
+    }
+  })
+
+  return html
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+    .replace(/\n/g, "<br>")
+}
+
+// ─── Text Extraction ──────────────────────────────────────────────────────────
+// Extract plain text from contentEditable div, preserving newlines
+
+function extractText(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent || ""
+  }
+  
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const el = node as HTMLElement
+    
+    // <br> becomes newline
+    if (el.tagName === "BR") {
+      return "\n"
+    }
+    
+    // Block elements get trailing newline
+    if (el.tagName === "DIV" || el.tagName === "P") {
+      let text = ""
+      el.childNodes.forEach((child) => {
+        text += extractText(child)
+      })
+      return text + (el.nextSibling ? "\n" : "")
+    }
+    
+    // Inline elements — just extract children
+    let text = ""
+    el.childNodes.forEach((child) => {
+      text += extractText(child)
+    })
+    return text
+  }
+  
+  return ""
+}
+
+// ─── Cursor Position Utilities ────────────────────────────────────────────────
+
+function saveCursorPosition(element: HTMLElement): { start: number; end: number } | null {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return null
+  
+  const range = sel.getRangeAt(0)
+  
+  // Calculate character offset by walking text nodes only
+  let charCount = 0
+  let startOffset = 0
+  let endOffset = 0
+  let foundStart = false
+  let foundEnd = false
+  
+  function traverse(node: Node): boolean {
+    if (foundEnd) return true
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node as Text
+      
+      if (!foundStart) {
+        if (node === range.startContainer) {
+          startOffset = charCount + range.startOffset
+          foundStart = true
+        } else {
+          charCount += text.length
+        }
+      }
+      
+      if (foundStart && !foundEnd) {
+        if (node === range.endContainer) {
+          endOffset = charCount + range.endOffset
+          foundEnd = true
+          return true
+        } else {
+          charCount += text.length
+        }
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      // Traverse children
+      for (let i = 0; i < node.childNodes.length; i++) {
+        if (traverse(node.childNodes[i])) return true
+      }
+    }
+    
+    return false
+  }
+  
+  traverse(element)
+  
+  if (!foundStart) return null
+  if (!foundEnd) endOffset = startOffset
+  
+  return { start: startOffset, end: endOffset }
+}
+
+function restoreCursorPosition(element: HTMLElement, position: { start: number; end: number }) {
+  const sel = window.getSelection()
+  if (!sel) return
+  
+  const range = document.createRange()
+  let charCount = 0
+  let foundStart = false
+  let foundEnd = false
+  
+  function traverse(node: Node): boolean {
+    if (foundEnd) return true
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node as Text
+      const nextCount = charCount + text.length
+      
+      if (!foundStart && nextCount >= position.start) {
+        const offset = position.start - charCount
+        range.setStart(text, Math.min(offset, text.length))
+        foundStart = true
+      }
+      
+      if (foundStart && nextCount >= position.end) {
+        const offset = position.end - charCount
+        range.setEnd(text, Math.min(offset, text.length))
+        foundEnd = true
+        return true
+      }
+      
+      charCount = nextCount
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      for (let i = 0; i < node.childNodes.length; i++) {
+        if (traverse(node.childNodes[i])) return true
+      }
+    }
+    
+    return false
+  }
+  
+  traverse(element)
+  
+  // If we didn't find the exact position, set cursor at the end
+  if (!foundEnd && foundStart) {
+    range.collapse(false)
+  }
+  
+  try {
+    sel.removeAllRanges()
+    sel.addRange(range)
+  } catch (e) {
+    // Silently fail if range is invalid
+  }
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function RichTextEditor({
   value,
   onChange,
@@ -36,46 +291,47 @@ export function RichTextEditor({
   minHeight = 80,
   maxHeight = 400,
 }: RichTextEditorProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const highlightRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const instanceId = useId().replace(/:/g, "")
+  const [copied, setCopied] = useState(false)
+  const lastValueRef = useRef(value)
+  const isComposingRef = useRef(false)
+  const isUpdatingFromInputRef = useRef(false) // Track if change is from user typing
 
   const highlightRanges = useMemo(() => {
     if (!value) return []
-
     const ranges: HighlightRange[] = []
-    const sortedKeywords = [...usedKeywords].sort((a, b) => b.length - a.length)
 
+    const sortedKeywords = [...usedKeywords].sort((a, b) => b.length - a.length)
     sortedKeywords.forEach((keyword) => {
-      const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi")
-      const matches = Array.from(value.matchAll(regex))
-      matches.forEach((m) => {
+      const re = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi")
+      Array.from(value.matchAll(re)).forEach((m) => {
         if (m.index !== undefined && m[0]) {
           ranges.push({
             start: m.index,
             end: m.index + m[0].length,
             type: "phrase",
             text: m[0],
-            usageCount: keywordUsage.get(m[0].toLowerCase()) || 0,
+            usageCount: keywordUsage.get(m[0].toLowerCase()) ?? 0,
           })
         }
       })
     })
 
     usedWords.forEach((word) => {
-      const regex = new RegExp(`\\b(${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi")
-      const matches = Array.from(value.matchAll(regex))
-      matches.forEach((m) => {
+      const re = new RegExp(`\\b(${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})\\b`, "gi")
+      Array.from(value.matchAll(re)).forEach((m) => {
         if (m.index !== undefined && m[0]) {
-          const isPartOfPhrase = ranges.some(
-            (r) => r.type === "phrase" && m.index! >= r.start && m.index! + m[0].length <= r.end,
+          const covered = ranges.some(
+            (r) => r.type === "phrase" && m.index! >= r.start && m.index! + m[0].length <= r.end
           )
-          if (!isPartOfPhrase) {
+          if (!covered) {
             ranges.push({
               start: m.index,
               end: m.index + m[0].length,
               type: "word",
               text: m[0],
-              usageCount: wordUsage.get(m[0].toLowerCase()) || 0,
+              usageCount: wordUsage.get(m[0].toLowerCase()) ?? 0,
             })
           }
         }
@@ -85,108 +341,134 @@ export function RichTextEditor({
     return ranges.sort((a, b) => a.start - b.start)
   }, [value, usedKeywords, usedWords, keywordUsage, wordUsage])
 
-  const wordCount = value.split(/\s+/).filter((w) => w).length
+  const wordCount = value.split(/\s+/).filter(Boolean).length
   const charCount = value.length
   const byteCount = new TextEncoder().encode(value).length
-  
   const isOverLimit = byteCount > maxLength
 
-  // Sync scroll on mount
+  // Set initial content on mount
   useEffect(() => {
-    if (textareaRef.current && highlightRef.current) {
-      handleScroll()
-    }
-  }, [])
+    if (!editorRef.current) return
+    const html = renderContent(value, highlightRanges)
+    editorRef.current.innerHTML = html || ""
+    lastValueRef.current = value
+  }, []) // Empty deps — runs once on mount
 
-  const handleScroll = () => {
-    // Sync highlight overlay scroll position with textarea scroll
-    if (textareaRef.current && highlightRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft
+  // Update editor HTML when value changes externally
+  useEffect(() => {
+    if (!editorRef.current) return
+    
+    // Don't update during user typing
+    if (isUpdatingFromInputRef.current) return
+    
+    // Don't update during composition (IME input)
+    if (isComposingRef.current) return
+    
+    // Don't update if value hasn't changed
+    if (lastValueRef.current === value) return
+    
+    const cursorPos = saveCursorPosition(editorRef.current)
+    const html = renderContent(value, highlightRanges)
+    
+    // Always update if HTML differs
+    if (editorRef.current.innerHTML !== html) {
+      editorRef.current.innerHTML = html || "" // Empty string if no value
+      
+      if (cursorPos && value) {
+        // Only restore cursor if there's content
+        restoreCursorPosition(editorRef.current, cursorPos)
+      }
     }
+    
+    lastValueRef.current = value
+  }, [value, highlightRanges])
+
+  const handleInput = () => {
+    if (!editorRef.current) return
+    isUpdatingFromInputRef.current = true // Mark as user input
+    const newText = extractText(editorRef.current)
+    lastValueRef.current = newText
+    onChange(newText)
+    // Reset flag after a tick to allow external updates
+    setTimeout(() => {
+      isUpdatingFromInputRef.current = false
+    }, 0)
   }
 
-  const transformText = (transform: "uppercase" | "lowercase" | "camelcase") => {
-    if (!textareaRef.current) return
-
-    const textarea = textareaRef.current
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const hasSelection = start !== end
-
-    let transformed = value
-
-    if (!hasSelection) {
-      if (transform === "uppercase") {
-        transformed = value.toUpperCase()
-      } else if (transform === "lowercase") {
-        transformed = value.toLowerCase()
-      } else if (transform === "camelcase") {
-        transformed = value
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(' ')
-      }
-    } else {
-      const selectedText = value.substring(start, end)
-      let transformedSelection = selectedText
-
-      if (transform === "uppercase") {
-        transformedSelection = selectedText.toUpperCase()
-      } else if (transform === "lowercase") {
-        transformedSelection = selectedText.toLowerCase()
-      } else if (transform === "camelcase") {
-        transformedSelection = selectedText
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(' ')
-      }
-
-      transformed = value.substring(0, start) + transformedSelection + value.substring(end)
-    }
-
-    onChange(transformed)
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData("text/plain")
+    document.execCommand("insertText", false, text)
   }
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(value)
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
   }
 
-  // Shared text style constants - exact same for both layers
+  const transformText = (transform: "upper" | "lower" | "title") => {
+    const apply = (str: string) => {
+      if (transform === "upper") return str.toUpperCase()
+      if (transform === "lower") return str.toLowerCase()
+      return str.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    }
+    
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) {
+      onChange(apply(value))
+      return
+    }
+    
+    const range = sel.getRangeAt(0)
+    const selectedText = range.toString()
+    
+    if (!selectedText) {
+      onChange(apply(value))
+      return
+    }
+    
+    // Find selection in value string
+    const start = value.indexOf(selectedText)
+    if (start === -1) {
+      onChange(apply(value))
+      return
+    }
+    
+    const end = start + selectedText.length
+    const transformed = value.substring(0, start) + apply(selectedText) + value.substring(end)
+    onChange(transformed)
+  }
+
   const textStyle: React.CSSProperties = {
-    fontFamily: 'var(--font-montserrat), ui-sans-serif, system-ui, sans-serif',
-    fontSize: '14px',
-    lineHeight: '1.5',
-    letterSpacing: 'normal',
-    wordSpacing: 'normal',
+    fontFamily: "var(--font-montserrat), ui-sans-serif, system-ui, sans-serif",
+    fontSize: "14px",
+    lineHeight: "1.5",
+    letterSpacing: "normal",
+    wordSpacing: "normal",
   }
-
-  const sharedPadding = '10px'
 
   return (
-    // data-highlight-scope marks this as the boundary for highlight rendering.
-    // Any ancestor with data-no-highlight="true" will suppress highlighting
-    // via the renderHighlights guard, preventing leakage into drawers/portals.
-    <div data-highlight-scope="true">
-      {/* Toolbar row - above textarea */}
+    <div data-highlight-scope={instanceId}>
       <div className="flex items-center justify-between border border-b-0 border-slate-200 rounded-t-md bg-slate-50 px-2 py-1">
         <div className="flex items-center gap-0.5">
           <button
-            onClick={() => transformText("uppercase")}
+            onClick={() => transformText("upper")}
             title="UPPERCASE"
             className="px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded transition-colors"
           >
             AB
           </button>
           <button
-            onClick={() => transformText("lowercase")}
+            onClick={() => transformText("lower")}
             title="lowercase"
             className="px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded transition-colors"
           >
             ab
           </button>
           <button
-            onClick={() => transformText("camelcase")}
+            onClick={() => transformText("title")}
             title="Title Case"
             className="px-1.5 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded transition-colors"
           >
@@ -198,12 +480,21 @@ export function RichTextEditor({
             title="Copy to clipboard"
             className="px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-200 rounded transition-colors flex items-center gap-1"
           >
-            <Copy className="w-3 h-3" />
-            <span>Copy</span>
+            {copied ? (
+              <>
+                <Check className="w-3 h-3 text-green-500" />
+                <span className="text-green-600">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                <span>Copy</span>
+              </>
+            )}
           </button>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-slate-500">
-          <span className={byteCount > maxLength ? "text-red-600 font-semibold" : ""}>
+          <span className={isOverLimit ? "text-red-600 font-semibold" : ""}>
             {byteCount}/{maxLength} bytes
           </span>
           <span className={charCount > maxLength ? "text-red-600 font-semibold" : ""}>
@@ -213,158 +504,39 @@ export function RichTextEditor({
         </div>
       </div>
 
-      {/* Editor area — height is driven by the overlay div in normal flow.
-          The textarea is absolute on top, stretching to match. This ensures
-          the wrapper always has the right height and selection never misaligns. */}
       <div
         className="relative w-full border border-slate-200 rounded-b-md bg-white focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-300/50"
-        style={{ isolation: "isolate" }}
+        style={{ minHeight: `${minHeight}px`, maxHeight: `${maxHeight}px`, overflowY: "auto" }}
       >
-        {/* Overlay — IN normal flow, drives the wrapper height.
-            pointer-events:none so the textarea above receives all input.
-            data-no-highlight guards against external DOM walkers. */}
         <div
-          data-no-highlight="true"
-          aria-hidden="true"
-          className="pointer-events-none"
+          ref={editorRef}
+          contentEditable
+          onInput={handleInput}
+          onPaste={handlePaste}
+          onCompositionStart={() => { isComposingRef.current = true }}
+          onCompositionEnd={() => { isComposingRef.current = false; handleInput() }}
+          data-placeholder={placeholder}
+          className="outline-none"
           style={{
             ...textStyle,
-            padding: sharedPadding,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            overflowWrap: "break-word",
-            color: "#0f172a",
-            boxSizing: "border-box",
-            overflowY: "hidden",
-            margin: 0,
+            padding: "10px",
             minHeight: `${minHeight}px`,
-            maxHeight: `${maxHeight}px`,
-            // Visibility hidden — it takes up space and drives height,
-            // but we paint over it with the textarea layer above
-            visibility: "hidden",
-          }}
-        >
-          {/* Extra trailing space ensures the last line always has height */}
-          {value + " "}
-        </div>
-
-        {/* Highlight overlay — absolute, sits between the invisible spacer div
-            and the textarea. Renders colored spans + border-bottom highlights. */}
-        <div
-          ref={highlightRef}
-          data-no-highlight="true"
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            ...textStyle,
-            padding: sharedPadding,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
-            overflowWrap: "break-word",
             color: "#0f172a",
-            zIndex: 1,
-            boxSizing: "border-box",
-            overflow: "hidden",
-            margin: 0,
           }}
-        >
-          {renderHighlights(value, highlightRanges)}
-        </div>
-
-        {/* Textarea — absolute, fills the wrapper exactly.
-            Transparent text so the highlight overlay shows through.
-            caretColor keeps the cursor visible. */}
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onScroll={handleScroll}
-          placeholder={placeholder}
-          className="absolute inset-0 w-full h-full bg-transparent placeholder:text-slate-400 resize-none outline-none"
-          style={{
-            ...textStyle,
-            padding: sharedPadding,
-            boxSizing: "border-box",
-            overflowY: "auto",
-            color: "transparent",
-            caretColor: "#0f172a",
-            zIndex: 2,
-            margin: 0,
-          }}
+          suppressContentEditableWarning
         />
       </div>
+
+      <style jsx>{`
+        [contentEditable][data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #94a3b8;
+          pointer-events: none;
+          position: absolute;
+        }
+      `}</style>
     </div>
   )
-}
-
-function renderHighlights(text: string, ranges: HighlightRange[]) {
-  if (!text) return null
-
-  const elements: React.ReactNode[] = []
-  let pos = 0
-  const sortedRanges = [...ranges].sort((a, b) => a.start - b.start)
-
-  while (pos < text.length) {
-    const nextHL = sortedRanges.find((r) => r.start >= pos)
-
-    if (!nextHL) {
-      // Non-highlighted text — renders in normal text color
-      elements.push(
-        <span key={`text-${pos}`} style={{ color: "#0f172a" }}>
-          {text.substring(pos)}
-        </span>
-      )
-      break
-    }
-
-    if (nextHL.start > pos) {
-      // Gap between highlights — normal text color
-      elements.push(
-        <span key={`text-${pos}`} style={{ color: "#0f172a" }}>
-          {text.substring(pos, nextHL.start)}
-        </span>
-      )
-    }
-
-    const isPhrase = nextHL.type === "phrase"
-    const color = isPhrase ? "#0ea5e9" : "#f59e0b"
-
-    // Highlighted span: text takes the highlight color, border-bottom is the
-    // underline. This mirrors mwl-text-input-highlight exactly —
-    // color + border-bottom in the same color, no text-decoration involved.
-    elements.push(
-      <span
-        key={`hl-${nextHL.start}`}
-        style={{
-          color: color,
-          borderBottom: `0.8px solid ${color}`,
-          boxSizing: "border-box",
-        }}
-      >
-        {text.substring(nextHL.start, nextHL.end)}
-      </span>
-    )
-
-    if (nextHL.usageCount > 0) {
-      elements.push(
-        <sup
-          key={`sup-${nextHL.start}`}
-          style={{
-            fontSize: "7px",
-            fontWeight: "700",
-            color: color,
-            marginLeft: "1px",
-            lineHeight: "0",
-            verticalAlign: "super",
-          }}
-        >
-          {nextHL.usageCount}
-        </sup>
-      )
-    }
-
-    pos = nextHL.end
-  }
-
-  return <>{elements}</>
 }

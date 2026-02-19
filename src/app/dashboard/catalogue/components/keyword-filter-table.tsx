@@ -10,18 +10,7 @@ import {
   TableRow,
 } from "./ui/table"
 import { Button } from "@/components/ui/button"
-
-interface KeywordData {
-  keywordPhrase: string
-  searchVolume: number
-  kwType: string
-  position: number
-  competitorCount: number
-  relevance: string
-  wordCount: number
-  sponsoredRank: number
-  manualScore: number
-}
+import type { KeywordData } from "@/app/dashboard/catalogue/lib/types"
 
 interface KeywordFilterTableProps {
   data: KeywordData[]
@@ -31,55 +20,49 @@ interface KeywordFilterTableProps {
 }
 
 const safeNum = (val: any): string => {
-  if (val === null || val === undefined || val === '') return '—'
+  if (val === null || val === undefined) return "—"
   const n = Number(val)
-  return isNaN(n) ? '—' : n.toLocaleString()
+  return isNaN(n) ? "—" : n.toLocaleString()
 }
 
 const safeStr = (val: any): string => {
-  if (val === null || val === undefined) return '—'
+  if (val === null || val === undefined) return "—"
   return String(val)
 }
 
-export function KeywordFilterTable({ 
-  data, 
-  onAddKeywords, 
+export function KeywordFilterTable({
+  data,
+  onAddKeywords,
   selectedKeywords,
-  onToggleKeyword 
+  onToggleKeyword,
 }: KeywordFilterTableProps) {
-  const handleAddSelected = () => {
-    onAddKeywords(selectedKeywords)
-  }
+  const allSelected =
+    data.length > 0 && data.every((row) => selectedKeywords.includes(row.keyword))
 
   const toggleAll = (checked: boolean) => {
     if (checked) {
-      data.forEach(row => {
-        if (!selectedKeywords.includes(row.keywordPhrase)) {
-          onToggleKeyword(row.keywordPhrase)
-        }
+      data.forEach((row) => {
+        if (!selectedKeywords.includes(row.keyword)) onToggleKeyword(row.keyword)
       })
     } else {
-      selectedKeywords.forEach(keyword => {
-        if (data.some(row => row.keywordPhrase === keyword)) {
-          onToggleKeyword(keyword)
-        }
+      selectedKeywords.forEach((kw) => {
+        if (data.some((row) => row.keyword === kw)) onToggleKeyword(kw)
       })
     }
   }
-
-  const allSelected = data.length > 0 && data.every(row => selectedKeywords.includes(row.keywordPhrase))
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <Button
-          onClick={handleAddSelected}
+          onClick={() => onAddKeywords(selectedKeywords)}
           disabled={selectedKeywords.length === 0}
           className="bg-cyan-600 hover:bg-cyan-700 text-white"
           size="sm"
         >
           Add Selected ({selectedKeywords.length})
         </Button>
+        <p className="text-xs text-slate-400">{data.length} keywords</p>
       </div>
 
       <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -88,27 +71,23 @@ export function KeywordFilterTable({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={toggleAll}
-                  />
+                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                 </TableHead>
-                <TableHead>Keyword Phrase</TableHead>
-                <TableHead>Search Volume</TableHead>
-                <TableHead>kw_type</TableHead>
-                <TableHead>Position (Rank)</TableHead>
-                <TableHead>Competitor Count</TableHead>
-                <TableHead>Relevance</TableHead>
+                <TableHead>Keyword</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Word Count</TableHead>
-                <TableHead>Sponsored Rank (avg)</TableHead>
-                <TableHead>manual_score</TableHead>
+                <TableHead>Frequency</TableHead>
+                <TableHead>Primary</TableHead>
+                <TableHead>Broad Rank</TableHead>
+                <TableHead>Phrase Rank</TableHead>
+                <TableHead>Exact Rank</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-black">
-                    No data available. Click "Keyword Filter" to load data.
+                  <TableCell colSpan={9} className="text-center py-8 text-slate-400">
+                    No keywords loaded. Click "Keyword Filter" to fetch recommendations.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -116,19 +95,34 @@ export function KeywordFilterTable({
                   <TableRow key={index} className="text-black">
                     <TableCell>
                       <Checkbox
-                        checked={selectedKeywords.includes(row.keywordPhrase)}
-                        onCheckedChange={() => onToggleKeyword(row.keywordPhrase)}
+                        checked={selectedKeywords.includes(row.keyword)}
+                        onCheckedChange={() => onToggleKeyword(row.keyword)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-black">{safeStr(row.keywordPhrase)}</TableCell>
-                    <TableCell>{safeNum(row.searchVolume)}</TableCell>
-                    <TableCell>{safeStr(row.kwType)}</TableCell>
-                    <TableCell>{safeNum(row.position)}</TableCell>
-                    <TableCell>{safeNum(row.competitorCount)}</TableCell>
-                    <TableCell>{safeStr(row.relevance)}</TableCell>
-                    <TableCell>{safeNum(row.wordCount)}</TableCell>
-                    <TableCell>{safeNum(row.sponsoredRank)}</TableCell>
-                    <TableCell>{safeNum(row.manualScore)}</TableCell>
+                    <TableCell className="font-medium">{safeStr(row.keyword)}</TableCell>
+                    <TableCell>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        row.keyword_type === "long_tail"
+                          ? "bg-violet-50 text-violet-600"
+                          : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {safeStr(row.keyword_type)}
+                      </span>
+                    </TableCell>
+                    <TableCell>{safeNum(row.word_count)}</TableCell>
+                    <TableCell>{safeNum(row.frequency)}</TableCell>
+                    <TableCell>
+                      {row.is_primary ? (
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-cyan-50 text-cyan-600">
+                          Primary
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{safeNum(row.broad_rank)}</TableCell>
+                    <TableCell>{safeNum(row.phrase_rank)}</TableCell>
+                    <TableCell>{safeNum(row.exact_rank)}</TableCell>
                   </TableRow>
                 ))
               )}

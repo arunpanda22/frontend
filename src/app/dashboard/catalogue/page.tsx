@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { ChevronDown, Copy, Zap, BarChart3, LayoutTemplate, Images } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  Zap,
+  BarChart3,
+  LayoutTemplate,
+  Images,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +23,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useCatalogStore } from "@/lib/hooks/queries/use-catalog-store";
 import { useCatalogOperations } from "@/lib/hooks/use-catalogue-operations";
-import { Download, Image } from "@mui/icons-material";
+import { Download, Image, Vrpano } from "@mui/icons-material";
 
 export default function CataloguePage() {
   const { toast } = useToast();
@@ -190,29 +197,32 @@ export default function CataloguePage() {
     }
   };
 
-  const handleKeywordFilter = async (data: FormData) => {
-    const cerebroFile = data.get("cerebro_file") as File;
-    if (!cerebroFile) {
+  const handleKeywordFilter = async () => {
+    const { asin, competitorAsins } = catalogueFormState;
+
+    if (!asin) {
       toast({
-        title: "Missing file",
-        description: "Please upload a Cerebro file",
+        title: "Missing ASIN",
+        description: "Please enter your product ASIN first",
         variant: "destructive",
       });
       return;
     }
+
     const result = await filterKeywords({
-      cerebro_file: cerebroFile,
-      min_search_volume: 200,
+      asin,
+      competitor_asins: competitorAsins,
     });
+
     if (result.success) {
       toast({
         title: "Success",
-        description: "Keywords filtered successfully!",
+        description: "Keywords fetched successfully!",
       });
     } else {
       toast({
         title: "Error",
-        description: result.error || "Failed to filter keywords",
+        description: result.error || "Failed to fetch keywords",
         variant: "destructive",
       });
     }
@@ -261,94 +271,111 @@ export default function CataloguePage() {
 
   // ── Download ZIP (content only when no images) ───────────────────────────
   const handleDownload = useCallback(async () => {
-  const { default: JSZip } = await import("jszip")
-  const zip = new JSZip()
+    const { default: JSZip } = await import("jszip");
+    const zip = new JSZip();
 
-  // ── Listing content ──
-  const contentLines = [
-    `TITLE\n${title || "(empty)"}`,
-    bullets.map((b, i) => `BULLET ${i + 1}\n${b || "(empty)"}`).join("\n\n"),
-    `DESCRIPTION\n${description || "(empty)"}`,
-    `BACKEND KEYWORDS\n${backendKeywords || "(empty)"}`,
-  ].join("\n\n---\n\n")
-  zip.file("listing-content.txt", contentLines)
+    // ── Listing content ──
+    const contentLines = [
+      `TITLE\n${title || "(empty)"}`,
+      bullets.map((b, i) => `BULLET ${i + 1}\n${b || "(empty)"}`).join("\n\n"),
+      `DESCRIPTION\n${description || "(empty)"}`,
+      `BACKEND KEYWORDS\n${backendKeywords || "(empty)"}`,
+    ].join("\n\n---\n\n");
+    zip.file("listing-content.txt", contentLines);
 
-  // ── Image guidelines (from catalog API) ──
-  const { catalogData } = useCatalogStore.getState()
-  if (catalogData?.image_guidelines) {
-    zip.file("image-guidelines.txt", catalogData.image_guidelines)
-  }
-
-  // ── A+ brief (from catalog API) ──
-  if (catalogData?.a_plus_brief) {
-    zip.file("aplus-brief.txt", catalogData.a_plus_brief)
-  }
-
-  // ── Full raw catalog JSON (everything the API returned) ──
-  if (catalogData) {
-    zip.file("catalog-data.json", JSON.stringify(catalogData, null, 2))
-  }
-
-  // ── Generated product images ──
-  if (Object.keys(generatedImages).length > 0) {
-    const imgFolder = zip.folder("product-images")!
-    for (const [id, url] of Object.entries(generatedImages)) {
-      try {
-        if (url.startsWith("data:")) {
-          imgFolder.file(`image-${id}.png`, url.split(",")[1], { base64: true })
-        } else {
-          const blob = await (await fetch(url)).blob()
-          imgFolder.file(`image-${id}.png`, blob)
-        }
-      } catch { /* skip failed */ }
+    // ── Image guidelines (from catalog API) ──
+    const { catalogData } = useCatalogStore.getState();
+    if (catalogData?.image_guidelines) {
+      zip.file("image-guidelines.txt", catalogData.image_guidelines);
     }
-  }
 
-  // ── Generated A+ banner images ──
-  if (Object.keys(generatedBanners).length > 0) {
-    const bannerFolder = zip.folder("aplus-images")!
-    for (const [id, url] of Object.entries(generatedBanners)) {
-      try {
-        if (url.startsWith("data:")) {
-          bannerFolder.file(`banner-${id}.png`, url.split(",")[1], { base64: true })
-        } else {
-          const blob = await (await fetch(url)).blob()
-          bannerFolder.file(`banner-${id}.png`, blob)
-        }
-      } catch { /* skip failed */ }
+    // ── A+ brief (from catalog API) ──
+    if (catalogData?.a_plus_brief) {
+      zip.file("aplus-brief.txt", catalogData.a_plus_brief);
     }
-  }
 
-  const blob = await zip.generateAsync({ type: "blob" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = `catalogue-${catalogueFormState.asin || "export"}.zip`
-  a.click()
-  URL.revokeObjectURL(url)
+    // ── Full raw catalog JSON (everything the API returned) ──
+    if (catalogData) {
+      zip.file("catalog-data.json", JSON.stringify(catalogData, null, 2));
+    }
 
-  toast({
-    description: `Downloaded listing content${catalogData ? ", guidelines" : ""}${hasProductImages || hasAplusImages ? ", and images" : ""}`,
-  })
-}, [title, bullets, description, backendKeywords, generatedImages, generatedBanners, catalogueFormState.asin, hasProductImages, hasAplusImages, toast])
+    // ── Generated product images ──
+    if (Object.keys(generatedImages).length > 0) {
+      const imgFolder = zip.folder("product-images")!;
+      for (const [id, url] of Object.entries(generatedImages)) {
+        try {
+          if (url.startsWith("data:")) {
+            imgFolder.file(`image-${id}.png`, url.split(",")[1], {
+              base64: true,
+            });
+          } else {
+            const blob = await (await fetch(url)).blob();
+            imgFolder.file(`image-${id}.png`, blob);
+          }
+        } catch {
+          /* skip failed */
+        }
+      }
+    }
+
+    // ── Generated A+ banner images ──
+    if (Object.keys(generatedBanners).length > 0) {
+      const bannerFolder = zip.folder("aplus-images")!;
+      for (const [id, url] of Object.entries(generatedBanners)) {
+        try {
+          if (url.startsWith("data:")) {
+            bannerFolder.file(`banner-${id}.png`, url.split(",")[1], {
+              base64: true,
+            });
+          } else {
+            const blob = await (await fetch(url)).blob();
+            bannerFolder.file(`banner-${id}.png`, blob);
+          }
+        } catch {
+          /* skip failed */
+        }
+      }
+    }
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `catalogue-${catalogueFormState.asin || "export"}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      description: `Downloaded listing content${catalogData ? ", guidelines" : ""}${hasProductImages || hasAplusImages ? ", and images" : ""}`,
+    });
+  }, [
+    title,
+    bullets,
+    description,
+    backendKeywords,
+    generatedImages,
+    generatedBanners,
+    catalogueFormState.asin,
+    hasProductImages,
+    hasAplusImages,
+    toast,
+  ]);
 
   const displayKeywords = hideUsed ? unusedKeywords : keywords;
   const displayWords = hideUsed ? unusedWords : words;
 
   return (
-    <div className="min-h-screen p-6 lg:p-8 bg-slate-50">
+    <div className="w-full h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl overflow-hidden p-6 lg:p-8 font-montserrat">
       <div className="max-w-8xl mx-auto space-y-6">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-slate-900">
-              Keyword Optimizer
-            </h1>
+            <h1 className="text-3xl font-bold text-white">Listing Generator</h1>
           </div>
-          <p className="text-slate-600">
-            Analyze and optimize your content with real-time keyword matching
+          <p className="text-slate-50">
+            Create keyword-optimized product listings in minutes
           </p>
         </div>
 
@@ -376,7 +403,7 @@ export default function CataloguePage() {
           </div>
           {!formCollapsed && (
             <div className="p-6">
-              <div className="grid grid-cols-3 gap-8">
+              <div className="grid grid-cols-2 gap-8">
                 {/* Form — 1/3 */}
                 <div className="col-span-1">
                   <CatalogueForm
@@ -390,7 +417,7 @@ export default function CataloguePage() {
                 </div>
 
                 {/* How to use — 2/3 */}
-                <div className="col-span-2 border-l border-slate-100 pl-8 flex flex-col justify-between">
+                <div className="col-span-1 border-l border-slate-100 pl-8 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-semibold uppercase tracking-widest text-cyan-600">
@@ -518,8 +545,6 @@ export default function CataloguePage() {
         {/* Words / Phrases / Content Editor — only after catalog has been generated */}
         {(title || bullets.some((b) => b.trim()) || description) && (
           <>
-            
-
             {/* ── Single card wrapping sidebar + editor ── */}
             <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
               <div className="grid lg:grid-cols-3 divide-x divide-slate-100 items-start">
@@ -729,31 +754,31 @@ export default function CataloguePage() {
 
               <button
                 onClick={() => setActiveDrawer("product")}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-medium"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 h-7 rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-medium"
               >
-                <Image className="w-3 h-3" />
+                <Image className="w-3.5 h-3.5 flex-shrink-0" />
                 Product Images
                 {hasProductImages && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
                 )}
               </button>
 
               <button
                 onClick={() => setActiveDrawer("aplus")}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors text-xs font-medium"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 h-7 rounded-md border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors text-xs font-medium"
               >
-                <Images className="w-3 h-3" />
+                <Vrpano className="w-3.5 h-3.5 flex-shrink-0" />
                 A+ Images
                 {hasAplusImages && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500 flex-shrink-0" />
                 )}
               </button>
 
               <button
                 onClick={handleDownload}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors text-xs font-medium ml-auto"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 h-7 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors text-xs font-medium ml-auto"
               >
-                <Download className="w-3 h-3" />
+                <Download className="w-3.5 h-3.5 flex-shrink-0" />
                 Download ZIP
               </button>
             </div>

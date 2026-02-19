@@ -97,60 +97,39 @@ export function useCatalogOperations() {
    * Filter keywords from cerebro file
    */
   const filterKeywords = useCallback(
-    async (params: KeywordFilterRequest): Promise<{ success: boolean; error?: string }> => {
-      try {
-        setIsKeywordFiltering(true)
-        setKeywordFilterError(null)
+  async (params: KeywordFilterRequest): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setIsKeywordFiltering(true)
+      setKeywordFilterError(null)
 
-        const formData = new FormData()
-        formData.append('cerebro_file', params.cerebro_file)
-        if (params.min_search_volume) {
-          formData.append('min_search_volume', params.min_search_volume.toString())
+      const response = await apiClient.post<KeywordFilterResponse>(
+        '/api/v1/catalogue-api/keywords/filter/',
+        {
+          asin: params.asin,
+          competitor_asins: params.competitor_asins,
         }
+      )
 
-        const response = await apiClient.post<KeywordFilterResponse>(
-          '/api/v1/catalogue-api/cerebro/analyze/',
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        )
-
-        if (response.data.success) {
-          // ✅ FIX: Map API field names to frontend KeywordData interface
-          const mappedKeywords = response.data.data.keywords.map((item: any) => ({
-            keywordPhrase: item['Keyword Phrase'] || item.keywordPhrase || '',
-            searchVolume: item['Search Volume'] || item.searchVolume || 0,
-            kwType: item['kw_type'] || item.kwType || '',
-            position: 0, // Not in API response
-            competitorCount: 0, // Not in API response
-            relevance: item['Relevance'] || item.relevance || '',
-            wordCount: 0, // Not in API response
-            sponsoredRank: 0, // Not in API response
-            manualScore: item['score'] || item.manualScore || 0,
-          }))
-
-          setKeywordFilterData(mappedKeywords)
-          console.log('✅ Keywords filtered successfully:', mappedKeywords.length, 'keywords')
-          return { success: true }
-        } else {
-          const error = 'Keyword filtering failed'
-          setKeywordFilterError(error)
-          return { success: false, error }
-        }
-      } catch (error: any) {
-        console.error('❌ Keyword filtering failed:', error)
-        const errorMsg = error.response?.data?.error || error.message || 'Unknown error'
-        setKeywordFilterError(errorMsg)
-        return { success: false, error: errorMsg }
-      } finally {
-        setIsKeywordFiltering(false)
+      if (response.data.success) {
+        setKeywordFilterData(response.data.data.keywords)
+        console.log('✅ Keywords fetched successfully:', response.data.data.total_keywords, 'keywords')
+        return { success: true }
+      } else {
+        const error = 'Keyword filtering failed'
+        setKeywordFilterError(error)
+        return { success: false, error }
       }
-    },
-    [setKeywordFilterData, setIsKeywordFiltering, setKeywordFilterError]
-  )
+    } catch (error: any) {
+      console.error('❌ Keyword filtering failed:', error)
+      const errorMsg = error.response?.data?.error || error.message || 'Unknown error'
+      setKeywordFilterError(errorMsg)
+      return { success: false, error: errorMsg }
+    } finally {
+      setIsKeywordFiltering(false)
+    }
+  },
+  [setKeywordFilterData, setIsKeywordFiltering, setKeywordFilterError]
+)
 
   /**
    * Optimize content (bullets and description) with keywords
