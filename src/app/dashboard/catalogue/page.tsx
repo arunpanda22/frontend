@@ -272,34 +272,164 @@ export default function CataloguePage() {
   // ── Download ZIP (content only when no images) ───────────────────────────
   const handleDownload = useCallback(async () => {
     const { default: JSZip } = await import("jszip");
+    const {
+      Document,
+      Packer,
+      Paragraph,
+      TextRun,
+      HeadingLevel,
+      AlignmentType,
+      LevelFormat,
+    } = await import("docx");
+
     const zip = new JSZip();
-
-    // ── Listing content ──
-    const contentLines = [
-      `TITLE\n${title || "(empty)"}`,
-      bullets.map((b, i) => `BULLET ${i + 1}\n${b || "(empty)"}`).join("\n\n"),
-      `DESCRIPTION\n${description || "(empty)"}`,
-      `BACKEND KEYWORDS\n${backendKeywords || "(empty)"}`,
-    ].join("\n\n---\n\n");
-    zip.file("listing-content.txt", contentLines);
-
-    // ── Image guidelines (from catalog API) ──
     const { catalogData } = useCatalogStore.getState();
+
+    // ── Shared numbering config ──────────────────────────────────────────────
+    const bulletNumbering = {
+      config: [
+        {
+          reference: "bullets",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "•",
+              alignment: AlignmentType.LEFT,
+              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+            },
+          ],
+        },
+      ],
+    };
+
+    const pageProps = {
+      page: {
+        size: { width: 12240, height: 15840 },
+        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+      },
+    };
+
+    // ── Helper: parse markdown-like text into Word paragraphs ────────────────
+    const parseContent = (text: string): any[] => {
+      const children: any[] = [];
+      for (const line of text.split("\n")) {
+        const t = line.trim();
+        if (!t) {
+          children.push(new Paragraph({ children: [new TextRun("")] }));
+        } else if (t.startsWith("## ")) {
+          children.push(
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun(t.replace(/^## /, ""))],
+            }),
+          );
+        } else if (t.startsWith("### ")) {
+          children.push(
+            new Paragraph({
+              heading: HeadingLevel.HEADING_2,
+              children: [new TextRun(t.replace(/^### /, ""))],
+            }),
+          );
+        } else if (/^[-*] /.test(t)) {
+          children.push(
+            new Paragraph({
+              numbering: { reference: "bullets", level: 0 },
+              children: [new TextRun(t.replace(/^[-*] /, ""))],
+            }),
+          );
+        } else {
+          const runs = t
+            .split(/(\*\*[^*]+\*\*)/)
+            .map((part) =>
+              part.startsWith("**") && part.endsWith("**")
+                ? new TextRun({ text: part.replace(/\*\*/g, ""), bold: true })
+                : new TextRun(part),
+            );
+          children.push(new Paragraph({ children: runs }));
+        }
+      }
+      return children;
+    };
+
+    // ── 1. Listing content (.docx) ───────────────────────────────────────────
+    const listingDoc = new Document({
+      numbering: bulletNumbering,
+      sections: [
+        {
+          properties: pageProps,
+          children: [
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun("Product Title")],
+            }),
+            new Paragraph({ children: [new TextRun(title || "(empty)")] }),
+            new Paragraph({ children: [new TextRun("")] }),
+
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun("Bullet Points")],
+            }),
+            ...bullets.map(
+              (b) =>
+                new Paragraph({
+                  numbering: { reference: "bullets", level: 0 },
+                  children: [new TextRun(b || "(empty)")],
+                }),
+            ),
+            new Paragraph({ children: [new TextRun("")] }),
+
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun("Description")],
+            }),
+            new Paragraph({
+              children: [new TextRun(description || "(empty)")],
+            }),
+            new Paragraph({ children: [new TextRun("")] }),
+
+            new Paragraph({
+              heading: HeadingLevel.HEADING_1,
+              children: [new TextRun("Backend Keywords")],
+            }),
+            new Paragraph({
+              children: [new TextRun(backendKeywords || "(empty)")],
+            }),
+          ],
+        },
+      ],
+    });
+    zip.file("listing-content.docx", await Packer.toBlob(listingDoc));
+
+    // ── 2. Image guidelines (.docx) ──────────────────────────────────────────
     if (catalogData?.image_guidelines) {
-      zip.file("image-guidelines.txt", catalogData.image_guidelines);
+      const doc = new Document({
+        numbering: bulletNumbering,
+        sections: [
+          {
+            properties: pageProps,
+            children: parseContent(catalogData.image_guidelines),
+          },
+        ],
+      });
+      zip.file("image-guidelines.docx", await Packer.toBlob(doc));
     }
 
-    // ── A+ brief (from catalog API) ──
+    // ── 3. A+ brief (.docx) ──────────────────────────────────────────────────
     if (catalogData?.a_plus_brief) {
-      zip.file("aplus-brief.txt", catalogData.a_plus_brief);
+      const doc = new Document({
+        numbering: bulletNumbering,
+        sections: [
+          {
+            properties: pageProps,
+            children: parseContent(catalogData.a_plus_brief),
+          },
+        ],
+      });
+      zip.file("aplus-brief.docx", await Packer.toBlob(doc));
     }
 
-    // ── Full raw catalog JSON (everything the API returned) ──
-    if (catalogData) {
-      zip.file("catalog-data.json", JSON.stringify(catalogData, null, 2));
-    }
-
-    // ── Generated product images ──
+    // ── 4. Product images ─────────────────────────────────────────────────────
     if (Object.keys(generatedImages).length > 0) {
       const imgFolder = zip.folder("product-images")!;
       for (const [id, url] of Object.entries(generatedImages)) {
@@ -309,8 +439,7 @@ export default function CataloguePage() {
               base64: true,
             });
           } else {
-            const blob = await (await fetch(url)).blob();
-            imgFolder.file(`image-${id}.png`, blob);
+            imgFolder.file(`image-${id}.png`, await (await fetch(url)).blob());
           }
         } catch {
           /* skip failed */
@@ -318,7 +447,7 @@ export default function CataloguePage() {
       }
     }
 
-    // ── Generated A+ banner images ──
+    // ── 5. A+ banner images ───────────────────────────────────────────────────
     if (Object.keys(generatedBanners).length > 0) {
       const bannerFolder = zip.folder("aplus-images")!;
       for (const [id, url] of Object.entries(generatedBanners)) {
@@ -328,8 +457,10 @@ export default function CataloguePage() {
               base64: true,
             });
           } else {
-            const blob = await (await fetch(url)).blob();
-            bannerFolder.file(`banner-${id}.png`, blob);
+            bannerFolder.file(
+              `banner-${id}.png`,
+              await (await fetch(url)).blob(),
+            );
           }
         } catch {
           /* skip failed */
@@ -346,7 +477,7 @@ export default function CataloguePage() {
     URL.revokeObjectURL(url);
 
     toast({
-      description: `Downloaded listing content${catalogData ? ", guidelines" : ""}${hasProductImages || hasAplusImages ? ", and images" : ""}`,
+      description: `Downloaded Word documents${hasProductImages || hasAplusImages ? " and images" : ""}`,
     });
   }, [
     title,

@@ -100,7 +100,7 @@ function renderContent(text: string, ranges: HighlightRange[]): string {
       // Highlighted portion
       const hlStart = Math.max(hl.start, localPos)
       const hlEnd = Math.min(hl.end, token.end)
-      const color = hl.type === "phrase" ? "#f59e0b" : "#0ea5e9"
+      const color = hl.type === "phrase" ? "#0ea5e9" : "#f59e0b"
       const content = text.substring(hlStart, hlEnd)
       const escaped = escapeHtml(content)
       
@@ -108,9 +108,9 @@ function renderContent(text: string, ranges: HighlightRange[]): string {
       const innerHtml = token.bold ? `<strong>${escaped}</strong>` : escaped
       html += `<span style="${style}">${innerHtml}</span>`
 
-      // Usage count superscript
+      // Usage count superscript - wrapped in non-editable span for isolation
       if (hlEnd === hl.end && hl.usageCount > 0) {
-        html += `<sup style="font-size:7px;font-weight:700;color:${color};margin-left:1px;">${hl.usageCount}</sup>`
+        html += `<span contenteditable="false" data-usage-count="true" style="user-select:none;pointer-events:none;"><sup style="font-size:7px;font-weight:700;color:${color};margin-left:1px;">${hl.usageCount}</sup></span>`
       }
 
       localPos = hlEnd
@@ -132,6 +132,7 @@ function escapeHtml(text: string): string {
 
 // ─── Text Extraction ──────────────────────────────────────────────────────────
 // Extract plain text from contentEditable div, preserving newlines
+// Skip non-editable elements like usage count superscripts
 
 function extractText(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) {
@@ -140,6 +141,11 @@ function extractText(node: Node): string {
   
   if (node.nodeType === Node.ELEMENT_NODE) {
     const el = node as HTMLElement
+    
+    // Skip usage count superscripts entirely
+    if (el.hasAttribute("data-usage-count")) {
+      return ""
+    }
     
     // <br> becomes newline
     if (el.tagName === "BR") {
@@ -295,8 +301,9 @@ export function RichTextEditor({
   const instanceId = useId().replace(/:/g, "")
   const [copied, setCopied] = useState(false)
   const lastValueRef = useRef(value)
+  const lastHighlightRangesRef = useRef<HighlightRange[]>([])
   const isComposingRef = useRef(false)
-  const isUpdatingFromInputRef = useRef(false) // Track if change is from user typing
+  const isUpdatingFromInputRef = useRef(false)
 
   const highlightRanges = useMemo(() => {
     if (!value) return []
@@ -354,33 +361,38 @@ export function RichTextEditor({
     lastValueRef.current = value
   }, []) // Empty deps — runs once on mount
 
-  // Update editor HTML when value changes externally
+  // Update editor HTML when value or highlights change
   useEffect(() => {
     if (!editorRef.current) return
-    
-    // Don't update during user typing
-    if (isUpdatingFromInputRef.current) return
     
     // Don't update during composition (IME input)
     if (isComposingRef.current) return
     
-    // Don't update if value hasn't changed
-    if (lastValueRef.current === value) return
+    // Check if this is just a user typing the same value (no actual change)
+    const valueChanged = lastValueRef.current !== value
+    const highlightsChanged = lastHighlightRangesRef.current !== highlightRanges
     
-    const cursorPos = saveCursorPosition(editorRef.current)
-    const html = renderContent(value, highlightRanges)
+    // Skip if nothing changed
+    if (!valueChanged && !highlightsChanged) return
     
-    // Always update if HTML differs
-    if (editorRef.current.innerHTML !== html) {
-      editorRef.current.innerHTML = html || "" // Empty string if no value
+    // If highlights changed but value didn't, or if value changed externally, update
+    const shouldUpdate = highlightsChanged || !isUpdatingFromInputRef.current
+    
+    if (shouldUpdate) {
+      const cursorPos = saveCursorPosition(editorRef.current)
+      const html = renderContent(value, highlightRanges)
       
-      if (cursorPos && value) {
-        // Only restore cursor if there's content
-        restoreCursorPosition(editorRef.current, cursorPos)
+      if (editorRef.current.innerHTML !== html) {
+        editorRef.current.innerHTML = html || ""
+        
+        if (cursorPos && value) {
+          restoreCursorPosition(editorRef.current, cursorPos)
+        }
       }
     }
     
     lastValueRef.current = value
+    lastHighlightRangesRef.current = highlightRanges
   }, [value, highlightRanges])
 
   const handleInput = () => {
@@ -393,6 +405,34 @@ export function RichTextEditor({
     setTimeout(() => {
       isUpdatingFromInputRef.current = false
     }, 0)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Prevent editing usage count elements
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    
+    const range = sel.getRangeAt(0)
+    const container = range.commonAncestorContainer
+    
+    // Check if cursor is inside or adjacent to a usage count element
+    let node: Node | null = container
+    while (node && node !== editorRef.current) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement
+        if (el.hasAttribute('data-usage-count')) {
+          // Move cursor after the usage count element
+          e.preventDefault()
+          const newRange = document.createRange()
+          newRange.setStartAfter(el)
+          newRange.collapse(true)
+          sel.removeAllRanges()
+          sel.addRange(newRange)
+          return
+        }
+      }
+      node = node.parentNode
+    }
   }
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -512,6 +552,7 @@ export function RichTextEditor({
           ref={editorRef}
           contentEditable
           onInput={handleInput}
+          onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onCompositionStart={() => { isComposingRef.current = true }}
           onCompositionEnd={() => { isComposingRef.current = false; handleInput() }}
@@ -535,6 +576,12 @@ export function RichTextEditor({
           color: #94a3b8;
           pointer-events: none;
           position: absolute;
+        }
+        [data-usage-count] {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          user-select: none;
+          pointer-events: none;
         }
       `}</style>
     </div>

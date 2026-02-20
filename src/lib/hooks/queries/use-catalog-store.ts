@@ -79,6 +79,22 @@ interface CatalogState {
 
 const INITIAL_BULLETS = ['', '', '', '', '', '', '']
 
+function extractDescriptionSection(raw: string): string {
+  if (!raw?.trim()) return ''
+
+  // Try to find "Product Description:" section and extract everything after it
+  const match = raw.match(
+    /Product\s+Description[:\s*]+\*?\*?\s*\n?([\s\S]*?)(?:\n\s*\*\*Product|\n\s*#{1,3}\s*Product|\n\s*---|\s*$)/i
+  )
+  if (match?.[1]?.trim()) return match[1].trim()
+
+  // Fallback: if no section headers found at all, return raw as-is
+  // (means the backend returned clean description already)
+  if (!/Product\s+(Title|Bullet)/i.test(raw)) return raw.trim()
+
+  return ''
+}
+
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   catalogueFormState: {
     asin: '',
@@ -193,7 +209,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     return {
       title: firstTitle,
       bullets,
-      description: product_description ?? '',
+      description: extractDescriptionSection(product_description ?? ''),
       imageGuidelines,
       aplusBriefs,
     }
