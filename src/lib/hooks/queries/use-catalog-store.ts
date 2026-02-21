@@ -1,7 +1,11 @@
 import { create } from 'zustand'
-import type { CatalogGenerationResponse, KeywordData } from '@/app/dashboard/catalogue/lib/types'
+import type {
+  CatalogGenerationResponse,
+  KeywordData,
+  ImageGuidelineItem,
+  AplusBannerItem,
+} from '@/app/dashboard/catalogue/lib/types'
 import type { CatalogueFormState } from '@/app/dashboard/catalogue/components/catalogue-form'
-import { parseImageGuidelines, parseAplusBrief, type ParsedImageSection } from '@/app/dashboard/catalogue/lib/parse-image-guidelines'
 
 interface CatalogState {
   // Form state
@@ -30,13 +34,13 @@ interface CatalogState {
   // Content optimization state
   isOptimizing: boolean
 
-  // Parsed image prompts (populated when catalog is generated)
-  imageGuidelines: ParsedImageSection[]   // indices 1–7, product images
-  aplusBriefs: ParsedImageSection[]       // indices 1–5, A+ banners
+  // Parsed image data from backend (populated when catalog is generated)
+  imageGuidelines: ImageGuidelineItem[]   // product images (1–7)
+  aplusBriefs: AplusBannerItem[]          // A+ banners   (1–5)
 
-  // Generated image URLs / data-URIs keyed by section id
-  generatedImages: Record<number, string>   // product image section ids 1–7
-  generatedBanners: Record<number, string>  // A+ banner section ids 101–105
+  // Generated image URLs / data-URIs keyed by image_number / banner_number
+  generatedImages: Record<number, string>
+  generatedBanners: Record<number, string>
 
   // Actions
   setCatalogueFormState: (state: CatalogueFormState) => void
@@ -82,14 +86,11 @@ const INITIAL_BULLETS = ['', '', '', '', '', '', '']
 function extractDescriptionSection(raw: string): string {
   if (!raw?.trim()) return ''
 
-  // Try to find "Product Description:" section and extract everything after it
   const match = raw.match(
     /Product\s+Description[:\s*]+\*?\*?\s*\n?([\s\S]*?)(?:\n\s*\*\*Product|\n\s*#{1,3}\s*Product|\n\s*---|\s*$)/i
   )
   if (match?.[1]?.trim()) return match[1].trim()
 
-  // Fallback: if no section headers found at all, return raw as-is
-  // (means the backend returned clean description already)
   if (!/Product\s+(Title|Bullet)/i.test(raw)) return raw.trim()
 
   return ''
@@ -175,45 +176,45 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   // ── Populate from generated catalog ───────────────────────────────────────
   populateFromCatalog: () => set((state) => {
-    if (!state.catalogData) return {}
+  if (!state.catalogData) return {}
 
-    const { product_title, bullet_points, product_description, image_guidelines, a_plus_brief } = state.catalogData
+  const { product_title, bullet_points, product_description, image_guidelines, a_plus_brief } = state.catalogData
 
-    // ── Title ──
-    const firstTitle = (product_title ?? '').split('\n').find(l => l.trim()) ?? ''
+  // ── Title ──
+  const firstTitle = (product_title ?? '').split('\n').find(l => l.trim()) ?? ''
 
-    // ── Bullets ──
-    const raw = bullet_points ?? ''
-    const prefixedLines = raw
-      .split('\n')
-      .map(l => l.trim())
-      .filter(l => /^([•\-\*]|\d+[\.\)])\s+/.test(l))
-      .map(l => l.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
+  // ── Bullets ──
+  const raw = bullet_points ?? ''
+  const prefixedLines = raw
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => /^([•\-\*]|\d+[\.\)])\s+/.test(l))
+    .map(l => l.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
 
-    let bulletsList: string[]
-    if (prefixedLines.length >= 2) {
-      bulletsList = prefixedLines
-    } else {
-      const blocks = raw.split('\n\n').map(b => b.trim()).filter(Boolean)
-      bulletsList = blocks.length >= 2
-        ? blocks.map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
-        : raw.split('\n').map(b => b.trim()).filter(Boolean).map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
-    }
+  let bulletsList: string[]
+  if (prefixedLines.length >= 2) {
+    bulletsList = prefixedLines
+  } else {
+    const blocks = raw.split('\n\n').map(b => b.trim()).filter(Boolean)
+    bulletsList = blocks.length >= 2
+      ? blocks.map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
+      : raw.split('\n').map(b => b.trim()).filter(Boolean).map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
+  }
 
-    const bullets = [...bulletsList, ...INITIAL_BULLETS].slice(0, 7)
+  const bullets = [...bulletsList, ...INITIAL_BULLETS].slice(0, 7)
 
-    // ── Parse image guidelines and A+ brief ──
-    const imageGuidelines = parseImageGuidelines(image_guidelines ?? '')
-    const aplusBriefs = parseAplusBrief(a_plus_brief ?? '')
+  // ── Read structured image data directly from backend ──
+  const imageGuidelines: ImageGuidelineItem[] = image_guidelines?.images ?? []
+  const aplusBriefs: AplusBannerItem[]        = a_plus_brief?.banners   ?? []
 
-    return {
-      title: firstTitle,
-      bullets,
-      description: extractDescriptionSection(product_description ?? ''),
-      imageGuidelines,
-      aplusBriefs,
-    }
-  }),
+  return {
+    title: firstTitle,
+    bullets,
+    description: extractDescriptionSection(product_description ?? ''),
+    imageGuidelines,
+    aplusBriefs,
+  }
+}),
 
   // ── Image storage ─────────────────────────────────────────────────────────
   setGeneratedImage: (imageNumber, imageUrl) => set((state) => ({

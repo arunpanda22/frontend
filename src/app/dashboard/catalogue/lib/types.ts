@@ -7,6 +7,48 @@ export interface CatalogGenerationRequest {
   tone: string
 }
 
+// ── Structured image types (parsed by backend) ────────────────────────────
+
+export interface NanoBananaArguments {
+  num_images: number
+  aspect_ratio: string
+  output_format: string
+  resolution: string
+  prompt: string
+  negative_prompt: string
+}
+
+export interface ImageGuidelineItem {
+  image_number: number
+  title: string
+  headline: string
+  subheadline: string
+  labels: string[]
+  nano_banana_arguments: NanoBananaArguments
+}
+
+export interface ImageGuidelinesData {
+  total_images: number
+  images: ImageGuidelineItem[]
+}
+
+export interface AplusBannerItem {
+  banner_number: number
+  title: string
+  headline: string
+  overlay_text: string
+  bullet_points: string[]
+  alt_text: string
+  nano_banana_arguments: NanoBananaArguments
+}
+
+export interface AplusBriefData {
+  total_banners: number
+  banners: AplusBannerItem[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
 export interface CatalogGenerationResponse {
   success: boolean
   data: {
@@ -17,9 +59,9 @@ export interface CatalogGenerationResponse {
     product_title: string
     bullet_points: string
     product_description: string
-    image_guidelines: string
+    image_guidelines: ImageGuidelinesData
     video_brief: string
-    a_plus_brief: string
+    a_plus_brief: AplusBriefData
   }
   message: string
 }
@@ -27,7 +69,7 @@ export interface CatalogGenerationResponse {
 // Cerebro/Keyword Filter Types
 export interface KeywordFilterRequest {
   asin: string
-  competitor_asins: string  
+  competitor_asins: string
 }
 
 export interface KeywordData {
@@ -38,7 +80,6 @@ export interface KeywordData {
   keyword_type: "long_tail" | "standard"
   searchTermImpressionRank?: number
   searchTermImpressionShare?: number
-  // match-type pivoted columns (present when API returns them)
   broad_bid?: number
   broad_rank?: number
   broad_bid_lower?: number
@@ -68,7 +109,6 @@ export interface KeywordFilterResponse {
   message: string
 }
 
-// Image Generation Types (for future use)
 export interface ImageGenerationRequest {
   base_image: File
   prompt: string
@@ -105,12 +145,4 @@ export interface ImageEditResponse {
     edit_applied: string
   }
   message: string
-}
-
-// Parsed image guidelines for image generation
-export interface ImageGuideline {
-  headline: string
-  subheadline?: string
-  description: string
-  labels?: string[]
 }

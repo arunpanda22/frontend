@@ -272,175 +272,180 @@ export default function CataloguePage() {
   // ── Download ZIP (content only when no images) ───────────────────────────
   const handleDownload = useCallback(async () => {
     const { default: JSZip } = await import("jszip");
-    const {
-      Document,
-      Packer,
-      Paragraph,
-      TextRun,
-      HeadingLevel,
-      AlignmentType,
-      LevelFormat,
-    } = await import("docx");
+    const { Document, Packer, Paragraph, TextRun, AlignmentType } =
+      await import("docx");
 
     const zip = new JSZip();
     const { catalogData } = useCatalogStore.getState();
 
-    // ── Shared numbering config ──────────────────────────────────────────────
-    const bulletNumbering = {
-      config: [
-        {
-          reference: "bullets",
-          levels: [
-            {
-              level: 0,
-              format: LevelFormat.BULLET,
-              text: "•",
-              alignment: AlignmentType.LEFT,
-              style: { paragraph: { indent: { left: 720, hanging: 360 } } },
-            },
-          ],
-        },
-      ],
-    };
-
+    // ── Shared page margins (1 inch all round) ───────────────────────────────
     const pageProps = {
       page: {
-        size: { width: 12240, height: 15840 },
         margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
       },
     };
 
-    // ── Helper: parse markdown-like text into Word paragraphs ────────────────
-    const parseContent = (text: string): any[] => {
-      const children: any[] = [];
-      for (const line of text.split("\n")) {
-        const t = line.trim();
-        if (!t) {
-          children.push(new Paragraph({ children: [new TextRun("")] }));
-        } else if (t.startsWith("## ")) {
-          children.push(
-            new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun(t.replace(/^## /, ""))],
-            }),
-          );
-        } else if (t.startsWith("### ")) {
-          children.push(
-            new Paragraph({
-              heading: HeadingLevel.HEADING_2,
-              children: [new TextRun(t.replace(/^### /, ""))],
-            }),
-          );
-        } else if (/^[-*] /.test(t)) {
-          children.push(
-            new Paragraph({
-              numbering: { reference: "bullets", level: 0 },
-              children: [new TextRun(t.replace(/^[-*] /, ""))],
-            }),
-          );
-        } else {
-          const runs = t
-            .split(/(\*\*[^*]+\*\*)/)
-            .map((part) =>
-              part.startsWith("**") && part.endsWith("**")
-                ? new TextRun({ text: part.replace(/\*\*/g, ""), bold: true })
-                : new TextRun(part),
-            );
-          children.push(new Paragraph({ children: runs }));
-        }
-      }
-      return children;
+    // ── Heading paragraph ────────────────────────────────────────────────────
+    const h1 = (text: string) =>
+      new Paragraph({ style: "Heading1", children: [new TextRun(text)] });
+
+    const h2 = (text: string) =>
+      new Paragraph({ style: "Heading2", children: [new TextRun(text)] });
+
+    // ── Normal paragraph — supports inline bold via **text** ─────────────────
+    const para = (text: string) => {
+      if (!text.trim()) return new Paragraph({ style: "Normal", children: [] });
+
+      const runs = text
+        .split(/(\*\*[^*]+\*\*)/)
+        .map((part) =>
+          part.startsWith("**") && part.endsWith("**")
+            ? new TextRun({ text: part.replace(/\*\*/g, ""), bold: true })
+            : new TextRun(part),
+        );
+      return new Paragraph({ style: "Normal", children: runs });
     };
 
-    // ── 1. Listing content (.docx) ───────────────────────────────────────────
+    // ── Bullet paragraph (uses Word's built-in ListBullet style) ─────────────
+    const bullet = (text: string) =>
+      new Paragraph({
+        style: "ListBullet",
+        children: [
+          new TextRun(
+            text.replace(/^([•\-\*]|\d+[\.\)])\s+/, "").replace(/\*\*/g, ""),
+          ),
+        ],
+      });
+
+    // ── Blank spacer ─────────────────────────────────────────────────────────
+    const blank = () => new Paragraph({ style: "Normal", children: [] });
+
+    // ── Generic markdown-ish parser used for image/aplus text blocks ─────────
+    const parseBlock = (text: string) =>
+      text.split("\n").map((line) => {
+        const t = line.trim();
+        if (!t) return blank();
+        if (t.startsWith("### ")) return h2(t.replace(/^### /, ""));
+        if (t.startsWith("## ")) return h1(t.replace(/^## /, ""));
+        if (t.startsWith("# ")) return h1(t.replace(/^# /, ""));
+        if (/^[-*•]\s/.test(t)) return bullet(t);
+        return para(t);
+      });
+
+    // ── 1. Listing content ───────────────────────────────────────────────────
     const listingDoc = new Document({
-      numbering: bulletNumbering,
+      styles: {
+        default: {
+          document: { run: { font: "Calibri", size: 24 } },
+        },
+      },
       sections: [
         {
           properties: pageProps,
           children: [
-            new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun("Product Title")],
-            }),
-            new Paragraph({ children: [new TextRun(title || "(empty)")] }),
-            new Paragraph({ children: [new TextRun("")] }),
+            h1("Product Title"),
+            blank(),
+            para(title || "(empty)"),
+            blank(),
 
-            new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun("Bullet Points")],
-            }),
-            ...bullets.map(
-              (b) =>
-                new Paragraph({
-                  numbering: { reference: "bullets", level: 0 },
-                  children: [new TextRun(b || "(empty)")],
-                }),
-            ),
-            new Paragraph({ children: [new TextRun("")] }),
+            h1("Bullet Points"),
+            blank(),
+            ...bullets.map((b) => bullet(b || "(empty)")),
+            blank(),
 
-            new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun("Description")],
-            }),
-            new Paragraph({
-              children: [new TextRun(description || "(empty)")],
-            }),
-            new Paragraph({ children: [new TextRun("")] }),
+            h1("Description"),
+            blank(),
+            ...parseBlock(description || "(empty)"),
+            blank(),
 
-            new Paragraph({
-              heading: HeadingLevel.HEADING_1,
-              children: [new TextRun("Backend Keywords")],
-            }),
-            new Paragraph({
-              children: [new TextRun(backendKeywords || "(empty)")],
-            }),
+            h1("Backend Keywords"),
+            blank(),
+            para(backendKeywords || "(empty)"),
           ],
         },
       ],
     });
     zip.file("listing-content.docx", await Packer.toBlob(listingDoc));
 
-    // ── 2. Image guidelines (.docx) ──────────────────────────────────────────
-    if (catalogData?.image_guidelines) {
+    // ── 2. Image guidelines ──────────────────────────────────────────────────
+    if (catalogData?.image_guidelines?.images?.length) {
+      const children: InstanceType<typeof Paragraph>[] = [
+        h1("Image Guidelines"),
+        blank(),
+      ];
+
+      for (const img of catalogData.image_guidelines.images) {
+        children.push(h2(`Image ${img.image_number}: ${img.title}`));
+        if (img.headline) children.push(para(`Headline: ${img.headline}`));
+        if (img.subheadline)
+          children.push(para(`Sub-headline: ${img.subheadline}`));
+        if (img.labels?.length) {
+          children.push(para("Labels:"));
+          img.labels.forEach((l) => children.push(bullet(l)));
+        }
+        children.push(para("Prompt:"));
+        img.nano_banana_arguments.prompt
+          .split("\n")
+          .forEach((line) => children.push(para(line)));
+        children.push(blank());
+      }
+
       const doc = new Document({
-        numbering: bulletNumbering,
-        sections: [
-          {
-            properties: pageProps,
-            children: parseContent(catalogData.image_guidelines),
-          },
-        ],
+        styles: {
+          default: { document: { run: { font: "Calibri", size: 24 } } },
+        },
+        sections: [{ properties: pageProps, children }],
       });
       zip.file("image-guidelines.docx", await Packer.toBlob(doc));
     }
 
-    // ── 3. A+ brief (.docx) ──────────────────────────────────────────────────
-    if (catalogData?.a_plus_brief) {
+    // ── 3. A+ brief ──────────────────────────────────────────────────────────
+    if (catalogData?.a_plus_brief?.banners?.length) {
+      const children: InstanceType<typeof Paragraph>[] = [
+        h1("A+ Content Brief"),
+        blank(),
+      ];
+
+      for (const banner of catalogData.a_plus_brief.banners) {
+        children.push(h2(`Banner ${banner.banner_number}: ${banner.title}`));
+        if (banner.headline)
+          children.push(para(`Headline: ${banner.headline}`));
+        if (banner.overlay_text)
+          children.push(para(`Overlay text: ${banner.overlay_text}`));
+        if (banner.bullet_points?.length) {
+          children.push(para("Bullet points:"));
+          banner.bullet_points.forEach((b) => children.push(bullet(b)));
+        }
+        if (banner.alt_text)
+          children.push(para(`Alt text: ${banner.alt_text}`));
+        children.push(para("Prompt:"));
+        banner.nano_banana_arguments.prompt
+          .split("\n")
+          .forEach((line) => children.push(para(line)));
+        children.push(blank());
+      }
+
       const doc = new Document({
-        numbering: bulletNumbering,
-        sections: [
-          {
-            properties: pageProps,
-            children: parseContent(catalogData.a_plus_brief),
-          },
-        ],
+        styles: {
+          default: { document: { run: { font: "Calibri", size: 24 } } },
+        },
+        sections: [{ properties: pageProps, children }],
       });
       zip.file("aplus-brief.docx", await Packer.toBlob(doc));
     }
 
     // ── 4. Product images ─────────────────────────────────────────────────────
     if (Object.keys(generatedImages).length > 0) {
-      const imgFolder = zip.folder("product-images")!;
+      const folder = zip.folder("product-images")!;
       for (const [id, url] of Object.entries(generatedImages)) {
         try {
-          if (url.startsWith("data:")) {
-            imgFolder.file(`image-${id}.png`, url.split(",")[1], {
-              base64: true,
-            });
-          } else {
-            imgFolder.file(`image-${id}.png`, await (await fetch(url)).blob());
-          }
+          folder.file(
+            `image-${id}.png`,
+            url.startsWith("data:")
+              ? url.split(",")[1]
+              : await (await fetch(url)).blob(),
+            url.startsWith("data:") ? { base64: true } : {},
+          );
         } catch {
           /* skip failed */
         }
@@ -449,19 +454,16 @@ export default function CataloguePage() {
 
     // ── 5. A+ banner images ───────────────────────────────────────────────────
     if (Object.keys(generatedBanners).length > 0) {
-      const bannerFolder = zip.folder("aplus-images")!;
+      const folder = zip.folder("aplus-images")!;
       for (const [id, url] of Object.entries(generatedBanners)) {
         try {
-          if (url.startsWith("data:")) {
-            bannerFolder.file(`banner-${id}.png`, url.split(",")[1], {
-              base64: true,
-            });
-          } else {
-            bannerFolder.file(
-              `banner-${id}.png`,
-              await (await fetch(url)).blob(),
-            );
-          }
+          folder.file(
+            `banner-${id}.png`,
+            url.startsWith("data:")
+              ? url.split(",")[1]
+              : await (await fetch(url)).blob(),
+            url.startsWith("data:") ? { base64: true } : {},
+          );
         } catch {
           /* skip failed */
         }
@@ -470,10 +472,10 @@ export default function CataloguePage() {
 
     const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `catalogue-${catalogueFormState.asin || "export"}.zip`;
-    a.click();
+    Object.assign(document.createElement("a"), {
+      href: url,
+      download: `catalogue-${catalogueFormState.asin || "export"}.zip`,
+    }).click();
     URL.revokeObjectURL(url);
 
     toast({
@@ -528,7 +530,7 @@ export default function CataloguePage() {
                 )}
               </div>
               <ChevronDown
-                className={`w-5 h-5 transition-transform ${formCollapsed ? "" : "rotate-180"}`}
+                className={`w-5 h-5 transition-transform text-black  ${formCollapsed ? "" : "rotate-180"}`}
               />
             </button>
           </div>
@@ -646,7 +648,7 @@ export default function CataloguePage() {
                   )}
                 </div>
                 <ChevronDown
-                  className={`w-5 h-5 transition-transform ${tableCollapsed ? "" : "rotate-180"}`}
+                  className={`w-5 h-5 transition-transform text-black ${tableCollapsed ? "" : "rotate-180"}`}
                 />
               </button>
             </div>
@@ -819,7 +821,7 @@ export default function CataloguePage() {
                               className="w-full bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
                             >
                               <ChevronDown
-                                className={`w-3 h-3 mr-1.5 transition-transform ${showKeywordInput ? "rotate-180" : ""}`}
+                                className={`w-3 h-3 mr-1.5 transition-transform text-black ${showKeywordInput ? "rotate-180" : ""}`}
                               />
                               Add Keywords
                             </Button>

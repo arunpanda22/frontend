@@ -22,185 +22,120 @@ import { useCatalogOperations } from "@/lib/hooks/use-catalogue-operations";
 import type {
   ImageGenerationRequest,
   ImageEditRequest,
+  ImageGuidelineItem,
+  AplusBannerItem,
 } from "@/app/dashboard/catalogue/lib/types";
-import type { ParsedImageSection } from "@/app/dashboard/catalogue/lib/parse-image-guidelines";
 
 export type DrawerMode = "product" | "aplus";
 
 interface SectionMeta {
-  id: number;
-  index: number;
+  id: number;       // unique card id (product: 1–7, aplus: 101–105)
+  index: number;    // matches image_number / banner_number from backend
   label: string;
   aspectClass: string;
   fallbackPrompt: string;
 }
 
 const PRODUCT_META: SectionMeta[] = [
-  {
-    id: 1,
-    index: 1,
-    label: "Hero Image",
-    aspectClass: "aspect-square",
-    fallbackPrompt: "Professional hero product shot on clean white background",
-  },
-  {
-    id: 2,
-    index: 2,
-    label: "Lifestyle Image",
-    aspectClass: "aspect-square",
-    fallbackPrompt: "Lifestyle product image showing real-world usage context",
-  },
-  {
-    id: 3,
-    index: 3,
-    label: "Ingredient Highlight",
-    aspectClass: "aspect-square",
-    fallbackPrompt: "Close-up ingredient or material highlight shot",
-  },
-  {
-    id: 4,
-    index: 4,
-    label: "Infographic",
-    aspectClass: "aspect-square",
-    fallbackPrompt:
-      "Product infographic highlighting key features and benefits",
-  },
-  {
-    id: 5,
-    index: 5,
-    label: "Packaging Shot",
-    aspectClass: "aspect-square",
-    fallbackPrompt: "Clean packaging presentation and unboxing shot",
-  },
-  {
-    id: 6,
-    index: 6,
-    label: "Secondary Gallery",
-    aspectClass: "aspect-square",
-    fallbackPrompt: "Additional product angle showing detail and quality",
-  },
-  {
-    id: 7,
-    index: 7,
-    label: "Texture / Swatch",
-    aspectClass: "aspect-square",
-    fallbackPrompt: "Close-up material texture and quality detail shot",
-  },
+  { id: 1, index: 1, label: "Hero Image",           aspectClass: "aspect-square",   fallbackPrompt: "Professional hero product shot on clean white background" },
+  { id: 2, index: 2, label: "Lifestyle Image",       aspectClass: "aspect-square",   fallbackPrompt: "Lifestyle product image showing real-world usage context" },
+  { id: 3, index: 3, label: "Ingredient Highlight",  aspectClass: "aspect-square",   fallbackPrompt: "Close-up ingredient or material highlight shot" },
+  { id: 4, index: 4, label: "Infographic",           aspectClass: "aspect-square",   fallbackPrompt: "Product infographic highlighting key features and benefits" },
+  { id: 5, index: 5, label: "Packaging Shot",        aspectClass: "aspect-square",   fallbackPrompt: "Clean packaging presentation and unboxing shot" },
+  { id: 6, index: 6, label: "Secondary Gallery",     aspectClass: "aspect-square",   fallbackPrompt: "Additional product angle showing detail and quality" },
+  { id: 7, index: 7, label: "Texture / Swatch",      aspectClass: "aspect-square",   fallbackPrompt: "Close-up material texture and quality detail shot" },
 ];
 
 const APLUS_META: SectionMeta[] = [
-  {
-    id: 101,
-    index: 1,
-    label: "Hero Brand Banner",
-    aspectClass: "aspect-[21/9]",
-    fallbackPrompt: "Wide brand story narrative banner image",
-  },
-  {
-    id: 102,
-    index: 2,
-    label: "Feature Deep Dive",
-    aspectClass: "aspect-[21/9]",
-    fallbackPrompt: "Product feature and benefits banner image",
-  },
-  {
-    id: 103,
-    index: 3,
-    label: "Lifestyle Banner",
-    aspectClass: "aspect-[21/9]",
-    fallbackPrompt: "Full-width lifestyle scene banner image",
-  },
-  {
-    id: 104,
-    index: 4,
-    label: "Product Ecosystem",
-    aspectClass: "aspect-[21/9]",
-    fallbackPrompt: "Product range and cross-sell banner",
-  },
-  {
-    id: 105,
-    index: 5,
-    label: "Proof & Trust",
-    aspectClass: "aspect-[16/7]",
-    fallbackPrompt: "Customer review and trust signal banner image",
-  },
+  { id: 101, index: 1, label: "Hero Brand Banner",    aspectClass: "aspect-[21/9]",  fallbackPrompt: "Wide brand story narrative banner image" },
+  { id: 102, index: 2, label: "Feature Deep Dive",    aspectClass: "aspect-[21/9]",  fallbackPrompt: "Product feature and benefits banner image" },
+  { id: 103, index: 3, label: "Lifestyle Banner",     aspectClass: "aspect-[21/9]",  fallbackPrompt: "Full-width lifestyle scene banner image" },
+  { id: 104, index: 4, label: "Product Ecosystem",    aspectClass: "aspect-[21/9]",  fallbackPrompt: "Product range and cross-sell banner" },
+  { id: 105, index: 5, label: "Proof & Trust",        aspectClass: "aspect-[21/9]",  fallbackPrompt: "Customer review and trust signal banner image" },
 ];
 
+// ── Per-section local UI state ────────────────────────────────────────────────
 interface LocalSectionState {
-  isGenerating: boolean
-  isEditing: boolean
-  editPrompt: string
-  promptExpanded: boolean
-  zoomLevel: number
+  isGenerating: boolean;
+  isEditing: boolean;
+  editPrompt: string;
+  promptExpanded: boolean;
+  zoomLevel: number;
 }
 
-interface ImageGenerationDrawerProps {
-  mode: DrawerMode;
-  open: boolean;
-  onClose: () => void;
-}
+// ── Prompt override stored per section id ─────────────────────────────────────
+type PromptOverrides = Record<number, string>;
 
-function resolveDisplayUrl(
-  imageUrl: string,
-  imageBase64: string,
-  format: string,
-): string {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function resolveDisplayUrl(imageUrl: string, imageBase64: string, format: string): string {
   if (imageUrl) return imageUrl;
   if (imageBase64) return `data:image/${format || "png"};base64,${imageBase64}`;
   return "";
 }
 
-function buildFullEditablePrompt(parsed: ParsedImageSection): string {
-  const lines: string[] = []
-
-  if (parsed.headline)
-    lines.push(`Headline: ${parsed.headline}`)
-
-  if (parsed.subheadline)
-    lines.push(`Sub Headline: ${parsed.subheadline}`)
-
-  if (parsed.imageDescription)
-    lines.push(`\nImage Description:\n${parsed.imageDescription}`)
-
-  if (parsed.styleKeywords)
-    lines.push(`\nStyle Keywords: ${parsed.styleKeywords}`)
-
-  if (parsed.labels.length > 0)
-    lines.push(`\nLabels on Image:\n${parsed.labels.map(l => `- ${l}`).join("\n")}`)
-
-  return lines.join("\n").trim()
+/** Returns the base prompt string from backend data, or fallback. */
+function resolveBasePrompt(
+  section: SectionMeta,
+  parsedSections: ImageGuidelineItem[] | AplusBannerItem[],
+): string {
+  const item = parsedSections.find((p) => {
+    return "image_number" in p
+      ? p.image_number === section.index
+      : p.banner_number === section.index;
+  });
+  return item?.nano_banana_arguments?.prompt ?? section.fallbackPrompt;
 }
 
-export function ImageGenerationDrawer({
-  mode,
-  open,
-  onClose,
-}: ImageGenerationDrawerProps) {
+/** Chips shown above the prompt area — headline, subheadline, labels. */
+function resolveMetaFields(
+  section: SectionMeta,
+  parsedSections: ImageGuidelineItem[] | AplusBannerItem[],
+): { headline: string; subheadline: string; labels: string[] } | null {
+  const item = parsedSections.find((p) =>
+    "image_number" in p ? p.image_number === section.index : p.banner_number === section.index,
+  );
+  if (!item) return null;
+
+  if ("image_number" in item) {
+    // ImageGuidelineItem
+    return { headline: item.headline, subheadline: item.subheadline, labels: item.labels };
+  } else {
+    // AplusBannerItem — overlay_text as labels, bullet_points as secondary labels
+    const labels = [
+      ...item.overlay_text.split(/[|,]/).map((s) => s.trim()).filter(Boolean),
+      ...item.bullet_points,
+    ];
+    return { headline: item.headline, subheadline: item.title, labels };
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export interface ImageGenerationDrawerProps {
+  mode: DrawerMode;
+  open: boolean;
+  onClose: () => void;
+}
+
+export function ImageGenerationDrawer({ mode, open, onClose }: ImageGenerationDrawerProps) {
   const meta = mode === "product" ? PRODUCT_META : APLUS_META;
-  const imageType: ImageGenerationRequest["image_type"] =
-    mode === "product" ? "product" : "banner";
+  const imageType: ImageGenerationRequest["image_type"] = mode === "product" ? "product" : "banner";
 
   const imageGuidelines = useCatalogStore((s) => s.imageGuidelines);
-  const aplusBriefs = useCatalogStore((s) => s.aplusBriefs);
-  const parsedSections = mode === "product" ? imageGuidelines : aplusBriefs;
+  const aplusBriefs     = useCatalogStore((s) => s.aplusBriefs);
+  const parsedSections  = (mode === "product" ? imageGuidelines : aplusBriefs) as
+    | ImageGuidelineItem[]
+    | AplusBannerItem[];
 
-  const images = useCatalogStore((s) =>
-    mode === "product" ? s.generatedImages : s.generatedBanners,
-  );
-  const setImage = useCatalogStore((s) =>
-    mode === "product" ? s.setGeneratedImage : s.setGeneratedBanner,
-  );
+  const images   = useCatalogStore((s) => (mode === "product" ? s.generatedImages : s.generatedBanners));
+  const setImage = useCatalogStore((s) => (mode === "product" ? s.setGeneratedImage : s.setGeneratedBanner));
 
   const { generateImage, editImage } = useCatalogOperations();
 
-  const baseImage = useCatalogStore((s) =>
-    mode === "product" ? s.baseProductImage : s.baseBannerImage,
-  );
-  const setStoreImage = useCatalogStore((s) =>
-    mode === "product" ? s.setBaseProductImage : s.setBaseBannerImage,
-  );
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const baseImage      = useCatalogStore((s) => (mode === "product" ? s.baseProductImage : s.baseBannerImage));
+  const setStoreImage  = useCatalogStore((s) => (mode === "product" ? s.setBaseProductImage : s.setBaseBannerImage));
+  const fileInputRef   = useRef<HTMLInputElement>(null);
   const [basePreviewUrl, setBasePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -208,113 +143,70 @@ export function ImageGenerationDrawer({
       const url = URL.createObjectURL(baseImage);
       setBasePreviewUrl(url);
       return () => URL.revokeObjectURL(url);
-    } else {
-      setBasePreviewUrl(null);
     }
+    setBasePreviewUrl(null);
   }, [baseImage]);
 
-  // Resolve base prompt for a section
-  const resolveBasePrompt = useCallback(
-    (section: SectionMeta): string => {
-      const parsed: ParsedImageSection | undefined = parsedSections.find(
-        (p) => p.index === section.index,
-      );
-      if (!parsed) return section.fallbackPrompt;
-      return buildFullEditablePrompt(parsed);
-    },
-    [parsedSections],
-  );
-
-  // Initialise section state — customPrompt starts empty (filled on open/parsedSections change)
+  // Per-section UI state
   const [sectionState, setSectionState] = useState<Record<number, LocalSectionState>>(() =>
     Object.fromEntries(
-      meta.map((s) => [s.id, {
-        isGenerating: false,
-        isEditing: false,
-        editPrompt: "",
-        promptExpanded: false,
-        zoomLevel: 1,
-        // no customPrompt here
-      }])
-    )
+      meta.map((s) => [s.id, { isGenerating: false, isEditing: false, editPrompt: "", promptExpanded: false, zoomLevel: 1 }]),
+    ),
   );
 
-  const [promptOverrides, setPromptOverrides] = useState<Record<number, string>>({})
+  // User prompt overrides (keyed by section.id)
+  const [promptOverrides, setPromptOverrides] = useState<PromptOverrides>({});
 
-  const getEffectivePrompt = useCallback((section: SectionMeta): string => {
-    // User override takes priority, otherwise always derive live from parsedSections
-    if (promptOverrides[section.id] !== undefined) return promptOverrides[section.id]
-    return resolveBasePrompt(section)
-  }, [promptOverrides, resolveBasePrompt])
+  const patchSection = useCallback((id: number, patch: Partial<LocalSectionState>) => {
+    setSectionState((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
 
+  const getEffectivePrompt = useCallback(
+    (section: SectionMeta): string => {
+      if (promptOverrides[section.id] !== undefined) return promptOverrides[section.id];
+      return resolveBasePrompt(section, parsedSections);
+    },
+    [promptOverrides, parsedSections],
+  );
 
+  const resetPromptOverride = useCallback((id: number) => {
+    setPromptOverrides((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
 
+  // Preview lightbox
   const [previewId, setPreviewId] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const patchSection = useCallback(
-    (id: number, patch: Partial<LocalSectionState>) => {
-      setSectionState((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-    },
-    [],
-  );
-
-  const resolveDescription = useCallback(
-    (section: SectionMeta): string | undefined => {
-      const parsed = parsedSections.find((p) => p.index === section.index);
-      return parsed?.headline || undefined;
-    },
-    [parsedSections],
-  );
-  const handleBaseImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setStoreImage(file);
-  };
-
-  const clearBaseImage = () => {
-    setStoreImage(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
+  // ── Generate ──────────────────────────────────────────────────────────────
   const handleGenerate = useCallback(
     async (section: SectionMeta) => {
       if (!baseImage) return;
       patchSection(section.id, { isGenerating: true });
 
-      // Use the user's (possibly edited) customPrompt
-      const prompt = getEffectivePrompt(section)
-
       const result = await generateImage({
         base_image: baseImage,
-        prompt,
+        prompt: getEffectivePrompt(section),
         image_type: imageType,
         image_number: section.id,
       } satisfies ImageGenerationRequest);
 
       patchSection(section.id, { isGenerating: false });
       if (result.success && result.data) {
-        const url = resolveDisplayUrl(
-          result.data.image_url,
-          result.data.image_base64,
-          result.data.format,
-        );
+        const url = resolveDisplayUrl(result.data.image_url, result.data.image_base64, result.data.format);
         if (url) setImage(section.id, url);
       }
     },
-    [
-      baseImage,
-      imageType,
-      generateImage,
-      patchSection,
-      sectionState,
-      resolveBasePrompt,
-      setImage,
-    ],
+    [baseImage, imageType, generateImage, patchSection, getEffectivePrompt, setImage],
   );
 
+  // ── Edit ──────────────────────────────────────────────────────────────────
   const handleEdit = useCallback(
     async (section: SectionMeta) => {
-      const imageUrl = images[section.id];
+      const imageUrl  = images[section.id];
       const editPrompt = sectionState[section.id]?.editPrompt;
       if (!imageUrl || !editPrompt?.trim()) return;
 
@@ -328,17 +220,14 @@ export function ImageGenerationDrawer({
 
       patchSection(section.id, { isEditing: false, editPrompt: "" });
       if (result.success && result.data) {
-        const url = resolveDisplayUrl(
-          result.data.image_url,
-          result.data.image_base64,
-          result.data.format,
-        );
+        const url = resolveDisplayUrl(result.data.image_url, result.data.image_base64, result.data.format);
         if (url) setImage(section.id, url);
       }
     },
     [images, sectionState, imageType, editImage, patchSection, setImage],
   );
 
+  // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
     const generated = meta.filter((s) => images[s.id]);
     if (!generated.length) return;
@@ -347,7 +236,7 @@ export function ImageGenerationDrawer({
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       for (const section of generated) {
-        const src = images[section.id];
+        const src      = images[section.id];
         const fileName = `${section.label.replace(/\s+/g, "-").toLowerCase()}.png`;
         if (src.startsWith("data:")) {
           zip.file(fileName, src.split(",")[1], { base64: true });
@@ -356,64 +245,45 @@ export function ImageGenerationDrawer({
         }
       }
       const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement("a"), {
-        href: url,
-        download: `${mode}-images.zip`,
-      });
-      a.click();
+      const url  = URL.createObjectURL(blob);
+      Object.assign(document.createElement("a"), { href: url, download: `${mode}-images.zip` }).click();
       URL.revokeObjectURL(url);
     } finally {
       setIsExporting(false);
     }
   }, [images, meta, mode]);
 
-  const hasGuidelinesLoaded = parsedSections.length > 0;
-  const previewSection =
-    previewId !== null ? (meta.find((s) => s.id === previewId) ?? null) : null;
-  const generatedCount = meta.filter((s) => images[s.id]).length;
-
-  const accentBg = mode === "product" ? "bg-blue-50" : "bg-violet-50";
-  const accentIcon = mode === "product" ? "text-blue-600" : "text-violet-600";
-  const accentBtn =
-    mode === "product"
-      ? "bg-blue-600 hover:bg-blue-700"
-      : "bg-violet-600 hover:bg-violet-700";
-  const accentBorder =
-    mode === "product" ? "border-blue-200" : "border-violet-200";
-  const accentFocus =
-    mode === "product" ? "focus:ring-blue-300" : "focus:ring-violet-300";
-
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [open]);
 
   if (!open || typeof document === "undefined") return null;
 
+  const hasGuidelinesLoaded = parsedSections.length > 0;
+  const generatedCount      = meta.filter((s) => images[s.id]).length;
+  const previewSection      = previewId !== null ? (meta.find((s) => s.id === previewId) ?? null) : null;
+
+  // Theme
+  const accentBg     = mode === "product" ? "bg-blue-50"              : "bg-violet-50";
+  const accentIcon   = mode === "product" ? "text-blue-600"           : "text-violet-600";
+  const accentBtn    = mode === "product" ? "bg-blue-600 hover:bg-blue-700" : "bg-violet-600 hover:bg-violet-700";
+  const accentBorder = mode === "product" ? "border-blue-200"         : "border-violet-200";
+  const accentFocus  = mode === "product" ? "focus:ring-blue-300"     : "focus:ring-violet-300";
+  const labelChip    = mode === "product" ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-violet-50 text-violet-700 border-violet-100";
+
   return createPortal(
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-        style={{ zIndex: 9998 }}
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" style={{ zIndex: 9998 }} onClick={onClose} />
 
-      {/* ── Drawer — max-w-5xl ≈ 64rem, roughly double the old max-w-2xl (42rem) ── */}
+      {/* Drawer */}
       <div
         data-no-highlight="true"
         className="fixed inset-y-0 right-0 w-full max-w-6xl bg-white shadow-2xl flex flex-col"
-        style={{
-          zIndex: 9999,
-          isolation: "isolate",
-          transform: "translateZ(0)",
-          willChange: "transform",
-        }}
+        style={{ zIndex: 9999, isolation: "isolate", transform: "translateZ(0)", willChange: "transform" }}
       >
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 flex-shrink-0">
@@ -428,9 +298,7 @@ export function ImageGenerationDrawer({
               <p className="text-xs text-slate-500">
                 {generatedCount} of {meta.length} generated
                 {hasGuidelinesLoaded && (
-                  <span className={`ml-2 font-medium ${accentIcon}`}>
-                    · AI prompts loaded
-                  </span>
+                  <span className={`ml-2 font-medium ${accentIcon}`}>· AI prompts loaded</span>
                 )}
               </p>
             </div>
@@ -441,19 +309,12 @@ export function ImageGenerationDrawer({
               size="sm"
               onClick={handleExport}
               disabled={isExporting || generatedCount === 0}
-              className="h-8 text-xs  border-slate-600"
+              className="h-8 text-xs border-slate-600"
             >
-              {isExporting ? (
-                <Loader className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5 mr-1.5" />
-              )}
+              {isExporting ? <Loader className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
               Export ZIP
             </Button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-slate-100 transition-colors"
-            >
+            <button onClick={onClose} className="p-1.5 rounded-md hover:bg-slate-100 transition-colors">
               <X className="w-4 h-4 text-slate-500" />
             </button>
           </div>
@@ -464,22 +325,14 @@ export function ImageGenerationDrawer({
           {baseImage && basePreviewUrl ? (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0 bg-white">
-                <img
-                  src={basePreviewUrl}
-                  alt="Base"
-                  className="w-full h-full object-cover"
-                />
+                <img src={basePreviewUrl} alt="Base" className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-800 truncate">
-                  {baseImage.name}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  {(baseImage.size / 1024).toFixed(0)} KB · base image
-                </p>
+                <p className="text-xs font-medium text-slate-800 truncate">{baseImage.name}</p>
+                <p className="text-[11px] text-slate-400">{(baseImage.size / 1024).toFixed(0)} KB · base image</p>
               </div>
               <button
-                onClick={clearBaseImage}
+                onClick={() => { setStoreImage(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
                 className="p-1 rounded hover:bg-slate-200 transition-colors"
               >
                 <X className="w-3.5 h-3.5 text-slate-500" />
@@ -492,12 +345,8 @@ export function ImageGenerationDrawer({
             >
               <Upload className="w-4 h-4 text-slate-400 flex-shrink-0" />
               <div>
-                <p className="text-xs font-medium text-slate-600">
-                  Upload base product image
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  PNG, JPG, WEBP · used as reference for generation
-                </p>
+                <p className="text-xs font-medium text-slate-600">Upload base product image</p>
+                <p className="text-[11px] text-slate-400">PNG, JPG, WEBP · used as reference for generation</p>
               </div>
             </button>
           )}
@@ -506,16 +355,14 @@ export function ImageGenerationDrawer({
             type="file"
             accept="image/png,image/jpeg,image/webp"
             className="hidden"
-            onChange={handleBaseImageChange}
+            onChange={(e) => setStoreImage(e.target.files?.[0] ?? null)}
           />
         </div>
 
-        {/* ── No catalog warning ── */}
         {!hasGuidelinesLoaded && (
           <div className="mx-6 mt-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500 flex gap-2 flex-shrink-0">
             <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-            Generate a catalog first to load AI-crafted prompts. Generic prompts
-            will be used until then.
+            Generate a catalog first to load AI-crafted prompts. Generic prompts will be used until then.
           </div>
         )}
 
@@ -527,32 +374,23 @@ export function ImageGenerationDrawer({
             </div>
           )}
 
-          {/* Two-column grid for the wider drawer */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {meta.map((section) => {
-              const imageUrl = images[section.id];
-              const state = sectionState[section.id];
-              const hasImage = !!imageUrl;
-              const parsed = parsedSections.find(
-                (p) => p.index === section.index,
-              );
-              const headline = resolveDescription(section);
+              const imageUrl  = images[section.id];
+              const state     = sectionState[section.id];
+              const hasImage  = !!imageUrl;
+              const meta_     = resolveMetaFields(section, parsedSections);
+              const isOverridden = promptOverrides[section.id] !== undefined;
 
               return (
-                <div
-                  key={section.id}
-                  className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col"
-                >
-                  {/* Section header */}
+                <div key={section.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+
+                  {/* ── Section header ── */}
                   <div className="flex items-start justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
                     <div className="flex-1 min-w-0 pr-3">
-                      <p className="text-sm font-medium text-slate-800">
-                        {section.label}
-                      </p>
-                      {headline && (
-                        <p className="text-xs text-slate-400 mt-0.5 truncate">
-                          {headline}
-                        </p>
+                      <p className="text-sm font-medium text-slate-800">{section.label}</p>
+                      {meta_?.headline && (
+                        <p className="text-xs text-slate-400 mt-0.5 truncate">{meta_.headline}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -571,66 +409,68 @@ export function ImageGenerationDrawer({
                         className={`h-7 text-xs px-3 ${accentBtn} text-white disabled:opacity-50`}
                       >
                         {state.isGenerating ? (
-                          <>
-                            <Loader className="w-3 h-3 mr-1 animate-spin" />
-                            Generating
-                          </>
+                          <><Loader className="w-3 h-3 mr-1 animate-spin" />Generating</>
                         ) : (
-                          <>
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            {hasImage ? "Regenerate" : "Generate"}
-                          </>
+                          <><Sparkles className="w-3 h-3 mr-1" />{hasImage ? "Regenerate" : "Generate"}</>
                         )}
                       </Button>
                     </div>
                   </div>
 
+                  {/* ── Structured meta (headline / subheadline / labels) ── */}
+                  {/* {meta_ && (
+                    <div className="px-4 pt-3 pb-2 border-b border-slate-100 space-y-1.5">
+                      {meta_.subheadline && (
+                        <p className="text-[11px] text-slate-500">
+                          <span className="font-medium text-slate-600">Sub: </span>
+                          {meta_.subheadline}
+                        </p>
+                      )}
+                      {meta_.labels.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {meta_.labels.map((label, i) => (
+                            <span
+                              key={i}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${labelChip}`}
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )} */}
+
                   {/* ── Editable prompt area ── */}
-                  <div className={`px-4 pt-3 pb-2 border-b border-slate-100`}>
+                  <div className="px-4 pt-2.5 pb-2 border-b border-slate-100">
                     <div className="flex items-center justify-between mb-1.5">
                       <button
-                        onClick={() =>
-                          patchSection(section.id, {
-                            promptExpanded: !state.promptExpanded,
-                          })
-                        }
+                        onClick={() => patchSection(section.id, { promptExpanded: !state.promptExpanded })}
                         className={`flex items-center gap-1 text-[11px] font-medium transition-colors ${accentIcon}`}
                       >
-                        {state.promptExpanded ? (
-                          <ChevronUp className="w-3 h-3" />
-                        ) : (
-                          <ChevronDown className="w-3 h-3" />
-                        )}
-                        {state.promptExpanded
-                          ? "Hide prompt"
-                          : "View / edit prompt"}
+                        {state.promptExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        {state.promptExpanded ? "Hide prompt" : "View / edit prompt"}
                       </button>
-                      {promptOverrides[section.id] !== undefined && (
+                      {isOverridden && (
                         <button
-                          onClick={() => setPromptOverrides(prev => {
-                            const next = { ...prev }
-                            delete next[section.id]
-                            return next
-                          })}
+                          onClick={() => resetPromptOverride(section.id)}
                           className="text-[10px] text-slate-400 hover:text-slate-600 underline underline-offset-2"
                         >
-                          Reset
+                          Reset to AI prompt
                         </button>
                       )}
                     </div>
 
-                    {state.promptExpanded && (
+                    {state.promptExpanded ? (
                       <textarea
                         value={getEffectivePrompt(section)}
-                        onChange={(e) => setPromptOverrides(prev => ({ ...prev, [section.id]: e.target.value }))}
+                        onChange={(e) => setPromptOverrides((prev) => ({ ...prev, [section.id]: e.target.value }))}
                         rows={6}
                         className={`w-full text-xs text-slate-700 bg-white border ${accentBorder} rounded-lg px-3 py-2 resize-y leading-relaxed focus:outline-none focus:ring-1 ${accentFocus}`}
                         spellCheck={false}
+                        placeholder="Full generation prompt…"
                       />
-                    )}
-
-                    {/* Collapsed preview — one-liner */}
-                    {!state.promptExpanded && (
+                    ) : (
                       <p
                         className="text-[11px] text-slate-400 truncate cursor-pointer hover:text-slate-600 transition-colors"
                         onClick={() => patchSection(section.id, { promptExpanded: true })}
@@ -640,7 +480,7 @@ export function ImageGenerationDrawer({
                     )}
                   </div>
 
-                  {/* Thumbnail + edit row */}
+                  {/* ── Thumbnail + edit row ── */}
                   <div className="px-4 py-3 space-y-3 flex-1">
                     {hasImage ? (
                       <>
@@ -659,14 +499,8 @@ export function ImageGenerationDrawer({
                           <input
                             type="text"
                             value={state.editPrompt}
-                            onChange={(e) =>
-                              patchSection(section.id, {
-                                editPrompt: e.target.value,
-                              })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleEdit(section);
-                            }}
+                            onChange={(e) => patchSection(section.id, { editPrompt: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleEdit(section); }}
                             placeholder="Describe edits (e.g. brighter background, remove shadow)…"
                             className="flex-1 h-8 px-3 text-xs border border-slate-200 rounded-md bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
                           />
@@ -674,23 +508,15 @@ export function ImageGenerationDrawer({
                             size="sm"
                             variant="outline"
                             onClick={() => handleEdit(section)}
-                            disabled={
-                              state.isEditing || !state.editPrompt.trim()
-                            }
+                            disabled={state.isEditing || !state.editPrompt.trim()}
                             className="h-8 text-xs px-3 border-slate-300"
                           >
-                            {state.isEditing ? (
-                              <Loader className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Pencil className="w-3 h-3" />
-                            )}
+                            {state.isEditing ? <Loader className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
                           </Button>
                         </div>
                       </>
                     ) : (
-                      <div
-                        className={`w-full rounded-lg border border-dashed border-slate-200 ${section.aspectClass} bg-slate-50 flex items-center justify-center`}
-                      >
+                      <div className={`w-full rounded-lg border border-dashed border-slate-200 ${section.aspectClass} bg-slate-50 flex items-center justify-center`}>
                         <p className="text-xs text-slate-300">No image yet</p>
                       </div>
                     )}
@@ -713,50 +539,30 @@ export function ImageGenerationDrawer({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200">
-              <p className="text-sm font-semibold text-slate-900">
-                {previewSection.label}
-              </p>
+              <p className="text-sm font-semibold text-slate-900">{previewSection.label}</p>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1 border border-slate-200 rounded-lg overflow-hidden">
                   <button
                     className="px-2.5 py-1.5 hover:bg-slate-50 text-slate-600"
-                    onClick={() =>
-                      patchSection(previewSection.id, {
-                        zoomLevel: Math.max(
-                          0.5,
-                          (sectionState[previewSection.id]?.zoomLevel ?? 1) -
-                            0.25,
-                        ),
-                      })
-                    }
+                    onClick={() => patchSection(previewSection.id, {
+                      zoomLevel: Math.max(0.5, (sectionState[previewSection.id]?.zoomLevel ?? 1) - 0.25),
+                    })}
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                   <span className="px-2 text-xs text-slate-600 font-medium tabular-nums">
-                    {Math.round(
-                      (sectionState[previewSection.id]?.zoomLevel ?? 1) * 100,
-                    )}
-                    %
+                    {Math.round((sectionState[previewSection.id]?.zoomLevel ?? 1) * 100)}%
                   </span>
                   <button
                     className="px-2.5 py-1.5 hover:bg-slate-50 text-slate-600"
-                    onClick={() =>
-                      patchSection(previewSection.id, {
-                        zoomLevel: Math.min(
-                          3,
-                          (sectionState[previewSection.id]?.zoomLevel ?? 1) +
-                            0.25,
-                        ),
-                      })
-                    }
+                    onClick={() => patchSection(previewSection.id, {
+                      zoomLevel: Math.min(3, (sectionState[previewSection.id]?.zoomLevel ?? 1) + 0.25),
+                    })}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <button
-                  onClick={() => setPreviewId(null)}
-                  className="p-1.5 rounded-md hover:bg-slate-100"
-                >
+                <button onClick={() => setPreviewId(null)} className="p-1.5 rounded-md hover:bg-slate-100">
                   <X className="w-4 h-4 text-slate-500" />
                 </button>
               </div>
