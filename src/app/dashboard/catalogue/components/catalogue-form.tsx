@@ -186,7 +186,7 @@ export function CatalogueForm({
         </Select>
       </div>
 
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         <Label htmlFor="cerebro">Cerebro File</Label>
         {formState.cerebroFile ? (
           <div className="bg-slate-50 border border-slate-300 rounded-md p-3">
@@ -224,13 +224,13 @@ export function CatalogueForm({
             />
           </div>
         )}
-      </div>
+      </div> */}
 
       <div className="space-y-2 pt-4">
         <Button 
           type="submit" 
           className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
-          disabled={!formState.asin || !formState.competitorAsins || !formState.cerebroFile || isGenerating}
+          disabled={!formState.asin || !formState.competitorAsins  || isGenerating}
         >
           {isGenerating ? (
             <>
@@ -246,7 +246,7 @@ export function CatalogueForm({
           onClick={handleKeywordFilter}
           variant="outline"
           className="w-full bg-white border-slate-300 text-black hover:bg-slate-50"
-          disabled={!formState.cerebroFile || isFiltering}
+          disabled={isFiltering}
         >
           {isFiltering ? (
             <>

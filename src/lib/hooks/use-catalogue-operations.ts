@@ -55,10 +55,12 @@ export function useCatalogOperations() {
         const formData = new FormData()
         formData.append('asin', params.asin)
         formData.append('competitor_asins', params.competitor_asins)
-        formData.append('cerebro_file', params.cerebro_file)
         formData.append('brand', params.brand)
         formData.append('description', params.description)
         formData.append('tone', params.tone)
+        if (params.cerebro_file) {
+          formData.append("cerebro_file", params.cerebro_file);
+        }
 
         const response = await apiClient.post<CatalogGenerationResponse>(
           '/api/v1/catalogue-api/catalog/generate/',

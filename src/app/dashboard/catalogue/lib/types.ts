@@ -1,7 +1,7 @@
 export interface CatalogGenerationRequest {
   asin: string
   competitor_asins: string
-  cerebro_file: File
+  cerebro_file?: File
   brand: string
   description: string
   tone: string

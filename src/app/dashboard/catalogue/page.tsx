@@ -156,15 +156,17 @@ export default function CataloguePage() {
     const brand = data.get("brand") as string;
     const description = data.get("description") as string;
     const tone = data.get("tone") as string;
-    const cerebroFile = data.get("cerebro_file") as File;
+    const cerebroFileRaw = data.get("cerebro_file");
+    const cerebroFile = cerebroFileRaw instanceof File && cerebroFileRaw.size > 0 
+      ? cerebroFileRaw 
+      : undefined;
 
     if (
       !asin ||
       !competitorAsins ||
       !brand ||
       !description ||
-      !tone ||
-      !cerebroFile
+      !tone 
     ) {
       toast({
         title: "Missing fields",
@@ -177,7 +179,7 @@ export default function CataloguePage() {
     const result = await generateCatalog({
       asin,
       competitor_asins: competitorAsins,
-      cerebro_file: cerebroFile,
+      cerebro_file: cerebroFile, 
       brand,
       description,
       tone,
