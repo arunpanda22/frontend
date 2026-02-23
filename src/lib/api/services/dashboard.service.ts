@@ -226,7 +226,7 @@ export interface PeriodData {
   "Total Orders": number;
   Sessions: number;
   "Total Order Items": number;
-  AOV: number;
+  ASP: number;
   TACOS: number;
   CPM: number;
 }
@@ -245,7 +245,7 @@ export interface ChangesData {
   "Total Orders": number;
   Sessions: number;
   "Total Order Items": number;
-  AOV: number;
+  ASP: number;
   TACOS: number;
   CPM: number;
 }

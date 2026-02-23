@@ -91,7 +91,7 @@ const DashboardContent = () => {
           color: "bg-gold-300",
         },
         {
-          title: "AOV",
+          title: "ASP",
           value: "Loading...",
           icon: ShoppingCart,
           bgColor: "bg-white",
@@ -129,14 +129,14 @@ const DashboardContent = () => {
       },
       {
         title: "Units",
-        value: formatNumber(current["Total Orders"]),
+        value: formatNumber(current["Total Order Items"]),
         icon: Package,
         bgColor: "bg-white",
         color: "bg-gold-400",
       },
       {
-        title: "AOV",
-        value: `${getCurrencySymbol()}${formatCurrency(current["AOV"])}`,
+        title: "ASP",
+        value: `${getCurrencySymbol()}${formatCurrency(current["ASP"])}`,
         icon: ShoppingCart,
         bgColor: "bg-white",
         color: "bg-ocean-300",

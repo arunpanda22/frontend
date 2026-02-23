@@ -72,6 +72,12 @@ export default function AdvancedFunnel() {
       change: formatChange(changes.CPM),
       changeUp: changes.CPM >= 0
     },
+    adCost: {
+      title: "Ad cost",
+      value: formatNumber(current_period.Spend),
+      change: formatChange(changes.Spend),
+      changeUp: changes.Spend >= 0
+    },
     clicks: {
       title: "Clicks",
       value: formatNumber(current_period.Clicks),
@@ -90,10 +96,10 @@ export default function AdvancedFunnel() {
       change: formatChange(changes.CPC),
       changeUp: changes.CPC >= 0
     },
-    conversions: {
-      title: "Conversions",
-      value: formatNumber(current_period.Orders),
-      change: formatChange(changes.Orders),
+    orders: {
+      title: "Total Units",
+      value: formatNumber(current_period["Total Order Items"]),
+      change: formatChange(changes["Total Order Items"]),
       changeUp: changes.Orders >= 0
     },
     convRate: {
@@ -146,6 +152,7 @@ export default function AdvancedFunnel() {
             <div className="border-t-4 border-ocean-300 px-4 pt-4 flex justify-around gap-4">
               <Metric {...metrics.impressions} />
               <Metric {...metrics.avgCPM} />
+              <Metric {...metrics.adCost} />
             </div>
             
             {/* Engagement Stage */}
@@ -157,7 +164,7 @@ export default function AdvancedFunnel() {
             
             {/* Conversion Stage */}
             <div className="border-t-4 border-ocean-700 px-4 pt-4 flex justify-around gap-4">
-              <Metric {...metrics.conversions} />
+              <Metric {...metrics.orders} />
               <Metric {...metrics.convRate} />
               <Metric {...metrics.adsSales} />
             </div>
