@@ -27,6 +27,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
 
 export interface ColumnDefinition {
   field: string;
@@ -107,48 +108,60 @@ const calculateOptimalHeaderWidth = (headerText: string): number => {
 };
 
 const ImageCell = memo(function ImageCell({ imageUrl }: { imageUrl: string }) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties | null>(null);
   const [imageError, setImageError] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   if (!imageUrl || imageError) {
     return null;
   }
 
+  const handleMouseEnter = () => {
+    if (imgRef.current) {
+      const rect = imgRef.current.getBoundingClientRect();
+      setPopupStyle({
+        position: "fixed",
+        top: rect.top + rect.height / 2 - 68, // center vertically on image
+        left: rect.right + 8,
+        width: 136,
+        height: 136,
+        zIndex: 9999,
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setPopupStyle(null);
+  };
+
   return (
     <div className="relative inline-block mr-3">
-      <div
-        className="relative"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <img
-          src={imageUrl || "/placeholder.svg"}
-          alt="Row image"
-          className="min-w-8 h-8 rounded-md object-cover border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
-          onError={() => setImageError(true)}
-        />
+      <img
+        ref={imgRef}
+        src={imageUrl || "/placeholder.svg"}
+        alt="Row image"
+        className="min-w-8 h-8 rounded-md object-cover border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md cursor-pointer"
+        onError={() => setImageError(true)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
 
-        {isHovered && (
-          <div
-            className="absolute z-[9999] bg-white p-2 rounded-lg shadow-xl border border-slate-300"
-            style={{
-              left: "100%",
-              top: "50%",
-              transform: "translateY(-50%)",
-              marginLeft: "8px",
-              width: "136px",
-              height: "136px",
-            }}
-            onMouseEnter={() => setIsHovered(true)}
-          >
-            <img
-              src={imageUrl || "/placeholder.svg"}
-              alt="Expanded view"
-              className="w-32 h-32 rounded-md object-cover"
-            />
-          </div>
-        )}
-      </div>
+      {popupStyle && createPortal(
+        <div
+          className="bg-white p-2 rounded-lg shadow-xl border border-slate-300"
+          style={popupStyle}
+          // Keep popup visible when hovering over it
+          onMouseEnter={() => setPopupStyle(popupStyle)}
+          onMouseLeave={handleMouseLeave}
+        >
+          <img
+            src={imageUrl || "/placeholder.svg"}
+            alt="Expanded view"
+            className="w-32 h-32 rounded-md object-cover"
+          />
+        </div>,
+        document.body
+      )}
     </div>
   );
 });
