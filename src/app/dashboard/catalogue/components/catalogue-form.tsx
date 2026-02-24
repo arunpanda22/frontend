@@ -157,7 +157,7 @@ export function CatalogueForm({
       <div className="space-y-2">
         <Label htmlFor="tone">Tone</Label>
         <Select
-          value={formState.tone || "Benefit focused driven by features and Emotive, Problem–Solution (Pain-First) Tone"}
+          value={formState.tone}
           onValueChange={(value) => update({ tone: value })}
         >
           <SelectTrigger className="bg-white border-slate-300 text-black">

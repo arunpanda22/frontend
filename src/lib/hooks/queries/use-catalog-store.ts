@@ -96,13 +96,16 @@ function extractDescriptionSection(raw: string): string {
   return ''
 }
 
+const DEFAULT_TONE = "Benefit focused driven by features and Emotive, Problem–Solution (Pain-First) Tone"
+
 export const useCatalogStore = create<CatalogState>((set, get) => ({
+
   catalogueFormState: {
     asin: '',
     competitorAsins: '',
     brand: '',
     description: '',
-    tone: '',
+    tone: DEFAULT_TONE,
     cerebroFile: null,
   },
 
@@ -233,7 +236,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   // ── Reset ─────────────────────────────────────────────────────────────────
   reset: () => set({
-    catalogueFormState: { asin: '', competitorAsins: '', brand: '', description: '', tone: '', cerebroFile: null },
+    catalogueFormState: { asin: '', competitorAsins: '', brand: '', description: '', tone: DEFAULT_TONE, cerebroFile: null },
     catalogData: null,
     isCatalogGenerating: false,
     catalogError: null,
