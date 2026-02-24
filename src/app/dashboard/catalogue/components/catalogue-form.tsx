@@ -96,7 +96,7 @@ export function CatalogueForm({
       <div className="space-y-2">
         <Label htmlFor="competitor-asins">
           Competitor ASINs
-          <span className="text-xs text-slate-500 ml-2">(comma-separated, max 10)</span>
+          <span className="text-xs text-slate-500 ml-2">(comma-separated, max 5)</span>
         </Label>
         <Input
           id="competitor-asins"
@@ -156,12 +156,15 @@ export function CatalogueForm({
 
       <div className="space-y-2">
         <Label htmlFor="tone">Tone</Label>
-        <Select value={formState.tone} onValueChange={(value) => update({ tone: value })}>
+        <Select
+          value={formState.tone || "Benefit focused driven by features and Emotive, Problem–Solution (Pain-First) Tone"}
+          onValueChange={(value) => update({ tone: value })}
+        >
           <SelectTrigger className="bg-white border-slate-300 text-black">
             <SelectValue placeholder="Select tone" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Benefit focused driven by features and Emotive, Problem–Solution (Pain-First) Tone">
+            <SelectItem  value="Benefit focused driven by features and Emotive, Problem–Solution (Pain-First) Tone">
               Benefit Focused & Emotive (Problem–Solution)
             </SelectItem>
             <SelectItem value="Outcome-Driven / Benefit-Led Tone">
@@ -226,10 +229,10 @@ export function CatalogueForm({
         )}
       </div> */}
 
-      <div className="space-y-2 pt-4">
+      <div className="flex pt-4 justify-center px-12 space-x-2 ">
         <Button 
           type="submit" 
-          className="w-full bg-cyan-600 hover:bg-cyan-700 text-white"
+          className=" bg-cyan-600 hover:bg-cyan-700 text-white"
           disabled={!formState.asin || !formState.competitorAsins  || isGenerating}
         >
           {isGenerating ? (
@@ -245,16 +248,16 @@ export function CatalogueForm({
           type="button"
           onClick={handleKeywordFilter}
           variant="outline"
-          className="w-full bg-white border-slate-300 text-black hover:bg-slate-50"
-          disabled={isFiltering}
+          className=" bg-white border-slate-300 text-black hover:bg-slate-50"
+          disabled={!formState.asin || isFiltering}
         >
           {isFiltering ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Filtering Keywords...
+              Refining Keywords...
             </>
           ) : (
-            'Filter Keywords'
+            'Refine Keywords'
           )}
         </Button>
       </div>

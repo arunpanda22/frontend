@@ -157,17 +157,12 @@ export default function CataloguePage() {
     const description = data.get("description") as string;
     const tone = data.get("tone") as string;
     const cerebroFileRaw = data.get("cerebro_file");
-    const cerebroFile = cerebroFileRaw instanceof File && cerebroFileRaw.size > 0 
-      ? cerebroFileRaw 
-      : undefined;
+    const cerebroFile =
+      cerebroFileRaw instanceof File && cerebroFileRaw.size > 0
+        ? cerebroFileRaw
+        : undefined;
 
-    if (
-      !asin ||
-      !competitorAsins ||
-      !brand ||
-      !description ||
-      !tone 
-    ) {
+    if (!asin || !competitorAsins || !brand || !description || !tone) {
       toast({
         title: "Missing fields",
         description: "Please fill in all required fields",
@@ -179,7 +174,7 @@ export default function CataloguePage() {
     const result = await generateCatalog({
       asin,
       competitor_asins: competitorAsins,
-      cerebro_file: cerebroFile, 
+      cerebro_file: cerebroFile,
       brand,
       description,
       tone,
@@ -539,19 +534,7 @@ export default function CataloguePage() {
           {!formCollapsed && (
             <div className="p-6">
               <div className="grid grid-cols-2 gap-8">
-                {/* Form — 1/3 */}
-                <div className="col-span-1">
-                  <CatalogueForm
-                    formState={catalogueFormState}
-                    onFormStateChange={setCatalogueFormState}
-                    onSubmit={handleFormSubmit}
-                    onKeywordFilter={handleKeywordFilter}
-                    isGenerating={isCatalogGenerating}
-                    isFiltering={isKeywordFiltering}
-                  />
-                </div>
-
-                {/* How to use — 2/3 */}
+                {/* How to use — 1/2 */}
                 <div className="col-span-1 border-l border-slate-100 pl-8 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -560,36 +543,41 @@ export default function CataloguePage() {
                       </span>
                     </div>
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                      AI-Powered Listing{" "}
-                      <span className="text-cyan-600">Generation</span>
+                      AI-Powered Listing &{" "}
+                      <span className="text-cyan-600">Creative Builder</span>
                     </h3>
-                    <p className="text-slate-500 text-sm mb-8 max-w-lg">
-                      Generate fully optimized Amazon listings in seconds. Paste
-                      your ASIN, add competitors, upload a Cerebro export, and
-                      let the AI do the heavy lifting.
-                    </p>
+                    {/* <p className="text-slate-500 text-sm mb-8 max-w-lg">
+                      Build your Amazon listing, images, and A+ in one
+                      streamlined flow. Add your details, benchmark competitors,
+                      and generate conversion-ready content in minutes.
+                    </p> */}
 
                     <div className="space-y-5">
                       {[
                         {
                           step: "01",
-                          title: "Enter Your ASIN & Competitors",
-                          desc: "Add your product ASIN and up to 10 competitor ASINs to benchmark against the best in your category.",
+                          title: "Add ASIN & Competitors",
+                          desc: "Enter your ASIN and up to 5 competitor ASINs.\nWe benchmark top listings in your category to guide positioning and structure.",
                         },
                         {
                           step: "02",
-                          title: "Upload a Cerebro File",
-                          desc: "Export a keyword report from Helium 10 Cerebro. The AI uses this to identify high-volume, relevant keywords.",
+                          title: "Add Brand & Product Notes",
+                          desc: "Enter your brand name exactly as it should appear.\nAdd clear notes on  Features,  Benefits,  USPs,  Ingredients / composition, Differentiators\nBetter inputs produce stronger output.",
                         },
                         {
                           step: "03",
-                          title: "Filter & Select Keywords",
-                          desc: "Use the keyword filter to narrow down by search volume. Pick the best phrases to include in your listing.",
+                          title: "Choose Tone & Generate",
+                          desc: "Select your catalog tone and click Generate.\nGet a complete draft including title, bullets, description, backend keywords, image briefs, and A+ framework.",
                         },
                         {
                           step: "04",
-                          title: "Generate & Optimize",
-                          desc: "Generate your title, bullet points, and description. Use the real-time editor to track keyword usage and fine-tune.",
+                          title: "Refine Keywords",
+                          desc: "Filter for high-value, relevant keywords.\nRemove competitor brands and any features or claims not applicable to your product.",
+                        },
+                        {
+                          step: "05",
+                          title: "Optimize & Create Visuals",
+                          desc: "Use the live editor to improve keyword usage and messaging.\nDownload structured image & A+ briefs for your designer, or use the AI Image Generator after refining the prompts to match your product.",
                         },
                       ].map(({ step, title, desc }) => (
                         <div key={step} className="flex gap-4">
@@ -602,7 +590,7 @@ export default function CataloguePage() {
                             <p className="text-sm font-semibold text-slate-800 mb-0.5">
                               {title}
                             </p>
-                            <p className="text-xs text-slate-500 leading-relaxed">
+                            <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-line">
                               {desc}
                             </p>
                           </div>
@@ -610,21 +598,18 @@ export default function CataloguePage() {
                       ))}
                     </div>
                   </div>
+                </div>
 
-                  {/* Bottom stat strip */}
-                  {/* <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-3 gap-4">
-                    {[
-                      { label: "Avg. Time Saved", value: "3+ hrs", sub: "per listing" },
-                      { label: "Keyword Coverage", value: "95%+", sub: "match rate" },
-                      { label: "Listing Quality", value: "A10", sub: "algorithm ready" },
-                    ].map(({ label, value, sub }) => (
-                      <div key={label} className="text-center">
-                        <p className="text-xl font-bold text-slate-900">{value}</p>
-                        <p className="text-[11px] font-medium text-slate-600">{label}</p>
-                        <p className="text-[10px] text-slate-400">{sub}</p>
-                      </div>
-                    ))}
-                  </div> */}
+                {/* Form — 1/2 */}
+                <div className="col-span-1">
+                  <CatalogueForm
+                    formState={catalogueFormState}
+                    onFormStateChange={setCatalogueFormState}
+                    onSubmit={handleFormSubmit}
+                    onKeywordFilter={handleKeywordFilter}
+                    isGenerating={isCatalogGenerating}
+                    isFiltering={isKeywordFiltering}
+                  />
                 </div>
               </div>
             </div>
