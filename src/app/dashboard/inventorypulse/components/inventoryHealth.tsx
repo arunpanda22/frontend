@@ -23,11 +23,12 @@ function formatNumber(val: any): number {
   return Number(val);
 }
 
-function formatDecimal(val: any, digits = 2): string {
-  if (val === null || val === undefined || val === "" || isNaN(Number(val)))
-    return "0";
+function formatDecimal(val: any, digits = 2): number {
+  if (val === null || val === undefined || val === "" || isNaN(Number(val))) {
+    return 0;
+  }
   const num = Number(val);
-  return num.toFixed(digits);
+  return Number(num.toFixed(digits));
 }
 
 export default function InventoryHealthTable({
