@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   DollarSign,
   Package,
@@ -15,11 +15,89 @@ import TopProductsCard from "./components/TopProductsCard";
 import { useCurrency } from "@/lib/context/CurrencyContext";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Given an IANA timezone string (e.g. "America/Los_Angeles") returns a short
+ * label like "PST" or "PDT" that is appropriate for the current moment.
+ */
+function getTimezoneAbbr(ianaTimezone: string): string {
+  try {
+    const now = new Date();
+    // Intl.DateTimeFormat with timeZoneName: "short" gives us "PST", "EST", etc.
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimezone,
+      timeZoneName: "short",
+    }).formatToParts(now);
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? ianaTimezone;
+  } catch {
+    return ianaTimezone;
+  }
+}
+
+/**
+ * Formats a Date object in the given IANA timezone as "9:15 PM PST".
+ */
+function formatMarketClock(date: Date, ianaTimezone: string): string {
+  try {
+    const timeStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimezone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+
+    const abbr = getTimezoneAbbr(ianaTimezone);
+    return `${timeStr} ${abbr}`;
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
+/**
+ * Formats a YYYY-MM-DD string as "Feb 25" without any timezone shift.
+ */
+function formatDateShortFromISO(dateStr: string): string {
+  try {
+    const [, month, day] = dateStr.split("-").map(Number);
+    const monthNames = [
+      "Jan","Feb","Mar","Apr","May","Jun",
+      "Jul","Aug","Sep","Oct","Nov","Dec",
+    ];
+    return `${day} ${monthNames[month - 1]}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Live market clock hook
+// ---------------------------------------------------------------------------
+function useMarketClock(ianaTimezone: string | undefined) {
+  const [clockStr, setClockStr] = useState<string>("");
+
+  useEffect(() => {
+    if (!ianaTimezone) return;
+
+    const tick = () => setClockStr(formatMarketClock(new Date(), ianaTimezone));
+    tick();
+    const id = setInterval(tick, 60_000); // update every minute
+    return () => clearInterval(id);
+  }, [ianaTimezone]);
+
+  return clockStr;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function CombinedDashboardPage() {
   const {
     formatCurrency,
     formatCurrencyNoDecimal,
-    formatNumber,
     getCurrencySymbol,
   } = useCurrency();
 
@@ -30,44 +108,25 @@ export default function CombinedDashboardPage() {
   const hasVendorAccounts =
     (userProfile?.connected_vendor_accounts?.length ?? 0) > 0;
 
+  // Marketplace timezone from API metadata (e.g. "America/Los_Angeles")
+  const marketTimezone = data?.metadata?.timezone;
+  const marketDate = data?.metadata?.date; // "2026-02-25"
+  const tzAbbr = marketTimezone ? getTimezoneAbbr(marketTimezone) : "";
+  const marketClockStr = useMarketClock(marketTimezone);
+
+  // Human-readable label for the market date, e.g. "Feb 25"
+  const marketDateLabel = marketDate
+    ? `${formatDateShortFromISO(marketDate)} (${tzAbbr})`
+    : "";
+
   const metricsData = useMemo(() => {
     if (!data?.daily_metrics?.combined) {
       return [
-        {
-          title: "Revenue",
-          value: "Loading...",
-          icon: DollarSign,
-          bgColor: "bg-white",
-          color: "bg-ocean-300",
-        },
-        {
-          title: "Orders",
-          value: "Loading...",
-          icon: ShoppingCart,
-          bgColor: "bg-white",
-          color: "bg-gold-400",
-        },
-        {
-          title: "Units",
-          value: "Loading...",
-          icon: Package,
-          bgColor: "bg-white",
-          color: "bg-ocean-300",
-        },
-        {
-          title: "ASP",
-          value: "Loading...",
-          icon: TrendingUp,
-          bgColor: "bg-white",
-          color: "bg-gold-400",
-        },
-        {
-          title: "Cancelled",
-          value: "Loading...",
-          icon: XCircle,
-          bgColor: "bg-white",
-          color: "bg-red-400",
-        },
+        { title: "Revenue",   value: "Loading...", icon: DollarSign,   bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Orders",    value: "Loading...", icon: ShoppingCart,  bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Units",     value: "Loading...", icon: Package,       bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "ASP",       value: "Loading...", icon: TrendingUp,    bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Cancelled", value: "Loading...", icon: XCircle,       bgColor: "bg-white", color: "bg-red-400"   },
       ];
     }
 
@@ -75,82 +134,44 @@ export default function CombinedDashboardPage() {
       data.daily_metrics.combined;
 
     return [
-      {
-        title: "Revenue",
-        value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`,
-        icon: DollarSign,
-        bgColor: "bg-white",
-        color: "bg-ocean-300",
-      },
-      {
-        title: "Orders",
-        value: orders.toString(),
-        icon: ShoppingCart,
-        bgColor: "bg-white",
-        color: "bg-gold-400",
-      },
-      {
-        title: "Units",
-        value: units.toString(),
-        icon: Package,
-        bgColor: "bg-white",
-        color: "bg-ocean-300",
-      },
-      {
-        title: "ASP",
-        value: `${getCurrencySymbol()}${formatCurrency(asp)}`,
-        icon: TrendingUp,
-        bgColor: "bg-white",
-        color: "bg-gold-400",
-      },
-      {
-        title: "Cancelled",
-        value: cancelled.toString(),
-        icon: XCircle,
-        bgColor: "bg-white",
-        color: "bg-red-400",
-      },
+      { title: "Revenue",   value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`, icon: DollarSign,  bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Orders",    value: orders.toString(),                                            icon: ShoppingCart, bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Units",     value: units.toString(),                                             icon: Package,      bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "ASP",       value: `${getCurrencySymbol()}${formatCurrency(asp)}`,              icon: TrendingUp,   bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Cancelled", value: cancelled.toString(),                                         icon: XCircle,      bgColor: "bg-white", color: "bg-red-400"   },
     ];
   }, [data, formatCurrency, formatCurrencyNoDecimal, getCurrencySymbol]);
 
-  const handleRefresh = () => {
-    refetch();
-  };
-
   return (
-    <div className="min-h-screen  bg-[#f7fafc] p-12 font-montserrat">
+    <div className="min-h-screen bg-[#f7fafc] p-12 font-montserrat">
       <div className="w-full">
-        {/* Header */}
-        <div
-          className={`bg-white p-4 rounded-lg shadow mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible`}
-        >
-          {/* Left side - Title Section */}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Header                                                              */}
+        {/* ------------------------------------------------------------------ */}
+        <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible">
+          {/* Left – title + last updated */}
           <div className="flex flex-col">
             <h1 className="text-xl font-bold text-gray-900">Daily Orders</h1>
             {data?.metadata?.last_refreshed_at && (
-            <p className="text-xs text-gray-500 ">
-              Last updated:{" "}
-              {new Date(data.metadata.last_refreshed_at).toLocaleString()}
-            </p>
-          )}
+              <p className="text-xs text-gray-500">
+                Last updated:{" "}
+                {new Date(data.metadata.last_refreshed_at).toLocaleString()}
+              </p>
+            )}
           </div>
 
-          {/* Right side - Only show if date selector enabled */}
 
-          <div className="flex items-center relative">
-            <div className="relative">
-              <button
-              onClick={handleRefresh}
+          {/* Right – refresh button */}
+          <div className="flex items-center">
+            <button
+              onClick={() => refetch()}
               disabled={isRefetching}
-              className={`
-                flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
-                transition-all duration-200
-                ${
-                  isRefetching
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
-                }
-              `}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                isRefetching
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
+              }`}
             >
               <svg
                 className={`w-4 h-4 ${isRefetching ? "animate-spin" : ""}`}
@@ -167,19 +188,12 @@ export default function CombinedDashboardPage() {
               </svg>
               {isRefetching ? "Refreshing..." : "Refresh"}
             </button>
-            </div>
           </div>
         </div>
 
-        {/* <div className="mb-6">
-          {data?.metadata && (
-            <p className="text-xs text-gray-400 mt-1">
-              Timezone: {data.metadata.timezone} • Marketplace:{" "}
-              {data.metadata.marketplace_id}
-            </p>
-          )}
-        </div> */}
-
+        {/* ------------------------------------------------------------------ */}
+        {/* Error banner                                                        */}
+        {/* ------------------------------------------------------------------ */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 text-sm font-medium">
@@ -191,10 +205,17 @@ export default function CombinedDashboardPage() {
           </div>
         )}
 
-        {/* Metrics Cards */}
-        <div className="">
-          <h2 className="text-xl  font-bold text-[#1a2b3c] tracking-tight px-2">
+        {/* ------------------------------------------------------------------ */}
+        {/* Metrics cards                                                       */}
+        {/* ------------------------------------------------------------------ */}
+        <div>
+          <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
             Today's Performance
+            {marketDateLabel && (
+              <span className="ml-2 text-base font-normal text-gray-400">
+                · {marketDateLabel}
+              </span>
+            )}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 py-6 gap-4 md:gap-6">
             {metricsData.map((metric) => (
@@ -211,7 +232,9 @@ export default function CombinedDashboardPage() {
           </div>
         </div>
 
-        {/* Hourly Chart & Top Products Section */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Analytics                                                           */}
+        {/* ------------------------------------------------------------------ */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
             Analytics
@@ -225,7 +248,6 @@ export default function CombinedDashboardPage() {
                 isLoading={isLoading}
               />
             </div>
-
             <div className="lg:col-span-1">
               <TopProductsCard
                 topProducts={data?.top_products || null}
@@ -234,6 +256,7 @@ export default function CombinedDashboardPage() {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
