@@ -23,12 +23,19 @@ export interface ImageGuidelineItem {
   title: string
   headline: string
   subheadline: string
-  labels: string[]
+  description: string          // NEW — scene / visual description
+  style_keywords: string       // NEW
+  camera_details: string       // NEW
+  post_processing: string      // NEW
+  labels: string[]             // max 3
+  _sync_fingerprint?: string   // NEW — opaque; do not strip when round-tripping
   nano_banana_arguments: NanoBananaArguments
 }
 
 export interface ImageGuidelinesData {
   total_images: number
+  static_guidelines: string    // NEW — shared photography guidelines; append to prompt before API call
+  negative_prompt: string      // NEW — shared negative prompt
   images: ImageGuidelineItem[]
 }
 

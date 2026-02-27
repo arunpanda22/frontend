@@ -35,7 +35,7 @@ interface CatalogState {
   isOptimizing: boolean
 
   // Parsed image data from backend (populated when catalog is generated)
-  imageGuidelines: ImageGuidelineItem[]   // product images (1–7)
+  imageGuidelines: ImageGuidelineItem[]   // product images (1–7), full shape including new fields
   aplusBriefs: AplusBannerItem[]          // A+ banners   (1–5)
 
   // Generated image URLs / data-URIs keyed by image_number / banner_number
@@ -179,45 +179,49 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   // ── Populate from generated catalog ───────────────────────────────────────
   populateFromCatalog: () => set((state) => {
-  if (!state.catalogData) return {}
+    if (!state.catalogData) return {}
 
-  const { product_title, bullet_points, product_description, image_guidelines, a_plus_brief } = state.catalogData
+    const { product_title, bullet_points, product_description, image_guidelines, a_plus_brief } = state.catalogData
 
-  // ── Title ──
-  const firstTitle = (product_title ?? '').split('\n').find(l => l.trim()) ?? ''
+    // ── Title ──
+    const firstTitle = (product_title ?? '').split('\n').find(l => l.trim()) ?? ''
 
-  // ── Bullets ──
-  const raw = bullet_points ?? ''
-  const prefixedLines = raw
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => /^([•\-\*]|\d+[\.\)])\s+/.test(l))
-    .map(l => l.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
+    // ── Bullets ──
+    const raw = bullet_points ?? ''
+    const prefixedLines = raw
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => /^([•\-\*]|\d+[\.\)])\s+/.test(l))
+      .map(l => l.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
 
-  let bulletsList: string[]
-  if (prefixedLines.length >= 2) {
-    bulletsList = prefixedLines
-  } else {
-    const blocks = raw.split('\n\n').map(b => b.trim()).filter(Boolean)
-    bulletsList = blocks.length >= 2
-      ? blocks.map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
-      : raw.split('\n').map(b => b.trim()).filter(Boolean).map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
-  }
+    let bulletsList: string[]
+    if (prefixedLines.length >= 2) {
+      bulletsList = prefixedLines
+    } else {
+      const blocks = raw.split('\n\n').map(b => b.trim()).filter(Boolean)
+      bulletsList = blocks.length >= 2
+        ? blocks.map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
+        : raw.split('\n').map(b => b.trim()).filter(Boolean).map(b => b.replace(/^([•\-\*]|\d+[\.\)])\s+/, '').replace(/\*\*/g, '').trim())
+    }
 
-  const bullets = [...bulletsList, ...INITIAL_BULLETS].slice(0, 7)
+    const bullets = [...bulletsList, ...INITIAL_BULLETS].slice(0, 7)
 
-  // ── Read structured image data directly from backend ──
-  const imageGuidelines: ImageGuidelineItem[] = image_guidelines?.images ?? []
-  const aplusBriefs: AplusBannerItem[]        = a_plus_brief?.banners   ?? []
+    // ── Image guidelines — store the complete item shape (incl. new fields) ──
+    // The backend now returns: title, headline, subheadline, description,
+    // style_keywords, camera_details, post_processing, labels, _sync_fingerprint,
+    // and nano_banana_arguments. We pass the entire array through unchanged so
+    // the drawer can render all structured fields directly.
+    const imageGuidelines: ImageGuidelineItem[] = image_guidelines?.images ?? []
+    const aplusBriefs: AplusBannerItem[]        = a_plus_brief?.banners   ?? []
 
-  return {
-    title: firstTitle,
-    bullets,
-    description: extractDescriptionSection(product_description ?? ''),
-    imageGuidelines,
-    aplusBriefs,
-  }
-}),
+    return {
+      title: firstTitle,
+      bullets,
+      description: extractDescriptionSection(product_description ?? ''),
+      imageGuidelines,
+      aplusBriefs,
+    }
+  }),
 
   // ── Image storage ─────────────────────────────────────────────────────────
   setGeneratedImage: (imageNumber, imageUrl) => set((state) => ({
