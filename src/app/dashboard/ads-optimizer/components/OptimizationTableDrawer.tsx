@@ -514,6 +514,7 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
             rowsPerPage={10}
             showCheckboxColumn={true}
             className="h-full"
+            filename={categoryTitle.replace(/\s+/g, "_")}
           />
         </div>
 

@@ -5,14 +5,14 @@ export interface AdsOptimizerRequest {
   target_acos_sp: number;
   target_acos_sb: number;
   target_acos_sd: number;
+  mode: "Sales Optimisation" | "ACOS Optimisation" | "Balanced Optimisation";
   brand?: number;
-  day_parting?:boolean;
-  inventory_aware_bidding?:boolean;
   competitor?: number;
   product_target?: number;
   new_launch?: number;
   recent_start?: number;
-  mode: 'Sales Optimisation' | 'ACOS Optimisation' | 'Balanced Optimisation';
+  start_date?: string; 
+  end_date?: string;  
 }
 
 /**

@@ -7,16 +7,12 @@ export const adsOptimizerQueryKeys = {
   results: () => ['ads-optimizer', 'results'] as const,
 };
 
-/**
- * Hook to invoke ads optimizer
- */
 export function useInvokeAdsOptimizer() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (params: AdsOptimizerRequest) => adsOptimizerService.invokeOptimizer(params),
     onSuccess: (data) => {
-      // Cache the results for the results page
       queryClient.setQueryData(adsOptimizerQueryKeys.results(), data);
     },
   });

@@ -72,6 +72,9 @@ interface AdvancedDataTableProps {
   initialSort?: SortState[];
   autoFitHeaders?: boolean;
   showExportCard?: boolean;
+  filename?: string
+  onSelectionChange?: (selectedData: TableData[]) => void
+  showDeleteOption?: boolean
 }
 
 interface CellRendererProps {
@@ -519,12 +522,15 @@ export function AdvancedDataTable({
   columns,
   onDataChange,
   onColumnsChange,
+  onSelectionChange, 
   className,
   showCheckboxColumn = true,
   rowsPerPage = 10,
   initialSort = [],
   autoFitHeaders = false,
   showExportCard = true,
+  filename = "export",
+  showDeleteOption = true
 }: AdvancedDataTableProps) {
   const processedColumns = useMemo(() => {
     return columns.map((col) => {
@@ -563,6 +569,11 @@ export function AdvancedDataTable({
   const [filteredData, setFilteredData] = useState<TableData[]>(data);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!onSelectionChange) return
+    const selectedData = filteredData.filter((_, i) => selectedRows.has(i))
+    onSelectionChange(selectedData)
+  }, [selectedRows, filteredData, onSelectionChange])
   const [editingCell, setEditingCell] = useState<{
     row: number;
     field: string;
@@ -846,17 +857,23 @@ export function AdvancedDataTable({
   const handleRowSelect = useCallback(
     (rowIndex: number, checked: boolean) => {
       setSelectedRows((prev) => {
-        const newSet = new Set(prev);
-        const actualIndex = paginationData.startIndex + rowIndex;
+        const newSet = new Set(prev)
+        const actualIndex = paginationData.startIndex + rowIndex
         if (checked) {
-          newSet.add(actualIndex);
+          newSet.add(actualIndex)
         } else {
-          newSet.delete(actualIndex);
+          newSet.delete(actualIndex)
         }
-        return newSet;
-      });
+        // Fire AFTER React finishes this render cycle
+        if (onSelectionChange) {
+          queueMicrotask(() => {
+            onSelectionChange(filteredData.filter((_, i) => newSet.has(i)))
+          })
+        }
+        return newSet
+      })
     },
-    [paginationData.startIndex],
+    [paginationData.startIndex, onSelectionChange, filteredData],
   );
 
   const handleSelectAll = useCallback(
@@ -864,13 +881,19 @@ export function AdvancedDataTable({
       if (checked) {
         const allIndices = new Set(
           Array.from({ length: filteredData.length }, (_, i) => i),
-        );
-        setSelectedRows(allIndices);
+        )
+        setSelectedRows(allIndices)
+        if (onSelectionChange) {
+          queueMicrotask(() => onSelectionChange(filteredData))
+        }
       } else {
-        setSelectedRows(new Set());
+        setSelectedRows(new Set())
+        if (onSelectionChange) {
+          queueMicrotask(() => onSelectionChange([]))
+        }
       }
     },
-    [filteredData.length],
+    [filteredData, onSelectionChange],
   );
 
   const deleteSelectedRows = useCallback(() => {
@@ -918,7 +941,7 @@ export function AdvancedDataTable({
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
 
-          XLSX.writeFile(wb, "export.xlsx");
+          XLSX.writeFile(wb, `${filename}.xlsx`);
         };
         document.head.appendChild(script);
       } else {
@@ -937,7 +960,7 @@ export function AdvancedDataTable({
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "export.csv";
+        a.download = `${filename}.csv`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -1016,7 +1039,7 @@ export function AdvancedDataTable({
           className={`flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200`}
         >
           <div className="flex items-center gap-4">
-            {selectedRows.size > 0 && (
+            {showDeleteOption && selectedRows.size > 0 && (
               <Button
                 variant="destructive"
                 size="sm"

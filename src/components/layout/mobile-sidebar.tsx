@@ -24,12 +24,6 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   // Define tools for mobile sidebar
   const toolCategories = [
     {
-      name: "Content Generation",
-      tools: [
-        { name: 'Listing Generator', href: '/lister', description: 'Generate optimized product listings' },
-      ]
-    },
-    {
       name: "Catalog",
       tools: [
         { name: 'ASIN Analyzer', href: '/asin_analyzer', description: 'Analyze product text and images for an ASIN' },

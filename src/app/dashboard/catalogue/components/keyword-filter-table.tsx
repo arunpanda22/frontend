@@ -1,15 +1,8 @@
 "use client"
 
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./ui/table"
+import { useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
+import { AdvancedDataTable, type ColumnDefinition, type TableData } from "@/components/dashboard/table/advanced-data-table"
 import type { KeywordData } from "@/app/dashboard/catalogue/lib/types"
 
 interface KeywordFilterTableProps {
@@ -19,16 +12,16 @@ interface KeywordFilterTableProps {
   onToggleKeyword: (keyword: string) => void
 }
 
-const safeNum = (val: any): string => {
-  if (val === null || val === undefined) return "—"
-  const n = Number(val)
-  return isNaN(n) ? "—" : n.toLocaleString()
-}
-
-const safeStr = (val: any): string => {
-  if (val === null || val === undefined) return "—"
-  return String(val)
-}
+const KEYWORD_COLUMNS: ColumnDefinition[] = [
+  { field: "keyword",      headerName: "Keyword",      type: "text",   editable: false, sortable: true, filterable: true, minWidth: 180, width: 240 },
+  { field: "keyword_type", headerName: "Type",         type: "text",   editable: false, sortable: true, filterable: true, width: 120, minWidth: 100 },
+  { field: "word_count",   headerName: "Word Count",   type: "number", editable: false, sortable: true, filterable: true, width: 110, minWidth: 90  },
+  { field: "frequency",    headerName: "Frequency",    type: "number", editable: false, sortable: true, filterable: true, width: 110, minWidth: 90  },
+  { field: "is_primary",   headerName: "Primary",      type: "boolean",editable: false, sortable: true, filterable: true, width: 100, minWidth: 80  },
+  { field: "broad_rank",   headerName: "Broad Rank",   type: "number", editable: false, sortable: true, filterable: true, width: 110, minWidth: 90  },
+  { field: "phrase_rank",  headerName: "Phrase Rank",  type: "number", editable: false, sortable: true, filterable: true, width: 115, minWidth: 90  },
+  { field: "exact_rank",   headerName: "Exact Rank",   type: "number", editable: false, sortable: true, filterable: true, width: 110, minWidth: 90  },
+]
 
 export function KeywordFilterTable({
   data,
@@ -36,100 +29,78 @@ export function KeywordFilterTable({
   selectedKeywords,
   onToggleKeyword,
 }: KeywordFilterTableProps) {
-  const allSelected =
-    data.length > 0 && data.every((row) => selectedKeywords.includes(row.keyword))
+  // Own the selected keyword strings locally — populated by AdvancedDataTable's
+  // onSelectionChange callback (fired via useEffect, never during render).
+  const [localSelected, setLocalSelected] = useState<string[]>([])
 
-  const toggleAll = (checked: boolean) => {
-    if (checked) {
-      data.forEach((row) => {
-        if (!selectedKeywords.includes(row.keyword)) onToggleKeyword(row.keyword)
-      })
-    } else {
-      selectedKeywords.forEach((kw) => {
-        if (data.some((row) => row.keyword === kw)) onToggleKeyword(kw)
-      })
-    }
-  }
+  const tableData: TableData[] = useMemo(
+    () =>
+      data.map((row) => ({
+        ...row,
+        word_count:  row.word_count  ?? null,
+        frequency:   row.frequency   ?? null,
+        broad_rank:  row.broad_rank  ?? null,
+        phrase_rank: row.phrase_rank ?? null,
+        exact_rank:  row.exact_rank  ?? null,
+        is_primary:  row.is_primary ? "Primary" : "",
+      })),
+    [data],
+  )
+
+  // Fired by AdvancedDataTable after its selectedRows state settles (useEffect).
+  // Safe to call setState here — we are NOT inside another component's render.
+  const handleSelectionChange = useCallback((selectedData: TableData[]) => {
+    setLocalSelected(selectedData.map((row) => String(row.keyword)))
+  }, [])
+
+  // "Add Selected" clicked:
+  // 1. Pass keyword strings up to the catalogue page handler (shows toast, etc.)
+  // 2. Also sync each keyword into the store via onToggleKeyword so
+  //    addSelectedKeywordsToList() in the store has something to work with.
+  const handleAddKeywords = useCallback(() => {
+    if (localSelected.length === 0) return
+
+    // Sync into store selection state
+    localSelected.forEach((kw) => {
+      if (!selectedKeywords.includes(kw)) {
+        onToggleKeyword(kw)
+      }
+    })
+
+    // Call the page-level handler (addSelectedKeywordsToList + toast)
+    onAddKeywords(localSelected)
+  }, [localSelected, selectedKeywords, onToggleKeyword, onAddKeywords])
+
+  // No-op: prevent table-level row deletion from mutating catalogue store data
+  const handleDataChange = useCallback((_updated: TableData[]) => {}, [])
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
         <Button
-          onClick={() => onAddKeywords(selectedKeywords)}
-          disabled={selectedKeywords.length === 0}
+          onClick={handleAddKeywords}
+          disabled={localSelected.length === 0}
           className="bg-cyan-600 hover:bg-cyan-700 text-white"
           size="sm"
         >
-          Add Selected ({selectedKeywords.length})
+          Add Selected ({localSelected.length})
         </Button>
         <p className="text-xs text-slate-400">{data.length} keywords</p>
       </div>
 
-      <div className="border border-slate-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-                </TableHead>
-                <TableHead>Keyword</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Word Count</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead>Primary</TableHead>
-                <TableHead>Broad Rank</TableHead>
-                <TableHead>Phrase Rank</TableHead>
-                <TableHead>Exact Rank</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-slate-400">
-                    No keywords loaded. Click "Keyword Filter" to fetch recommendations.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.map((row, index) => (
-                  <TableRow key={index} className="text-black">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedKeywords.includes(row.keyword)}
-                        onCheckedChange={() => onToggleKeyword(row.keyword)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{safeStr(row.keyword)}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                        row.keyword_type === "long_tail"
-                          ? "bg-violet-50 text-violet-600"
-                          : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {safeStr(row.keyword_type)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{safeNum(row.word_count)}</TableCell>
-                    <TableCell>{safeNum(row.frequency)}</TableCell>
-                    <TableCell>
-                      {row.is_primary ? (
-                        <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-cyan-50 text-cyan-600">
-                          Primary
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-300">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{safeNum(row.broad_rank)}</TableCell>
-                    <TableCell>{safeNum(row.phrase_rank)}</TableCell>
-                    <TableCell>{safeNum(row.exact_rank)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+      <AdvancedDataTable
+        data={tableData}
+        columns={KEYWORD_COLUMNS}
+        onDataChange={handleDataChange}
+        onSelectionChange={handleSelectionChange}
+        showCheckboxColumn={true}
+        showDeleteOption={false}
+        rowsPerPage={15}
+        autoFitHeaders={false}
+        showExportCard={true}
+        filename="keyword-filter"
+        initialSort={[{ field: "frequency", direction: "desc" }]}
+      />
     </div>
   )
 }

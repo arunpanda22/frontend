@@ -149,39 +149,13 @@ export const DASHBOARD_CATEGORIES = [
   },
 ]
 
-/**
- * Tool Routes - Organized by category
- */
-
-// Content Generation Tools
-const CONTENT_GENERATION_TOOLS: RouteConfig[] = [
-  {
-    name: 'Listing Generator',
-    href: '/lister',
-    description: 'Generate optimized product listings',
-    permission: 'use_listing_generator',
-  },
-]
-
 // Catalog Tools
 const CATALOG_TOOLS: RouteConfig[] = [
-  {
-    name: 'ASIN Analyzer',
-    href: '/asin_analyzer',
-    description: 'Analyze product text and images for an ASIN',
-    permission: 'use_asin_analyzer',
-  },
   {
     name: 'ASIN Image Analyzer',
     href: '/asin_image_analyzer',
     description: 'Analyze and group ASIN images and variants',
     permission: 'use_asin_image_analyzer',
-  },
-  {
-    name: 'SQP Analysis',
-    href: '/sqp',
-    description: 'Analyze search query performance data',
-    permission: 'use_sqp_analysis',
   },
   {
     name: 'Cerebro Analysis',
@@ -191,15 +165,6 @@ const CATALOG_TOOLS: RouteConfig[] = [
   },
 ]
 
-// Bulk File Tools
-const BULK_FILE_TOOLS: RouteConfig[] = [
-  {
-    name: 'Bulk File Optimizer',
-    href: '/sp',
-    description: 'Optimize your Sponsored Products campaigns',
-    permission: 'use_bulk_file_optimizer',
-  },
-]
 
 // Advertising Tools
 const ADVERTISING_TOOLS: RouteConfig[] = [
@@ -266,16 +231,8 @@ const PROFILE_ROUTES: RouteConfig[] = [
  */
 export const TOOL_CATEGORIES = [
   {
-    name: 'Content Generation',
-    tools: CONTENT_GENERATION_TOOLS,
-  },
-  {
     name: 'Catalog',
     tools: CATALOG_TOOLS,
-  },
-  {
-    name: 'Bulk File',
-    tools: BULK_FILE_TOOLS,
   },
   {
     name: 'Advertising',
@@ -296,9 +253,7 @@ export const ROUTES: RouteCategory[] = [
     name: 'Tools',
     category: 'tools',
     children: [
-      ...CONTENT_GENERATION_TOOLS,
       ...CATALOG_TOOLS,
-      ...BULK_FILE_TOOLS,
       ...ADVERTISING_TOOLS,
     ],
   },
