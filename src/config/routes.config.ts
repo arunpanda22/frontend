@@ -8,19 +8,13 @@ export interface RouteConfig {
   href: string
   description?: string
   icon?: string
-  
-  // Permission requirements (at least one must be specified)
-  permission?: string           // Single required permission
-  anyPermissions?: string[]     // User needs ANY of these permissions (OR)
-  allPermissions?: string[]     // User needs ALL of these permissions (AND)
-  
-  // Role requirements (optional, combined with permission checks)
+  permission?: string
+  anyPermissions?: string[]
+  allPermissions?: string[]
   role?: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user'
   minRole?: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user'
-  
-  // Additional flags
-  requiresSellerAccount?: boolean  // Requires connected seller account
-  requiresAgency?: boolean         // Requires agency assignment
+  requiresSellerAccount?: boolean
+  requiresAgency?: boolean
 }
 
 export interface RouteCategory {
@@ -29,10 +23,8 @@ export interface RouteCategory {
   children: RouteConfig[]
 }
 
-/**
- * Dashboard Routes - Core Analytics
- * Requires seller account connection for data display
- */
+// ── Core Analytics ─────────────────────────────────────────────────────────────
+
 const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
   {
     name: 'Command Center',
@@ -48,13 +40,6 @@ const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
     permission: 'view_dashboard',
     requiresSellerAccount: true,
   },
-  // {
-  //   name: 'Recent Orders ',
-  //   href: '/dashboard/recent-orders',
-  //   description: 'Orders dashboard',
-  //   permission: 'view_dashboard',
-  //   requiresSellerAccount: true,
-  // },
   {
     name: 'ASIN Intelligence',
     href: '/dashboard/asin-inteligence',
@@ -85,23 +70,14 @@ const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
   },
 ]
 
-/**
- * Dashboard Routes - AdOptimus Suite
- * Advanced advertising optimization tools
- */
+// ── AdOptimus Suite ────────────────────────────────────────────────────────────
+
 const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
   {
     name: 'Ads Optimizer',
     href: '/dashboard/ads-optimizer',
     description: 'Automated Bid Management for Maximum ROI',
     permission: 'access_ads_optimizer',
-    requiresSellerAccount: true,
-  },
-  {
-    name: 'Campaign Creation',
-    href: '/dashboard/campaign-creation',
-    description: 'Campaign creation page',
-    permission: 'access_campaign_creation',
     requiresSellerAccount: true,
   },
   {
@@ -114,7 +90,7 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
   {
     name: 'Opportunity Optimizer',
     href: '/dashboard/opportunities',
-    description: 'Find oppurtunities to increase profits',
+    description: 'Find opportunities to increase profits',
     permission: 'access_oppurtunities',
     requiresSellerAccount: true,
   },
@@ -127,17 +103,43 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
   },
 ]
 
-/**
- * All Dashboard Routes Combined
- */
+// ── Campaign Creation ──────────────────────────────────────────────────────────
+// Separate pages per ad type — SP active, SB + SD coming soon
+
+const CAMPAIGN_CREATION_ROUTES: RouteConfig[] = [
+  {
+    name: 'Sponsored Products',
+    href: '/dashboard/sp-campaigns',
+    description: 'Create SP campaigns',
+    permission: 'access_campaign_creation',
+    requiresSellerAccount: true,
+  },
+  {
+    name: 'Sponsored Brands',
+    href: '/dashboard/sb-campaigns',
+    description: 'Create SB campaigns',
+    permission: 'access_campaign_creation',
+    requiresSellerAccount: true,
+  },
+  {
+    name: 'Sponsored Display',
+    href: '/dashboard/sd-campaigns',
+    description: 'Create SD campaigns',
+    permission: 'access_campaign_creation',
+    requiresSellerAccount: true,
+  },
+]
+
+// ── All Dashboard Routes ───────────────────────────────────────────────────────
+
 const DASHBOARD_ROUTES: RouteConfig[] = [
   ...DASHBOARD_CORE_ROUTES,
   ...DASHBOARD_ADOPTIMUS_ROUTES,
+  ...CAMPAIGN_CREATION_ROUTES,
 ]
 
-/**
- * Dashboard Categories for Sidebar Organization
- */
+// ── Sidebar Categories ─────────────────────────────────────────────────────────
+
 export const DASHBOARD_CATEGORIES = [
   {
     name: 'Core Analytics',
@@ -147,9 +149,14 @@ export const DASHBOARD_CATEGORIES = [
     name: 'AdOptimus',
     routes: DASHBOARD_ADOPTIMUS_ROUTES,
   },
+  {
+    name: 'Campaign Creation',
+    routes: CAMPAIGN_CREATION_ROUTES,
+  },
 ]
 
-// Catalog Tools
+// ── Catalog Tools ──────────────────────────────────────────────────────────────
+
 const CATALOG_TOOLS: RouteConfig[] = [
   {
     name: 'ASIN Image Analyzer',
@@ -165,8 +172,8 @@ const CATALOG_TOOLS: RouteConfig[] = [
   },
 ]
 
+// ── Advertising Tools ──────────────────────────────────────────────────────────
 
-// Advertising Tools
 const ADVERTISING_TOOLS: RouteConfig[] = [
   {
     name: 'N-gram Analysis',
@@ -182,10 +189,19 @@ const ADVERTISING_TOOLS: RouteConfig[] = [
   },
 ]
 
-/**
- * Admin Routes
- * High-level administration pages
- */
+export const TOOL_CATEGORIES = [
+  {
+    name: 'Catalog',
+    tools: CATALOG_TOOLS,
+  },
+  {
+    name: 'Advertising',
+    tools: ADVERTISING_TOOLS,
+  },
+]
+
+// ── Admin Routes ───────────────────────────────────────────────────────────────
+
 const ADMIN_ROUTES: RouteConfig[] = [
   {
     name: 'User Management',
@@ -197,7 +213,7 @@ const ADMIN_ROUTES: RouteConfig[] = [
       'assign_admin_roles',
       'assign_agency_roles',
     ],
-    minRole: 'admin', // Must be at least admin role
+    minRole: 'admin',
   },
   {
     name: 'System Logs',
@@ -208,9 +224,8 @@ const ADMIN_ROUTES: RouteConfig[] = [
   },
 ]
 
-/**
- * Profile Routes
- */
+// ── Profile Routes ─────────────────────────────────────────────────────────────
+
 const PROFILE_ROUTES: RouteConfig[] = [
   {
     name: 'Profile',
@@ -226,23 +241,8 @@ const PROFILE_ROUTES: RouteConfig[] = [
   },
 ]
 
-/**
- * Tool Categories for Sidebar Organization
- */
-export const TOOL_CATEGORIES = [
-  {
-    name: 'Catalog',
-    tools: CATALOG_TOOLS,
-  },
-  {
-    name: 'Advertising',
-    tools: ADVERTISING_TOOLS,
-  },
-]
+// ── Main Export ────────────────────────────────────────────────────────────────
 
-/**
- * Main Routes Export - All routes organized by category
- */
 export const ROUTES: RouteCategory[] = [
   {
     name: 'Dashboard',
@@ -269,16 +269,8 @@ export const ROUTES: RouteCategory[] = [
   },
 ]
 
-/**
- * Helper function to get all routes as flat array
- */
-export const getAllRoutes = (): RouteConfig[] => {
-  return ROUTES.flatMap(category => category.children)
-}
+export const getAllRoutes = (): RouteConfig[] =>
+  ROUTES.flatMap((category) => category.children)
 
-/**
- * Helper function to find route by href
- */
-export const getRouteByHref = (href: string): RouteConfig | undefined => {
-  return getAllRoutes().find(route => route.href === href)
-}
+export const getRouteByHref = (href: string): RouteConfig | undefined =>
+  getAllRoutes().find((route) => route.href === href)

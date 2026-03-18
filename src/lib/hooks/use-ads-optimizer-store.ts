@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import type { AdsOptimizerResponse } from '@/app/dashboard/ads-optimizer/lib/types';
 
-// Push result structure from backend
+export type OptimizationKey = Exclude<keyof AdsOptimizerResponse, 'errors'>;
+
+export const OPTIMIZATION_KEYS: OptimizationKey[] = [
+  'sp_budget', 'sb_budget', 'sd_budget',
+  'sp_bid', 'sb_bid', 'sd_bid',
+  'sp_placement', 'sb_placement',
+  'sp_new_campaigns', 'sb_new_campaigns',
+  'sp_negatives', 'sb_negatives',
+];
+
 export interface PushResultData {
   push_id: string;
   total_items: number;
@@ -11,253 +20,137 @@ export interface PushResultData {
   errors?: number;
   success_rate: string;
   timestamp: string;
-  details?: {
-    successful_items: any[];
-    failed_items: any[];
-    duplicate_items?: any[];
-    error_items?: any[];
-  };
+  s3_location?: string | null;
+  // details shape differs per category — typed loosely until each
+  // category's frontend handler is built from real response logs.
+  details?: Record<string, any>;
 }
 
 interface AdsOptimizerStore {
-  // Original data from API
-  optimizationData: AdsOptimizerResponse | null;
-  
-  // Edited data (only categories that have been modified)
-  editedData: Partial<AdsOptimizerResponse>;
-  
-  // Track which categories have unsaved changes
-  dirtyCategories: Set<keyof AdsOptimizerResponse>;
-  
-  // Track which categories have been pushed
-  pushedCategories: Set<keyof AdsOptimizerResponse>;
-  
-  // Store push results for each category
-  pushResults: Partial<Record<keyof AdsOptimizerResponse, PushResultData>>;
-  
-  // Set initial optimization data from API
-  setOptimizationData: (data: AdsOptimizerResponse) => void;
-  
-  // Update a specific category with edited data
-  updateCategory: <K extends keyof AdsOptimizerResponse>(
-    category: K,
-    data: AdsOptimizerResponse[K]
-  ) => void;
-  
-  // Get data for a category (returns edited version if exists, otherwise original)
-  getCategoryData: <K extends keyof AdsOptimizerResponse>(
-    category: K
-  ) => AdsOptimizerResponse[K] | undefined;
+  // ── Single source of truth ──────────────────────────────────────────────
+  // categoryData holds the current data for every category.
+  // It is initialised from the API response and mutated in-place when the
+  // user edits or deletes rows. No separate editedData/optimizationData split.
+  categoryData: Partial<Record<OptimizationKey, any[]>>;
 
-  getAllCategoriesData: () => Record<string, any[]>;
-  
-  // Check if a category has unsaved changes
-  isCategoryDirty: (category: keyof AdsOptimizerResponse) => boolean;
-  
-  // Clear edits for a specific category (after successful push)
-  clearCategoryEdits: (category: keyof AdsOptimizerResponse) => void;
-  
-  // Mark category as pushed, DELETE its data, and store result
-  markCategoryAsPushed: (category: keyof AdsOptimizerResponse, result?: PushResultData) => void;
-  
-  // Check if category has been pushed
-  isCategoryPushed: (category: keyof AdsOptimizerResponse) => boolean;
-  
-  // Get push result for a category
-  getPushResult: (category: keyof AdsOptimizerResponse) => PushResultData | undefined;
-  
-  // Reset all edits
-  resetEdits: () => void;
-  
-  // Check if any edits exist
-  hasEdits: () => boolean;
-  
-  // Get count of dirty categories
+  // Top-level errors from the API response
+  errors: string[];
+
+  // Which categories have unsaved changes (mutated vs original)
+  dirtyCategories: Set<OptimizationKey>;
+
+  // Which categories have been pushed
+  pushedCategories: Set<OptimizationKey>;
+
+  // Push results per category
+  pushResults: Partial<Record<OptimizationKey, PushResultData>>;
+
+  // ── Actions ─────────────────────────────────────────────────────────────
+
+  /** Load initial data from the API response. Resets all state. */
+  setOptimizationData: (data: AdsOptimizerResponse) => void;
+
+  /** Overwrite a category's data (called by Save button in the drawer). */
+  setCategoryData: (key: OptimizationKey, data: any[]) => void;
+
+  /** Get current data for a category (always up-to-date). */
+  getCategoryData: (key: OptimizationKey) => any[];
+
+  /** Get the row count for a category (0 if pushed). */
+  getCategoryCount: (key: OptimizationKey) => number;
+
+  /** Get all categories that have data and haven't been pushed. */
+  getAvailableCategories: () => OptimizationKey[];
+
+  /** Mark a category as pushed and store its result. */
+  markCategoryAsPushed: (key: OptimizationKey, result?: PushResultData) => void;
+
+  isCategoryPushed: (key: OptimizationKey) => boolean;
+  isCategoryDirty: (key: OptimizationKey) => boolean;
+  getPushResult: (key: OptimizationKey) => PushResultData | undefined;
   getDirtyCount: () => number;
-  
-  // Get all categories that have data and haven't been pushed
-  getAvailableCategories: () => Array<keyof AdsOptimizerResponse>;
-  
-  // Reset pushed categories (for new optimization run)
+
   resetPushedCategories: () => void;
-  
-  // Get count of items in a category
-  getCategoryCount: (category: keyof AdsOptimizerResponse) => number;
 }
 
 export const useAdsOptimizerStore = create<AdsOptimizerStore>((set, get) => ({
-  optimizationData: null,
-  editedData: {},
+  categoryData: {},
+  errors: [],
   dirtyCategories: new Set(),
   pushedCategories: new Set(),
   pushResults: {},
-  
-  setOptimizationData: (data) => set({ 
-    optimizationData: data,
-    editedData: {},
-    dirtyCategories: new Set(),
-    pushedCategories: new Set(),
-    pushResults: {}
-  }),
-  
-  // UPDATED: When editing, remove data from original store and move to editedData only
-  updateCategory: (category, data) => set((state) => {
-    const newDirtyCategories = new Set(state.dirtyCategories);
-    newDirtyCategories.add(category);
-    
-    // Remove from original data when editing
-    const newOptimizationData = state.optimizationData ? { ...state.optimizationData } : null;
-    if (newOptimizationData) {
-      (newOptimizationData as any)[category] = [];
-    }
-    
-    return {
-      optimizationData: newOptimizationData,
-      editedData: {
-        ...state.editedData,
-        [category]: data,
-      },
-      dirtyCategories: newDirtyCategories,
-    };
-  }),
-  
-  getCategoryData: (category) => {
+
+  // ── setOptimizationData ─────────────────────────────────────────────────
+  setOptimizationData: (data) => {
+    const categoryData: Partial<Record<OptimizationKey, any[]>> = {};
+    OPTIMIZATION_KEYS.forEach((key) => {
+      const val = data[key];
+      if (Array.isArray(val)) categoryData[key] = val;
+    });
+    set({
+      categoryData,
+      errors: data.errors ?? [],
+      dirtyCategories: new Set(),
+      pushedCategories: new Set(),
+      pushResults: {},
+    });
+  },
+
+  // ── setCategoryData ─────────────────────────────────────────────────────
+  // This is the ONLY write path for category data after initialisation.
+  // Called by the drawer's Save button with the user's edited/pruned array.
+  setCategoryData: (key, data) =>
+    set((state) => {
+      const newDirty = new Set(state.dirtyCategories);
+      newDirty.add(key);
+      return {
+        categoryData: { ...state.categoryData, [key]: data },
+        dirtyCategories: newDirty,
+      };
+    }),
+
+  // ── getCategoryData ─────────────────────────────────────────────────────
+  getCategoryData: (key) => get().categoryData[key] ?? [],
+
+  // ── getCategoryCount ────────────────────────────────────────────────────
+  getCategoryCount: (key) => {
     const state = get();
-    
-    // Return edited data if exists, otherwise return original
-    return state.editedData[category] ?? state.optimizationData?.[category];
+    if (state.pushedCategories.has(key)) return 0;
+    return state.categoryData[key]?.length ?? 0;
   },
 
-  getAllCategoriesData: () => {
-    const state = get();
-    const data = state.optimizationData;
-    if (!data) return {};
-
-    const result: Record<string, any[]> = {};
-
-    Object.entries(data).forEach(([key, value]) => {
-      const k = key as keyof AdsOptimizerResponse;
-
-      // Skip categories already pushed
-      if (state.pushedCategories.has(k)) return;
-
-      // Include only array categories with data
-      if (Array.isArray(value) && value.length > 0) {
-        result[key] = state.editedData[k] ?? value;
-      }
-    });
-
-    return result;
-  },
-  
-  isCategoryDirty: (category) => {
-    return get().dirtyCategories.has(category);
-  },
-  
-  clearCategoryEdits: (category) => set((state) => {
-    const newEditedData = { ...state.editedData };
-    delete newEditedData[category];
-    
-    const newDirtyCategories = new Set(state.dirtyCategories);
-    newDirtyCategories.delete(category);
-    
-    return {
-      editedData: newEditedData,
-      dirtyCategories: newDirtyCategories,
-    };
-  }),
-  
-  // DELETE data from memory after push (works for both dry-run and actual push)
-  markCategoryAsPushed: (category, result) => set((state) => {
-    console.log(`🔄 BEFORE markCategoryAsPushed for ${category}:`, {
-      isPushed: state.pushedCategories.has(category),
-      hasData: state.optimizationData?.[category]?.length || 0,
-      result: result
-    });
-    
-    const newPushedCategories = new Set(state.pushedCategories);
-    newPushedCategories.add(category);
-    
-    // DELETE edited data for this category
-    const newEditedData = { ...state.editedData };
-    delete newEditedData[category];
-    
-    // DELETE original data for this category
-    const newOptimizationData = state.optimizationData 
-      ? { ...state.optimizationData, [category]: [] } 
-      : null;
-    
-    const newDirtyCategories = new Set(state.dirtyCategories);
-    newDirtyCategories.delete(category);
-    
-    // Store push result if provided
-    const newPushResults = result 
-      ? { ...state.pushResults, [category]: result }
-      : state.pushResults;
-    
-    console.log(`🔄 AFTER markCategoryAsPushed for ${category}:`, {
-      pushedCategories: Array.from(newPushedCategories),
-      dataLength: newOptimizationData?.[category]?.length || 0,
-      hasResult: !!newPushResults[category]
-    });
-    
-    return {
-      optimizationData: newOptimizationData,
-      pushedCategories: newPushedCategories,
-      editedData: newEditedData,
-      dirtyCategories: newDirtyCategories,
-      pushResults: newPushResults,
-    };
-  }),
-  
-  isCategoryPushed: (category) => {
-    return get().pushedCategories.has(category);
-  },
-  
-  getPushResult: (category) => {
-    return get().pushResults[category];
-  },
-  
-  resetEdits: () => set({ 
-    editedData: {}, 
-    dirtyCategories: new Set() 
-  }),
-  
-  hasEdits: () => Object.keys(get().editedData).length > 0,
-  
-  getDirtyCount: () => get().dirtyCategories.size,
-  
+  // ── getAvailableCategories ──────────────────────────────────────────────
   getAvailableCategories: () => {
     const state = get();
-    const categories: Array<keyof AdsOptimizerResponse> = [
-      'sp_budget', 'sb_budget', 'sd_budget',
-      'sp_bid', 'sb_bid', 'sd_bid',
-      'sp_placement', 'sb_placement',
-      'sp_new_campaigns', 'sb_new_campaigns',
-      'sp_negatives', 'sb_negatives'
-    ];
-    
-    return categories.filter(cat => {
-      // Don't include categories that have been pushed
-      if (state.pushedCategories.has(cat)) return false;
-      
-      const data = state.editedData[cat] ?? state.optimizationData?.[cat];
-      return data && Array.isArray(data) && data.length > 0;
-    });
+    return OPTIMIZATION_KEYS.filter(
+      (key) =>
+        !state.pushedCategories.has(key) &&
+        (state.categoryData[key]?.length ?? 0) > 0,
+    );
   },
-  
-  resetPushedCategories: () => set({ 
-    pushedCategories: new Set(),
-    pushResults: {}
-  }),
-  
-  getCategoryCount: (category) => {
-    const state = get();
-    
-    // If already pushed, return 0
-    if (state.pushedCategories.has(category)) return 0;
-    
-    const data = state.editedData[category] ?? state.optimizationData?.[category];
-    return Array.isArray(data) ? data.length : 0;
-  },
+
+  // ── markCategoryAsPushed ────────────────────────────────────────────────
+  markCategoryAsPushed: (key, result) =>
+    set((state) => {
+      const newPushed = new Set(state.pushedCategories);
+      newPushed.add(key);
+      const newDirty = new Set(state.dirtyCategories);
+      newDirty.delete(key);
+      return {
+        pushedCategories: newPushed,
+        dirtyCategories: newDirty,
+        categoryData: { ...state.categoryData, [key]: [] },
+        pushResults: result
+          ? { ...state.pushResults, [key]: result }
+          : state.pushResults,
+      };
+    }),
+
+  isCategoryPushed: (key) => get().pushedCategories.has(key),
+  isCategoryDirty:  (key) => get().dirtyCategories.has(key),
+  getPushResult:    (key) => get().pushResults[key],
+  getDirtyCount:    ()    => get().dirtyCategories.size,
+
+  resetPushedCategories: () =>
+    set({ pushedCategories: new Set(), pushResults: {} }),
 }));

@@ -7,14 +7,9 @@ class AdsOptimizerService {
    */
   async invokeOptimizer(params: AdsOptimizerRequest): Promise<AdsOptimizerResponse> {
     const res = await apiClient.post<AdsOptimizerResponse>(
-      '/api/v1/ads-optimizer/invoke/',
+      '/api/v1/optimizer/generate/optimizations/',
       params
     );
-    return res.data;
-  }
-
-  async pushOptimizations(payload: any) {
-    const res = await apiClient.post("/api/v1/ads-optimizer/push/", payload);
     return res.data;
   }
 

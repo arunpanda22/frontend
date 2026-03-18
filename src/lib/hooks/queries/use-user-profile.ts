@@ -150,3 +150,52 @@ export const useHasSellerAccount = (): {
     sellerAccounts: userProfile?.connected_seller_accounts ?? [],
   };
 };
+
+// ── Min bid lookup ────────────────────────────────────────────────────────────
+
+const MIN_BIDS: Record<string, number> = {
+  BE:  0.10,
+  GBP: 0.02,
+  USD: 0.02,
+  CAD: 0.02,
+  EUR: 0.02,
+  CNY: 0.10,
+  JPY: 2.00,
+  INR: 1.00,
+  AED: 0.24,
+  MXN: 0.10,
+  AUD: 0.02,
+  BRL: 0.07,
+  SGD: 0.07,
+  SEK: 0.18,
+  PLN: 0.04,
+  TRY: 0.05,
+  EGP: 0.15,
+  SAR: 0.10,
+  ZAR: 1.00,
+}
+
+export function getMinBid(currencyCode: string): number {
+  return MIN_BIDS[currencyCode.toUpperCase()] ?? 0.02
+}
+
+/**
+ * Returns the min bid for the user's active advertising profile currency.
+ * Falls back to 0.02 if no profile is connected or currency is unrecognised.
+ */
+export const useMinBid = (): {
+  minBid:       number
+  currencyCode: string
+  isLoading:    boolean
+} => {
+  const { data: userProfile, isLoading } = useUserProfile()
+
+  const activeProfile = userProfile?.connected_advertising_profiles?.find(
+    (p) => p.is_active
+  ) ?? userProfile?.connected_advertising_profiles?.[0]
+
+  const currencyCode = activeProfile?.currency_code ?? 'INR'
+  const minBid       = getMinBid(currencyCode)
+
+  return { minBid, currencyCode, isLoading }
+}

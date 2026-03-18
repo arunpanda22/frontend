@@ -156,7 +156,7 @@ export interface NewCampaignSuggestion {
   Targeting: string | null;
   match_type: string;
   Form: string | null;
-  "Targeting Type": string;
+  "Type": string;
   Bid: number;
   "Default Bid": number;
   "Bidding Strategy": string;

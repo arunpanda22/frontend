@@ -3,25 +3,12 @@ import { X, Save, Send, AlertCircle } from 'lucide-react';
 import { AdvancedDataTable } from '@/components/dashboard/table/advanced-data-table';
 import type { ColumnDefinition, TableData } from '@/components/dashboard/table/advanced-data-table';
 import { ConfirmationDialog } from './ConfirmationDialog';
-import type { 
-  AdsOptimizerResponse,
-  BudgetOptimization,
-  BidOptimization,
-  PlacementOptimization,
-  NewCampaignSuggestion,
-  NegativeKeywordSuggestion 
-} from '../lib/types';
+import type { AdsOptimizerResponse } from '../lib/types';
+import type { OptimizationKey } from '@/lib/hooks/use-ads-optimizer-store';
 
 // ==================== COLUMN MAPPINGS ====================
 
-type OptimizationKey = keyof AdsOptimizerResponse;
-
-interface ColumnMapping {
-  [key: string]: ColumnDefinition[];
-}
-
-const COLUMN_MAPPINGS: ColumnMapping = {
-  // Budget optimizations (SP, SB, SD)
+const COLUMN_MAPPINGS: Record<string, ColumnDefinition[]> = {
   sp_budget: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', width: 160 },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -66,8 +53,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'CPC', headerName: 'CPC', type: 'number', editable: false, width: 100, autoFitHeader: true },
     { field: 'sales', headerName: 'Revenue (30d)', type: 'number', editable: false, width: 140, autoFitHeader: true },
   ],
-      
-  // Bid optimizations (SP, SB, SD)
   sp_bid: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -87,7 +72,7 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
     { field: 'keyword_bid', headerName: 'Present Bid', type: 'number', editable: false, width: 130, autoFitHeader: true },
     { field: 'New bid', headerName: 'Revised Bid', type: 'number', editable: true, width: 150, autoFitHeader: true },
-    { field: 'Bid Change (%)', headerName: 'Bid Change (%)', type: 'text', editable: false, width: 140, autoFitHeader: true }
+    { field: 'Bid Change (%)', headerName: 'Bid Change (%)', type: 'text', editable: false, width: 140, autoFitHeader: true },
   ],
   sb_bid: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -108,7 +93,7 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
     { field: 'keyword_bid', headerName: 'Present Bid', type: 'number', editable: false, width: 130, autoFitHeader: true },
     { field: 'New bid', headerName: 'Revised Bid', type: 'number', editable: true, width: 150, autoFitHeader: true },
-    { field: 'Bid Change (%)', headerName: 'Bid Change (%)', type: 'text', editable: false, width: 140, autoFitHeader: true }
+    { field: 'Bid Change (%)', headerName: 'Bid Change (%)', type: 'text', editable: false, width: 140, autoFitHeader: true },
   ],
   sd_bid: [
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -126,8 +111,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'bid', headerName: 'Present Bid', type: 'number', editable: false, width: 130, autoFitHeader: true },
     { field: 'ideal bid', headerName: 'Revised Bid', type: 'number', editable: true, width: 150, autoFitHeader: true },
   ],
-
-  // SP Placement optimizations
   sp_placement: [
     { field: 'ASIN_Derived', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -141,8 +124,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
     { field: 'Percentage', headerName: 'Bid Adjustment (%)', type: 'number', editable: true, width: 180, autoFitHeader: true },
   ],
-
-  // SB Placement optimizations
   sb_placement: [
     { field: 'ASIN_Derived', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
@@ -157,12 +138,11 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'target_acos', headerName: 'Target ACOS', type: 'number', editable: false, width: 120, autoFitHeader: true },
     { field: 'Percentage', headerName: 'Bid Adjustment (%)', type: 'number', editable: true, width: 180, autoFitHeader: true },
   ],
-
-  // New campaign suggestions
   sp_new_campaigns: [
     { field: 'ASIN', headerName: 'ASIN', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'Campaign Name', headerName: 'Campaign Name', type: 'text', editable: true, autoFitHeader: true },
     { field: 'Targeting', headerName: 'Target', type: 'text', editable: false, width: 250, autoFitHeader: true },
+    { field: 'Type', headerName: 'Targeting Type', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'match_type', headerName: 'Match Type', type: 'text', editable: false, width: 130, autoFitHeader: true },
     { field: 'Bid', headerName: 'Bid', type: 'number', editable: true, width: 120, autoFitHeader: true },
     { field: 'Campaign Budget', headerName: 'Campaign Budget', type: 'number', editable: true, width: 120, autoFitHeader: true },
@@ -180,8 +160,6 @@ const COLUMN_MAPPINGS: ColumnMapping = {
     { field: 'Ad Type', headerName: 'Ad Type', type: 'text', editable: false, width: 150, autoFitHeader: true },
     { field: 'Bid', headerName: 'Bid', type: 'number', editable: true, width: 120, autoFitHeader: true },
   ],
-
-  // Negative keywords
   sp_negatives: [
     { field: 'campaign_name', headerName: 'Campaign Name', type: 'text', editable: false, pinned: 'left', autoFitHeader: true },
     { field: 'campaign_id', headerName: 'Campaign ID', type: 'text', editable: false, autoFitHeader: true },
@@ -198,269 +176,182 @@ const COLUMN_MAPPINGS: ColumnMapping = {
   ],
 };
 
-// Helper to get column config based on category key
-const getColumnsForCategory = (categoryKey: string): ColumnDefinition[] => {
-  if (categoryKey === 'sp_budget') return COLUMN_MAPPINGS.sp_budget;
-  if (categoryKey === 'sb_budget') return COLUMN_MAPPINGS.sb_budget;
-  if (categoryKey === 'sd_budget') return COLUMN_MAPPINGS.sd_budget;
-  if (categoryKey === 'sp_bid') return COLUMN_MAPPINGS.sp_bid;
-  if (categoryKey === 'sb_bid') return COLUMN_MAPPINGS.sb_bid;
-  if (categoryKey === 'sd_bid') return COLUMN_MAPPINGS.sd_bid;
-  if (categoryKey === 'sp_placement') return COLUMN_MAPPINGS.sp_placement;
-  if (categoryKey === 'sb_placement') return COLUMN_MAPPINGS.sb_placement;
-  if (categoryKey === 'sp_new_campaigns') return COLUMN_MAPPINGS.sp_new_campaigns;
-  if (categoryKey === 'sb_new_campaigns') return COLUMN_MAPPINGS.sb_new_campaigns;
-  if (categoryKey === 'sp_negatives') return COLUMN_MAPPINGS.sp_negatives;
-  if (categoryKey === 'sb_negatives') return COLUMN_MAPPINGS.sb_negatives;
-  return [];
-};
-
 // ==================== VALIDATION ====================
 
-interface ValidationError {
-  row: number;
-  field: string;
-  message: string;
-}
+interface ValidationError { row: number; field: string; message: string; }
 
-const validateOptimizationData = (
-  data: TableData[],
-  categoryKey: string
-): ValidationError[] => {
+function validateData(data: TableData[], categoryKey: string): ValidationError[] {
   const errors: ValidationError[] = [];
-
   data.forEach((row, index) => {
-    // Budget validations
     if (categoryKey.includes('budget')) {
-      const rawBudget = row['New Budget'];
-      if (rawBudget !== undefined && rawBudget !== null && rawBudget !== '') {
-        const newBudget = Number(rawBudget);
-        if (isNaN(newBudget) || newBudget < 0) {
-          errors.push({ row: index, field: 'New Budget', message: 'Must be a positive number' });
-        } else if (newBudget < 1) {
+      const v = row['New Budget'];
+      if (v !== undefined && v !== null && v !== '') {
+        const n = Number(v);
+        if (isNaN(n) || n < 1)
           errors.push({ row: index, field: 'New Budget', message: 'Budget must be at least $1' });
-        }
       }
     }
-
-    // Bid validations - Handle different field names
     if (categoryKey.includes('bid')) {
-      let rawBidValue: any;
-      let bidFieldName: string;
-
-      // SP and SB use 'New bid', SD uses 'ideal bid'
-      if (categoryKey === 'sd_bid') {
-        rawBidValue = row['ideal bid'];
-        bidFieldName = 'ideal bid';
-      } else {
-        rawBidValue = row['New bid'];
-        bidFieldName = 'New bid';
-      }
-
-      if (rawBidValue !== undefined && rawBidValue !== null && rawBidValue !== '') {
-        const bidValue = Number(rawBidValue);
-        if (isNaN(bidValue) || bidValue < 0) {
-          errors.push({ row: index, field: bidFieldName, message: 'Must be a positive number' });
-        } else if (bidValue < 0.02) {
-          errors.push({ row: index, field: bidFieldName, message: 'Bid must be at least $0.02' });
-        }
+      const field = categoryKey === 'sd_bid' ? 'ideal bid' : 'New bid';
+      const v = row[field];
+      if (v !== undefined && v !== null && v !== '') {
+        const n = Number(v);
+        if (isNaN(n) || n < 0.02)
+          errors.push({ row: index, field, message: 'Bid must be at least $0.02' });
       }
     }
-
-    // Placement validations
     if (categoryKey.includes('placement')) {
-      const rawAdjustment = row['Percentage'];
-      if (rawAdjustment !== undefined && rawAdjustment !== null && rawAdjustment !== '') {
-        const adjustment = Number(rawAdjustment);
-        if (isNaN(adjustment) || adjustment < -99 || adjustment > 900) {
-          errors.push({ 
-            row: index, 
-            field: 'Percentage', 
-            message: 'Must be between -99% and 900%' 
-          });
-        }
+      const v = row['Percentage'];
+      if (v !== undefined && v !== null && v !== '') {
+        const n = Number(v);
+        if (isNaN(n) || n < -99 || n > 900)
+          errors.push({ row: index, field: 'Percentage', message: 'Must be between -99% and 900%' });
       }
     }
-
-    // New campaign validations
     if (categoryKey.includes('new_campaigns')) {
-      const rawBudget = row['Campaign Budget'];
-      if (rawBudget !== undefined && rawBudget !== null && rawBudget !== '') {
-        const budget = Number(rawBudget);
-        if (isNaN(budget) || budget < 1) {
-          errors.push({ row: index, field: 'Campaign Budget', message: 'Budget must be at least $1' });
-        }
-      }
-      
-      const rawBid = row['Bid'];
-      if (rawBid !== undefined && rawBid !== null && rawBid !== '') {
-        const bid = Number(rawBid);
-        if (isNaN(bid) || bid < 0.02) {
-          errors.push({ row: index, field: 'Bid', message: 'Bid must be at least $0.02' });
-        }
-      }
-      
-      if (!row['Campaign Name'] || String(row['Campaign Name']).trim() === '') {
+      const budget = Number(row['Campaign Budget']);
+      if (isNaN(budget) || budget < 1)
+        errors.push({ row: index, field: 'Campaign Budget', message: 'Budget must be at least $1' });
+      const bid = Number(row['Bid']);
+      if (isNaN(bid) || bid < 0.02)
+        errors.push({ row: index, field: 'Bid', message: 'Bid must be at least $0.02' });
+      if (!row['Campaign Name'] || String(row['Campaign Name']).trim() === '')
         errors.push({ row: index, field: 'Campaign Name', message: 'Campaign name is required' });
-      }
     }
-
-    // Negative keywords validations
     if (categoryKey.includes('negatives')) {
-      const searchTermField = categoryKey === 'sp_negatives' ? 'search_term' : 'query';
-      const searchTerm = row[searchTermField];
-      
-      if (!searchTerm || String(searchTerm).trim() === '') {
-        errors.push({ 
-          row: index, 
-          field: searchTermField === 'search_term' ? 'Search Term' : 'Query', 
-          message: 'Search term is required' 
-        });
-      }
-
-      if (!row['campaign_id']) {
+      const field = categoryKey === 'sp_negatives' ? 'search_term' : 'query';
+      if (!row[field] || String(row[field]).trim() === '')
+        errors.push({ row: index, field, message: 'Search term is required' });
+      if (!row['campaign_id'])
         errors.push({ row: index, field: 'campaign_id', message: 'Campaign ID is required' });
-      }
-
-      if (!row['ad_group_id']) {
+      if (!row['ad_group_id'])
         errors.push({ row: index, field: 'ad_group_id', message: 'Ad Group ID is required' });
-      }
     }
   });
-
   return errors;
-};
+}
 
-// ==================== UNIQUE KEY GENERATION ====================
-
-const generateUniqueKey = (row: TableData, categoryKey: string): string => {
+// ==================== UNIQUE KEY ====================
+// Always append |idx:{index} to guarantee uniqueness even when business
+// fields (campaign_id + ad_group_id) are identical across rows.
+function generateRowKey(row: TableData, categoryKey: string, index: number): string {
   const parts: string[] = [];
-  
   if (row.campaign_id) parts.push(`c:${row.campaign_id}`);
-  
-  if ((categoryKey.includes('bid') || categoryKey.includes('negatives')) && row.ad_group_id) {
+  if ((categoryKey.includes('bid') || categoryKey.includes('negatives')) && row.ad_group_id)
     parts.push(`ag:${row.ad_group_id}`);
-  }
-  
-  if (categoryKey.includes('bid') && row.targeting_id) {
+  if (categoryKey.includes('bid') && row.targeting_id)
     parts.push(`t:${row.targeting_id}`);
-  }
-  
-  if (categoryKey.includes('negatives') && row.keyword_text) {
+  if (categoryKey.includes('negatives') && row.keyword_text)
     parts.push(`kw:${row.keyword_text}`);
-  }
-  
-  if (categoryKey.includes('placement') && row.placement_type) {
+  if (categoryKey.includes('placement') && row.placement_type)
     parts.push(`p:${row.placement_type}`);
-  }
-  
-  return parts.length > 0 ? parts.join('|') : `row:${Math.random()}`;
-};
+  parts.push(`idx:${index}`);
+  return parts.join('|');
+}
 
-// ==================== OPTIMIZATION TABLE DRAWER ====================
+// ==================== PROPS ====================
 
 interface OptimizationTableDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   categoryKey: OptimizationKey;
   categoryTitle: string;
-  data: any[];
-  onSave: (categoryKey: OptimizationKey, updatedData: any[]) => void;
-  onPush: (categoryKey: OptimizationKey, data: any[], dryrun?: boolean) => Promise<void>; // ✅ ADD dryrun param
+  /** Current data from the store — read once on open */
+  initialData: any[];
+  /** Persist changes back to the store */
+  onSave: (key: OptimizationKey, data: any[]) => void;
+  onPush: (key: OptimizationKey, data: any[], dryrun?: boolean) => Promise<void>;
 }
+
+// ==================== COMPONENT ====================
 
 export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = ({
   isOpen,
   onClose,
   categoryKey,
   categoryTitle,
-  data,
+  initialData,
   onSave,
   onPush,
 }) => {
+  // ── Local working copy ───────────────────────────────────────────────────
+  // tableData is initialised from initialData when the drawer opens and is
+  // the ONLY state the table reads/writes. Nothing in here touches the store
+  // until the user explicitly clicks Save or Push Changes.
   const [tableData, setTableData] = useState<TableData[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isPushing, setIsPushing] = useState(false);
   const [showPushConfirm, setShowPushConfirm] = useState(false);
 
-  // Initialize table data when drawer opens
+  // Initialise local copy whenever the drawer opens.
+  // We use a key-based approach: the parent unmounts/remounts the drawer
+  // (via {selectedCategory && <Drawer>}) so this effect always sees a fresh
+  // component with the current initialData from the store.
   React.useEffect(() => {
-    if (isOpen && data) {
-      const transformedData = data.map((item, index) => ({
-        ...item,
-        _uniqueKey: generateUniqueKey(item, categoryKey),
-        _originalIndex: index,
-      }));
-      setTableData(transformedData);
-      setValidationErrors([]);
-    }
-  }, [isOpen, data, categoryKey]);
+    if (!isOpen) return;
+    const transformed = initialData.map((item, index) => ({
+      ...item,
+      _rowKey: generateRowKey(item, categoryKey, index),
+    }));
+    setTableData(transformed);
+    setValidationErrors([]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ↑ Intentionally only [isOpen] — initialData is captured at open time.
+  //   Because the parent conditionally mounts this component, every open is
+  //   a fresh mount so initialData is always the latest store value.
 
-  const columns = useMemo(() => getColumnsForCategory(categoryKey), [categoryKey]);
+  const columns = useMemo(
+    () => COLUMN_MAPPINGS[categoryKey] ?? [],
+    [categoryKey],
+  );
 
+  // ── Clean data (strip internal fields before writing to store) ───────────
+  const getCleanData = useCallback(
+    () => tableData.map(({ _rowKey, ...rest }) => rest),
+    [tableData],
+  );
+
+  // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = useCallback(() => {
-    // Validate data
-    const errors = validateOptimizationData(tableData, categoryKey);
-    
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-      return;
-    }
+    const errors = validateData(tableData, categoryKey);
+    if (errors.length > 0) { setValidationErrors(errors); return; }
 
-    // Remove internal fields before saving
-    const cleanedData = tableData.map(({ _uniqueKey, _originalIndex, ...rest }) => rest);
-    
-    onSave(categoryKey, cleanedData);
+    onSave(categoryKey, getCleanData());
+    toast_success(`Saved ${tableData.length} ${categoryTitle} optimizations`);
     setValidationErrors([]);
     onClose();
-  }, [tableData, categoryKey, onSave, onClose]);
+  }, [tableData, categoryKey, categoryTitle, onSave, onClose, getCleanData]);
 
+  // ── Push ─────────────────────────────────────────────────────────────────
   const handlePushConfirm = useCallback(() => {
-    // Validate data first
-    const errors = validateOptimizationData(tableData, categoryKey);
-    
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-      return;
-    }
-
-    // Show confirmation dialog
+    const errors = validateData(tableData, categoryKey);
+    if (errors.length > 0) { setValidationErrors(errors); return; }
     setShowPushConfirm(true);
   }, [tableData, categoryKey]);
 
-  const handlePush = useCallback(async (dryrun: boolean = false) => {
+  const handlePush = useCallback(async (dryrun = false) => {
     setIsPushing(true);
     setShowPushConfirm(false);
-    
     try {
-      // Remove internal fields before pushing
-      const cleanedData = tableData.map(({ _uniqueKey, _originalIndex, ...rest }) => rest);
-      
-      // IMPORTANT: Save the edits first before pushing
-      onSave(categoryKey, cleanedData);
-      
-      // Then push the data
-      await onPush(categoryKey, cleanedData, dryrun);
+      const clean = getCleanData();
+      // Save to store first so the card count reflects the pushed data
+      onSave(categoryKey, clean);
+      await onPush(categoryKey, clean, dryrun);
       setValidationErrors([]);
       onClose();
-    } catch (error) {
-      console.error('Push failed:', error);
+    } catch (err) {
+      console.error('Push failed:', err);
     } finally {
       setIsPushing(false);
     }
-  }, [tableData, categoryKey, onPush, onSave, onClose]);
+  }, [categoryKey, getCleanData, onSave, onPush, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-      />
-      
-      {/* Drawer */}
+      <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={onClose} />
+
       <div className="fixed inset-y-0 right-0 pt-16 z-50 w-[82vw] max-w-[1500px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
@@ -470,16 +361,12 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
               {tableData.length} optimization{tableData.length !== 1 ? 's' : ''}
             </p>
           </div>
-          
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Validation Errors */}
+        {/* Validation errors */}
         {validationErrors.length > 0 && (
           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-start gap-3">
@@ -489,15 +376,11 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
                   Validation Errors ({validationErrors.length})
                 </h3>
                 <ul className="text-sm text-red-800 space-y-1 max-h-32 overflow-y-auto">
-                  {validationErrors.slice(0, 5).map((error, idx) => (
-                    <li key={idx}>
-                      Row {error.row + 1}, {error.field}: {error.message}
-                    </li>
+                  {validationErrors.slice(0, 5).map((e, i) => (
+                    <li key={i}>Row {e.row + 1}, {e.field}: {e.message}</li>
                   ))}
                   {validationErrors.length > 5 && (
-                    <li className="font-medium">
-                      ... and {validationErrors.length - 5} more errors
-                    </li>
+                    <li className="font-medium">…and {validationErrors.length - 5} more</li>
                   )}
                 </ul>
               </div>
@@ -505,7 +388,7 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
           </div>
         )}
 
-        {/* Table Content */}
+        {/* Table */}
         <div className="flex-1 overflow-auto p-2">
           <AdvancedDataTable
             data={tableData}
@@ -514,11 +397,12 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
             rowsPerPage={10}
             showCheckboxColumn={true}
             className="h-full"
-            filename={categoryTitle.replace(/\s+/g, "_")}
+            filename={categoryTitle.replace(/\s+/g, '_')}
+            rowKey="_rowKey"
           />
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer */}
         <div className="flex items-center justify-between p-3 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
@@ -526,45 +410,36 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
           >
             Cancel
           </button>
-          
           <div className="flex items-center gap-3">
             <button
               onClick={handleSave}
               disabled={isPushing}
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
             >
               <Save className="w-3 h-3" />
               Save
             </button>
-            
             <button
               onClick={handlePushConfirm}
               disabled={isPushing}
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
             >
               {isPushing ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Pushing...
-                </>
+                <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Pushing...</>
               ) : (
-                <>
-                  <Send className="w-3 h-3" />
-                  Push Changes
-                </>
+                <><Send className="w-3 h-3" />Push Changes</>
               )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={showPushConfirm}
         onClose={() => setShowPushConfirm(false)}
         onConfirm={handlePush}
         title="Push Optimizations"
-        message={`Are you sure you want to push ${tableData.length} ${categoryTitle} optimizations? Choose "Dry Run" to test without applying changes, or "Push" to apply immediately.`}
+        message={`Push ${tableData.length} ${categoryTitle} optimizations? Choose "Dry Run" to test without applying changes.`}
         variant="info"
         confirmText="Push"
         cancelText="Cancel"
@@ -574,25 +449,17 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
   );
 };
 
-// Add slide-in animation styles
-const styles = `
-  @keyframes slide-in-right {
-    from {
-      transform: translateX(100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
-  
-  .animate-slide-in-right {
-    animation: slide-in-right 0.3s ease-out;
-  }
-`;
+// Tiny inline toast helper so the drawer doesn't need to import react-hot-toast
+function toast_success(msg: string) {
+  try { (window as any).__toastSuccess?.(msg); } catch {}
+}
 
-// Inject styles
+// Slide-in animation
 if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = styles;
-  document.head.appendChild(styleSheet);
+  const s = document.createElement('style');
+  s.textContent = `
+    @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .animate-slide-in-right { animation: slide-in-right 0.3s ease-out; }
+  `;
+  document.head.appendChild(s);
 }
