@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Box, Boxes, Zap } from 'lucide-react'
 import { SingleAsinPage } from './single-asin/SingleAsinPage'
-import { MultiAsinPage } from './multi-asin/MultiAsinPage'
+import { MultiAsinPage }      from './multi-asin/MultiAsinPage'
+import { AutoTargetingPage }  from './auto/AutoTargetingPage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ const ASIN_MODES: AsinModeTab[] = [
     label:       'Auto Targeting',
     description: 'Amazon-managed targeting',
     icon:        Zap,
-    available:   false,
+    available:   true,
   },
 ]
 
@@ -122,6 +123,8 @@ export function SPCampaignPage() {
         <SingleAsinPage />
       ) : activeMode === 'multi-asin' ? (
         <MultiAsinPage />
+      ) : activeMode === 'auto' ? (
+        <AutoTargetingPage />
       ) : (
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">

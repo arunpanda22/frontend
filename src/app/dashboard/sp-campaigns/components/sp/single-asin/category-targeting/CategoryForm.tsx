@@ -13,6 +13,8 @@ import {
   ResultBanner,
 } from '../../../shared/FormFields'
 import { useCampaignOperations } from '@/lib/hooks/campaignCreationHooks'
+import { useCampaignDefaults } from '@/lib/hooks/campaignCreationHooks'
+import { isValidAsin } from '@/lib/utils/asinValidation'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,8 @@ type DynamicBidding = 'AUTO_FOR_SALES' | 'LEGACY_FOR_SALES' | 'MANUAL'
 type ExpressionType = 'MANUAL' | 'AUTO'
 
 interface FormState {
+  theme:           string
+  intent:          string
   asin:            string
   bid:             number | string
   expression_type: ExpressionType
@@ -53,6 +57,8 @@ interface FormState {
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 const defaultForm: FormState = {
+  theme:           '',
+  intent:          '',
   asin:            '',
   bid:             '',
   expression_type: 'MANUAL',
@@ -69,10 +75,12 @@ const defaultForm: FormState = {
 
 // ── Campaign name preview ─────────────────────────────────────────────────────
 
-function buildCampaignName(asin: string, mode: CategoryMode): string {
+function buildCampaignName(asin: string, mode: CategoryMode, theme: string, intent: string): string {
   if (!asin.trim()) return ''
+  const label        = theme.trim() || asin.trim()
+  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
   const suffix = mode === 'multi' ? 'CAT - MCT' : 'CAT - SCT'
-  return `TOM - ${asin.trim()} - SP - ${suffix}`
+  return `${label} - SP - ${suffix}${intentSuffix}`
 }
 
 // ── Mode toggle ───────────────────────────────────────────────────────────────
@@ -136,18 +144,19 @@ function ModeToggle({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function CategoryForm() {
+  const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
   const {
     createMultiCategoryCampaign,  isMultiCatLoading,  multiCatResult,
     createSingleCategoryCampaign, isSingleCatLoading, singleCatResult,
   } = useCampaignOperations()
 
   const [mode,   setMode]   = useState<CategoryMode>('multi')
-  const [form,   setForm]   = useState<FormState>(defaultForm)
+  const [form,   setForm]   = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
   const [errors, setErrors] = useState<FormErrors>({})
 
   const isLoading    = mode === 'multi' ? isMultiCatLoading  : isSingleCatLoading
   const result       = mode === 'multi' ? multiCatResult     : singleCatResult
-  const campaignName = buildCampaignName(form.asin, mode)
+  const campaignName = buildCampaignName(form.asin, mode, form.theme, form.intent)
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm((f) => ({ ...f, [key]: val }))
@@ -156,7 +165,8 @@ export function CategoryForm() {
 
   function validate(): boolean {
     const e: FormErrors = {}
-    if (!form.asin.trim()) e.asin        = 'Required'
+    if (!form.asin.trim())         e.asin = 'Required'
+    else if (!isValidAsin(form.asin)) e.asin = 'Invalid ASIN — must be 10 characters starting with B'
     if (!form.bid)         e.bid         = 'Required'
     if (!form.budget)      e.budget      = 'Required'
     if (!form.start_date)  e.start_date  = 'Required'
@@ -179,6 +189,8 @@ export function CategoryForm() {
       default_bid:     Number(form.default_bid),
       start_date:      form.start_date,
       asin:            form.asin.trim(),
+      ...(form.theme.trim()  ? { theme:  form.theme.trim()  } : {}),
+      ...(form.intent.trim() ? { intent: form.intent.trim() } : {}),
       bid:             Number(form.bid),
       expression_type: form.expression_type,
       type:            form.type,
@@ -205,6 +217,24 @@ export function CategoryForm() {
       )}
 
       {/* Targeting */}
+
+      <SectionCard title="Campaign Naming" description="Theme groups campaigns — intent describes the targeting strategy">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            label="Theme (optional)"
+            placeholder="e.g. Kids Toys"
+            value={form.theme}
+            onChange={(e) => setField('theme', e.target.value)}
+          />
+          <Input
+            label="Intent (optional)"
+            placeholder="e.g. brand, competitor, generic"
+            value={form.intent}
+            onChange={(e) => setField('intent', e.target.value)}
+          />
+        </div>
+      </SectionCard>
+
       <SectionCard
         title="Targeting"
         description="Category IDs are resolved automatically by Amazon for your ASIN"
@@ -212,7 +242,7 @@ export function CategoryForm() {
         <div className="flex flex-col gap-4">
           <ModeToggle mode={mode} onChange={(m) => { setMode(m); setErrors({}) }} />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="Advertised ASIN"
               placeholder="e.g. B009GCTZWC"
@@ -223,12 +253,16 @@ export function CategoryForm() {
             />
             <NumberInput
               label="Category Bid"
-              prefix=""
+              prefix={currencySymbol}
               placeholder="0.00"
               value={form.bid}
               min={0.02}
               step={0.01}
-              onChange={(e) => setField('bid', e.target.value)}
+              onChange={(e) => {
+                setField('bid', e.target.value)
+                const rec = recommendedBudget([Number(e.target.value)])
+                if (!form.budget || Number(form.budget) < rec) setField('budget', rec)
+              }}
               error={errors.bid}
             />
             <Select
@@ -243,19 +277,19 @@ export function CategoryForm() {
 
       {/* Campaign Settings */}
       <SectionCard title="Campaign Settings" description="Budget, bidding strategy and schedule">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <NumberInput
             label="Daily Budget"
-            prefix=""
+            prefix={currencySymbol}
             placeholder="100"
             value={form.budget}
-            min={1}
+            min={minBudget}
             onChange={(e) => setField('budget', e.target.value)}
             error={errors.budget}
           />
           <NumberInput
             label="Default Bid"
-            prefix=""
+            prefix={currencySymbol}
             placeholder="0.00"
             value={form.default_bid}
             min={0}

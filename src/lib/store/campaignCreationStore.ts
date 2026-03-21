@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { isValidAsin } from '@/lib/utils/asinValidation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,18 +53,55 @@ export interface BulkProductRow {
   _error?:         string
 }
 
+// ── Multi-ASIN bulk row types ─────────────────────────────────────────────────
+// Flat model: one row per keyword / target.
+// Rows sharing the same `theme` belong to the same campaign.
+// `asins_raw` is comma-separated; parsed to string[] on submit.
+
+export interface MultiAsinKWBulkRow {
+  _id:             string
+  campaign_name:   string         // spanned — same for all rows with same theme
+  theme:           string         // spanned — campaign grouping key
+  asin:            string         // per-row — one ASIN per row, deduplicated at submit
+  keyword:         string         // per-row
+  match_type:      MatchType      // per-row
+  bid:             number         // per-row
+  budget:          number         // spanned
+  start_date:      string         // spanned
+  dynamic_bidding: DynamicBidding // spanned
+  _status:         RowStatus      // spanned
+  _error?:         string
+}
+
+export interface MultiAsinPTBulkRow {
+  _id:             string
+  campaign_name:   string
+  theme:           string          // spanned
+  asin:            string          // per-row — one ASIN per row, deduplicated at submit
+  target_asin:     string          // per-row
+  match_type:      ProductMatchType// per-row
+  bid:             number          // per-row
+  budget:          number          // spanned
+  start_date:      string          // spanned
+  dynamic_bidding: DynamicBidding  // spanned
+  _status:         RowStatus       // spanned
+  _error?:         string
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function buildSKCampaignName(
   asin: string,
   keyword: string,
   mode: 'individual' | 'grouped' = 'individual',
+  intent?: string,
 ): string {
+  const intentSuffix = intent?.trim() ? ` - ${intent.trim()}` : ''
   if (mode === 'grouped') {
-    return `TOM - ${asin.trim()} - SP - KW - MK`
+    return `${asin.trim()} - SP - KW - MK${intentSuffix}`
   }
   const kw = keyword.trim() ? ` - ${keyword.trim()} - SK` : ' - SK'
-  return `TOM - ${asin.trim()} - SP - KW${kw}`
+  return `${asin.trim()} - SP - KW${kw}${intentSuffix}`
 }
 
 // Keep old name as alias so existing imports don't break
@@ -73,12 +111,41 @@ export function buildPTCampaignName(
   asin: string,
   targetAsin: string = '',
   mode: 'individual' | 'grouped' = 'individual',
+  intent?: string,
 ): string {
+  const intentSuffix = intent?.trim() ? ` - ${intent.trim()}` : ''
   if (mode === 'grouped') {
-    return `TOM - ${asin.trim()} - SP - PT - MPT`
+    return `${asin.trim()} - SP - PT - MPT${intentSuffix}`
   }
   const target = targetAsin.trim() ? ` - ${targetAsin.trim()}` : ''
-  return `TOM - ${asin.trim()} - SP - PT - SPT${target}`
+  return `${asin.trim()} - SP - PT - SPT${target}${intentSuffix}`
+}
+
+
+function computeMultiAsinKWName(theme: string, rows: Array<{ keyword: string; match_type: string }>): string {
+  const uniqueKeywords = new Set(rows.map((r) => r.keyword.toLowerCase().trim()))
+  const uniqueMatches  = [...new Set(rows.map((r) => r.match_type))]
+  const mt = uniqueMatches.length === 1
+    ? uniqueMatches[0].charAt(0) + uniqueMatches[0].slice(1).toLowerCase()
+    : null
+  if (uniqueKeywords.size === 1) {
+    const kw = rows[0].keyword.trim()
+    return mt ? `${theme} - SP - KW - ${kw} - SK - ${mt}` : `${theme} - SP - KW - ${kw} - SK`
+  }
+  return mt ? `${theme} - SP - KW - MK - ${mt}` : `${theme} - SP - KW - MK`
+}
+
+function computeMultiAsinPTName(theme: string, rows: Array<{ target_asin: string; match_type: string }>): string {
+  const uniqueTargets = new Set(rows.map((r) => r.target_asin.toLowerCase().trim()))
+  const uniqueMatches = [...new Set(rows.map((r) => r.match_type))]
+  const mt = uniqueMatches.length === 1
+    ? uniqueMatches[0].charAt(0) + uniqueMatches[0].slice(1).toLowerCase()
+    : null
+  if (uniqueTargets.size === 1) {
+    const target = rows[0].target_asin.trim()
+    return mt ? `${theme} - SP - PT - SPT - ${target} - ${mt}` : `${theme} - SP - PT - SPT - ${target}`
+  }
+  return mt ? `${theme} - SP - PT - MPT - ${mt}` : `${theme} - SP - PT - MPT`
 }
 
 function uid(): string {
@@ -120,7 +187,7 @@ interface CampaignCreationState {
   /** Sets _status on every SK row sharing the same advertised asin */
   setRowStatusByAsin: (asin: string, status: RowStatus, error?: string) => void
   resetRowStatuses: () => void
-  parsePastedData: (text: string) => { added: number; skipped: number }
+  parsePastedData: (text: string) => { added: number; skipped: number; invalidAsins: number }
   clearBulkRows: () => void
 
   // ── Product targeting bulk rows ─────────────────────────────────────────────
@@ -130,7 +197,7 @@ interface CampaignCreationState {
   /** Sets _status on every row sharing the same advertised asin */
   setProductRowStatusByAsin: (asin: string, status: RowStatus, error?: string) => void
   deleteProductBulkRows: (ids: string[]) => void
-  parsePastedProductData: (text: string) => { added: number; skipped: number }
+  parsePastedProductData: (text: string) => { added: number; skipped: number; invalidAsins: number }
   clearProductBulkRows: () => void
 
   /** Recomputes campaign_name for all SK rows based on grouping mode */
@@ -138,6 +205,24 @@ interface CampaignCreationState {
 
   /** Recomputes campaign_name for all PT rows based on grouping mode */
   renameProductBulkRows: (mode: 'individual' | 'grouped') => void
+
+  // ── Multi-ASIN KW bulk ────────────────────────────────────────────────────
+  multiAsinKWRows:           MultiAsinKWBulkRow[]
+  setMultiAsinKWRows:        (rows: MultiAsinKWBulkRow[]) => void
+  setMultiAsinKWRowStatus:   (id: string, status: RowStatus, error?: string) => void
+  setMultiAsinKWStatusByTheme:(theme: string, status: RowStatus, error?: string) => void
+  parsePastedMultiAsinKW:    (text: string) => { added: number; skipped: number; invalidAsins: number }
+  clearMultiAsinKWRows:      () => void
+  renameMultiAsinKWRows:     (mode: 'mk' | 'sk') => void
+
+  // ── Multi-ASIN PT bulk ────────────────────────────────────────────────────
+  multiAsinPTRows:           MultiAsinPTBulkRow[]
+  setMultiAsinPTRows:        (rows: MultiAsinPTBulkRow[]) => void
+  setMultiAsinPTRowStatus:   (id: string, status: RowStatus, error?: string) => void
+  setMultiAsinPTStatusByTheme:(theme: string, status: RowStatus, error?: string) => void
+  parsePastedMultiAsinPT:    (text: string) => { added: number; skipped: number; invalidAsins: number }
+  clearMultiAsinPTRows:      () => void
+  renameMultiAsinPTRows:     (mode: 'mpt' | 'spt') => void
 
   // Reset
   reset: () => void
@@ -219,7 +304,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
   parsePastedData: (text) => {
     const { sharedDefaults } = get()
     const VALID_MATCH: Record<string, MatchType> = { EXACT: 'EXACT', BROAD: 'BROAD', PHRASE: 'PHRASE' }
-    let added = 0, skipped = 0
+    let added = 0, skipped = 0, invalidAsins = 0
     const newRows: BulkCampaignRow[] = []
 
     text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
@@ -227,6 +312,10 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
       const asin    = rawAsin?.trim()
       const keyword = rawKeyword?.trim()
       if (!asin || !keyword) { skipped++; return }
+      // Reject rows where keyword column looks like an ASIN — likely PT data pasted in wrong section
+      if (isValidAsin(keyword)) { skipped++; return }
+      // Skip rows with invalid advertised ASIN
+      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
 
       newRows.push({
         _id:             uid(),
@@ -244,7 +333,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
     })
 
     if (newRows.length > 0) set((state) => ({ bulkRows: [...state.bulkRows, ...newRows] }))
-    return { added, skipped }
+    return { added, skipped, invalidAsins }
   },
 
   clearBulkRows: () => set({ bulkRows: [] }),
@@ -282,7 +371,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
   parsePastedProductData: (text) => {
     const { sharedDefaults } = get()
     const VALID_MATCH: Record<string, ProductMatchType> = { EXACT: 'EXACT', EXPANDED: 'EXPANDED' }
-    let added = 0, skipped = 0
+    let added = 0, skipped = 0, invalidAsins = 0
     const newRows: BulkProductRow[] = []
 
     text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
@@ -290,6 +379,9 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
       const asin       = rawAsin?.trim()
       const targetAsin = rawTargetAsin?.trim()
       if (!asin || !targetAsin) { skipped++; return }
+      // Reject rows where target column is not a valid ASIN — likely KW data pasted in wrong section
+      if (!isValidAsin(targetAsin)) { skipped++; return }
+      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
 
       newRows.push({
         _id:             uid(),
@@ -309,7 +401,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
     if (newRows.length > 0) {
       set((state) => ({ productBulkRows: [...state.productBulkRows, ...newRows] }))
     }
-    return { added, skipped }
+    return { added, skipped, invalidAsins }
   },
 
   clearProductBulkRows: () => set({ productBulkRows: [] }),
@@ -343,6 +435,180 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
       }
     }),
 
+  // ── Multi-ASIN KW Bulk ──────────────────────────────────────────────────────
+
+  multiAsinKWRows: [],
+  setMultiAsinKWRows: (rows) => set({ multiAsinKWRows: rows }),
+
+  setMultiAsinKWRowStatus: (id, status, error) =>
+    set((state) => ({
+      multiAsinKWRows: state.multiAsinKWRows.map((r) =>
+        r._id === id ? { ...r, _status: status, _error: error } : r
+      ),
+    })),
+
+  setMultiAsinKWStatusByTheme: (theme, status, error) =>
+    set((state) => ({
+      multiAsinKWRows: state.multiAsinKWRows.map((r) =>
+        r.theme === theme ? { ...r, _status: status, _error: error } : r
+      ),
+    })),
+
+  parsePastedMultiAsinKW: (text) => {
+    const { sharedDefaults } = get()
+    const VALID_MATCH: Record<string, MatchType> = { EXACT: 'EXACT', BROAD: 'BROAD', PHRASE: 'PHRASE' }
+    let added = 0, skipped = 0, invalidAsins = 0
+    const newRows: MultiAsinKWBulkRow[] = []
+
+    // Format (one row per ASIN + keyword pair):
+    // Theme | ASIN | Keyword | Bid | Match Type
+    // Rows sharing the same theme are grouped into one campaign at submit time.
+    text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
+      const [rawTheme, rawAsin, rawKeyword, rawBid, rawMatch] = line.split('\t').map((c) => c.trim())
+      const theme   = rawTheme?.trim()
+      const asin    = rawAsin?.trim()
+      const keyword = rawKeyword?.trim()
+      if (!theme || !asin || !keyword) { skipped++; return }
+      if (isValidAsin(keyword)) { skipped++; return }  // PT data pasted in wrong section
+      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
+
+      newRows.push({
+        _id:             uid(),
+        campaign_name:   `${theme} - SP - KW - MK`,
+        theme,
+        asin,
+        keyword,
+        match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
+        bid:             Number(rawBid) || sharedDefaults.default_bid || 0,
+        budget:          sharedDefaults.budget,
+        start_date:      sharedDefaults.start_date,
+        dynamic_bidding: sharedDefaults.dynamic_bidding,
+        _status:         'idle',
+      })
+      added++
+    })
+
+    if (newRows.length > 0) {
+      // Recompute campaign_name per theme after all rows are collected
+      const themeMap = new Map<string, typeof newRows>()
+      for (const r of newRows) {
+        if (!themeMap.has(r.theme)) themeMap.set(r.theme, [])
+        themeMap.get(r.theme)!.push(r)
+      }
+      for (const r of newRows) {
+        r.campaign_name = computeMultiAsinKWName(r.theme, themeMap.get(r.theme)!)
+      }
+      set((state) => ({ multiAsinKWRows: [...state.multiAsinKWRows, ...newRows] }))
+    }
+    return { added, skipped, invalidAsins }
+  },
+
+  clearMultiAsinKWRows: () => set({ multiAsinKWRows: [] }),
+
+  renameMultiAsinKWRows: (mode) =>
+    set((state) => {
+      // Group rows by theme so we can compute the correct name per group
+      const themeMap = new Map<string, typeof state.multiAsinKWRows>()
+      for (const r of state.multiAsinKWRows) {
+        if (!themeMap.has(r.theme)) themeMap.set(r.theme, [])
+        themeMap.get(r.theme)!.push(r)
+      }
+      return {
+        multiAsinKWRows: state.multiAsinKWRows.map((r) => {
+          const group = themeMap.get(r.theme) ?? [r]
+          const uniqueKws = new Set(group.map((g) => g.keyword.toLowerCase().trim()))
+          // In SK mode force single-keyword name; otherwise use actual count
+          const effectiveGroup = mode === 'sk' ? [group[0]] : group
+          return { ...r, campaign_name: computeMultiAsinKWName(r.theme, effectiveGroup) }
+        }),
+      }
+    }),
+
+  // ── Multi-ASIN PT Bulk ──────────────────────────────────────────────────────
+
+  multiAsinPTRows: [],
+  setMultiAsinPTRows: (rows) => set({ multiAsinPTRows: rows }),
+
+  setMultiAsinPTRowStatus: (id, status, error) =>
+    set((state) => ({
+      multiAsinPTRows: state.multiAsinPTRows.map((r) =>
+        r._id === id ? { ...r, _status: status, _error: error } : r
+      ),
+    })),
+
+  setMultiAsinPTStatusByTheme: (theme, status, error) =>
+    set((state) => ({
+      multiAsinPTRows: state.multiAsinPTRows.map((r) =>
+        r.theme === theme ? { ...r, _status: status, _error: error } : r
+      ),
+    })),
+
+  parsePastedMultiAsinPT: (text) => {
+    const { sharedDefaults } = get()
+    const VALID_MATCH: Record<string, ProductMatchType> = { EXACT: 'EXACT', EXPANDED: 'EXPANDED' }
+    let added = 0, skipped = 0, invalidAsins = 0
+    const newRows: MultiAsinPTBulkRow[] = []
+
+    // Format (one row per ASIN + target pair):
+    // Theme | ASIN | Target ASIN | Bid | Match Type
+    // Rows sharing the same theme are grouped into one campaign at submit time.
+    text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
+      const [rawTheme, rawAsin, rawTargetAsin, rawBid, rawMatch] = line.split('\t').map((c) => c.trim())
+      const theme      = rawTheme?.trim()
+      const asin       = rawAsin?.trim()
+      const targetAsin = rawTargetAsin?.trim()
+      if (!theme || !asin || !targetAsin) { skipped++; return }
+      if (!isValidAsin(targetAsin)) { skipped++; return }  // KW data pasted in wrong section
+      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
+
+      newRows.push({
+        _id:             uid(),
+        campaign_name:   `${theme} - SP - PT`,
+        theme,
+        asin,
+        target_asin:     targetAsin,
+        match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
+        bid:             Number(rawBid) || sharedDefaults.default_bid || 0,
+        budget:          sharedDefaults.budget,
+        start_date:      sharedDefaults.start_date,
+        dynamic_bidding: sharedDefaults.dynamic_bidding,
+        _status:         'idle',
+      })
+      added++
+    })
+
+    if (newRows.length > 0) {
+      const themeMap = new Map<string, typeof newRows>()
+      for (const r of newRows) {
+        if (!themeMap.has(r.theme)) themeMap.set(r.theme, [])
+        themeMap.get(r.theme)!.push(r)
+      }
+      for (const r of newRows) {
+        r.campaign_name = computeMultiAsinPTName(r.theme, themeMap.get(r.theme)!)
+      }
+      set((state) => ({ multiAsinPTRows: [...state.multiAsinPTRows, ...newRows] }))
+    }
+    return { added, skipped, invalidAsins }
+  },
+
+  clearMultiAsinPTRows: () => set({ multiAsinPTRows: [] }),
+
+  renameMultiAsinPTRows: (mode) =>
+    set((state) => {
+      const themeMap = new Map<string, typeof state.multiAsinPTRows>()
+      for (const r of state.multiAsinPTRows) {
+        if (!themeMap.has(r.theme)) themeMap.set(r.theme, [])
+        themeMap.get(r.theme)!.push(r)
+      }
+      return {
+        multiAsinPTRows: state.multiAsinPTRows.map((r) => {
+          const group = themeMap.get(r.theme) ?? [r]
+          const effectiveGroup = mode === 'spt' ? [group[0]] : group
+          return { ...r, campaign_name: computeMultiAsinPTName(r.theme, effectiveGroup) }
+        }),
+      }
+    }),
+
   // ── Reset ─────────────────────────────────────────────────────────────────────
 
   reset: () =>
@@ -351,5 +617,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
       sharedDefaults:  { ...DEFAULT_SHARED },
       bulkRows:        [],
       productBulkRows: [],
+      multiAsinKWRows: [],
+      multiAsinPTRows: [],
     }),
 }))

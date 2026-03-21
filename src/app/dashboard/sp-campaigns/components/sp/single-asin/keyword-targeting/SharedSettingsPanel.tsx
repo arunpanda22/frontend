@@ -25,14 +25,14 @@ export function SharedSettingsPanel() {
 
       <div className="p-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <NumberInput
-          label="Budget (£)"
+          label="Budget"
           value={sharedDefaults.budget}
           min={1}
           step={1}
           onChange={(e) => setSharedDefault('budget', Number(e.target.value))}
         />
         <NumberInput
-          label="Default Bid (£)"
+          label="Default Bid"
           value={sharedDefaults.default_bid}
           min={0}
           step={0.01}

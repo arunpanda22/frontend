@@ -6,9 +6,10 @@ interface AsinsInputProps {
   asins:    string[]
   onChange: (asins: string[]) => void
   error?:   string
+  minRows?: number   // default 2 for multi-asin
 }
 
-export function AsinsInput({ asins, onChange, error }: AsinsInputProps) {
+export function AsinsInput({ asins, onChange, error, minRows = 2 }: AsinsInputProps) {
   function updateAsin(index: number, value: string) {
     onChange(asins.map((a, i) => (i === index ? value.trim() : a)))
   }
@@ -36,8 +37,9 @@ export function AsinsInput({ asins, onChange, error }: AsinsInputProps) {
             <button
               type="button"
               onClick={() => removeAsin(index)}
-              disabled={asins.length === 1}
-              className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 transition-colors"
+              disabled={index < minRows}
+              title={index < minRows ? `At least ${minRows} ASINs required` : 'Remove'}
+              className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-20 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

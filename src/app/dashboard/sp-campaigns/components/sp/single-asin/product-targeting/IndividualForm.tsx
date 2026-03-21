@@ -13,8 +13,9 @@ import {
   ResultBanner,
 } from '../../../shared/FormFields'
 import { useCampaignOperations } from '@/lib/hooks/campaignCreationHooks'
+import { useCampaignDefaults } from '@/lib/hooks/campaignCreationHooks'
+import { isValidAsin } from '@/lib/utils/asinValidation'
 import type { ProductTargetingTarget } from '@/lib/hooks/campaignCreationHooks'
-import { useMinBid } from '@/lib/hooks/queries/use-user-profile'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ interface TargetRow extends Omit<ProductTargetingTarget, 'bid'> {
 }
 
 interface FormState {
+  theme:           string
+  intent:          string
   asin:            string
   budget:          number | string
   TOS_bidding:     number
@@ -54,6 +57,8 @@ interface FormState {
 type FormErrors = Partial<Record<keyof FormState | 'targets', string>>
 
 const defaultForm: FormState = {
+  theme:           '',
+  intent:          '',
   asin:            '',
   budget:          '',
   TOS_bidding:     100,
@@ -86,17 +91,17 @@ function TargetsTable({
   return (
     <div className="flex flex-col gap-3">
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 px-1">
+      <div className="grid grid-cols-[1fr_140px_120px_32px] gap-2 px-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Target ASIN</span>
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Match Type</span>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bid </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bid (£)</span>
         <span />
       </div>
 
       {/* Rows */}
       <div className="flex flex-col gap-2">
         {rows.map((row, index) => (
-          <div key={index} className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 items-center">
+          <div key={index} className="grid grid-cols-[1fr_140px_120px_32px] gap-2 items-center">
             <input
               type="text"
               value={row.asin}
@@ -117,8 +122,9 @@ function TargetsTable({
               type="number"
               value={row.bid}
               onChange={(e) => updateRow(index, { bid: e.target.value })}
-              min={0.2}
-              step={0.1}
+              placeholder="0.00"
+              min={0.02}
+              step={0.01}
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
             />
             <button
@@ -151,26 +157,33 @@ function TargetsTable({
 
 // ── Campaign name preview ─────────────────────────────────────────────────────
 
-function buildCampaignName(asin: string, targets: TargetRow[]): string {
-  const firstTarget = targets[0]?.asin?.trim()
-  const suffix      = targets.length > 1 ? ` +${targets.length - 1}` : ''
-  const target      = firstTarget ? ` - ${firstTarget}${suffix}` : ''
-  return `TOM - ${asin.trim()} - SP - PT${target}`
+function buildCampaignName(asin: string, targets: TargetRow[], theme: string, intent: string): string {
+  const label        = theme.trim() || asin.trim()
+  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
+  const filled = targets.filter((t) => t.asin.trim())
+  if (filled.length === 1) {
+    const mt = filled[0].match_type.charAt(0) + filled[0].match_type.slice(1).toLowerCase()
+    return `${label} - SP - PT - SPT - ${filled[0].asin.trim()} - ${mt}${intentSuffix}`
+  }
+  const matchTypes = new Set(filled.map((t) => t.match_type))
+  const mtSuffix   = matchTypes.size === 1
+    ? ` - ${[...matchTypes][0].charAt(0) + [...matchTypes][0].slice(1).toLowerCase()}`
+    : ''
+  return `${label} - SP - PT - MPT${mtSuffix}${intentSuffix}`
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function IndividualForm() {
-  const { minBid } = useMinBid()
+  const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
   const { createProductTargetingCampaign, isProductLoading, productResult } =
     useCampaignOperations()
 
-  const [form,    setForm]    = useState<FormState>(defaultForm)
+  const [form,    setForm]    = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
   const [targets, setTargets] = useState<TargetRow[]>([emptyTarget()])
   const [errors,  setErrors]  = useState<FormErrors>({})
 
-  const campaignName = form.asin.trim() ? buildCampaignName(form.asin, targets) : ''
-  
+  const campaignName = form.asin.trim() ? buildCampaignName(form.asin, targets, form.theme, form.intent) : ''
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm((f) => ({ ...f, [key]: val }))
@@ -179,15 +192,17 @@ export function IndividualForm() {
 
   function validate(): boolean {
     const e: FormErrors = {}
-    if (!form.asin.trim()) e.asin        = 'Required'
+    if (!form.asin.trim())         e.asin = 'Required'
+    else if (!isValidAsin(form.asin)) e.asin = 'Invalid ASIN — must be 10 characters starting with B'
     if (!form.budget)      e.budget      = 'Required'
     if (!form.start_date)  e.start_date  = 'Required'
 
     const filledTargets = targets.filter((t) => t.asin.trim())
+    if (filledTargets.length > 1 && !form.theme.trim()) e.theme = 'Required when adding multiple targets'
     if (filledTargets.length === 0) {
       e.targets = 'At least one target ASIN is required'
     } else if (filledTargets.some((t) => Number(t.bid) < 0.02)) {
-      e.targets = 'All targets need a bid ≥ 0.02'
+      e.targets = 'All targets need a bid ≥ £0.02'
     }
 
     setErrors(e)
@@ -216,6 +231,8 @@ export function IndividualForm() {
       default_bid:     minBid,
       start_date:      form.start_date,
       asins:           [form.asin.trim()],
+      ...(form.theme.trim()  ? { theme:  form.theme.trim()  } : {}),
+      ...(form.intent.trim() ? { intent: form.intent.trim() } : {}),
       targets:         validTargets,
     })
   }
@@ -248,13 +265,40 @@ export function IndividualForm() {
         </div>
       </SectionCard>
 
+
+      <SectionCard title="Campaign Naming" description="Theme groups campaigns — intent describes the targeting strategy">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            label={`Theme${targets.filter(t => t.asin.trim()).length > 1 ? ' *' : ' (optional)'}`}
+            placeholder="e.g. Kids Toys"
+            value={form.theme}
+            onChange={(e) => setField('theme', e.target.value)}
+            error={errors.theme}
+          />
+          <Input
+            label="Intent (optional)"
+            placeholder="e.g. brand, competitor, generic"
+            value={form.intent}
+            onChange={(e) => setField('intent', e.target.value)}
+          />
+        </div>
+      </SectionCard>
+
       <SectionCard
         title="Product Targets"
         description="ASINs to target — each with its own match type and bid"
       >
         <TargetsTable
           rows={targets}
-          onChange={(rows) => { setTargets(rows); setErrors((e) => ({ ...e, targets: undefined })) }}
+          onChange={(rows) => {
+            setTargets(rows)
+            setErrors((e) => ({ ...e, targets: undefined }))
+            const bids = rows.filter((r) => r.asin.trim()).map((r) => Number(r.bid)).filter((b) => b > 0)
+            if (bids.length > 0) {
+              const rec = recommendedBudget(bids)
+              setForm((f) => ({ ...f, budget: !f.budget || Number(f.budget) < rec ? rec : f.budget }))
+            }
+          }}
           error={errors.targets}
         />
       </SectionCard>
@@ -263,10 +307,10 @@ export function IndividualForm() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <NumberInput
             label="Daily Budget"
-            prefix=""
+            prefix={currencySymbol}
             placeholder="100"
             value={form.budget}
-            min={1}
+            min={minBudget}
             onChange={(e) => setField('budget', e.target.value)}
             error={errors.budget}
           />

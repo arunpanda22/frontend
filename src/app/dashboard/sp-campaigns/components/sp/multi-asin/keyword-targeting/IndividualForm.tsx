@@ -12,8 +12,9 @@ import {
   SubmitButton,
   ResultBanner,
 } from '../../../shared/FormFields'
-import { useCampaignOperations } from '@/lib/hooks/campaignCreationHooks'
-import { useMinBid } from '@/lib/hooks/queries/use-user-profile'
+import { useCampaignDefaults, useCampaignOperations } from '@/lib/hooks/campaignCreationHooks'
+import type { ProductTargetingTarget } from '@/lib/hooks/campaignCreationHooks'
+import { isValidAsin } from '@/lib/utils/asinValidation'
 import { AsinsInput } from '../AsinsInput'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -24,10 +25,9 @@ const DYNAMIC_BIDDING_OPTIONS = [
   { value: 'MANUAL',           label: 'Manual'           },
 ]
 
-const MATCH_TYPE_OPTIONS = [
-  { value: 'EXACT',  label: 'Exact'  },
-  { value: 'BROAD',  label: 'Broad'  },
-  { value: 'PHRASE', label: 'Phrase' },
+const MATCH_TYPE_OPTIONS: { value: 'EXACT' | 'EXPANDED'; label: string }[] = [
+  { value: 'EXACT',    label: 'Exact'    },
+  { value: 'EXPANDED', label: 'Expanded' },
 ]
 
 const today = new Date().toISOString().split('T')[0]
@@ -35,16 +35,14 @@ const today = new Date().toISOString().split('T')[0]
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type DynamicBidding = 'AUTO_FOR_SALES' | 'LEGACY_FOR_SALES' | 'MANUAL'
-type MatchType      = 'EXACT' | 'BROAD' | 'PHRASE'
 
-interface KeywordRow {
-  text:       string
-  match_type: MatchType
-  bid:        number | string
+interface TargetRow extends Omit<ProductTargetingTarget, 'bid'> {
+  bid: number | string
 }
 
 interface FormState {
   theme:           string
+  intent:          string
   budget:          number | string
   TOS_bidding:     number
   ROS_bidding:     number
@@ -54,10 +52,11 @@ interface FormState {
   start_date:      string
 }
 
-type FormErrors = Partial<Record<keyof FormState | 'asins' | 'keywords', string>>
+type FormErrors = Partial<Record<keyof FormState | 'asins' | 'targets', string>>
 
 const defaultForm: FormState = {
   theme:           '',
+  intent:          '',
   budget:          '',
   TOS_bidding:     100,
   ROS_bidding:     0,
@@ -67,48 +66,49 @@ const defaultForm: FormState = {
   start_date:      today,
 }
 
-function emptyKeyword(): KeywordRow {
-  return { text: '', match_type: 'EXACT', bid: '' }
+function emptyTarget(): TargetRow {
+  return { asin: '', match_type: 'EXACT', bid: '' }
 }
 
 // ── Campaign name preview ─────────────────────────────────────────────────────
 
-function buildCampaignName(asins: string[], theme: string, keywords: KeywordRow[]): string {
-  const filledAsins    = asins.filter((a) => a.trim())
-  const filledKeywords = keywords.filter((k) => k.text.trim())
+function buildCampaignName(asins: string[], theme: string, intent: string, targets: TargetRow[]): string {
+  const filledAsins   = asins.filter((a) => a.trim())
+  const filledTargets = targets.filter((t) => t.asin.trim())
   if (filledAsins.length === 0) return ''
 
-  // Multi ASIN uses theme as the label; single ASIN uses the ASIN itself
-  const label = filledAsins.length > 1
-    ? (theme.trim() || '{theme}')
-    : filledAsins[0]
-
-  if (filledKeywords.length === 0) return `TOM - ${label} - SP - KW`
-  if (filledKeywords.length === 1) return `TOM - ${label} - SP - KW - ${filledKeywords[0].text.trim()} - SK`
-  return `TOM - ${label} - SP - KW - MK`
+  const label        = filledAsins.length > 1 ? (theme.trim() || '{theme}') : filledAsins[0]
+  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
+  if (filledTargets.length === 1) {
+    const mt = filledTargets[0].match_type.charAt(0) + filledTargets[0].match_type.slice(1).toLowerCase()
+    return `${label} - SP - PT - SPT - ${filledTargets[0].asin.trim()} - ${mt}${intentSuffix}`
+  }
+  const matchTypes = new Set(filledTargets.map((t) => t.match_type))
+  const mtSuffix   = matchTypes.size === 1
+    ? ` - ${[...matchTypes][0].charAt(0) + [...matchTypes][0].slice(1).toLowerCase()}`
+    : ''
+  return `${label} - SP - PT - MPT${mtSuffix}${intentSuffix}`
 }
 
-// ── Keywords table ────────────────────────────────────────────────────────────
+// ── Targets table ─────────────────────────────────────────────────────────────
 
-function KeywordsTable({
+function TargetsTable({
   rows,
   onChange,
   error,
-  minBid,
 }: {
-  rows:     KeywordRow[]
-  onChange: (rows: KeywordRow[]) => void
+  rows:     TargetRow[]
+  onChange: (rows: TargetRow[]) => void
   error?:   string
-  minBid:   number
 }) {
-  function updateRow(index: number, patch: Partial<KeywordRow>) {
+  function updateRow(index: number, patch: Partial<TargetRow>) {
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)))
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 px-1">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Keyword</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Target ASIN</span>
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Match Type</span>
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bid</span>
         <span />
@@ -118,14 +118,14 @@ function KeywordsTable({
           <div key={index} className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 items-center">
             <input
               type="text"
-              value={row.text}
-              onChange={(e) => updateRow(index, { text: e.target.value })}
-              placeholder="e.g. kids toy"
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
+              value={row.asin}
+              onChange={(e) => updateRow(index, { asin: e.target.value.trim() })}
+              placeholder="e.g. B007OU5Y5K"
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 font-mono text-[13px] text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
             />
             <select
               value={row.match_type}
-              onChange={(e) => updateRow(index, { match_type: e.target.value as MatchType })}
+              onChange={(e) => updateRow(index, { match_type: e.target.value as 'EXACT' | 'EXPANDED' })}
               className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-[13px] text-slate-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
             >
               {MATCH_TYPE_OPTIONS.map((o) => (
@@ -153,11 +153,11 @@ function KeywordsTable({
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => onChange([...rows, emptyKeyword()])}
+          onClick={() => onChange([...rows, emptyTarget()])}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
-          Add keyword
+          Add target
         </button>
         {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
@@ -168,19 +168,19 @@ function KeywordsTable({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function IndividualForm() {
-  const { minBid } = useMinBid()
-  const { createKeywordTargetingCampaign, isKeywordLoading, keywordResult } =
+  const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
+  const { createProductTargetingCampaign, isProductLoading, productResult } =
     useCampaignOperations()
 
-  const [asins,    setAsins]    = useState<string[]>(['', ''])
-  const [keywords, setKeywords] = useState<KeywordRow[]>([emptyKeyword()])
-  const [form,     setForm]     = useState<FormState>(defaultForm)
-  const [errors,   setErrors]   = useState<FormErrors>({})
+  const [asins,   setAsins]   = useState<string[]>(['', ''])
+  const [targets, setTargets] = useState<TargetRow[]>([emptyTarget()])
+  const [form,    setForm]    = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
+  const [errors,  setErrors]  = useState<FormErrors>({})
 
   const filledAsins = asins.filter((a) => a.trim())
   const isMulti     = filledAsins.length > 1
 
-  const campaignName = buildCampaignName(asins, form.theme, keywords)
+  const campaignName = buildCampaignName(asins, form.theme, form.intent, targets)
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm((f) => ({ ...f, [key]: val }))
@@ -190,18 +190,21 @@ export function IndividualForm() {
   function validate(): boolean {
     const e: FormErrors = {}
 
-    if (filledAsins.length === 0)   e.asins  = 'At least one ASIN is required'
-    if (!form.budget)                e.budget = 'Required'
-    if (!form.start_date)            e.start_date = 'Required'
+    if (filledAsins.length === 0)        e.asins = 'At least one ASIN is required'
+    else if (filledAsins.some((a) => !isValidAsin(a))) e.asins = 'One or more ASINs are invalid — must be 10 characters starting with B'
+    if (!form.budget)              e.budget = 'Required'
+    if (!form.start_date)          e.start_date = 'Required'
     if (isMulti && !form.theme.trim()) {
       e.theme = 'Theme is required when advertising more than one ASIN'
     }
 
-    const filledKeywords = keywords.filter((k) => k.text.trim())
-    if (filledKeywords.length === 0) {
-      e.keywords = 'At least one keyword is required'
-    } else if (filledKeywords.some((k) => Number(k.bid) < minBid)) {
-      e.keywords = `All keywords need a bid ≥ ${minBid}`
+    const filledTargets = targets.filter((t) => t.asin.trim())
+    if (filledTargets.length === 0) {
+      e.targets = 'At least one target ASIN is required'
+    } else if (filledTargets.some((t) => !isValidAsin(t.asin))) {
+      e.targets = 'One or more target ASINs are invalid — must be 10 characters starting with B'
+    } else if (filledTargets.some((t) => Number(t.bid) < minBid)) {
+      e.targets = `All targets need a bid ≥ ${minBid}`
     }
 
     setErrors(e)
@@ -212,15 +215,15 @@ export function IndividualForm() {
     e.preventDefault()
     if (!validate()) return
 
-    const validKeywords = keywords
-      .filter((k) => k.text.trim())
-      .map((k) => ({
-        text:       k.text.trim(),
-        match_type: k.match_type,
-        bid:        Number(k.bid),
+    const validTargets: ProductTargetingTarget[] = targets
+      .filter((t) => t.asin.trim())
+      .map((t) => ({
+        asin:       t.asin.trim(),
+        match_type: t.match_type,
+        bid:        Number(t.bid),
       }))
 
-    await createKeywordTargetingCampaign({
+    await createProductTargetingCampaign({
       campaign_name:   campaignName,
       budget:          Number(form.budget),
       TOS_bidding:     form.TOS_bidding,
@@ -231,15 +234,15 @@ export function IndividualForm() {
       default_bid:     minBid,
       start_date:      form.start_date,
       asins:           filledAsins,
-      keywords:        validKeywords,
-      ...(isMulti && form.theme.trim() ? { theme: form.theme.trim() } : {}),
+      targets:         validTargets,
+      ...(isMulti && form.theme.trim() ? { theme:  form.theme.trim()  } : {}),
+      ...(form.intent.trim()              ? { intent: form.intent.trim() } : {}),
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {/* Campaign name preview */}
       {campaignName && (
         <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1">
@@ -263,39 +266,36 @@ export function IndividualForm() {
             }}
             error={errors.asins}
           />
-
-          {/* Theme — only required/shown when >1 ASIN */}
-          {isMulti && (
-            <Input
+          <Input
               label="Campaign Theme"
               placeholder="e.g. Kids Toys"
               value={form.theme}
               onChange={(e) => setField('theme', e.target.value)}
               error={errors.theme}
-              // eslint-disable-next-line react/no-children-prop
             />
-          )}
-          {isMulti && (
             <p className="text-[11px] text-slate-400 -mt-2">
-              Theme is used as the campaign name label when multiple ASINs are grouped together
+              Used as the campaign name label — required when advertising more than one ASIN
             </p>
-          )}
         </div>
       </SectionCard>
 
-      {/* Keywords */}
+      {/* Product Targets */}
       <SectionCard
-        title="Keywords"
-        description="Add one or more keywords — each with its own match type and bid"
+        title="Product Targets"
+        description="ASINs to target — each with its own match type and bid"
       >
-        <KeywordsTable
-          rows={keywords}
+        <TargetsTable
+          rows={targets}
           onChange={(rows) => {
-            setKeywords(rows)
-            setErrors((e) => ({ ...e, keywords: undefined }))
+            setTargets(rows)
+            setErrors((e) => ({ ...e, targets: undefined }))
+            const bids = rows.filter((r) => r.asin.trim()).map((r) => Number(r.bid)).filter((b) => b > 0)
+            if (bids.length > 0) {
+              const rec = recommendedBudget(bids)
+              if (!form.budget || Number(form.budget) < rec) setField('budget', rec)
+            }
           }}
-          error={errors.keywords}
-          minBid={minBid}
+          error={errors.targets}
         />
       </SectionCard>
 
@@ -304,10 +304,10 @@ export function IndividualForm() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <NumberInput
             label="Daily Budget"
-            prefix="£"
+            prefix={currencySymbol}
             placeholder="100"
             value={form.budget}
-            min={1}
+            min={minBudget}
             onChange={(e) => setField('budget', e.target.value)}
             error={errors.budget}
           />
@@ -326,7 +326,6 @@ export function IndividualForm() {
         </div>
       </SectionCard>
 
-      {/* Placement Adjustments */}
       <SectionCard
         title="Placement Bid Adjustments"
         description="Percentage increase on top of default bid"
@@ -338,9 +337,9 @@ export function IndividualForm() {
       </SectionCard>
 
       <div className="flex flex-col gap-3">
-        <ResultBanner result={keywordResult} />
+        <ResultBanner result={productResult} />
         <div className="flex justify-end">
-          <SubmitButton loading={isKeywordLoading} />
+          <SubmitButton loading={isProductLoading} />
         </div>
       </div>
     </form>

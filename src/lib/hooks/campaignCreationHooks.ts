@@ -1,10 +1,49 @@
 import { apiClient } from '@/lib/api/config'
+import {
+  getMinBid,
+  getMinBudget,
+  getCurrencySymbol,
+  useUserProfile,
+} from '@/lib/hooks/queries/use-user-profile'
 import { useCallback, useState, useMemo } from 'react'
 import {
   useCampaignCreationStore,
   type BulkCampaignRow,
   type BulkProductRow,
+  type MultiAsinKWBulkRow,
+  type MultiAsinPTBulkRow,
+  type RowStatus,
 } from '@/lib/store/campaignCreationStore'
+
+// ── useCampaignDefaults ───────────────────────────────────────────────────────
+
+export const useCampaignDefaults = () => {
+  const { data: userProfile, isLoading } = useUserProfile()
+
+  const profile       = userProfile?.connected_advertising_profiles?.find((p) => p.is_active)
+                     ?? userProfile?.connected_advertising_profiles?.[0]
+  const currencyCode  = profile?.currency_code  ?? 'GBP'
+  const marketplaceId = profile?.marketplace_id ?? ''
+
+  const minBid    = getMinBid(currencyCode)
+  const minBudget = getMinBudget(marketplaceId)
+
+  const recommendedBudget = (bids: number[]): number => {
+    const validBids = bids.filter((b) => b > 0)
+    const maxBid    = validBids.length > 0 ? Math.max(...validBids) : 0
+    return Math.max(minBudget, maxBid * 15)
+  }
+
+  return {
+    minBid,
+    minBudget,
+    currencySymbol: getCurrencySymbol(currencyCode),
+    currencyCode,
+    marketplaceId,
+    isLoading,
+    recommendedBudget,
+  }
+}
 
 // ── Response / Error Types ────────────────────────────────────────────────────
 
@@ -94,7 +133,7 @@ export interface MultiCategoryPayload extends BasePayload {
 
 export interface SingleCategoryPayload extends BasePayload {
   asin:            string
-  category_id?:     string
+  category_id?:    string
   bid:             number
   expression_type: 'MANUAL' | 'AUTO'
   type:            string
@@ -105,31 +144,31 @@ export interface SingleCategoryPayload extends BasePayload {
 export const campaignApi = {
   createKeywordTargeting: (payload: KeywordTargetingPayload) =>
     apiClient.post<CampaignSuccessResponse>(
-      '/api/campaigns/keyword-targeting/',
+      '/api/v1/campaign-creation/keyword-targeting/',
       payload
     ),
 
   createProductTargeting: (payload: ProductTargetingPayload) =>
     apiClient.post<CampaignSuccessResponse>(
-      '/api/campaigns/product-targeting/',
+      '/api/v1/campaign-creation/product-targeting/',
       payload
     ),
 
   createAutoTargeting: (payload: AutoTargetingPayload) =>
     apiClient.post<CampaignSuccessResponse>(
-      '/api/campaigns/auto-targeting/',
+      '/api/v1/campaign-creation/auto-targeting/',
       payload
     ),
 
   createMultiCategory: (payload: MultiCategoryPayload) =>
     apiClient.post<CampaignSuccessResponse>(
-      '/api/campaigns/multi-category/',
+      '/api/v1/campaign-creation/multi-category/',
       payload
     ),
 
   createSingleCategory: (payload: SingleCategoryPayload) =>
     apiClient.post<CampaignSuccessResponse>(
-      '/api/campaigns/single-category/',
+      '/api/v1/campaign-creation/single-category/',
       payload
     ),
 }
@@ -225,7 +264,9 @@ export function useCampaignOperations() {
 
 // ── useBulkCampaignSubmit ─────────────────────────────────────────────────────
 
-export type GroupingMode = 'individual' | 'grouped'
+export type GroupingMode     = 'individual' | 'grouped'
+export type MultiAsinKWMode  = 'mk' | 'sk'   // mk = multi-keyword, sk = single keyword (deduplicated)
+export type MultiAsinPTMode  = 'mpt' | 'spt' // mpt = multi-target, spt = single target (deduplicated)
 
 export interface BulkSubmitSummary {
   total:   number
@@ -552,5 +593,217 @@ export function useBulkProductSubmit() {
     groupPendingCount: uniqueAsinStatuses.filter((s) => s === 'idle').length,
     groupFailedCount:  uniqueAsinStatuses.filter((s) => s === 'error').length,
     groupSuccessCount: uniqueAsinStatuses.filter((s) => s === 'success').length,
+  }
+}
+
+// ── useBulkMultiAsinKWSubmit ──────────────────────────────────────────────────
+// Always groups by theme. Mode controls keyword deduplication within each group:
+//   mk  (multi-keyword): all keywords from all rows sent as-is
+//   sk  (single keyword): keywords deduplicated — rows within a theme should share same keyword
+
+export function useBulkMultiAsinKWSubmit() {
+  const {
+    multiAsinKWRows,
+    sharedDefaults,
+    setMultiAsinKWStatusByTheme,
+  } = useCampaignCreationStore()
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+
+  const submitAll = useCallback(async (mode: MultiAsinKWMode): Promise<BulkSubmitSummary> => {
+    // Always group by theme
+    const groupMap = new Map<string, typeof multiAsinKWRows>()
+    for (const row of multiAsinKWRows) {
+      if (!groupMap.has(row.theme)) groupMap.set(row.theme, [])
+      groupMap.get(row.theme)!.push(row)
+    }
+
+    const pending = [...groupMap.entries()].filter(
+      ([, rows]) => rows.some((r) => r._status !== 'success')
+    )
+
+    if (pending.length === 0) {
+      const s = { total: 0, success: 0, failed: 0 }
+      setSummary(s)
+      return s
+    }
+
+    setIsSubmitting(true)
+    setSummary(null)
+    const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
+    let successes = 0, failures = 0
+
+    for (const [theme, rows] of pending) {
+      const first = rows[0]
+      const asins = [...new Set(rows.map((r) => r.asin).filter(Boolean))]
+
+      // Build keywords based on mode
+      const allKeywords = rows.map((r) => ({ text: r.keyword, match_type: r.match_type, bid: r.bid }))
+      const keywords = mode === 'sk'
+        // Deduplicate by keyword text — keeps first occurrence (bid/match of first row wins)
+        ? [...new Map(allKeywords.map((k) => [k.text.toLowerCase(), k])).values()]
+        : allKeywords
+
+      // Campaign name reflects mode
+      const campaignName = mode === 'sk' && keywords.length === 1
+        ? `TOM - ${theme} - SP - KW - ${keywords[0].text} - SK`
+        : `TOM - ${theme} - SP - KW - MK`
+
+      setMultiAsinKWStatusByTheme(theme, 'loading')
+      try {
+        const response = await campaignApi.createKeywordTargeting({
+          campaign_name:   campaignName,
+          budget:          first.budget,
+          TOS_bidding, ROS_bidding, PP_bidding, AB_bidding,
+          dynamic_bidding: first.dynamic_bidding,
+          default_bid:     first.bid,
+          start_date:      first.start_date,
+          asins,
+          theme,
+          keywords,
+        })
+        console.log(`✅ Multi-ASIN KW [${theme}] (${mode}):`, response.data.campaign_id)
+        setMultiAsinKWStatusByTheme(theme, 'success')
+        successes++
+      } catch (error) {
+        const msg = parseBulkError(error)
+        console.error(`❌ Multi-ASIN KW failed [${theme}]:`, msg)
+        setMultiAsinKWStatusByTheme(theme, 'error', msg)
+        failures++
+      }
+    }
+
+    const s: BulkSubmitSummary = { total: pending.length, success: successes, failed: failures }
+    setSummary(s)
+    setIsSubmitting(false)
+    return s
+  }, [multiAsinKWRows, sharedDefaults, setMultiAsinKWStatusByTheme])
+
+  const retryFailed = useCallback((mode: MultiAsinKWMode) => {
+    const failedThemes = new Set(multiAsinKWRows.filter((r) => r._status === 'error').map((r) => r.theme))
+    failedThemes.forEach((t) => setMultiAsinKWStatusByTheme(t, 'idle'))
+    setSummary(null)
+  }, [multiAsinKWRows, setMultiAsinKWStatusByTheme])
+
+  const clearSummary = useCallback(() => setSummary(null), [])
+
+  const themeStatuses = useMemo(() => {
+    const map = new Map<string, 'idle' | 'loading' | 'success' | 'error'>()
+    const priority = { error: 4, loading: 3, idle: 2, success: 1 } as const
+    for (const row of multiAsinKWRows) {
+      const cur = map.get(row.theme)
+      if (!cur || priority[row._status] > priority[cur]) map.set(row.theme, row._status)
+    }
+    return [...map.values()]
+  }, [multiAsinKWRows])
+
+  return {
+    submitAll, retryFailed, clearSummary, isSubmitting, summary,
+    pendingCount: themeStatuses.filter((s) => s === 'idle').length,
+    failedCount:  themeStatuses.filter((s) => s === 'error').length,
+    successCount: themeStatuses.filter((s) => s === 'success').length,
+  }
+}
+
+// ── useBulkMultiAsinPTSubmit ──────────────────────────────────────────────────
+// Always groups by theme. Mode controls target deduplication within each group:
+//   mpt (multi-target): all targets from all rows sent as-is
+//   spt (single target): targets deduplicated — rows within a theme should share same target
+
+export function useBulkMultiAsinPTSubmit() {
+  const {
+    multiAsinPTRows,
+    sharedDefaults,
+    setMultiAsinPTStatusByTheme,
+  } = useCampaignCreationStore()
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+
+  const submitAll = useCallback(async (mode: MultiAsinPTMode): Promise<BulkSubmitSummary> => {
+    const groupMap = new Map<string, typeof multiAsinPTRows>()
+    for (const row of multiAsinPTRows) {
+      if (!groupMap.has(row.theme)) groupMap.set(row.theme, [])
+      groupMap.get(row.theme)!.push(row)
+    }
+
+    const pending = [...groupMap.entries()].filter(
+      ([, rows]) => rows.some((r) => r._status !== 'success')
+    )
+
+    if (pending.length === 0) {
+      const s = { total: 0, success: 0, failed: 0 }
+      setSummary(s)
+      return s
+    }
+
+    setIsSubmitting(true)
+    setSummary(null)
+    const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
+    let successes = 0, failures = 0
+
+    for (const [theme, rows] of pending) {
+      const first = rows[0]
+      const asins = [...new Set(rows.map((r) => r.asin).filter(Boolean))]
+
+      const allTargets = rows.map((r) => ({ asin: r.target_asin, match_type: r.match_type, bid: r.bid }))
+      const targets = mode === 'spt'
+        ? [...new Map(allTargets.map((t) => [t.asin.toLowerCase(), t])).values()]
+        : allTargets
+
+      setMultiAsinPTStatusByTheme(theme, 'loading')
+      try {
+        const response = await campaignApi.createProductTargeting({
+          campaign_name:   first.campaign_name,
+          budget:          first.budget,
+          TOS_bidding, ROS_bidding, PP_bidding, AB_bidding,
+          dynamic_bidding: first.dynamic_bidding,
+          default_bid:     first.bid,
+          start_date:      first.start_date,
+          asins,
+          theme,
+          targets,
+        })
+        console.log(`✅ Multi-ASIN PT [${theme}] (${mode}):`, response.data.campaign_id)
+        setMultiAsinPTStatusByTheme(theme, 'success')
+        successes++
+      } catch (error) {
+        const msg = parseBulkError(error)
+        console.error(`❌ Multi-ASIN PT failed [${theme}]:`, msg)
+        setMultiAsinPTStatusByTheme(theme, 'error', msg)
+        failures++
+      }
+    }
+
+    const s: BulkSubmitSummary = { total: pending.length, success: successes, failed: failures }
+    setSummary(s)
+    setIsSubmitting(false)
+    return s
+  }, [multiAsinPTRows, sharedDefaults, setMultiAsinPTStatusByTheme])
+
+  const retryFailed = useCallback((mode: MultiAsinPTMode) => {
+    const failedThemes = new Set(multiAsinPTRows.filter((r) => r._status === 'error').map((r) => r.theme))
+    failedThemes.forEach((t) => setMultiAsinPTStatusByTheme(t, 'idle'))
+    setSummary(null)
+  }, [multiAsinPTRows, setMultiAsinPTStatusByTheme])
+
+  const clearSummary = useCallback(() => setSummary(null), [])
+
+  const themeStatuses = useMemo(() => {
+    const map = new Map<string, 'idle' | 'loading' | 'success' | 'error'>()
+    const priority = { error: 4, loading: 3, idle: 2, success: 1 } as const
+    for (const row of multiAsinPTRows) {
+      const cur = map.get(row.theme)
+      if (!cur || priority[row._status] > priority[cur]) map.set(row.theme, row._status)
+    }
+    return [...map.values()]
+  }, [multiAsinPTRows])
+
+  return {
+    submitAll, retryFailed, clearSummary, isSubmitting, summary,
+    pendingCount: themeStatuses.filter((s) => s === 'idle').length,
+    failedCount:  themeStatuses.filter((s) => s === 'error').length,
+    successCount: themeStatuses.filter((s) => s === 'success').length,
   }
 }

@@ -51,7 +51,7 @@ const COLUMNS: CampaignColumnDefinition[] = [
   },
   {
     field:      'budget',
-    headerName: 'Budget',
+    headerName: 'Budget (£)',
     type:       'number',
     span:       true,
     editable:   true,
@@ -101,7 +101,7 @@ const COLUMNS: CampaignColumnDefinition[] = [
   },
   {
     field:      'bid',
-    headerName: 'Bid',
+    headerName: 'Bid (£)',
     type:       'number',
     span:       false,
     editable:   true,
@@ -250,7 +250,7 @@ export function BulkPasteSection() {
   const failedCount  = groupingMode === 'individual' ? rowFailedCount  : groupFailedCount
   const successCount = groupingMode === 'individual' ? rowSuccessCount : groupSuccessCount
 
-  const [parseInfo, setParseInfo] = useState<{ added: number; skipped: number } | null>(null)
+  const [parseInfo, setParseInfo] = useState<{ added: number; skipped: number; invalidAsins: number } | null>(null)
 
   // ── Table data — flat rows, one per target ──────────────────────────────────
   const tableData: CampaignTableData[] = productBulkRows.map((r) => ({
@@ -320,11 +320,22 @@ export function BulkPasteSection() {
         <div className="p-6 flex flex-col gap-3">
           <PasteArea onPaste={handlePaste} />
           {parseInfo && (
-            <p className="text-xs text-emerald-600 font-medium">
-              ✓ Added {parseInfo.added} target row{parseInfo.added !== 1 ? 's' : ''}
-              {parseInfo.skipped > 0 && ` · ${parseInfo.skipped} skipped (missing ASIN or target)`}
-            </p>
-          )}
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs text-emerald-600 font-medium">
+                  ✓ Added {parseInfo.added} row{parseInfo.added !== 1 ? 's' : ''}
+                  {parseInfo.skipped > 0 && ` · ${parseInfo.skipped} skipped`}
+                </p>
+                {parseInfo.invalidAsins > 0 && (
+                  <p className="text-xs text-amber-600 font-medium flex items-start gap-1.5">
+                    <span>⚠️</span>
+                    <span>
+                      {parseInfo.invalidAsins} row{parseInfo.invalidAsins !== 1 ? 's' : ''} had invalid ASINs and were skipped.
+                      {" "}Make sure you're pasting product targeting data here, not keyword data.
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
         </div>
       </div>
 
@@ -334,7 +345,7 @@ export function BulkPasteSection() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-sm">
               <span className="font-semibold text-slate-800">
-                {uniqueCampaigns} campaign{uniqueCampaigns !== 1 ? 's' : ''}
+                {groupingMode === 'grouped' ? uniqueCampaigns : totalTargets} campaign{(groupingMode === 'grouped' ? uniqueCampaigns : totalTargets) !== 1 ? 's' : ''}
               </span>
               <span className="text-slate-300">·</span>
               <span className="text-slate-500">{totalTargets} target{totalTargets !== 1 ? 's' : ''}</span>

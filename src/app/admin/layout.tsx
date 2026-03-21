@@ -57,7 +57,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           
           <div className="mt-4">
             <Link 
-              href="/"
+              href="/dashboard/command-center"
               className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Return to Dashboard
