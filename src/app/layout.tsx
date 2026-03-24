@@ -16,7 +16,7 @@ import { inter, montserrat } from './fonts'
 
 export const metadata: Metadata = {
   title: 'Pacepivot AI',
-  description: 'Some AI thing',
+  description: 'Scale your Amazon ads profitably with Janus—an intelligent PPC engine designed to boost revenue, control ACoS, and automate campaign decisions at scale.',
 }
 
 export default function RootLayout({
