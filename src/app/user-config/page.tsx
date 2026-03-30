@@ -58,8 +58,7 @@ const emptyBrand = (): CreateBrandPayload => ({
 })
 
 // ── Component ─────────────────────────────────────────────────────────────────
-
-export function ConfigurationPage() {
+function ConfigurationPage() {
 
   // ── Target ACOS ─────────────────────────────────────────────────────────────
   const { data: userProfile }       = useUserProfile()
