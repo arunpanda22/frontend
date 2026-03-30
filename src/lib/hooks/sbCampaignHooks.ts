@@ -99,7 +99,7 @@ export interface SBVSpotlightPayload extends SBBasePayload {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
-const BASE = '/api/campaign-creation/sb'
+const BASE = '/api/v1/campaign-creation/sb'
 
 async function post(path: string, payload: unknown): Promise<SBResult> {
   try {

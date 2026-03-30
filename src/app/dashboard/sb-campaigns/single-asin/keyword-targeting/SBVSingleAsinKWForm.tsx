@@ -2,20 +2,19 @@
 
 import { useState } from 'react'
 import { Input, NumberInput, DatePicker, SectionCard, SubmitButton } from '../../../sp-campaigns/components/shared/FormFields'
-import { AssetSelect, PerKeywordTable, SBResultBanner, type KWRow } from '../../shared/SBFormComponents'
-import { useSBOperations, useSBAssets, useCampaignDefaults } from '@/lib/hooks/sbCampaignHooks'
+import { PerKeywordTable, SBResultBanner, type KWRow } from '../../shared/SBFormComponents'
+import { useSBOperations, useCampaignDefaults } from '@/lib/hooks/sbCampaignHooks'
 import { isValidAsin } from '@/lib/utils/asinValidation'
 
 const today = new Date().toISOString().split('T')[0]
 
 interface Form {
-  campaign_name:   string
+  campaign_name:   string   // now the editable "preview" field
   ad_group_name:   string
   product_ad_name: string
   asin:            string
   video_asset_id:  string
   budget:          number | string
-  bid:             number | string
   start_date:      string
   intent:          string
 }
@@ -24,7 +23,7 @@ type Errors = Partial<Record<keyof Form | 'keywords', string>>
 
 const defaultForm = (): Form => ({
   campaign_name: '', ad_group_name: '', product_ad_name: '', asin: '',
-  video_asset_id: '', budget: '', bid: '', start_date: today, intent: '',
+  video_asset_id: '', budget: '', start_date: today, intent: '',
 })
 
 function buildName(asin: string, rows: KWRow[], intent: string) {
@@ -41,23 +40,41 @@ function buildName(asin: string, rows: KWRow[], intent: string) {
 
 export function SBVSingleAsinKWForm() {
   const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
-  const { videos } = useSBAssets()
   const { createSBVSingleKW, loading, result } = useSBOperations()
 
   const [form,     setForm]     = useState<Form>(() => ({ ...defaultForm(), budget: minBudget }))
   const [keywords, setKeywords] = useState<KWRow[]>([{ text: '', matchType: 'exact', bid: '' }])
   const [errors,   setErrors]   = useState<Errors>({})
 
-  const campaignName = buildName(form.asin, keywords, form.intent)
+  // Track whether the user has manually edited the campaign name.
+  // If not, keep it in sync with the auto-generated value.
+  const [nameEdited, setNameEdited] = useState(false)
+  const generatedName = buildName(form.asin, keywords, form.intent)
+  const campaignNameDisplay = nameEdited ? form.campaign_name : generatedName
 
   function setField<K extends keyof Form>(k: K, v: Form[K]) {
     setForm((f) => ({ ...f, [k]: v }))
     setErrors((e) => ({ ...e, [k]: undefined }))
   }
 
+  function handleCampaignNameChange(v: string) {
+    setNameEdited(true)
+    setField('campaign_name', v)
+  }
+
+  // If the user clears the name field, revert to auto-generated behaviour
+  function handleCampaignNameBlur(v: string) {
+    if (!v.trim()) {
+      setNameEdited(false)
+      setField('campaign_name', '')
+    }
+  }
+
   function handleKeywordsChange(rows: KWRow[]) {
     setKeywords(rows)
     setErrors((e) => ({ ...e, keywords: undefined }))
+    // If name hasn't been manually edited, the display updates automatically
+    // via generatedName — nothing extra needed here.
     const bids = rows.filter((r) => r.text.trim()).map((r) => Number(r.bid)).filter((b) => b > 0)
     if (bids.length > 0) {
       const rec = recommendedBudget(bids)
@@ -69,7 +86,7 @@ export function SBVSingleAsinKWForm() {
     const e: Errors = {}
     if (!form.asin.trim())            e.asin           = 'Required'
     else if (!isValidAsin(form.asin)) e.asin           = 'Invalid ASIN'
-    if (!form.video_asset_id)         e.video_asset_id = 'Required'
+    if (!form.video_asset_id.trim())  e.video_asset_id = 'Required'
     if (!form.budget)                 e.budget         = 'Required'
     if (!form.start_date)             e.start_date     = 'Required'
     const filled = keywords.filter((r) => r.text.trim())
@@ -84,16 +101,15 @@ export function SBVSingleAsinKWForm() {
     e.preventDefault()
     if (!validate()) return
     await createSBVSingleKW({
-      campaign_name:   campaignName || undefined,
-      ad_group_name:   form.ad_group_name.trim()   || undefined,
-      product_ad_name: form.product_ad_name.trim() || undefined,
+      // Use the user-edited name if set, otherwise use the generated one
+      campaign_name:   campaignNameDisplay || undefined,
       asin:            form.asin.trim(),
-      video_asset_id:  form.video_asset_id,
+      video_asset_id:  form.video_asset_id.trim(),
       keyword_text:    keywords
         .filter((r) => r.text.trim())
         .map((r) => ({ text: r.text.trim(), matchType: r.matchType, bid: Number(r.bid) })),
       budget:          Number(form.budget),
-      bid:             Number(form.bid) || minBid,
+      bid:             minBid,   // always use region minBid — no user input needed
       start_date:      form.start_date,
     })
   }
@@ -101,12 +117,31 @@ export function SBVSingleAsinKWForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {campaignName && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1">Campaign Name Preview</p>
-          <p className="text-sm font-mono font-medium text-indigo-700">{campaignName}</p>
-        </div>
-      )}
+      {/* Campaign Name — editable preview */}
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1.5">
+          Campaign Name
+        </p>
+        <input
+          type="text"
+          value={campaignNameDisplay}
+          onChange={(e) => handleCampaignNameChange(e.target.value)}
+          onBlur={(e) => handleCampaignNameBlur(e.target.value)}
+          placeholder="Fill in ASIN and keywords to auto-generate…"
+          className="w-full bg-transparent font-mono text-sm font-medium text-indigo-700 placeholder-indigo-300
+                     border-0 border-b border-indigo-200 focus:border-indigo-400 focus:outline-none
+                     pb-0.5 transition-colors"
+        />
+        {nameEdited && (
+          <button
+            type="button"
+            onClick={() => { setNameEdited(false); setField('campaign_name', '') }}
+            className="mt-1.5 text-[10px] text-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            ↺ Reset to auto-generated
+          </button>
+        )}
+      </div>
 
       <SectionCard title="Advertised Product" description="The ASIN to advertise">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -117,10 +152,16 @@ export function SBVSingleAsinKWForm() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Video Creative" description="Select the video asset from your asset library">
+      <SectionCard title="Video Creative" description="Paste the video asset ID from your asset library">
         <div className="max-w-sm">
-          <AssetSelect label="Video Asset *" assets={videos.data ?? []}
-            value={form.video_asset_id} onChange={(v) => setField('video_asset_id', v)} error={errors.video_asset_id} />
+          <Input
+            label="Video Asset ID *"
+            placeholder="Paste asset ID here"
+            value={form.video_asset_id}
+            onChange={(e) => setField('video_asset_id', e.target.value.trim())}
+            error={errors.video_asset_id}
+            className="font-mono"
+          />
         </div>
       </SectionCard>
 
@@ -132,21 +173,11 @@ export function SBVSingleAsinKWForm() {
       </SectionCard>
 
       <SectionCard title="Campaign Settings" description="Budget and schedule">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <NumberInput label="Daily Budget" prefix={currencySymbol} placeholder="100"
             value={form.budget} min={minBudget} onChange={(e) => setField('budget', e.target.value)} error={errors.budget} />
-          <NumberInput label="Default Bid" prefix={currencySymbol} placeholder="0.00"
-            value={form.bid} min={minBid} step={minBid} onChange={(e) => setField('bid', e.target.value)} />
           <DatePicker label="Start Date" value={form.start_date}
             onChange={(v) => setField('start_date', v)} error={errors.start_date} />
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Ad Naming (optional)" description="Custom names — auto-generated if blank">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Input label="Campaign Name"   value={form.campaign_name}   onChange={(e) => setField('campaign_name', e.target.value)} />
-          <Input label="Ad Group Name"   value={form.ad_group_name}   onChange={(e) => setField('ad_group_name', e.target.value)} />
-          <Input label="Product Ad Name" value={form.product_ad_name} onChange={(e) => setField('product_ad_name', e.target.value)} />
         </div>
       </SectionCard>
 

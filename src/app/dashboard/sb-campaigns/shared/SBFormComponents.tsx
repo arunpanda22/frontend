@@ -256,7 +256,7 @@ export function TargetAsinsTable({ rows, onChange, error, minBid, currency }: Ta
           <div key={i} className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 items-center">
             <input type="text" value={row.asin}
               onChange={(e) => update(i, { asin: e.target.value.trim() })}
-              placeholder="e.g. B009GCTZWC" className={`${cell} font-mono`} />
+              placeholder="e.g. B0XXXXXXXX" className={`${cell} font-mono`} />
             <select value={row.matchType} onChange={(e) => update(i, { matchType: e.target.value as SBTargetRow['matchType'] })} className={cell}>
               {PT_MATCH_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -314,7 +314,7 @@ export function SubPagesTable({ pages, onChange, error }: SubPagesProps) {
         {pages.map((page, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_2fr_32px] gap-2 items-center">
             <input type="text" value={page.pageTitle} onChange={(e) => update(i, { pageTitle: e.target.value })} placeholder="e.g. Toy Collection" className={cell} />
-            <input type="text" value={page.asin}      onChange={(e) => update(i, { asin: e.target.value.trim() })} placeholder="B009GCTZWC" className={`${cell} font-mono`} />
+            <input type="text" value={page.asin}      onChange={(e) => update(i, { asin: e.target.value.trim() })} placeholder="B0XXXXXXXX" className={`${cell} font-mono`} />
             <input type="text" value={page.url}       onChange={(e) => update(i, { url: e.target.value })} placeholder="https://amazon.com/stores/..." className={cell} />
             <button type="button" onClick={() => onChange(pages.filter((_, j) => j !== i))} disabled={pages.length === 1}
               className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 disabled:opacity-30 transition-colors">
@@ -353,7 +353,7 @@ export function AsinListInput({ asins, onChange, error, label = 'Advertised ASIN
         <div key={i} className="grid grid-cols-[1fr_32px] gap-2 items-center">
           <input type="text" value={asin}
             onChange={(e) => onChange(asins.map((a, j) => j === i ? e.target.value.trim() : a))}
-            placeholder="e.g. B009GCTZWC" className={cell} />
+            placeholder="e.g. B0XXXXXXXX" className={cell} />
           <button type="button" onClick={() => onChange(asins.filter((_, j) => j !== i))} disabled={asins.length === 1}
             className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 disabled:opacity-30 transition-colors">
             <Trash2 className="h-3.5 w-3.5" />
