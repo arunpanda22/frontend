@@ -1,13 +1,27 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import {
-  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, LabelList
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
-import { useAsinPerformanceData } from '@/lib/hooks/queries/use-dashboard';
+import { useAsinPerformanceData } from "@/lib/hooks/queries/use-dashboard";
 
 const dotColors = [
-  "#FACC15", "#2563EB", "#F43F5E", "#22C55E", "#FB923C", "#A78BFA",
+  "#2563EB",
+  "#DC2626",
+  "#16A34A",
+  "#EA580C",
+  "#9333EA",
+  "#0891B2",
+  "#FACC15",
+  "#F43F5E",
+  "#22C55E",
+  "#FB923C",
 ];
 
 interface DotScatterChartProps {
@@ -15,199 +29,335 @@ interface DotScatterChartProps {
   endDate: string;
 }
 
-export default function DotScatterChart({ 
-  startDate, 
+export default function DotScatterChart({
+  startDate,
   endDate,
-}: DotScatterChartProps ) {
+}: DotScatterChartProps) {
   const [focusLevel, setFocusLevel] = useState<string>("High Focus");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const period = useMemo(() => {
-    if (!startDate || !endDate) return '30d';
-    
+    if (!startDate || !endDate) return "30d";
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Map days to period format
-    if (diffDays <= 7) return '7d';
-    if (diffDays <= 14) return '14d';
-    if (diffDays <= 30) return '30d';
-    if (diffDays <= 60) return '60d';
-    if (diffDays <= 90) return '90d';
-    return 'custom';
+    const diffDays = Math.ceil(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays <= 7) return "7d";
+    if (diffDays <= 14) return "14d";
+    if (diffDays <= 30) return "30d";
+    if (diffDays <= 60) return "60d";
+    if (diffDays <= 90) return "90d";
+    return "custom";
   }, [startDate, endDate]);
-    
-  // Fetch ASIN performance data (automatically handles SC-only vs SC+VC)
-  const { asinSummary, hasVendorAccount, isLoading, isError, error } = useAsinPerformanceData({
-    start_date: startDate,
-    end_date: endDate,
-    period: period,
-    focus_level: 'all' as const
-  });
 
-  // Transform ASIN summary data - handle both response types
+  const { asinSummary, hasVendorAccount, isLoading, isError, error } =
+    useAsinPerformanceData({
+      start_date: startDate,
+      end_date: endDate,
+      period: period,
+      focus_level: "all" as const,
+    });
+
   const asinData = React.useMemo(() => {
     let rawData = null;
-
     if (asinSummary?.data?.asin_summary) {
       rawData = asinSummary.data.asin_summary;
     } else if (asinSummary?.data && Array.isArray(asinSummary.data)) {
       rawData = asinSummary.data;
     }
-
-    if (!rawData || !Array.isArray(rawData)) {
-      return [];
-    }
+    if (!rawData || !Array.isArray(rawData)) return [];
 
     return rawData.map((item: any) => {
       const actualItem = item.json || item;
-      
       if (hasVendorAccount) {
-        // Combined SC + VC data
         return {
           asin: actualItem.asin,
           product_name: actualItem.product_name,
           "Total Sales": actualItem.total_revenue || 0,
-          "TACOS": actualItem.tacos_percent || 0,
+          TACOS: actualItem.tacos_percent || 0,
           "Focus Level": actualItem.focus_category || "High Focus",
         };
       } else {
-        // Seller-only data
         return {
           asin: actualItem.asin,
           product_name: actualItem.product_name,
           "Total Sales": actualItem.total_sales || 0,
-          "TACOS": actualItem.tacos_percent || 0,
+          TACOS: actualItem.tacos_percent || 0,
           "Focus Level": actualItem.focus_category || "High Focus",
         };
       }
     });
   }, [asinSummary, hasVendorAccount]);
 
-  const filteredData = asinData.filter(item => item["Focus Level"] === focusLevel);
+  const filteredData = asinData.filter(
+    (item) => item["Focus Level"] === focusLevel
+  );
   const topAsins = [...filteredData]
-    .filter(item => typeof item["Total Sales"] === "number" && typeof item.TACOS === "number")
+    .filter(
+      (item) =>
+        typeof item["Total Sales"] === "number" &&
+        typeof item.TACOS === "number"
+    )
     .sort((a, b) => (b["Total Sales"] || 0) - (a["Total Sales"] || 0))
     .slice(0, 10);
 
   const topScatterData = topAsins.map((item, idx) => ({
-    Product: item.product_name,
+    product: item.product_name,
     asin: item.asin,
     x: item["Total Sales"],
     y: item.TACOS,
-    name: item.product_name,
     color: dotColors[idx % dotColors.length],
   }));
 
-  return (
-    <div className="w-full h-full flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b-2 border-gray-300 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <h6 className="text-base font-semibold text-gray-900">
-            Total Sales vs TACOS {hasVendorAccount && <span className="text-xs font-normal text-purple-600">(SC + VC)</span>}
-          </h6>
-          <div className="text-xs text-gray-500">
-            {startDate} to {endDate}
+  // --- Custom Dot with glow + hover animation ---
+  const CustomDot = (props: any) => {
+    const { cx, cy, payload, index } = props as {
+      cx: number;
+      cy: number;
+      payload: any;
+      index: number;
+    };
+    const isHovered = hoveredIndex === index;
+
+    return (
+      <g
+        onMouseEnter={() => setHoveredIndex(index)}
+        onMouseLeave={() => setHoveredIndex(null)}
+        style={{ cursor: "pointer" }}
+      >
+        {/* Outer glow ring */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={isHovered ? 14 : 10}
+          fill={payload.color}
+          opacity={isHovered ? 0.2 : 0}
+          style={{ transition: "all 0.3s ease-out" }}
+        />
+        {/* Main dot */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={isHovered ? 8 : 6}
+          fill={payload.color}
+          stroke="white"
+          strokeWidth={2.5}
+          style={{
+            transition: "all 0.2s ease-out",
+            filter: isHovered
+              ? `drop-shadow(0px 0px 10px ${payload.color}88) drop-shadow(0px 2px 4px rgba(0,0,0,0.1))`
+              : `drop-shadow(0px 2px 4px rgba(0,0,0,0.08))`,
+          }}
+        />
+      </g>
+    );
+  };
+
+  // --- Custom Tooltip ---
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload?.length && payload[0]?.payload) {
+      const d = payload[0].payload;
+      return (
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+          <div className="flex items-start gap-3">
+            <div
+              className="mt-1 h-3 w-3 flex-shrink-0 rounded-full shadow-sm"
+              style={{
+                backgroundColor: d.color,
+                boxShadow: `0 0 8px ${d.color}60`,
+              }}
+            />
+            <div className="space-y-2">
+              <p className="line-clamp-2 text-sm font-bold text-slate-900">
+                {d.product}
+              </p>
+              <p className="text-xs text-slate-500 font-mono">{d.asin}</p>
+              <p className="text-sm text-slate-600">
+                Sales:{" "}
+                <span className="font-semibold text-blue-600">
+                  ₹{d.x.toLocaleString()}
+                </span>
+              </p>
+              <p className="text-sm text-slate-600">
+                TACOS:{" "}
+                <span className="font-semibold text-emerald-600">
+                  {d.y.toFixed(2)}%
+                </span>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-      
-      {/* Filter Header */}
-      <div className="flex items-center justify-between gap-3 px-6 py-2 border-b border-gray-200 dark:border-gray-700">
-        <h6 className="text-base text-gray-900 dark:text-white font-montserrat font-semibold">ASIN Scatter</h6>
-        <select
-          value={focusLevel}
-          onChange={e => setFocusLevel(e.target.value)}
-          className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100"
-        >
-          <option value="High Focus">High Focus</option>
-          <option value="Medium Focus">Medium Focus</option>
-          <option value="Low Focus">Low Focus</option>
-        </select>
-      </div>
+      );
+    }
+    return null;
+  };
 
-      {/* Body */}
-      <div className="p-6 h-[540px]">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-gray-500">Loading ASIN scatter chart data...</span>
-            </div>
+  return (
+    <div className="relative w-full overflow-hidden rounded-2xl bg-gradient-to-br from-white via-slate-50 to-slate-100 p-8 shadow-lg border border-slate-200">
+      {/* Decorative gradient orbs */}
+      <div className="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-gradient-to-br from-blue-100/40 to-purple-100/20 blur-3xl pointer-events-none" />
+      <div className="absolute -left-40 -bottom-40 h-80 w-80 rounded-full bg-gradient-to-tr from-emerald-100/30 to-blue-100/20 blur-3xl pointer-events-none" />
+
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+              Total Sales vs TACOS
+              {hasVendorAccount && (
+                <span className="ml-2 text-sm font-normal text-purple-600">
+                  (SC + VC)
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {startDate} — {endDate}
+            </p>
           </div>
-        ) : isError || !asinData || asinData.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-red-500 text-center">
-            <div>
-              <p className="text-sm font-medium">Failed to load ASIN scatter chart data</p>
-              <p className="text-xs text-gray-400">{error?.message || 'No ASIN summary data available'}</p>
-            </div>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 24, right: 24, left: 24, bottom: 24 }}>
-              <XAxis
-                dataKey="x"
-                name="Total Sales"
-                tick={{ fill: '#64748b', fontSize: 14 }}
-                tickFormatter={v => v.toLocaleString()}
-                type="number"
-                domain={[0, 'auto']}
-                label={{ value: 'Total Sales', position: 'insideBottom', offset: -8, fill: '#64748b', fontSize: 16 }}
-              />
-              <YAxis
-                dataKey="y"
-                name="TACOS"
-                tick={{ fill: '#64748b', fontSize: 14 }}
-                type="number"
-                domain={[0, 'auto']}
-                label={{ value: 'TACOS (%)', angle: -90, position: 'insideLeft', offset: 0, fill: '#64748b', fontSize: 16 }}
-              />
-              <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" />
-              <Tooltip
-                content={({ active, payload }: any) => {
-                  if (active && payload?.length && payload[0].payload) {
-                    const d = payload[0].payload;
-                    return (
-                      <div className="bg-zinc-900 text-white rounded-lg px-4 py-2 text-sm shadow-lg border border-zinc-700">
-                        <div className="flex items-center gap-2">
-                          <span className="w-3 h-3 rounded-sm border border-white" style={{ background: d.color }}></span>
-                          <span className="font-semibold">Product:</span> {d.Product}
-                        </div>
-                        <div>Sales: ₹{d.x.toLocaleString()}</div>
-                        <div>TACOS: {d.y}%</div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-                cursor={{ strokeDasharray: '3 3' }}
-              />
-              <Scatter
-                data={topScatterData}
-                shape={(props: any) => (
-                  <circle
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={hoveredIndex === props.index ? 11 : 7}
-                    fill={props.payload.color}
-                    stroke={hoveredIndex === props.index ? '#fff' : props.payload.color}
-                    strokeWidth={hoveredIndex === props.index ? 4 : 2}
-                    onMouseEnter={() => setHoveredIndex(props.index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
-                  />
-                )}
-              >
-                <LabelList
-                  dataKey="asin"
-                  position="right"
-                  style={{ fill: "#374151", fontSize: 12, fontWeight: 500 }}
+
+          {/* Focus Level Filter */}
+          <select
+            value={focusLevel}
+            onChange={(e) => setFocusLevel(e.target.value)}
+            className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="High Focus">High Focus</option>
+            <option value="Medium Focus">Medium Focus</option>
+            <option value="Low Focus">Low Focus</option>
+          </select>
+        </div>
+
+        {/* Color Legend */}
+        {!isLoading && !isError && topScatterData.length > 0 && (
+          <div className="mb-5 flex flex-wrap gap-3">
+            {topScatterData.map((d, idx) => (
+              <div key={idx} className="flex items-center gap-1.5">
+                <div
+                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: d.color,
+                    boxShadow: `0 0 6px ${d.color}50`,
+                  }}
                 />
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
+                <span className="text-xs text-slate-600 font-mono">
+                  {d.asin}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
+
+        {/* Chart Area */}
+        <div className="h-[460px] rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              <span className="text-sm text-slate-500">
+                Loading scatter data…
+              </span>
+            </div>
+          ) : isError || asinData.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <p className="text-sm font-medium text-red-500">
+                Failed to load scatter data
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {error?.message || "No ASIN summary data available"}
+              </p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
+                <CartesianGrid
+                  stroke="#e2e8f0"
+                  strokeDasharray="0"
+                  style={{ opacity: 0.6 }}
+                />
+                <XAxis
+                  dataKey="x"
+                  name="Total Sales"
+                  type="number"
+                  domain={[0, "auto"]}
+                  tick={{ fill: "#64748b", fontSize: 12, fontWeight: 500 }}
+                  tickFormatter={(v) => `₹${(v / 1000).toFixed(1)}K`}
+                  label={{
+                    value: "Total Sales (₹)",
+                    position: "bottom",
+                    offset: 15,
+                    fill: "#334155",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                  axisLine={{ stroke: "#cbd5e1" }}
+                  tickLine={{ stroke: "#cbd5e1" }}
+                />
+                <YAxis
+                  dataKey="y"
+                  name="TACOS"
+                  type="number"
+                  domain={[0, "auto"]}
+                  tick={{ fill: "#64748b", fontSize: 12, fontWeight: 500 }}
+                  tickFormatter={(v) => `${v}%`}
+                  label={{
+                    value: "TACOS (%)",
+                    angle: -90,
+                    position: "insideLeft",
+                    offset: 10,
+                    fill: "#334155",
+                    fontSize: 13,
+                    fontWeight: 600,
+                  }}
+                  axisLine={{ stroke: "#cbd5e1" }}
+                  tickLine={{ stroke: "#cbd5e1" }}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={false} />
+                <Scatter
+                  data={topScatterData}
+                  shape={(props: any) => (
+                    <CustomDot {...props} index={props.index} />
+                  )}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Stats Footer */}
+        {/* {!isLoading && !isError && topScatterData.length > 0 && (
+          <div className="mt-5 grid grid-cols-3 gap-4">
+            <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 p-4">
+              <p className="text-xs font-semibold text-slate-600">
+                ASINs Shown
+              </p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {topScatterData.length}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200 p-4">
+              <p className="text-xs font-semibold text-slate-600">
+                Avg Sales
+              </p>
+              <p className="mt-2 text-2xl font-bold text-emerald-700">
+                ₹
+                {(
+                  topScatterData.reduce((a, c) => a + c.x, 0) /
+                  topScatterData.length
+                ).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200 p-4">
+              <p className="text-xs font-semibold text-slate-600">Avg TACOS</p>
+              <p className="mt-2 text-2xl font-bold text-orange-700">
+                {(
+                  topScatterData.reduce((a, c) => a + c.y, 0) /
+                  topScatterData.length
+                ).toFixed(1)}
+                %
+              </p>
+            </div>
+          </div>
+        )} */}
       </div>
     </div>
   );
