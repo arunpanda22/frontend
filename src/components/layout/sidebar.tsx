@@ -273,6 +273,20 @@ export function Sidebar() {
                 </div>
               )}
 
+              {/* User Config */}
+              <div className="pt-2">
+                <Link
+                  href="/user-config"
+                  className={`block w-full px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    pathname === "/user-config"
+                      ? "bg-gray-800 text-white border-l-2 border-yellow-400"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  User Config
+                </Link>
+              </div>
+
             </nav>
           </div>
         )}

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Loader2, Check, Save, Plus, Trash2, Film, BadgeCheck } from 'lucide-react'
+import { useState, useEffect } from "react"
+import { Loader2, Check, Save, Plus, Trash2, Film, BadgeCheck, Zap, Clock } from 'lucide-react'
 import { Image } from 'lucide-react'
 import {
   Input,
@@ -33,14 +33,21 @@ import {
   type CreateAssetPayload,
   type CreateBrandPayload,
 } from '@/lib/hooks/queries/use-assets-brands'
+import {
+  useScriptVersions,
+  useScriptConfigs,
+  useUpdateScriptConfig,
+  type ScriptType,
+  type TenantScriptConfig,
+} from '@/lib/hooks/queries/use-script-config'
 import { AssetBulkPasteSection } from "./components/AssetBulkPasteSection"
 
 // ── Asset type config ─────────────────────────────────────────────────────────
 
 const ASSET_TYPE_OPTIONS = [
-  { value: 'VIDEO',      label: 'Video'        },
-  { value: 'IMAGE',      label: 'Custom Image'  },
-  { value: 'BRAND_LOGO', label: 'Brand Logo'   },
+  { value: 'VIDEO',      label: 'Video'       },
+  { value: 'IMAGE',      label: 'Custom Image' },
+  { value: 'BRAND_LOGO', label: 'Brand Logo'  },
 ]
 
 const ASSET_TYPE_ICONS: Record<AssetType, React.ReactNode> = {
@@ -57,22 +64,146 @@ const emptyBrand = (): CreateBrandPayload => ({
   brand_name: '', brand_entity_id: '',
 })
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Script config row sub-component ──────────────────────────────────────────
+
+interface ScriptConfigRowProps {
+  type:        ScriptType
+  label:       string
+  description: string
+  icon:        React.ReactNode
+  config:      TenantScriptConfig | undefined
+}
+
+function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfigRowProps) {
+  const { data: versions = [] } = useScriptVersions(type)
+  const updateConfig            = useUpdateScriptConfig()
+
+  const [selectedVersion, setSelectedVersion] = useState<string>(config?.script_version ?? '')
+  const [isEnabled,       setIsEnabled]       = useState<boolean>(config?.is_enabled ?? false)
+  const [saved,           setSaved]           = useState(false)
+
+  // Sync local state when server data arrives
+  useEffect(() => {
+    setSelectedVersion(config?.script_version ?? '')
+    setIsEnabled(config?.is_enabled ?? false)
+  }, [config?.script_version, config?.is_enabled])
+
+  const isDirty =
+    selectedVersion !== (config?.script_version ?? '') ||
+    isEnabled       !== (config?.is_enabled      ?? false)
+
+  const handleSave = async () => {
+    await updateConfig.mutateAsync({
+      type,
+      script_version: selectedVersion || null,
+      is_enabled:     isEnabled,
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const versionOptions = [
+    { value: '', label: 'No version selected' },
+    ...versions.map((v) => ({ value: v.id, label: v.version })),
+  ]
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-slate-100 bg-slate-50/60 p-5">
+
+      {/* Header row: icon + text on left, toggle on right */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+            {icon}
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">{label}</p>
+            <p className="text-xs text-slate-500">{description}</p>
+          </div>
+        </div>
+
+        {/* Enabled toggle */}
+        <div className="flex items-center gap-2 shrink-0 pt-0.5">
+          <span className="text-xs text-slate-500">{isEnabled ? 'Enabled' : 'Disabled'}</span>
+          <button
+            type="button"
+            onClick={() => setIsEnabled((v) => !v)}
+            className={`relative h-5 w-9 rounded-full transition-colors focus:outline-none ${
+              isEnabled ? 'bg-indigo-600' : 'bg-slate-300'
+            }`}
+          >
+            <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+              isEnabled ? 'translate-x-4' : 'translate-x-0'
+            }`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Version select + save button */}
+      <div className="flex items-end gap-3">
+        <div className="w-56">
+          <Select
+            label="Script Version"
+            options={versionOptions}
+            value={selectedVersion}
+            onChange={(e) => setSelectedVersion(e.target.value)}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!isDirty || updateConfig.isPending}
+          className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40 mb-px"
+        >
+          {updateConfig.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : saved ? (
+            <><Check className="h-4 w-4" /> Saved</>
+          ) : (
+            <><Save className="h-4 w-4" /> Save</>
+          )}
+        </button>
+      </div>
+
+      {/* Currently-active version footer */}
+      {config?.script_version_detail && (
+        <p className="text-xs text-slate-400">
+          Currently active:&nbsp;
+          <span className="font-mono font-medium text-slate-600">
+            {config.script_version_detail.version}
+          </span>
+          &nbsp;·&nbsp;last updated&nbsp;
+          {new Date(config.updated_at).toLocaleDateString('en-GB', {
+            day: '2-digit', month: 'short', year: 'numeric',
+          })}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 function ConfigurationPage() {
 
   // ── Target ACOS ─────────────────────────────────────────────────────────────
-  const { data: userProfile }       = useUserProfile()
-  const currentAcos                  = userProfile?.connected_advertising_profiles
-                                         ?.find((p) => p.is_active)?.target_acos ?? null
-  const [targetAcos, setTargetAcos]  = useState<number>(Number(currentAcos) )
-  const [acosSaved,  setAcosSaved]   = useState(false)
-  const updateAcos                   = useUpdateTargetAcos()
+  const { data: userProfile }      = useUserProfile()
+  const currentAcos                 = userProfile?.connected_advertising_profiles
+                                        ?.find((p) => p.is_active)?.target_acos ?? null
+  const [targetAcos, setTargetAcos] = useState<number>(Number(currentAcos))
+  const [acosSaved,  setAcosSaved]  = useState(false)
+  const updateAcos                  = useUpdateTargetAcos()
 
   const handleAcosSubmit = async () => {
     await updateAcos.mutateAsync({ target_acos: targetAcos })
     setAcosSaved(true)
     setTimeout(() => setAcosSaved(false), 2000)
   }
+
+  // ── Automated optimization scripts ──────────────────────────────────────────
+  const { data: scriptConfigs = [], isLoading: configsLoading } = useScriptConfigs()
+  const dailyConfig      = scriptConfigs.find((c) => c.script_type === 'daily')
+  const daypartingConfig = scriptConfigs.find((c) => c.script_type === 'dayparting')
 
   // ── Assets ───────────────────────────────────────────────────────────────────
   const { data: assets = [], isLoading: assetsLoading } = useAssets()
@@ -116,7 +247,7 @@ function ConfigurationPage() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-5 p-6 max-w-4xl mx-auto">
+    <div className="flex flex-col gap-5 p-6 mx-8">
 
       <div className="mb-2">
         <h1 className="text-xl font-semibold text-slate-800">Configuration</h1>
@@ -149,6 +280,35 @@ function ConfigurationPage() {
               : <><Save className="h-4 w-4" /> Save</>}
           </button>
         </div>
+      </SectionCard>
+
+      {/* ── Automated Optimization ───────────────────────────────────────────── */}
+      <SectionCard
+        title="Automated Optimization"
+        description="Control which script version runs for each optimization type and whether it is active for your account"
+      >
+        {configsLoading ? (
+          <div className="flex items-center justify-center gap-2 py-6 text-slate-400 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading configuration…
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <ScriptConfigRow
+              type="daily"
+              label="Daily Optimization"
+              description="Runs bid and budget adjustments once per day based on recent performance"
+              icon={<Zap className="h-4 w-4" />}
+              config={dailyConfig}
+            />
+            <ScriptConfigRow
+              type="dayparting"
+              label="Dayparting Optimization"
+              description="Adjusts budgets and bids throughout the day during peak conversion windows"
+              icon={<Clock className="h-4 w-4" />}
+              config={daypartingConfig}
+            />
+          </div>
+        )}
       </SectionCard>
 
       {/* ── Creative Assets ───────────────────────────────────────────────────── */}
@@ -380,9 +540,6 @@ function ConfigurationPage() {
           )}
         </div>
       </SectionCard>
-
-      {/* <SectionCard title="ASIN Tag" description="..."> ... </SectionCard> */}
-      {/* <SectionCard title="Campaign Tag" description="..."> ... </SectionCard> */}
 
     </div>
   )

@@ -16,6 +16,7 @@ import { useAdsOptimizerStore } from "@/lib/hooks/use-ads-optimizer-store";
 import { LoadingWidget } from "@/components/ui/loading-widget";
 import type { AdsOptimizerRequest } from "./lib/types";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
+import OverrideConfig from "./OverrideConfig";
 
 export default function AdsOptimizerPage() {
   const router = useRouter();
@@ -129,8 +130,8 @@ export default function AdsOptimizerPage() {
   ];
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl overflow-hidden font-montserrat">
-      <div className="grid h-full grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-0">
+    <div className="w-full min-h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl font-montserrat">
+      <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-0">
 
         {/* Left Content Section */}
         <div className="lg:col-span-2 xl:col-span-3 p-12 text-white flex flex-col justify-top">
@@ -413,6 +414,11 @@ export default function AdsOptimizerPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Override Configuration Section */}
+      <div className="w-full border-t border-white/10">
+        <OverrideConfig />
       </div>
     </div>
   );
