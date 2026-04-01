@@ -42,7 +42,7 @@ function AcosInput({ value, onChange }: { value: string; onChange: (v: string) =
   return (
     <div className="relative shrink-0">
       <input
-        type="number" min={0} max={100} step={0.5}
+        type="number" min={-100} max={100} step={0.5}
         value={value} onChange={(e) => onChange(e.target.value)}
         placeholder="ACOS"
         className="w-20 bg-white border border-slate-200 text-slate-800 text-sm rounded-md px-2.5 py-2 pr-6 placeholder-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-100 transition-all"
@@ -82,7 +82,7 @@ function BulkModal({ mode, onClose, onSubmit }: {
       const acosRaw = parts[1] || "";
       const asinOk  = /^B[A-Z0-9]{9}$/i.test(asinRaw);
       const acosNum = parseFloat(acosRaw);
-      const acosOk  = !isNaN(acosNum) && acosNum >= 0 && acosNum <= 100;
+      const acosOk  = !isNaN(acosNum) && acosNum >= -100 && acosNum <= 100;
       if (!asinOk) return { value: asinRaw.toUpperCase(), ok: false, reason: "Invalid ASIN format" };
       if (!acosOk) return { value: asinRaw.toUpperCase(), ok: false, reason: "Missing or invalid ACOS" };
       return { value: asinRaw.toUpperCase(), acos: acosRaw, ok: true };
@@ -90,7 +90,7 @@ function BulkModal({ mode, onClose, onSubmit }: {
       const name    = parts[0] || "";
       const acosRaw = parts[1] || "";
       const acosNum = parseFloat(acosRaw);
-      const acosOk  = !isNaN(acosNum) && acosNum >= 0 && acosNum <= 100;
+      const acosOk  = !isNaN(acosNum) && acosNum >= -100 && acosNum <= 100;
       if (!name)   return { value: name, ok: false, reason: "Campaign name is empty" };
       if (!acosOk) return { value: name, ok: false, reason: "Missing or invalid ACOS" };
       return { value: name, acos: acosRaw, ok: true };
@@ -217,7 +217,7 @@ function SummaryRow({
   isDirty?: boolean; onRemove: () => void; color: "gold" | "slate";
 }) {
   return (
-    <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-xs font-mono border group transition-all ${
+    <div className={`relative inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-mono border group/row transition-all ${
       color === "gold"
         ? isDirty
           ? "bg-amber-50 border-amber-300 text-amber-700 ring-1 ring-amber-100"
@@ -226,6 +226,13 @@ function SummaryRow({
           ? "bg-slate-100 border-slate-300 text-slate-600 ring-1 ring-slate-200"
           : "bg-slate-100 border-slate-200 text-slate-600"
     }`}>
+      {/* Tooltip */}
+      <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 hidden group-hover/row:flex z-50">
+        <span className="whitespace-nowrap rounded-md bg-slate-800 text-white text-[11px] px-2 py-1 shadow-lg">
+          {value}
+        </span>
+      </div>
+
       <div className="flex items-center gap-2 min-w-0">
         {isDirty && (
           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${color === "gold" ? "bg-amber-500" : "bg-slate-400"}`} />
@@ -247,7 +254,7 @@ function SummaryRow({
         )}
         <button
           onClick={onRemove}
-          className={`rounded p-0.5 opacity-40 group-hover:opacity-100 transition-opacity ${
+          className={`rounded p-0.5 opacity-40 group-hover/row:opacity-100 transition-opacity ${
             color === "gold" ? "hover:bg-amber-100 hover:text-amber-800" : "hover:bg-slate-200 hover:text-slate-700"
           }`}
         >
@@ -290,7 +297,7 @@ function SummarySection({
         </span>
       </button>
       {!collapsed && (
-        <div className="space-y-1">
+        <div className="flex flex-wrap gap-1.5">
           {items.map((item) => (
             <SummaryRow
               key={item.id}
@@ -370,7 +377,6 @@ function OptimizationPanel({ scriptType }: { scriptType: ScriptType }) {
     setDraft((d) => ({
       ...d,
       asinOverrides: [...d.asinOverrides, { id: uid(), value: val, targetAcos: Number(asinAcos) }],
-      // Remove from exclusions — adding an override makes it active
       asinExcludes: d.asinExcludes.filter((x) => x.value !== val),
     }));
     setAsinInput(""); setAsinAcos("");
@@ -382,7 +388,6 @@ function OptimizationPanel({ scriptType }: { scriptType: ScriptType }) {
     setDraft((d) => ({
       ...d,
       campaignOverrides: [...d.campaignOverrides, { id: uid(), value: val, targetAcos: Number(campaignAcos) }],
-      // Remove from exclusions
       campaignExcludes: d.campaignExcludes.filter((x) => x.value !== val),
     }));
     setCampaignInput(""); setCampaignAcos("");
@@ -394,7 +399,6 @@ function OptimizationPanel({ scriptType }: { scriptType: ScriptType }) {
     setDraft((d) => ({
       ...d,
       asinExcludes: [...d.asinExcludes, { id: uid(), value: val }],
-      // Remove from overrides — excluding stops optimization
       asinOverrides: d.asinOverrides.filter((x) => x.value !== val),
     }));
     setAsinExcludeInput("");
@@ -406,7 +410,6 @@ function OptimizationPanel({ scriptType }: { scriptType: ScriptType }) {
     setDraft((d) => ({
       ...d,
       campaignExcludes: [...d.campaignExcludes, { id: uid(), value: val }],
-      // Remove from overrides
       campaignOverrides: d.campaignOverrides.filter((x) => x.value !== val),
     }));
     setCampaignExcludeInput("");
@@ -424,7 +427,6 @@ function OptimizationPanel({ scriptType }: { scriptType: ScriptType }) {
               .filter((i) => !d.asinOverrides.find((x) => x.value === i.value))
               .map((i) => ({ id: uid(), value: i.value, targetAcos: i.targetAcos! })),
           ],
-          // Remove newly overridden ASINs from exclusions
           asinExcludes: d.asinExcludes.filter((x) => !newValues.includes(x.value)),
         };
       });
@@ -453,7 +455,6 @@ function OptimizationPanel({ scriptType }: { scriptType: ScriptType }) {
               .filter((i) => !d.asinExcludes.find((x) => x.value === i.value))
               .map((i) => ({ id: uid(), value: i.value })),
           ],
-          // Remove newly excluded ASINs from overrides
           asinOverrides: d.asinOverrides.filter((x) => !newValues.includes(x.value)),
         };
       });
