@@ -41,6 +41,10 @@ import {
   type TenantScriptConfig,
 } from '@/lib/hooks/queries/use-script-config'
 import { AssetBulkPasteSection } from "./components/AssetBulkPasteSection"
+import { TagBulkPasteModal } from './components/TagBulkPasteModal'
+import { TagListModal } from './components/TagListModal'
+import { useCampaignTags, useCreateCampaignTags } from '@/lib/hooks/queries/use-campaign-tags'
+import { useAsinTags, useCreateAsinTags } from '@/lib/hooks/queries/use-asin-tags'
 
 // ── Asset type config ─────────────────────────────────────────────────────────
 
@@ -74,6 +78,8 @@ interface ScriptConfigRowProps {
   config:      TenantScriptConfig | undefined
 }
 
+
+
 function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfigRowProps) {
   const { data: versions = [] } = useScriptVersions(type)
   const updateConfig            = useUpdateScriptConfig()
@@ -81,6 +87,8 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
   const [selectedVersion, setSelectedVersion] = useState<string>(config?.script_version ?? '')
   const [isEnabled,       setIsEnabled]       = useState<boolean>(config?.is_enabled ?? false)
   const [saved,           setSaved]           = useState(false)
+
+
 
   // Sync local state when server data arrives
   useEffect(() => {
@@ -212,6 +220,18 @@ function ConfigurationPage() {
   const [assetForm,  setAssetForm]  = useState<CreateAssetPayload>(emptyAsset)
   const [assetError, setAssetError] = useState<string | null>(null)
   const [assetMode,  setAssetMode]  = useState<'single' | 'bulk'>('single')
+
+  const { data: campaignTags = [] } = useCampaignTags()
+  const { data: asinTags = [] } = useAsinTags()
+
+  const createCampaignTags = useCreateCampaignTags()
+  const createAsinTags = useCreateAsinTags()
+
+  const [campaignAddOpen, setCampaignAddOpen] = useState(false)
+  const [campaignListOpen, setCampaignListOpen] = useState(false)
+
+  const [asinAddOpen, setAsinAddOpen] = useState(false)
+  const [asinListOpen, setAsinListOpen] = useState(false)
 
   const handleCreateAsset = async () => {
     if (!assetForm.asset_name.trim() || !assetForm.asset_id.trim()) {
@@ -540,6 +560,122 @@ function ConfigurationPage() {
           )}
         </div>
       </SectionCard>
+
+      <SectionCard
+        title="Campaign Tags"
+        description="Bulk manage campaign tags"
+      >
+        <div className="flex gap-3">
+
+          <AlertDialog open={campaignAddOpen} onOpenChange={setCampaignAddOpen}>
+            <AlertDialogTrigger asChild>
+              <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
+                Add Tags
+              </button>
+            </AlertDialogTrigger>
+
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Add Campaign Tags</AlertDialogTitle>
+              </AlertDialogHeader>
+
+              <TagBulkPasteModal
+                title="Campaign Tags"
+                columns={['campaign_name', 'tag']}
+                onClose={() => setCampaignAddOpen(false)}
+                onSubmit={async (rows) => {
+                  await createCampaignTags.mutateAsync({
+                    rows: rows.map((r) => ({
+                      campaign_name: r.key,
+                      tag: r.value,
+                    })),
+                  })
+                }}
+              />
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={campaignListOpen} onOpenChange={setCampaignListOpen}>
+            <AlertDialogTrigger asChild>
+              <button className="rounded-lg border px-4 py-2 text-sm">
+                View Tags
+              </button>
+            </AlertDialogTrigger>
+
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Campaign Tags</AlertDialogTitle>
+              </AlertDialogHeader>
+
+              <TagListModal
+                data={campaignTags}
+                columns={['campaign_name', 'tag']}
+                onClose={() => setCampaignListOpen(false)}
+              />
+            </AlertDialogContent>
+          </AlertDialog>
+
+        </div>
+      </SectionCard>
+
+      {/* ASIN Tags */}
+      <SectionCard
+        title="ASIN Tags"
+        description="Bulk manage ASIN tags"
+      >
+        <div className="flex gap-3">
+
+          <AlertDialog open={asinAddOpen} onOpenChange={setAsinAddOpen}>
+            <AlertDialogTrigger asChild>
+              <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
+                Add Tags
+              </button>
+            </AlertDialogTrigger>
+
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Add ASIN Tags</AlertDialogTitle>
+              </AlertDialogHeader>
+
+              <TagBulkPasteModal
+                title="Asin Tags"
+                columns={['asin', 'tag']}
+                onClose={() => setAsinAddOpen(false)}
+                onSubmit={async (rows) => {
+                  await createAsinTags.mutateAsync({
+                    rows: rows.map((r) => ({
+                      asin: r.key,
+                      tag: r.value,
+                    })),
+                  })
+                }}
+              />
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={asinListOpen} onOpenChange={setAsinListOpen}>
+            <AlertDialogTrigger asChild>
+              <button className="rounded-lg border px-4 py-2 text-sm">
+                View Tags
+              </button>
+            </AlertDialogTrigger>
+
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>ASIN Tags</AlertDialogTitle>
+              </AlertDialogHeader>
+
+              <TagListModal
+                data={asinTags}
+                columns={['asin', 'tag']}
+                onClose={() => setAsinListOpen(false)}
+              />
+            </AlertDialogContent>
+          </AlertDialog>
+
+        </div>
+      </SectionCard>
+
 
     </div>
   )
