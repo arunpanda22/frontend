@@ -3,52 +3,75 @@
 import { useState, useCallback } from 'react'
 import {
   ClipboardPaste, Trash2, XCircle, CheckCircle2,
-  AlertCircle, Loader2, Film, BadgeCheck,
+  AlertCircle, Loader2, Film, BadgeCheck, ImageIcon, Layers,
 } from 'lucide-react'
-import { Image } from 'lucide-react'
 import { useCreateAsset, type AssetType, type CreateAssetPayload } from '@/lib/hooks/queries/use-assets-brands'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AssetRow {
   _id:        string
   asset_type: AssetType
-  asin:       string        // also holds brand name for BRAND_LOGO
+  asin:       string
   asset_id:   string
   asset_name: string
   asset_url:  string
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const ASSET_TYPE_OPTIONS: { value: AssetType; label: string }[] = [
-  { value: 'VIDEO',      label: 'Video'       },
-  { value: 'IMAGE',      label: 'Image'       },
-  { value: 'BRAND_LOGO', label: 'Brand Logo'  },
+const ASSET_TYPE_OPTIONS = [
+  { value: 'VIDEO',            label: 'Video'            },
+  { value: 'PRODUCT_IMAGE',    label: 'Product Image'    },
+  { value: 'BRAND_LOGO',       label: 'Brand Logo'       },
+  { value: 'BACKGROUND_VIDEO', label: 'Background Video' },
+  { value: 'CUSTOM_IMAGE',     label: 'Custom Image'     },
+  { value: 'OTHER_IMAGE',      label: 'Other Image'      },
 ]
 
 const ASSET_TYPE_ICONS: Record<AssetType, React.ReactNode> = {
-  VIDEO:      <Film       className="h-3 w-3" />,
-  IMAGE:      <Image      className="h-3 w-3" />,
-  BRAND_LOGO: <BadgeCheck className="h-3 w-3" />,
+  VIDEO:            <Film       className="h-3.5 w-3.5" />,
+  PRODUCT_IMAGE:    <ImageIcon  className="h-3.5 w-3.5" />,
+  BRAND_LOGO:       <BadgeCheck className="h-3.5 w-3.5" />,
+  BACKGROUND_VIDEO: <Film       className="h-3.5 w-3.5" />,
+  CUSTOM_IMAGE:     <ImageIcon  className="h-3.5 w-3.5" />,
+  OTHER_IMAGE:      <Layers     className="h-3.5 w-3.5" />,
+}
+
+// Label → value map for human-readable Excel values
+const ASSET_TYPE_LABEL_MAP: Record<string, AssetType> = {
+  'video':            'VIDEO',
+  'product image':    'PRODUCT_IMAGE',
+  'productimage':     'PRODUCT_IMAGE',
+  'product_image':    'PRODUCT_IMAGE',
+  'brand logo':       'BRAND_LOGO',
+  'brandlogo':        'BRAND_LOGO',
+  'brand_logo':       'BRAND_LOGO',
+  'logo':             'BRAND_LOGO',
+  'background video': 'BACKGROUND_VIDEO',
+  'backgroundvideo':  'BACKGROUND_VIDEO',
+  'background_video': 'BACKGROUND_VIDEO',
+  'custom image':     'CUSTOM_IMAGE',
+  'customimage':      'CUSTOM_IMAGE',
+  'custom_image':     'CUSTOM_IMAGE',
+  'other image':      'OTHER_IMAGE',
+  'otherimage':       'OTHER_IMAGE',
+  'other_image':      'OTHER_IMAGE',
+}
+
+function normaliseAssetType(raw: string): AssetType {
+  const key = raw?.toLowerCase().trim().replace(/_/g, ' ') ?? ''
+  if (ASSET_TYPE_LABEL_MAP[key]) return ASSET_TYPE_LABEL_MAP[key]
+  // Fuzzy fallbacks
+  if (key.includes('logo'))                    return 'BRAND_LOGO'
+  if (key.includes('product'))                 return 'PRODUCT_IMAGE'
+  if (key.includes('background'))              return 'BACKGROUND_VIDEO'
+  if (key.includes('custom'))                  return 'CUSTOM_IMAGE'
+  if (key.includes('other'))                   return 'OTHER_IMAGE'
+  if (key.includes('video'))                   return 'VIDEO'
+  if (key.includes('image') || key.includes('img') || key.includes('photo')) return 'OTHER_IMAGE'
+  return 'VIDEO'
 }
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10)
 }
-
-// ── Asset type normaliser ─────────────────────────────────────────────────────
-
-function normaliseAssetType(raw: string): AssetType {
-  const s = raw?.toLowerCase().trim() ?? ''
-  if (s.includes('video'))                                            return 'VIDEO'
-  if (s.includes('logo'))                                             return 'BRAND_LOGO'
-  if (s.includes('image') || s.includes('img') || s.includes('photo') || s.includes('banner'))
-                                                                      return 'IMAGE'
-  return 'IMAGE' // safe fallback
-}
-
-// ── Paste area ────────────────────────────────────────────────────────────────
 
 function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
   const [isDragging, setIsDragging] = useState(false)
@@ -84,7 +107,7 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
             Asset Type &nbsp;·&nbsp; ASIN / Brand &nbsp;·&nbsp; Asset ID &nbsp;·&nbsp; Asset Name &nbsp;·&nbsp; URL
           </p>
           <p>All 5 columns required &nbsp;·&nbsp; ASIN column accepts brand names for Brand Logo assets</p>
-          <p>Asset Type accepts: VIDEO, IMAGE, BRAND_LOGO, "Other Image", "Other Video", etc.</p>
+          <p>Asset Type accepts: Video, Product Image, Brand Logo, Background Video, Custom Image, Other Image</p>
         </div>
       </div>
       <textarea
@@ -96,8 +119,6 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
     </div>
   )
 }
-
-// ── Editable table ────────────────────────────────────────────────────────────
 
 function AssetTable({
   rows,
@@ -121,7 +142,7 @@ function AssetTable({
       <table className="w-full text-sm">
         <thead className="bg-slate-50">
           <tr>
-            <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 w-28">Type</th>
+            <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 w-36">Type</th>
             <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 w-32">ASIN / Brand</th>
             <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Asset ID</th>
             <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 w-36">Asset Name</th>
@@ -132,7 +153,6 @@ function AssetTable({
         <tbody className="divide-y divide-slate-100">
           {rows.map((row) => (
             <tr key={row._id} className="group hover:bg-slate-50/50">
-              {/* Asset Type */}
               <td className="px-2 py-1.5">
                 <select
                   value={row.asset_type}
@@ -144,7 +164,6 @@ function AssetTable({
                   ))}
                 </select>
               </td>
-              {/* ASIN / Brand */}
               <td className="px-2 py-1.5">
                 <input
                   type="text"
@@ -154,7 +173,6 @@ function AssetTable({
                   className={`${cellCls} font-mono`}
                 />
               </td>
-              {/* Asset ID */}
               <td className="px-2 py-1.5">
                 <input
                   type="text"
@@ -164,7 +182,6 @@ function AssetTable({
                   className={`${cellCls} font-mono text-[11px]`}
                 />
               </td>
-              {/* Asset Name */}
               <td className="px-2 py-1.5">
                 <input
                   type="text"
@@ -174,7 +191,6 @@ function AssetTable({
                   className={cellCls}
                 />
               </td>
-              {/* URL */}
               <td className="px-2 py-1.5">
                 <input
                   type="text"
@@ -184,7 +200,6 @@ function AssetTable({
                   className={cellCls}
                 />
               </td>
-              {/* Delete */}
               <td className="px-2 py-1.5">
                 <button
                   type="button"
@@ -202,22 +217,17 @@ function AssetTable({
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
-
 interface AssetBulkPasteSectionProps {
-  /** Called when assets have been saved so parent can refetch */
   onSaved?: () => void
 }
 
 export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
   const createAsset = useCreateAsset()
 
-  const [rows,       setRows]       = useState<AssetRow[]>([])
-  const [parseInfo,  setParseInfo]  = useState<{ added: number; skipped: number } | null>(null)
+  const [rows,         setRows]         = useState<AssetRow[]>([])
+  const [parseInfo,    setParseInfo]    = useState<{ added: number; skipped: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [summary,    setSummary]    = useState<{ success: number; failed: number } | null>(null)
-
-  // ── Parse ──────────────────────────────────────────────────────────────────
+  const [summary,      setSummary]      = useState<{ success: number; failed: number } | null>(null)
 
   const handlePaste = useCallback((text: string) => {
     const lines = text.trim().split('\n').filter((l) => l.trim())
@@ -227,7 +237,6 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
     for (const line of lines) {
       const parts = line.split('\t').map((p) => p.trim())
 
-      // Support 4-col (no name) and 5-col layouts
       let rawType: string, asin: string, asset_id: string, asset_name: string, asset_url: string
 
       if (parts.length >= 5) {
@@ -261,8 +270,6 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
     setTimeout(() => setParseInfo(null), 4000)
   }, [])
 
-  // ── Validate ───────────────────────────────────────────────────────────────
-
   function validate(): boolean {
     return rows.every(
       (r) => r.asset_id.trim() && r.asset_name.trim() && r.asin.trim() && r.asset_url.trim(),
@@ -272,8 +279,6 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
   const invalidCount = rows.filter(
     (r) => !r.asset_id.trim() || !r.asset_name.trim() || !r.asin.trim() || !r.asset_url.trim(),
   ).length
-
-  // ── Submit ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
     if (!validate()) return
@@ -286,8 +291,8 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
         asset_type: row.asset_type,
         asset_id:   row.asset_id,
         asset_name: row.asset_name,
-        asin:       row.asin       || undefined,
-        asset_url:  row.asset_url  || undefined,
+        asin:       row.asin      || undefined,
+        asset_url:  row.asset_url || undefined,
       }
       try {
         await createAsset.mutateAsync(payload)
@@ -318,10 +323,8 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
   return (
     <div className="flex flex-col gap-4">
 
-      {/* Paste area */}
       <PasteArea onPaste={handlePaste} />
 
-      {/* Parse feedback */}
       {parseInfo && (
         <div className="flex items-center gap-3 text-xs">
           <span className="font-semibold text-emerald-600">
@@ -335,10 +338,8 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
         </div>
       )}
 
-      {/* Editable table */}
       {hasRows && (
         <>
-          {/* Bar */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-xs">
               <span className="font-semibold text-slate-700">
@@ -362,14 +363,12 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
 
           <AssetTable rows={rows} onChange={setRows} />
 
-          {/* Validation hint */}
           {invalidCount > 0 && (
             <p className="text-xs text-amber-600">
               All 5 columns are required. ASIN / Brand can be a brand name for Brand Logo assets.
             </p>
           )}
 
-          {/* Summary banner */}
           {summary && (
             <div className={`flex items-center gap-3 rounded-xl border px-4 py-3
               ${summary.failed === 0
@@ -387,7 +386,6 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
             </div>
           )}
 
-          {/* Submit */}
           <div className="flex justify-end">
             <button
               type="button"
@@ -396,9 +394,7 @@ export function AssetBulkPasteSection({ onSaved }: AssetBulkPasteSectionProps) {
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isSubmitting
-                ? 'Saving…'
-                : `Save ${rows.length} asset${rows.length !== 1 ? 's' : ''}`}
+              {isSubmitting ? 'Saving…' : `Save ${rows.length} asset${rows.length !== 1 ? 's' : ''}`}
             </button>
           </div>
         </>

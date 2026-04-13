@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ProductCollectionForm } from './product-collection/ProductCollectionForm'
 import { SingleAsinPage } from './single-asin/SingleAsinPage'
 import { StoreSpotlightPage } from './store-spotlight/StoreSpotlightPage'
+import { ProductCollectionPage } from './product-collection/Productcollectionpage'
 
 type Tab = 'collection' | 'spotlight' | 'single'
 
@@ -42,7 +42,7 @@ export default function SBCampaignPage() {
 
       {/* Content */}
       {tab === 'single'     && <SingleAsinPage />}
-      {tab === 'collection' && <ProductCollectionForm />}
+      {tab === 'collection' && <ProductCollectionPage />}
       {tab === 'spotlight'  && <StoreSpotlightPage />}
     </div>
   )

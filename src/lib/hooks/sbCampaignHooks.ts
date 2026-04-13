@@ -16,12 +16,19 @@ export { useCampaignDefaults }
 // ── Asset / Brand selectors ───────────────────────────────────────────────────
 
 export const useSBAssets = () => {
-  const videos = useAssets('VIDEO')
-  const images = useAssets('IMAGE')
-  const logos  = useAssets('BRAND_LOGO')
-  return { videos, images, logos }
+  const videos       = useAssets('VIDEO')
+  const bgVideos     = useAssets('BACKGROUND_VIDEO')
+  const images       = useAssets('CUSTOM_IMAGE')
+  const productImages= useAssets('PRODUCT_IMAGE')
+  const logos        = useAssets('BRAND_LOGO')
+  const otherImages  = useAssets('OTHER_IMAGE')
+  // Merge custom + other images for general image selectors
+  const allImages    = {
+    data:      [...(images.data ?? []), ...(otherImages.data ?? [])],
+    isLoading: images.isLoading || otherImages.isLoading,
+  }
+  return { videos, bgVideos, images, productImages, logos, otherImages, allImages }
 }
-
 export const useSBBrands = useBrands
 
 // ── Result types ──────────────────────────────────────────────────────────────
@@ -69,6 +76,7 @@ export interface SBProductCollectionPayload extends SBBasePayload {
   asin_list:              string[]
   brand_logo_asset_id:    string
   brand_name:             string
+  brand_entity_id:        string  
   keywords:               { text: string; matchType: 'exact' | 'phrase' | 'broad'; bid: number }[]
   custom_image_asset_id:  string
 }
@@ -547,6 +555,106 @@ export function useSBVSpotlightBulkSubmit() {
 
   return {
     rows, submitAll, retryFailed, clearSummary,
+    isSubmitting, summary,
+    rowPendingCount, rowFailedCount, rowSuccessCount,
+    groupPendingCount, groupFailedCount, groupSuccessCount,
+  }
+}
+
+export function useSBProductCollectionBulkSubmit() {
+  const store   = useBulkCampaignStore()
+  const { createProductCollection } = useSBOperations()
+ 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summary,      setSummary]      = useState<BulkSummary | null>(null)
+ 
+  const clearSummary = useCallback(() => setSummary(null), [])
+ 
+  const rows = store.getRows<any>('sb_product_collection' as any)
+ 
+  function groupByHeadline(pending: any[]): Map<string, any[]> {
+    const map = new Map<string, any[]>()
+    for (const r of pending) {
+      if (!map.has(r.headline)) map.set(r.headline, [])
+      map.get(r.headline)!.push(r)
+    }
+    return map
+  }
+ 
+  async function _submitGrouped(pending: any[]) {
+  const groups = groupByHeadline(pending)
+  let success = 0, failed = 0
+
+  for (const [, groupRows] of groups) {
+    const first = groupRows[0]
+    const ids   = groupRows.map((r: any) => r._id)
+
+    const uniqueAsins = [
+      ...new Set<string>(groupRows.map((r: any) => r.ad_asin).filter(Boolean)),
+    ]
+
+    // Pad to minimum 3 by repeating the last ASIN
+    while (uniqueAsins.length < 3) {
+      uniqueAsins.push(uniqueAsins[uniqueAsins.length - 1])
+    }
+
+    store.patchRows('sb_product_collection' as any, ids, 'loading')
+
+    const result = await createProductCollection({
+      campaign_name:         first.campaign_name || undefined,
+      headline:              first.headline,
+      brand_name:            first.brand_name,
+      brand_entity_id:       first.brand_entity_id,
+      brand_logo_asset_id:   first.brand_logo_asset_id,
+      custom_image_asset_id: first.custom_image_asset_id ?? '',
+      asin_list:             uniqueAsins,  // ← was asinList
+      start_date:            first.start_date,
+      budget:                first.budget,
+      keywords: groupRows.map((r: any) => ({
+        text:      r.keyword,
+        matchType: r.match_type as 'exact' | 'phrase' | 'broad',
+        bid:       r.bid,
+      })),
+    })
+
+    if (result.success) {
+      store.patchRows('sb_product_collection' as any, ids, 'success')
+      success++
+    } else {
+      store.patchRows('sb_product_collection' as any, ids, 'error', result.error)
+      failed++
+      break
+    }
+  }
+
+  return { success, failed, total: groups.size }
+}
+ 
+  const submitAll = useCallback(async (_mode: SBBulkGroupingMode) => {
+    const pending = rows.filter((r: any) => r._status === 'idle' || r._status === 'error')
+    if (!pending.length) return
+    setIsSubmitting(true)
+    const { success, failed, total } = await _submitGrouped(pending)
+    setSummary({ total, success, failed })
+    setIsSubmitting(false)
+  }, [rows])
+ 
+  // const retryFailed = useCallback((_mode: SBBulkGroupingMode) => {
+  //   store.resetFailed('sb_product_collection' as any)
+  //   submitAll('grouped')
+  // }, [rows, submitAll])
+ 
+  const rowPendingCount  = rows.filter((r: any) => r._status === 'idle').length
+  const rowFailedCount   = rows.filter((r: any) => r._status === 'error').length
+  const rowSuccessCount  = rows.filter((r: any) => r._status === 'success').length
+ 
+  const groups            = groupByHeadline(rows)
+  const groupPendingCount = [...groups.values()].filter((g) => g.some((r: any) => r._status === 'idle')).length
+  const groupFailedCount  = [...groups.values()].filter((g) => g.some((r: any) => r._status === 'error')).length
+  const groupSuccessCount = [...groups.values()].filter((g) => g.every((r: any) => r._status === 'success')).length
+ 
+  return {
+    rows, submitAll, clearSummary,
     isSubmitting, summary,
     rowPendingCount, rowFailedCount, rowSuccessCount,
     groupPendingCount, groupFailedCount, groupSuccessCount,

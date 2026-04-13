@@ -3,9 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api/config'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export type AssetType = 'VIDEO' | 'IMAGE' | 'BRAND_LOGO'
+export type AssetType =
+  | 'VIDEO'
+  | 'PRODUCT_IMAGE'
+  | 'BRAND_LOGO'
+  | 'BACKGROUND_VIDEO'
+  | 'CUSTOM_IMAGE'
+  | 'OTHER_IMAGE'
 
 export interface AmazonAsset {
   id:                 string
@@ -40,8 +44,6 @@ export interface CreateBrandPayload {
   brand_name:      string
   brand_entity_id: string
 }
-
-// ── Assets ────────────────────────────────────────────────────────────────────
 
 export const useAssets = (assetType?: AssetType) => {
   return useQuery({
@@ -95,8 +97,6 @@ export const useDeleteAsset = () => {
     },
   })
 }
-
-// ── Brands ────────────────────────────────────────────────────────────────────
 
 export const useBrands = () => {
   return useQuery({

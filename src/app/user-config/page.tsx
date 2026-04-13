@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Check, Save, Plus, Trash2, Film, BadgeCheck, Zap, Clock } from 'lucide-react'
-import { Image } from 'lucide-react'
+import { Loader2, Check, Save, Plus, Trash2, Film, BadgeCheck, Zap, Clock, ImageIcon, Layers, List } from 'lucide-react'
 import {
   Input,
   NumberInput,
@@ -30,6 +29,7 @@ import {
   useCreateBrand,
   useDeleteBrand,
   type AssetType,
+  type AmazonAsset,
   type CreateAssetPayload,
   type CreateBrandPayload,
 } from '@/lib/hooks/queries/use-assets-brands'
@@ -46,18 +46,22 @@ import { TagListModal } from './components/TagListModal'
 import { useCampaignTags, useCreateCampaignTags } from '@/lib/hooks/queries/use-campaign-tags'
 import { useAsinTags, useCreateAsinTags } from '@/lib/hooks/queries/use-asin-tags'
 
-// ── Asset type config ─────────────────────────────────────────────────────────
-
 const ASSET_TYPE_OPTIONS = [
-  { value: 'VIDEO',      label: 'Video'       },
-  { value: 'IMAGE',      label: 'Custom Image' },
-  { value: 'BRAND_LOGO', label: 'Brand Logo'  },
+  { value: 'VIDEO',            label: 'Video'            },
+  { value: 'PRODUCT_IMAGE',    label: 'Product Image'    },
+  { value: 'BRAND_LOGO',       label: 'Brand Logo'       },
+  { value: 'BACKGROUND_VIDEO', label: 'Background Video' },
+  { value: 'CUSTOM_IMAGE',     label: 'Custom Image'     },
+  { value: 'OTHER_IMAGE',      label: 'Other Image'      },
 ]
 
 const ASSET_TYPE_ICONS: Record<AssetType, React.ReactNode> = {
-  VIDEO:      <Film       className="h-3.5 w-3.5" />,
-  IMAGE:      <Image      className="h-3.5 w-3.5" />,
-  BRAND_LOGO: <BadgeCheck className="h-3.5 w-3.5" />,
+  VIDEO:            <Film       className="h-3.5 w-3.5" />,
+  PRODUCT_IMAGE:    <ImageIcon  className="h-3.5 w-3.5" />,
+  BRAND_LOGO:       <BadgeCheck className="h-3.5 w-3.5" />,
+  BACKGROUND_VIDEO: <Film       className="h-3.5 w-3.5" />,
+  CUSTOM_IMAGE:     <ImageIcon  className="h-3.5 w-3.5" />,
+  OTHER_IMAGE:      <Layers     className="h-3.5 w-3.5" />,
 }
 
 const emptyAsset = (): CreateAssetPayload => ({
@@ -68,7 +72,86 @@ const emptyBrand = (): CreateBrandPayload => ({
   brand_name: '', brand_entity_id: '',
 })
 
-// ── Script config row sub-component ──────────────────────────────────────────
+// ── Asset List Dialog content ─────────────────────────────────────────────────
+
+function AssetListDialog({
+  assets,
+  isLoading,
+  onDelete,
+}: {
+  assets:    AmazonAsset[]
+  isLoading: boolean
+  onDelete:  (id: string) => void
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-10 text-slate-400 text-sm">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading assets…
+      </div>
+    )
+  }
+
+  if (assets.length === 0) {
+    return <p className="text-center text-sm text-slate-400 py-10">No assets added yet.</p>
+  }
+
+  return (
+    <div className="max-h-[60vh] overflow-auto rounded-xl border border-slate-100">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 sticky top-0 z-10">
+          <tr>
+            {['Name', 'Type', 'Asset ID', 'ASIN', ''].map((h) => (
+              <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {assets.map((asset) => (
+            <tr key={asset.id} className="group">
+              <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">{asset.asset_name}</td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                  {ASSET_TYPE_ICONS[asset.asset_type]}
+                  {asset.asset_type_display}
+                </span>
+              </td>
+              <td className="px-4 py-3 max-w-[200px] truncate font-mono text-xs text-slate-400">{asset.asset_id}</td>
+              <td className="px-4 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">{asset.asin ?? '—'}</td>
+              <td className="px-2 py-3">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="rounded p-1 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-400 transition">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete asset?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently remove <strong>{asset.asset_name}</strong>.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onDelete(asset.id)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ── Script config row ─────────────────────────────────────────────────────────
 
 interface ScriptConfigRowProps {
   type:        ScriptType
@@ -78,8 +161,6 @@ interface ScriptConfigRowProps {
   config:      TenantScriptConfig | undefined
 }
 
-
-
 function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfigRowProps) {
   const { data: versions = [] } = useScriptVersions(type)
   const updateConfig            = useUpdateScriptConfig()
@@ -88,9 +169,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
   const [isEnabled,       setIsEnabled]       = useState<boolean>(config?.is_enabled ?? false)
   const [saved,           setSaved]           = useState(false)
 
-
-
-  // Sync local state when server data arrives
   useEffect(() => {
     setSelectedVersion(config?.script_version ?? '')
     setIsEnabled(config?.is_enabled ?? false)
@@ -117,8 +195,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-slate-100 bg-slate-50/60 p-5">
-
-      {/* Header row: icon + text on left, toggle on right */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
@@ -129,8 +205,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
             <p className="text-xs text-slate-500">{description}</p>
           </div>
         </div>
-
-        {/* Enabled toggle */}
         <div className="flex items-center gap-2 shrink-0 pt-0.5">
           <span className="text-xs text-slate-500">{isEnabled ? 'Enabled' : 'Disabled'}</span>
           <button
@@ -147,7 +221,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
         </div>
       </div>
 
-      {/* Version select + save button */}
       <div className="flex items-end gap-3">
         <div className="w-56">
           <Select
@@ -173,7 +246,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
         </button>
       </div>
 
-      {/* Currently-active version footer */}
       {config?.script_version_detail && (
         <p className="text-xs text-slate-400">
           Currently active:&nbsp;
@@ -193,8 +265,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 function ConfigurationPage() {
-
-  // ── Target ACOS ─────────────────────────────────────────────────────────────
   const { data: userProfile }      = useUserProfile()
   const currentAcos                 = userProfile?.connected_advertising_profiles
                                         ?.find((p) => p.is_active)?.target_acos ?? null
@@ -208,30 +278,28 @@ function ConfigurationPage() {
     setTimeout(() => setAcosSaved(false), 2000)
   }
 
-  // ── Automated optimization scripts ──────────────────────────────────────────
   const { data: scriptConfigs = [], isLoading: configsLoading } = useScriptConfigs()
   const dailyConfig      = scriptConfigs.find((c) => c.script_type === 'daily')
   const daypartingConfig = scriptConfigs.find((c) => c.script_type === 'dayparting')
 
-  // ── Assets ───────────────────────────────────────────────────────────────────
   const { data: assets = [], isLoading: assetsLoading } = useAssets()
   const createAsset = useCreateAsset()
   const deleteAsset = useDeleteAsset()
-  const [assetForm,  setAssetForm]  = useState<CreateAssetPayload>(emptyAsset)
-  const [assetError, setAssetError] = useState<string | null>(null)
-  const [assetMode,  setAssetMode]  = useState<'single' | 'bulk'>('single')
+  const [assetForm,     setAssetForm]     = useState<CreateAssetPayload>(emptyAsset)
+  const [assetError,    setAssetError]    = useState<string | null>(null)
+  const [assetMode,     setAssetMode]     = useState<'single' | 'bulk'>('single')
+  const [assetListOpen, setAssetListOpen] = useState(false)
 
   const { data: campaignTags = [] } = useCampaignTags()
-  const { data: asinTags = [] } = useAsinTags()
+  const { data: asinTags = [] }     = useAsinTags()
 
   const createCampaignTags = useCreateCampaignTags()
-  const createAsinTags = useCreateAsinTags()
+  const createAsinTags     = useCreateAsinTags()
 
-  const [campaignAddOpen, setCampaignAddOpen] = useState(false)
+  const [campaignAddOpen,  setCampaignAddOpen]  = useState(false)
   const [campaignListOpen, setCampaignListOpen] = useState(false)
-
-  const [asinAddOpen, setAsinAddOpen] = useState(false)
-  const [asinListOpen, setAsinListOpen] = useState(false)
+  const [asinAddOpen,      setAsinAddOpen]      = useState(false)
+  const [asinListOpen,     setAsinListOpen]     = useState(false)
 
   const handleCreateAsset = async () => {
     if (!assetForm.asset_name.trim() || !assetForm.asset_id.trim()) {
@@ -247,7 +315,6 @@ function ConfigurationPage() {
     setAssetForm(emptyAsset())
   }
 
-  // ── Brands ───────────────────────────────────────────────────────────────────
   const { data: brands = [], isLoading: brandsLoading } = useBrands()
   const createBrand = useCreateBrand()
   const deleteBrand = useDeleteBrand()
@@ -264,7 +331,7 @@ function ConfigurationPage() {
     setBrandForm(emptyBrand())
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const showAsinField = assetForm.asset_type !== 'BRAND_LOGO' && assetForm.asset_type !== 'BACKGROUND_VIDEO'
 
   return (
     <div className="flex flex-col gap-5 p-6 mx-8">
@@ -274,11 +341,7 @@ function ConfigurationPage() {
         <p className="text-sm text-slate-500">Manage your campaign and account settings</p>
       </div>
 
-      {/* ── Target ACOS ──────────────────────────────────────────────────────── */}
-      <SectionCard
-        title="Target ACOS"
-        description="Set your target Advertising Cost of Sales"
-      >
+      <SectionCard title="Target ACOS" description="Set your target Advertising Cost of Sales">
         <div className="flex items-end gap-4">
           <div className="max-w-[180px]">
             <NumberInput
@@ -302,7 +365,6 @@ function ConfigurationPage() {
         </div>
       </SectionCard>
 
-      {/* ── Automated Optimization ───────────────────────────────────────────── */}
       <SectionCard
         title="Automated Optimization"
         description="Control which script version runs for each optimization type and whether it is active for your account"
@@ -331,31 +393,47 @@ function ConfigurationPage() {
         )}
       </SectionCard>
 
-      {/* ── Creative Assets ───────────────────────────────────────────────────── */}
+      {/* ── Creative Assets ─────────────────────────────────────────────────── */}
       <SectionCard
         title="Creative Assets"
         description="Store your Amazon Asset Library IDs for use in Sponsored Brands campaigns"
       >
         <div className="flex flex-col gap-5">
 
-          {/* Mode toggle */}
-          <div className="flex gap-2">
-            {([
-              { value: 'single' as const, label: 'Single Asset' },
-              { value: 'bulk'   as const, label: 'Bulk Paste'   },
-            ]).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setAssetMode(opt.value)}
-                className={`rounded-xl border px-4 py-2 text-xs font-semibold transition-all duration-150
-                  ${assetMode === opt.value
-                    ? 'border-indigo-300 bg-indigo-600 text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          {/* Mode toggle + View Assets button */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              {([
+                { value: 'single' as const, label: 'Single Asset' },
+                { value: 'bulk'   as const, label: 'Bulk Paste'   },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setAssetMode(opt.value)}
+                  className={`rounded-xl border px-4 py-2 text-xs font-semibold transition-all duration-150
+                    ${assetMode === opt.value
+                      ? 'border-indigo-300 bg-indigo-600 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAssetListOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all duration-150"
+            >
+              <List className="h-3.5 w-3.5" />
+              View Assets
+              {assets.length > 0 && (
+                <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600">
+                  {assets.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Single asset form */}
@@ -385,15 +463,17 @@ function ConfigurationPage() {
                     className="font-mono text-xs"
                   />
                 </div>
+                {showAsinField && (
+                  <Input
+                    label="ASIN"
+                    placeholder="e.g. B009GCTZWC"
+                    value={assetForm.asin ?? ''}
+                    onChange={(e) => setAssetForm((f) => ({ ...f, asin: e.target.value }))}
+                    className="font-mono"
+                  />
+                )}
                 <Input
-                  label={assetForm.asset_type === 'BRAND_LOGO' ? 'Brand Name *' : 'ASIN *'}
-                  placeholder={assetForm.asset_type === 'BRAND_LOGO' ? 'e.g. Skillofun' : 'e.g. B009GCTZWC'}
-                  value={assetForm.asin ?? ''}
-                  onChange={(e) => setAssetForm((f) => ({ ...f, asin: e.target.value }))}
-                  className={assetForm.asset_type !== 'BRAND_LOGO' ? 'font-mono' : ''}
-                />
-                <Input
-                  label="Preview URL *"
+                  label="Preview URL"
                   placeholder="https://..."
                   value={assetForm.asset_url ?? ''}
                   onChange={(e) => setAssetForm((f) => ({ ...f, asset_url: e.target.value }))}
@@ -416,67 +496,37 @@ function ConfigurationPage() {
           {assetMode === 'bulk' && (
             <AssetBulkPasteSection onSaved={() => setAssetMode('single')} />
           )}
-
-          {/* Assets table */}
-          {assetsLoading ? (
-            <div className="flex items-center justify-center gap-2 py-6 text-slate-400 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading assets…
-            </div>
-          ) : assets.length > 0 ? (
-            <div className="overflow-hidden rounded-xl border border-slate-100">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    {['Name', 'Type', 'Asset ID', 'ASIN / Brand', ''].map((h) => (
-                      <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {assets.map((asset) => (
-                    <tr key={asset.id} className="group">
-                      <td className="px-4 py-3 font-medium text-slate-800">{asset.asset_name}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                          {ASSET_TYPE_ICONS[asset.asset_type]}
-                          {asset.asset_type_display}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 max-w-[160px] truncate font-mono text-xs text-slate-400">{asset.asset_id}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{asset.asin ?? '—'}</td>
-                      <td className="px-2 py-3">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button className="rounded p-1 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-400 transition">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete asset?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently remove <strong>{asset.asset_name}</strong>.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteAsset.mutate(asset.id)} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-center text-sm text-slate-400 py-4">No assets added yet.</p>
-          )}
         </div>
       </SectionCard>
 
-      {/* ── Brands ───────────────────────────────────────────────────────────── */}
+      {/* ── Asset List Dialog ────────────────────────────────────────────────── */}
+      <AlertDialog open={assetListOpen} onOpenChange={setAssetListOpen}>
+        <AlertDialogContent className="max-w-4xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              Creative Assets
+              {assets.length > 0 && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                  {assets.length}
+                </span>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              View and manage your saved Amazon Asset Library entries.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AssetListDialog
+            assets={assets}
+            isLoading={assetsLoading}
+            onDelete={(id) => deleteAsset.mutate(id)}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Brands ──────────────────────────────────────────────────────────── */}
       <SectionCard
         title="Brands"
         description="Store your Amazon brand entity IDs for Sponsored Brands campaigns"
@@ -561,34 +611,28 @@ function ConfigurationPage() {
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Campaign Tags"
-        description="Bulk manage campaign tags"
-      >
+      <SectionCard title="Campaign Tags" description="Bulk manage campaign tags">
         <div className="flex gap-3">
-
           <AlertDialog open={campaignAddOpen} onOpenChange={setCampaignAddOpen}>
             <AlertDialogTrigger asChild>
               <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
                 Add Tags
               </button>
             </AlertDialogTrigger>
-
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Add Campaign Tags</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Paste campaign name and tag pairs to bulk-add campaign tags.
+                </AlertDialogDescription>
               </AlertDialogHeader>
-
               <TagBulkPasteModal
                 title="Campaign Tags"
                 columns={['campaign_name', 'tag']}
                 onClose={() => setCampaignAddOpen(false)}
                 onSubmit={async (rows) => {
                   await createCampaignTags.mutateAsync({
-                    rows: rows.map((r) => ({
-                      campaign_name: r.key,
-                      tag: r.value,
-                    })),
+                    rows: rows.map((r) => ({ campaign_name: r.key, tag: r.value })),
                   })
                 }}
               />
@@ -597,16 +641,15 @@ function ConfigurationPage() {
 
           <AlertDialog open={campaignListOpen} onOpenChange={setCampaignListOpen}>
             <AlertDialogTrigger asChild>
-              <button className="rounded-lg border px-4 py-2 text-sm">
-                View Tags
-              </button>
+              <button className="rounded-lg border px-4 py-2 text-sm">View Tags</button>
             </AlertDialogTrigger>
-
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Campaign Tags</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Browse and manage existing campaign tag assignments.
+                </AlertDialogDescription>
               </AlertDialogHeader>
-
               <TagListModal
                 data={campaignTags}
                 columns={['campaign_name', 'tag']}
@@ -614,39 +657,31 @@ function ConfigurationPage() {
               />
             </AlertDialogContent>
           </AlertDialog>
-
         </div>
       </SectionCard>
 
-      {/* ASIN Tags */}
-      <SectionCard
-        title="ASIN Tags"
-        description="Bulk manage ASIN tags"
-      >
+      <SectionCard title="ASIN Tags" description="Bulk manage ASIN tags">
         <div className="flex gap-3">
-
           <AlertDialog open={asinAddOpen} onOpenChange={setAsinAddOpen}>
             <AlertDialogTrigger asChild>
               <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
                 Add Tags
               </button>
             </AlertDialogTrigger>
-
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Add ASIN Tags</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Paste ASIN and tag pairs to bulk-add ASIN tags.
+                </AlertDialogDescription>
               </AlertDialogHeader>
-
               <TagBulkPasteModal
                 title="Asin Tags"
                 columns={['asin', 'tag']}
                 onClose={() => setAsinAddOpen(false)}
                 onSubmit={async (rows) => {
                   await createAsinTags.mutateAsync({
-                    rows: rows.map((r) => ({
-                      asin: r.key,
-                      tag: r.value,
-                    })),
+                    rows: rows.map((r) => ({ asin: r.key, tag: r.value })),
                   })
                 }}
               />
@@ -655,16 +690,15 @@ function ConfigurationPage() {
 
           <AlertDialog open={asinListOpen} onOpenChange={setAsinListOpen}>
             <AlertDialogTrigger asChild>
-              <button className="rounded-lg border px-4 py-2 text-sm">
-                View Tags
-              </button>
+              <button className="rounded-lg border px-4 py-2 text-sm">View Tags</button>
             </AlertDialogTrigger>
-
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>ASIN Tags</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Browse and manage existing ASIN tag assignments.
+                </AlertDialogDescription>
               </AlertDialogHeader>
-
               <TagListModal
                 data={asinTags}
                 columns={['asin', 'tag']}
@@ -672,10 +706,8 @@ function ConfigurationPage() {
               />
             </AlertDialogContent>
           </AlertDialog>
-
         </div>
       </SectionCard>
-
 
     </div>
   )

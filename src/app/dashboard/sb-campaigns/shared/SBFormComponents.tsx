@@ -341,19 +341,22 @@ interface AsinListProps {
   onChange: (asins: string[]) => void
   error?:   string
   label?:   string
+  maxRows?: number
 }
 
-export function AsinListInput({ asins, onChange, error, label = 'Advertised ASINs' }: AsinListProps) {
+export function AsinListInput({ asins, onChange, error, label = 'Advertised ASINs', maxRows = 10 }: AsinListProps) {
   const cell = 'h-8 w-full rounded-md border border-slate-200 bg-white px-2 font-mono text-[13px] text-slate-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition'
-
+ 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        {label}{maxRows < 10 ? ` (max ${maxRows})` : ''}
+      </span>
       {asins.map((asin, i) => (
         <div key={i} className="grid grid-cols-[1fr_32px] gap-2 items-center">
           <input type="text" value={asin}
             onChange={(e) => onChange(asins.map((a, j) => j === i ? e.target.value.trim() : a))}
-            placeholder="e.g. B0XXXXXXXX" className={cell} />
+            placeholder="e.g. B009GCTZWC" className={cell} />
           <button type="button" onClick={() => onChange(asins.filter((_, j) => j !== i))} disabled={asins.length === 1}
             className="flex h-9 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 disabled:opacity-30 transition-colors">
             <Trash2 className="h-3.5 w-3.5" />
@@ -361,8 +364,10 @@ export function AsinListInput({ asins, onChange, error, label = 'Advertised ASIN
         </div>
       ))}
       <div className="flex items-center justify-between">
-        <button type="button" onClick={() => onChange([...asins, ''])}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors">
+        <button type="button"
+          onClick={() => onChange([...asins, ''])}
+          disabled={asins.length >= maxRows}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
           <Plus className="h-3.5 w-3.5" /> Add ASIN
         </button>
         {error && <p className="text-xs text-red-500">{error}</p>}
