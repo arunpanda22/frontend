@@ -1,131 +1,60 @@
-// src/app/maindashboard/searchqueryperformance/page.tsx
+// src/app/dashboard/market-funnel-insights/sqp-v2/page.tsx
+// V2 revamped SQP page — old page.tsx untouched
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  FaSearch,
-  FaEye,
-  FaMousePointer,
-  FaShoppingCart,
-  FaPercent,
-  FaFilter,
-  FaChevronDown,
-  FaCartPlus,
-  FaDollarSign,
-  FaExchangeAlt,
-  FaSpinner,
-  FaExclamationTriangle,
-} from "react-icons/fa";
-import SearchQueryPerformanceTable from "./components/searchqueryperformancetable";
-import MetricChartCard from "./components/MetricChartCard";
-import PriceWeightageChart from "./components/PriceWeightageChart";
-import ConversionChart from "./components/ConversionChart";
-import { useSQPData } from "./hooks/useSQPData";
-import {
-  processMonthlyMetrics,
-  getMonthsFromData,
-  calculateTrend,
-  getLastMonthValue,
-} from "./utils/sqp.utils";
-import { FilterState, SQPRequestParams } from "./types/sqp.types";
-import FilterBar from "../../../components/dashboard/ui/FilterBar";
-import { Button } from "@/components/ui/button";
-import SearchableAsinDropdown from "./components/SearchableAsinDropdown";
 
-export default function ASINSearchQueryPerformance() {
-  const [filterState, setFilterState] = useState<FilterState>({
-    view: "all",
-    selectedAsin: "",
-  });
+import React, { useState } from "react";
+import { FaSpinner } from "react-icons/fa";
+import { AlertTriangle, RefreshCw, Search } from "lucide-react";
+import { useSQPDataV2 } from "./hooks/useSQPDataV2";
+import { SQPV2RequestParams } from "./types/sqp_v2.types";
+import SQPSummaryCards from "./components/SQPSummaryCards";
+import SQPOverallTrends from "./components/SQPOverallTrends";
+import SQPFunnelChart from "./components/SQPFunnelChart";
+import ASINCard from "./components/ASINCard";
+import ASINFilterDropdown from "./components/ASINFilterDropdown";
 
-  // API integration
-  const {
-    data: sqpData,
-    loading,
-    error,
-    refetch,
+export default function SQPPageV2() {
+  const [selectedAsin, setSelectedAsin] = useState<string>("");
 
-    loadingAsins,
-  } = useSQPData();
+  const { data, loading, error, refetch } = useSQPDataV2();
 
-  // Prepare filtered data based on current view
-  const filteredSearchQueries = useMemo(() => {
-    if (!sqpData?.search_queries) return [];
-
-    if (filterState.view === "individual" && filterState.selectedAsin) {
-      return sqpData.search_queries.filter(
-        (item) => item.asin === filterState.selectedAsin
-      );
-    }
-
-    return sqpData.search_queries;
-  }, [sqpData?.search_queries, filterState]);
-
-  // Process monthly metrics for charts with dynamic months
-  const { chartData, months } = useMemo(() => {
-    if (!sqpData?.monthly_metrics) return { chartData: null, months: [] };
-
-    // Pass full data to utils
-    const processedData = processMonthlyMetrics(
-      sqpData.monthly_metrics,
-      filterState.view === "individual" && filterState.selectedAsin
-        ? filterState.selectedAsin
-        : "All ASINs"
-    );
-
-    // Get months from full data (not filtered by ASIN)
-    const dynamicMonths = getMonthsFromData(sqpData.monthly_metrics);
-
-    return { chartData: processedData, months: dynamicMonths };
-  }, [sqpData?.monthly_metrics, filterState]);
-
-  // Handle filter changes
-  const handleFilterChange = async (
-    view: "all" | "individual",
-    asin?: string
-  ) => {
-    const newFilterState: FilterState = {
-      view,
-      selectedAsin: view === "individual" ? asin || "" : "",
-    };
-
-    setFilterState(newFilterState);
-
-    // Prepare API parameters
-    const params: SQPRequestParams = {};
-    if (view === "individual" && asin) {
-      params.selected_asin = asin;
-    }
-
-    // Refetch data with new parameters
+  const handleSelectAsin = async (asin: string) => {
+    setSelectedAsin(asin);
+    const params: SQPV2RequestParams = { selected_asin: asin };
     await refetch(params);
   };
 
-  // Loading state
+  const handleSelectAll = async () => {
+    setSelectedAsin("");
+    await refetch({});
+  };
+
+  // ---------- States ----------
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
         <div className="text-center">
-          <FaSpinner className="animate-spin text-4xl text-blue-500 mb-4" />
-          <p className="text-lg text-gray-600">Loading insights...</p>
+          <FaSpinner className="animate-spin text-4xl text-blue-600 mb-4 mx-auto" />
+          <p className="text-base text-gray-500 font-medium">Loading insights...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-lg shadow-lg max-w-md">
-          <FaExclamationTriangle className="text-4xl text-red-500 mb-4 mx-auto" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            Error Loading Data
-          </h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-md w-full text-center">
+          <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-gray-800 mb-2">Failed to load data</h2>
+          <p className="text-sm text-gray-500 mb-5">{error}</p>
           <button
-            onClick={() => refetch()}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            onClick={() => refetch(selectedAsin ? { selected_asin: selectedAsin } : {})}
+            className="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 text-white
+                       rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
+            <RefreshCw className="w-3.5 h-3.5" />
             Retry
           </button>
         </div>
@@ -133,214 +62,86 @@ export default function ASINSearchQueryPerformance() {
     );
   }
 
-  // No data state
-  if (!sqpData || !chartData) {
+  if (!data) {
     return (
       <div className="min-h-screen bg-[#f5f6fa] flex items-center justify-center">
         <div className="text-center">
-          <FaSearch className="text-4xl text-gray-400 mb-4" />
-          <p className="text-lg text-gray-600">No data available</p>
+          <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-base text-gray-400">No data available</p>
         </div>
       </div>
     );
   }
 
+  // ---------- Main render ----------
+
   return (
-    <div className="min-h-screen bg-[#f5f6fa] px-12 py-12">
-      <div className="w-full transition-all duration-300">
-        {/* Filter Section */}
-        <div className="bg-white p-4 rounded-lg shadow mb-6 flex justify-between items-center">
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-bold text-gray-900">
+    <div className="min-h-screen bg-[#f5f6fa] px-6 lg:px-10 py-8">
+      <div className="max-w-full space-y-6">
+
+        {/* ── Header ── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-4
+                        flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">
               🔍 Market Funnel Insights
             </h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Last 12 months · {data.metadata.total_asins} ASINs
+              {data.metadata.start_date && (
+                <span className="ml-1">
+                  · {data.metadata.start_date} → {data.metadata.end_date}
+                </span>
+              )}
+            </p>
           </div>
 
-          <SearchableAsinDropdown
-            asins={sqpData.top_asins}
-            selectedAsin={filterState.selectedAsin}
-            totalAsins={sqpData.metadata.total_asins}
-            view={filterState.view}
-            onSelect={(asin) => handleFilterChange("individual", asin)}
-            onSelectAll={() => handleFilterChange("all")}
-            disabled={loadingAsins || loading}
+          <ASINFilterDropdown
+            asins={data.top_asins}
+            selectedAsin={selectedAsin}
+            onSelect={handleSelectAsin}
+            onSelectAll={handleSelectAll}
           />
         </div>
 
-        {/* Stats Grid - 3x3 layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 py-4">
-          {/* Impressions Column Group */}
-          <div className="flex flex-col gap-4">
-            <div className="text-center py-2">
-              <h3 className="text-lg font-bold text-blue-700 flex items-center justify-center gap-2">
-                <FaEye className="text-blue-600" />
-                Impressions
-              </h3>
-              <div className="w-12 h-1 bg-blue-500 mx-auto mt-1 rounded-full"></div>
-            </div>
+        {/* ── Summary Cards ── */}
+        <SQPSummaryCards summary={data.summary} />
 
-            <MetricChartCard
-              icon={<FaPercent />}
-              label="ASIN IMPRESSION SHARE"
-              value={getLastMonthValue(chartData.impressions.share).toFixed(2)}
-              valueSuffix="%"
-              trend={calculateTrend(chartData.impressions.share).value}
-              trendPositive={
-                calculateTrend(chartData.impressions.share).positive
-              }
-              chartData={chartData.impressions.share}
-              chartColors={["#1d4ed8"]}
-              chartType="vertical"
-              months={months}
-            />
+        {/* ── Overall Trends + Funnel ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="xl:col-span-2">
+            <SQPOverallTrends data={data.overall_trend} />
           </div>
-
-          {/* Clicks Column Group */}
-          <div className="flex flex-col gap-4">
-            <div className="text-center py-2">
-              <h3 className="text-lg font-bold text-green-700 flex items-center justify-center gap-2">
-                <FaMousePointer className="text-green-600" />
-                Clicks
-              </h3>
-              <div className="w-12 h-1 bg-green-500 mx-auto mt-1 rounded-full"></div>
-            </div>
-
-            <MetricChartCard
-              icon={<FaPercent />}
-              label="ASIN CLICK SHARE"
-              value={getLastMonthValue(chartData.clicks.share).toFixed(2)}
-              valueSuffix="%"
-              trend={calculateTrend(chartData.clicks.share).value}
-              trendPositive={calculateTrend(chartData.clicks.share).positive}
-              chartData={chartData.clicks.share}
-              chartColors={["#047857"]}
-              chartType="vertical"
-              months={months}
-            />
-          </div>
-
-          {/* Purchases Column Group */}
-          <div className="flex flex-col gap-4">
-            <div className="text-center py-2">
-              <h3 className="text-lg font-bold text-amber-700 flex items-center justify-center gap-2">
-                <FaShoppingCart className="text-amber-600" />
-                Purchases
-              </h3>
-              <div className="w-12 h-1 bg-amber-500 mx-auto mt-1 rounded-full"></div>
-            </div>
-
-            <MetricChartCard
-              icon={<FaPercent />}
-              label="ASIN PURCHASE SHARE"
-              value={getLastMonthValue(chartData.purchases.share).toFixed(2)}
-              valueSuffix="%"
-              trend={calculateTrend(chartData.purchases.share).value}
-              trendPositive={calculateTrend(chartData.purchases.share).positive}
-              chartData={chartData.purchases.share}
-              chartColors={["#b45309"]}
-              chartType="vertical"
-              months={months}
-            />
-          </div>
+          <SQPFunnelChart funnel={data.overall_funnel} title="Overall Conversion Funnel" />
         </div>
 
-        {/* Chart Sections - Weighted Sales and Conversion */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-4">
-          {/* Weighted Click Sales Chart */}
-          <div className="bg-white/80 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl p-6">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <FaDollarSign className="text-2xl text-red-500" />
-              <h2 className="text-xl font-bold text-gray-800">
-                Weighted Click Sales Analysis
-              </h2>
-            </div>
-            <PriceWeightageChart
-              totalWeightedSalesData={
-                chartData.weightedSales.total_weighted_click_sales
-              }
-              asinWeightedSalesData={
-                chartData.weightedSales.asin_weighted_click_sales
-              }
-              months={months}
-            />
-            <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-              <div className="bg-red-50 p-3 rounded-lg">
-                <p className="text-sm font-medium text-red-700">
-                  Total Weighted Sales
-                </p>
-                <p className="text-xl font-bold text-red-600">
-                  ₹
-                  {getLastMonthValue(
-                    chartData.weightedSales.total_weighted_click_sales
-                  ).toFixed(2)}
-                </p>
-              </div>
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm font-medium text-blue-700">
-                  ASIN Weighted Sales
-                </p>
-                <p className="text-xl font-bold text-blue-600">
-                  ₹
-                  {getLastMonthValue(
-                    chartData.weightedSales.asin_weighted_click_sales
-                  ).toFixed(2)}
-                </p>
-              </div>
-            </div>
+        {/* ── Per-ASIN Cards ── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-gray-800">
+              {selectedAsin ? `ASIN: ${selectedAsin}` : `Top ${data.asins.length} ASINs`}
+            </h2>
+            <span className="text-xs text-gray-400">
+              Click any row to expand trends &amp; search queries
+            </span>
           </div>
 
-          {/* Conversion Chart */}
-          <div className="bg-white/80 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl p-6">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <FaExchangeAlt className="text-2xl text-purple-500" />
-              <h2 className="text-xl font-bold text-gray-800">
-                Conversion Rate Analysis
-              </h2>
-            </div>
-            <ConversionChart
-              totalConversionData={chartData.conversion.total_conversion}
-              asinConversionData={chartData.conversion.asin_conversion}
-              months={months}
-            />
-            <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-              <div className="bg-green-50 p-3 rounded-lg">
-                <p className="text-sm font-medium text-green-700">
-                  Total Conversion Rate
-                </p>
-                <p className="text-xl font-bold text-green-600">
-                  {getLastMonthValue(
-                    chartData.conversion.total_conversion
-                  ).toFixed(2)}
-                  %
-                </p>
-              </div>
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="text-sm font-medium text-purple-700">
-                  ASIN Conversion Rate
-                </p>
-                <p className="text-xl font-bold text-purple-600">
-                  {getLastMonthValue(
-                    chartData.conversion.asin_conversion
-                  ).toFixed(2)}
-                  %
-                </p>
-              </div>
-            </div>
+          <div className="space-y-3">
+            {data.asins.map((asinData, index) => (
+              <ASINCard
+                key={asinData.asin}
+                asinData={asinData}
+                rank={index + 1}
+              />
+            ))}
           </div>
-        </div>
 
-        {/* Table Section */}
-        <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/30 shadow-lg min-h-[400px] flex flex-col mt-8 gap-6 w-full overflow-hidden">
-          {/* <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-700 pb-4 flex items-center justify-center">
-                {filterState.view === "individual" &&
-                  filterState.selectedAsin && (
-                    <span className="ml-2 text-sm font-normal text-gray-600">
-                      - {filterState.selectedAsin}
-                    </span>
-                  )}
-              </h2> */}
-
-          <SearchQueryPerformanceTable data={filteredSearchQueries} />
+          {data.asins.length === 0 && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
+              <Search className="w-8 h-8 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">No ASIN data found for this selection.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
