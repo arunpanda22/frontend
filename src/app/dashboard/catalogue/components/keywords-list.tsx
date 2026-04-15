@@ -1,5 +1,7 @@
 "use client"
 
+import { X } from "lucide-react"
+
 interface KeywordsListProps {
   keywords: string[]
   usage: Map<string, number>
@@ -16,14 +18,14 @@ export function KeywordsList({ keywords, usage, onRemove, type = "phrases" }: Ke
 
   return (
     <div className="bg-slate-50 rounded-md p-3 border border-slate-100 max-h-52 overflow-y-auto">
-      <div className="flex flex-wrap items-center">
+      <div className="flex flex-wrap items-center gap-y-0.5">
         {keywords.map((keyword, index) => {
           const lowerKeyword = keyword.toLowerCase()
           const count = usage.get(lowerKeyword) || 0
           const isUsed = count > 0
 
           return (
-            <span key={keyword} className="inline-flex items-baseline">
+            <span key={keyword} className="inline-flex items-center group/kw">
               <span
                 className={`text-[13px] transition-colors ${
                   isUsed
@@ -37,6 +39,15 @@ export function KeywordsList({ keywords, usage, onRemove, type = "phrases" }: Ke
                 <sup className="text-[9px] font-bold text-emerald-600 ml-px relative -top-1">
                   {count}
                 </sup>
+              )}
+              {onRemove && (
+                <button
+                  onClick={() => onRemove(keyword)}
+                  title={`Remove "${keyword}"`}
+                  className="ml-0.5 text-slate-300 hover:text-red-400 opacity-0 group-hover/kw:opacity-100 transition-opacity focus:opacity-100 cursor-pointer"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
               )}
               {index < keywords.length - 1 && (
                 <span className="text-slate-400 mr-1">,</span>

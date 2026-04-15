@@ -81,6 +81,13 @@ interface AdvancedDataTableProps {
    * (original index-based behaviour), keeping existing callers unaffected.
    */
   rowKey?: string;
+  /**
+   * Pre-select rows by their stable key on first mount.
+   * Useful for restoring selection state when the component remounts
+   * (e.g. after a collapsible section is reopened).
+   * Requires `rowKey` to be set so the keys match row values.
+   */
+  initialSelectedKeys?: string[];
 }
 
 interface CellRendererProps {
@@ -497,6 +504,7 @@ export function AdvancedDataTable({
   filename = "export",
   showDeleteOption = true,
   rowKey,
+  initialSelectedKeys,
 }: AdvancedDataTableProps) {
   // ── columns ──────────────────────────────────────────────────────────────
   const processedColumns = useMemo(() => {
@@ -591,7 +599,9 @@ export function AdvancedDataTable({
 
   // ── selection ─────────────────────────────────────────────────────────────
   // Set of stable row keys (row[rowKey] or String(originalIndex)).
-  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(new Set());
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<string>>(
+    () => new Set(initialSelectedKeys ?? []),
+  );
 
   // =========================================================================
   // KEY DATA STRUCTURES

@@ -63,6 +63,7 @@ export default function CataloguePage() {
   const [formCollapsed, setFormCollapsed] = useState(false);
   const [tableCollapsed, setTableCollapsed] = useState(false);
   const [activeDrawer, setActiveDrawer] = useState<DrawerMode | null>(null);
+  const [showEditorSection, setShowEditorSection] = useState(false);
 
   // ── Derived keyword data ────────────────────────────────────────────────────
   const words = useMemo(() => {
@@ -497,16 +498,29 @@ export default function CataloguePage() {
   return (
     <div className="w-full h-full bg-gradient-to-br from-blue-700 to-blue-950 shadow-2xl overflow-hidden p-6 lg:p-8 font-montserrat">
       <div className="max-w-8xl mx-auto space-y-6">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-              <Zap className="w-5 h-5 text-white" />
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white">Listing Generator</h1>
             </div>
-            <h1 className="text-3xl font-bold text-white">Listing Generator</h1>
+            <p className="text-slate-50">
+              Create keyword-optimized product listings in minutes
+            </p>
           </div>
-          <p className="text-slate-50">
-            Create keyword-optimized product listings in minutes
-          </p>
+          <button
+            onClick={() => setShowEditorSection((v) => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium transition-colors mt-1 ${
+              showEditorSection
+                ? "border-cyan-300 bg-cyan-600 text-white hover:bg-cyan-700"
+                : "border-white/30 bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5 flex-shrink-0" />
+            {showEditorSection ? "Hide Editor" : "Open Editor"}
+          </button>
         </div>
 
         {/* Catalogue Setup */}
@@ -646,6 +660,7 @@ export default function CataloguePage() {
                   onAddKeywords={handleAddKeywordsFromTable}
                   selectedKeywords={selectedKeywords}
                   onToggleKeyword={toggleKeywordSelection}
+                  addedKeywords={keywords}
                 />
               </div>
             )}
@@ -662,8 +677,8 @@ export default function CataloguePage() {
         )}
 
         {/* Words / Phrases / Content Editor */}
-        {/* Words / Phrases / Content Editor — only after catalog has been generated */}
-        {(title || bullets.some((b) => b.trim()) || description) && (
+        {/* Words / Phrases / Content Editor — shown when content exists OR user manually opens editor */}
+        {(showEditorSection || title || bullets.some((b) => b.trim()) || description) && (
           <>
             {/* ── Single card wrapping sidebar + editor ── */}
             <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
@@ -671,9 +686,9 @@ export default function CataloguePage() {
                 {/* Left sidebar — sticky */}
                 <div className="lg:col-span-1 sticky top-6 p-6">
                   <div className="space-y-6">
+                    {/* Words — only when there are keywords to show */}
                     {keywords.length > 0 && (
                       <>
-                        {/* Words */}
                         <div>
                           <div className="flex items-center justify-between mb-3">
                             <div>
@@ -734,60 +749,69 @@ export default function CataloguePage() {
                             </Button>
                           </div>
                         </div>
-
                         <div className="border-t border-slate-100" />
+                      </>
+                    )}
 
-                        {/* Phrases */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <h2 className="text-sm font-semibold text-slate-900">
-                                Phrases
-                              </h2>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {usedKeywords.length} / {keywords.length} used
-                              </p>
+                    {/* Phrases — always visible when editor is open or keywords exist */}
+                    {(keywords.length > 0 || showEditorSection) && (
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h2 className="text-sm font-semibold text-slate-900">
+                              Phrases
+                            </h2>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {keywords.length > 0
+                                ? `${usedKeywords.length} / ${keywords.length} used`
+                                : "Add keywords to get started"}
+                            </p>
+                          </div>
+                          <BarChart3 className="w-4 h-4 text-cyan-600" />
+                        </div>
+                        {keywords.length > 0 && (
+                          <>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+                              <div
+                                className="h-full bg-gradient-to-r from-orange-500 to-rose-400 rounded-full transition-all"
+                                style={{
+                                  width: `${(usedKeywords.length / Math.max(keywords.length, 1)) * 100}%`,
+                                }}
+                              />
                             </div>
-                            <BarChart3 className="w-4 h-4 text-cyan-600" />
-                          </div>
-                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-3">
-                            <div
-                              className="h-full bg-gradient-to-r from-orange-500 to-rose-400 rounded-full transition-all"
-                              style={{
-                                width: `${(usedKeywords.length / Math.max(keywords.length, 1)) * 100}%`,
-                              }}
+                            <KeywordsList
+                              keywords={displayKeywords}
+                              usage={keywordUsage}
+                              onRemove={handleRemoveKeyword}
                             />
-                          </div>
-                          <KeywordsList
-                            keywords={displayKeywords}
-                            usage={keywordUsage}
-                            onRemove={handleRemoveKeyword}
-                          />
-                          <div className="grid grid-cols-2 gap-2 mt-3">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                copyToClipboard(usedKeywords, "phrases")
-                              }
-                              className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
-                            >
-                              <Copy className="w-3 h-3 mr-1.5" />
-                              Used ({usedKeywords.length})
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                copyToClipboard(unusedKeywords, "phrases")
-                              }
-                              className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
-                            >
-                              <Copy className="w-3 h-3 mr-1.5" />
-                              Unused ({unusedKeywords.length})
-                            </Button>
-                          </div>
-                          <div className="space-y-2 mt-3 pt-3 border-t border-slate-100">
+                            <div className="grid grid-cols-2 gap-2 mt-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  copyToClipboard(usedKeywords, "phrases")
+                                }
+                                className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
+                              >
+                                <Copy className="w-3 h-3 mr-1.5" />
+                                Used ({usedKeywords.length})
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  copyToClipboard(unusedKeywords, "phrases")
+                                }
+                                className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
+                              >
+                                <Copy className="w-3 h-3 mr-1.5" />
+                                Unused ({unusedKeywords.length})
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                        <div className="space-y-2 mt-3 pt-3 border-t border-slate-100">
+                          {keywords.length > 0 && (
                             <label className="flex items-center gap-2.5 cursor-pointer group">
                               <input
                                 type="checkbox"
@@ -799,44 +823,45 @@ export default function CataloguePage() {
                                 Hide used phrases
                               </span>
                             </label>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setShowKeywordInput(!showKeywordInput)
-                              }
-                              className="w-full bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
-                            >
-                              <ChevronDown
-                                className={`w-3 h-3 mr-1.5 transition-transform text-black ${showKeywordInput ? "rotate-180" : ""}`}
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setShowKeywordInput(!showKeywordInput)
+                            }
+                            className="w-full bg-white border-slate-200 hover:bg-slate-50 text-slate-700 text-xs h-7"
+                          >
+                            <ChevronDown
+                              className={`w-3 h-3 mr-1.5 transition-transform text-black ${showKeywordInput ? "rotate-180" : ""}`}
+                            />
+                            Add Keywords
+                          </Button>
+                          {/* Auto-expand input when editor is manually opened with no keywords yet */}
+                          {(showKeywordInput || (showEditorSection && keywords.length === 0)) && (
+                            <div className="space-y-2">
+                              <Input
+                                placeholder="Comma-separated keywords..."
+                                value={keywordInput}
+                                onChange={(e) =>
+                                  setKeywordInput(e.target.value)
+                                }
+                                className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs h-8"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleAddKeywords();
+                                }}
                               />
-                              Add Keywords
-                            </Button>
-                            {showKeywordInput && (
-                              <div className="space-y-2">
-                                <Input
-                                  placeholder="Comma-separated keywords..."
-                                  value={keywordInput}
-                                  onChange={(e) =>
-                                    setKeywordInput(e.target.value)
-                                  }
-                                  className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs h-8"
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleAddKeywords();
-                                  }}
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={handleAddKeywords}
-                                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs h-7"
-                                >
-                                  Add
-                                </Button>
-                              </div>
-                            )}
-                          </div>
+                              <Button
+                                size="sm"
+                                onClick={handleAddKeywords}
+                                className="w-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs h-7"
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
