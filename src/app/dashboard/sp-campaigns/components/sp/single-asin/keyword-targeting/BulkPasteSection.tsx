@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, Loader2,
 } from 'lucide-react'
 import { useCampaignCreationStore } from '@/lib/store/campaignCreationStore'
-import { useBulkCampaignSubmit, type GroupingMode } from '@/lib/hooks/campaignCreationHooks'
+import { useBulkCampaignSubmit, useCampaignDefaults, type GroupingMode } from '@/lib/hooks/campaignCreationHooks'
 import { GroupingToggle } from '../../../shared/GroupingToggle'
 import { CampaignDataTable } from '@/components/dashboard/table/campaign-data-table'
 import type {
@@ -91,6 +91,16 @@ const COLUMNS: CampaignColumnDefinition[] = [
     minWidth:   80,
   },
   {
+    field:      'intent',
+    headerName: 'Intent',
+    type:       'text',
+    span:       true,
+    editable:   true,
+    sortable:   false,
+    width:      160,
+    minWidth:   120,
+  },
+  {
     field:      'start_date',
     headerName: 'Start Date',
     type:       'date',
@@ -128,6 +138,40 @@ function toStatusLabel(status: string, error?: string): string {
     case 'error':   return `✗ ${error ?? 'Error'}`
     default:        return ''
   }
+}
+
+// ── Shared Defaults Strip ─────────────────────────────────────────────────────
+
+function SharedDefaultsStrip({
+  intent,
+  onIntentChange,
+}: {
+  intent:         string
+  onIntentChange: (v: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+      <span className="shrink-0 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        Defaults
+      </span>
+      <div className="h-4 w-px bg-slate-200" />
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Intent <span className="normal-case font-normal text-slate-300">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={intent}
+          onChange={(e) => onIntentChange(e.target.value)}
+          placeholder="e.g. brand, competitor, generic"
+          className="h-8 w-64 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
+        />
+      </div>
+      <p className="text-[11px] text-slate-400 leading-relaxed ml-1">
+        Applied to all newly pasted rows — edit per-row in the table if needed.
+      </p>
+    </div>
+  )
 }
 
 // ── Paste area ────────────────────────────────────────────────────────────────
@@ -175,7 +219,6 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
           Match Type is optional — defaults to EXACT
         </p>
       </div>
-      {/* Invisible full-area textarea captures paste */}
       <textarea
         onPaste={handlePaste}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer resize-none"
@@ -242,8 +285,11 @@ function SummaryBanner({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function BulkPasteSection() {
-  const { bulkRows, parsePastedData, setBulkRows, clearBulkRows, renameBulkRows } =
+  const { bulkRows, parsePastedData, setBulkRows, clearBulkRows, renameBulkRows,
+          sharedDefaults, setSharedDefault } =
     useCampaignCreationStore()
+
+  const { minBid, minBudget } = useCampaignDefaults()
 
   const [groupingMode, setGroupingMode] = useState<GroupingMode>('individual')
 
@@ -276,6 +322,7 @@ export function BulkPasteSection() {
     match_type:      r.match_type,
     bid:             r.bid,
     budget:          r.budget,
+    intent:          r.intent,
     start_date:      r.start_date,
     dynamic_bidding: r.dynamic_bidding,
     _statusLabel:    toStatusLabel(r._status, r._error),
@@ -288,26 +335,37 @@ export function BulkPasteSection() {
     setTimeout(() => setParseInfo(null), 4000)
   }
 
-  // ── Table change handler ───────────────────────────────────────────────────
+  // ── Table change handler — auto-recalculates budget when bid changes ───────
   function handleTableChange(updated: CampaignTableData[]) {
     setBulkRows(
-      updated.map((row) => ({
-        _id:             String(row._id),
-        campaign_name:   String(row.campaign_name ?? ''),
-        asin:            String(row.asin ?? ''),
-        keyword:         String(row.keyword ?? ''),
-        match_type:      (row.match_type as any) ?? 'EXACT',
-        bid:             Number(row.bid) || 0,
-        budget:          Number(row.budget) || 0,
-        start_date:      String(row.start_date ?? ''),
-        dynamic_bidding: (row.dynamic_bidding as any) ?? 'AUTO_FOR_SALES',
-        _status:  bulkRows.find((r) => r._id === row._id)?._status  ?? 'idle',
-        _error:   bulkRows.find((r) => r._id === row._id)?._error,
-      }))
+      updated.map((row) => {
+        const prev    = bulkRows.find((r) => r._id === row._id)
+        const newBid  = Number(row.bid) || 0
+        const bidChanged = prev && newBid !== prev.bid
+
+        // Recalculate budget whenever bid changes: max(minBudget, bid * 15)
+        const newBudget = bidChanged
+          ? Math.max(minBudget, newBid * 15)
+          : Number(row.budget) || 0
+
+        return {
+          _id:             String(row._id),
+          campaign_name:   String(row.campaign_name ?? ''),
+          asin:            String(row.asin ?? ''),
+          keyword:         String(row.keyword ?? ''),
+          match_type:      (row.match_type as any) ?? 'EXACT',
+          bid:             newBid,
+          budget:          newBudget,
+          intent:          String(row.intent ?? ''),
+          start_date:      String(row.start_date ?? ''),
+          dynamic_bidding: (row.dynamic_bidding as any) ?? 'AUTO_FOR_SALES',
+          _status:         prev?._status ?? 'idle',
+          _error:          prev?._error,
+        }
+      })
     )
   }
 
-  // True when at least one ASIN appears more than once
   const hasGroupableAsins = useMemo(() => {
     const counts = new Map<string, number>()
     for (const r of bulkRows) counts.set(r.asin, (counts.get(r.asin) ?? 0) + 1)
@@ -333,26 +391,32 @@ export function BulkPasteSection() {
           </p>
         </div>
         <div className="p-6 flex flex-col gap-3">
+          {/* Shared defaults strip */}
+          <SharedDefaultsStrip
+            intent={sharedDefaults.intent}
+            onIntentChange={(v) => setSharedDefault('intent', v)}
+          />
+
           <PasteArea onPaste={handlePaste} />
 
           {/* Parse feedback */}
           {parseInfo && (
-              <div className="flex flex-col gap-1.5">
-                <p className="text-xs text-emerald-600 font-medium">
-                  ✓ Added {parseInfo.added} row{parseInfo.added !== 1 ? 's' : ''}
-                  {parseInfo.skipped > 0 && ` · ${parseInfo.skipped} skipped`}
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-emerald-600 font-medium">
+                ✓ Added {parseInfo.added} row{parseInfo.added !== 1 ? 's' : ''}
+                {parseInfo.skipped > 0 && ` · ${parseInfo.skipped} skipped`}
+              </p>
+              {parseInfo.invalidAsins > 0 && (
+                <p className="text-xs text-amber-600 font-medium flex items-start gap-1.5">
+                  <span>⚠️</span>
+                  <span>
+                    {parseInfo.invalidAsins} row{parseInfo.invalidAsins !== 1 ? 's' : ''} had invalid ASINs and were skipped.
+                    {" "}Make sure you're pasting keyword data here, not product targeting data.
+                  </span>
                 </p>
-                {parseInfo.invalidAsins > 0 && (
-                  <p className="text-xs text-amber-600 font-medium flex items-start gap-1.5">
-                    <span>⚠️</span>
-                    <span>
-                      {parseInfo.invalidAsins} row{parseInfo.invalidAsins !== 1 ? 's' : ''} had invalid ASINs and were skipped.
-                      {" "}Make sure you're pasting keyword data here, not product targeting data.
-                    </span>
-                  </p>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+          )}
         </div>
       </div>
 

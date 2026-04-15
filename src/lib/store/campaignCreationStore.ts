@@ -16,6 +16,7 @@ export interface SharedDefaults {
   dynamic_bidding: DynamicBidding
   default_bid:     number
   start_date:      string
+  intent:          string 
 }
 
 // ── Row types ─────────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ export interface BulkCampaignRow {
   dynamic_bidding: DynamicBidding
   _status:         RowStatus
   _error?:         string
+  intent:          string
 }
 
 export type ProductMatchType = 'EXACT' | 'EXPANDED'
@@ -163,6 +165,7 @@ const DEFAULT_SHARED: SharedDefaults = {
   dynamic_bidding: 'AUTO_FOR_SALES',
   default_bid:     0,
   start_date:      today,
+  intent:          '', 
 }
 
 // ── Store Interface ───────────────────────────────────────────────────────────
@@ -270,6 +273,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
         bid:             Number(row.bid) || 0,
         budget:          Number(row.budget) || 0,
         start_date:      String(row.start_date ?? ''),
+        intent: String(row.intent ?? ''),     
         dynamic_bidding: (row.dynamic_bidding as DynamicBidding) ?? 'AUTO_FOR_SALES',
         _status:         existing?._status ?? 'idle',
         _error:          existing?._error,
@@ -327,6 +331,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
         budget:          sharedDefaults.budget,
         start_date:      sharedDefaults.start_date,
         dynamic_bidding: sharedDefaults.dynamic_bidding,
+        intent:        sharedDefaults.intent,
         _status:         'idle',
       })
       added++
@@ -416,7 +421,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
       return {
         bulkRows: state.bulkRows.map((r) => {
           const effectiveMode = (countByAsin.get(r.asin) ?? 1) > 1 ? mode : 'individual'
-          return { ...r, campaign_name: buildSKCampaignName(r.asin, r.keyword, effectiveMode) }
+          return { ...r, campaign_name: buildSKCampaignName(r.asin, r.keyword, effectiveMode, r.intent) }
         }),
       }
     }),

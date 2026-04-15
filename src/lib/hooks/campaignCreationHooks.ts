@@ -282,6 +282,7 @@ function rowToPayload(
   AB: number,
 ): KeywordTargetingPayload {
   return {
+    campaign_name:   row.campaign_name, 
     budget:          row.budget,
     TOS_bidding:     TOS,
     ROS_bidding:     ROS,
@@ -355,6 +356,7 @@ export function useBulkCampaignSubmit() {
         setRowStatusByAsin(asin, 'loading')
         try {
           const response = await campaignApi.createKeywordTargeting({
+            campaign_name:   first.campaign_name, 
             budget:          first.budget,
             TOS_bidding,
             ROS_bidding,
@@ -645,15 +647,10 @@ export function useBulkMultiAsinKWSubmit() {
         ? [...new Map(allKeywords.map((k) => [k.text.toLowerCase(), k])).values()]
         : allKeywords
 
-      // Campaign name reflects mode
-      const campaignName = mode === 'sk' && keywords.length === 1
-        ? `TOM - ${theme} - SP - KW - ${keywords[0].text} - SK`
-        : `TOM - ${theme} - SP - KW - MK`
-
       setMultiAsinKWStatusByTheme(theme, 'loading')
       try {
         const response = await campaignApi.createKeywordTargeting({
-          campaign_name:   campaignName,
+          campaign_name:   first.campaign_name,
           budget:          first.budget,
           TOS_bidding, ROS_bidding, PP_bidding, AB_bidding,
           dynamic_bidding: first.dynamic_bidding,
