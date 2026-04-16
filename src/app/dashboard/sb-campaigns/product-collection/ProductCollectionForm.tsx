@@ -11,9 +11,6 @@ import { useSBOperations, useSBAssets, useCampaignDefaults } from '@/lib/hooks/s
 const today = new Date().toISOString().split('T')[0]
 
 interface Form {
-  campaign_name:         string
-  ad_group_name:         string
-  ad_name_prod:          string
   headline:              string
   brand_name:            string
   brand_entity_id:       string
@@ -27,8 +24,7 @@ interface Form {
 type Errors = Partial<Record<keyof Form | 'asin_list' | 'keywords', string>>
 
 const defaultForm = (): Form => ({
-  campaign_name: '', ad_group_name: '', ad_name_prod: '', headline: '',
-  brand_name: '', brand_entity_id: '', budget: '',
+  headline: '', brand_name: '', brand_entity_id: '', budget: '',
   start_date: today, brand_logo_asset_id: '', custom_image_asset_id: '', intent: '',
 })
 
@@ -45,31 +41,48 @@ export function ProductCollectionForm() {
   const { allImages, logos } = useSBAssets()
   const { createProductCollection, loading, result } = useSBOperations()
 
-  const [form,     setForm]     = useState<Form>(() => ({ ...defaultForm(), budget: minBudget }))
-  const [asinList, setAsinList] = useState<string[]>(['', '', ''])
-  const [keywords, setKeywords] = useState<KWRow[]>([{ text: '', matchType: 'broad', bid: '' }])
-  const [errors,   setErrors]   = useState<Errors>({})
+  const [form,       setForm]       = useState<Form>(() => ({ ...defaultForm(), budget: minBudget }))
+  const [asinList,   setAsinList]   = useState<string[]>(['', '', ''])
+  const [keywords,   setKeywords]   = useState<KWRow[]>([{ text: '', matchType: 'broad', bid: '' }])
+  const [errors,     setErrors]     = useState<Errors>({})
+  const [nameEdited, setNameEdited] = useState(false)
+  const [editedName, setEditedName] = useState('')
 
   const filled = keywords.filter((k) => k.text.trim())
-  const campaignName = buildName(form.brand_name, keywords, form.intent)
+  const generatedName = buildName(form.brand_name, keywords, form.intent)
+  const campaignNameDisplay = nameEdited ? editedName : generatedName
 
   function setField<K extends keyof Form>(k: K, v: Form[K]) {
     setForm((f) => ({ ...f, [k]: v }))
     setErrors((e) => ({ ...e, [k]: undefined }))
   }
 
+  function handleCampaignNameChange(v: string) {
+    setNameEdited(true)
+    setEditedName(v)
+  }
+
+  function handleCampaignNameBlur(v: string) {
+    if (!v.trim()) {
+      setNameEdited(false)
+      setEditedName('')
+    }
+  }
+
   function validate() {
     const e: Errors = {}
-    if (!form.headline.trim())              e.headline              = 'Required'
-    if (!form.brand_name.trim())            e.brand_name            = 'Required'
-    if (!form.brand_logo_asset_id)          e.brand_logo_asset_id   = 'Required'
-    if (!form.custom_image_asset_id)        e.custom_image_asset_id = 'Required'
-    if (!form.budget)                       e.budget                = 'Required'
-    if (!form.start_date)                   e.start_date            = 'Required'
+    if (!form.headline.trim())                 e.headline            = 'Required'
+    else if (form.headline.trim().length > 50) e.headline            = 'Headline must be 50 characters or fewer'
+    if (!form.brand_name.trim())               e.brand_name          = 'Required'
+    if (!form.brand_logo_asset_id)             e.brand_logo_asset_id = 'Required'
+    if (!form.intent.trim())                   e.intent              = 'Required'
+    if (!form.budget)                          e.budget              = 'Required'
+    if (!form.start_date)                      e.start_date          = 'Required'
     const filledAsins = asinList.filter((a) => a.trim())
-    if (filledAsins.length < 1)             e.asin_list             = 'At least one ASIN required'
-    if (filled.length === 0)               e.keywords              = 'At least one keyword required'
-    else if (filled.some((k) => Number(k.bid) < minBid)) e.keywords = `All keywords need a bid ≥ ${minBid}`
+    if (filledAsins.length < 3)                e.asin_list           = 'At least 3 ASIN required'
+    if (filled.length === 0)                   e.keywords            = 'At least one keyword required'
+    else if (filled.some((k) => Number(k.bid) < minBid))
+                                               e.keywords            = `All keywords need a bid >= ${minBid}`
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -78,9 +91,7 @@ export function ProductCollectionForm() {
     e.preventDefault()
     if (!validate()) return
     await createProductCollection({
-      campaign_name:         campaignName || undefined,
-      ad_group_name:         form.ad_group_name.trim() || undefined,
-      ad_name_prod:          form.ad_name_prod.trim()  || undefined,
+      campaign_name:         campaignNameDisplay || undefined,
       headline:              form.headline,
       brand_name:            form.brand_name,
       brand_entity_id:       form.brand_entity_id,
@@ -96,24 +107,48 @@ export function ProductCollectionForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {campaignName && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1">Campaign Name Preview</p>
-          <p className="text-sm font-mono font-medium text-indigo-700">{campaignName}</p>
-        </div>
-      )}
+      {/* Campaign Name — always-visible editable preview */}
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1.5">
+          Campaign Name
+        </p>
+        <input
+          type="text"
+          value={campaignNameDisplay}
+          onChange={(e) => handleCampaignNameChange(e.target.value)}
+          onBlur={(e) => handleCampaignNameBlur(e.target.value)}
+          placeholder="Fill in brand and keywords to auto-generate…"
+          className="w-full bg-transparent font-mono text-sm font-medium text-indigo-700 placeholder-indigo-300
+                     border-0 border-b border-indigo-200 focus:border-indigo-400 focus:outline-none
+                     pb-0.5 transition-colors"
+        />
+        {nameEdited && (
+          <button
+            type="button"
+            onClick={() => { setNameEdited(false); setEditedName('') }}
+            className="mt-1.5 text-[10px] text-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            ↺ Reset to auto-generated
+          </button>
+        )}
+      </div>
 
       <SectionCard title="Brand & Creative" description="Brand identity and creative assets">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <BrandSelect value={form.brand_name} onChange={(v) => setField('brand_name', v)} onEntityId={(id) => setField('brand_entity_id', id)} error={errors.brand_name} />
-          <Input label="Headline *" placeholder="Check out our latest products!"
-            value={form.headline} onChange={(e) => setField('headline', e.target.value)} error={errors.headline} />
+          <div className="flex flex-col gap-1">
+            <Input label="Headline *" placeholder="Check out our latest products!"
+              value={form.headline} onChange={(e) => setField('headline', e.target.value)} error={errors.headline} maxLength={50} />
+            <p className={`text-[11px] text-right ${form.headline.length > 50 ? 'text-red-500 font-medium' : form.headline.length >= 40 ? 'text-amber-500' : 'text-slate-400'}`}>
+              {form.headline.length}/50
+            </p>
+          </div>
           <AssetSelect label="Brand Logo Asset *" assets={logos.data ?? []}
             value={form.brand_logo_asset_id} onChange={(v) => setField('brand_logo_asset_id', v)} error={errors.brand_logo_asset_id} />
-          <AssetSelect label="Custom Image Asset *" assets={allImages.data ?? []}
-            value={form.custom_image_asset_id} onChange={(v) => setField('custom_image_asset_id', v)} error={errors.custom_image_asset_id} />
-          <Input label="Intent (optional)" placeholder="e.g. brand, competitor"
-            value={form.intent} onChange={(e) => setField('intent', e.target.value)} />
+          <AssetSelect label="Custom Image Asset" assets={allImages.data ?? []}
+            value={form.custom_image_asset_id} onChange={(v) => setField('custom_image_asset_id', v)} />
+          <Input label="Intent *" placeholder="e.g. brand, competitor"
+            value={form.intent} onChange={(e) => setField('intent', e.target.value)} error={errors.intent} />
         </div>
       </SectionCard>
 
@@ -125,6 +160,7 @@ export function ProductCollectionForm() {
         <PerKeywordTable
           rows={keywords} onChange={(rows) => {
             setKeywords(rows)
+            setErrors((e) => ({ ...e, keywords: undefined }))
             const bids = rows.filter((r) => r.text.trim()).map((r) => Number(r.bid)).filter((b) => b > 0)
             if (bids.length > 0) {
               const rec = recommendedBudget(bids)
@@ -141,17 +177,6 @@ export function ProductCollectionForm() {
             value={form.budget} min={minBudget} onChange={(e) => setField('budget', e.target.value)} error={errors.budget} />
           <DatePicker label="Start Date" value={form.start_date}
             onChange={(v) => setField('start_date', v)} error={errors.start_date} />
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Ad Naming (optional)" description="Custom names — auto-generated if blank">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Input label="Campaign Name" placeholder="Auto-generated"
-            value={form.campaign_name} onChange={(e) => setField('campaign_name', e.target.value)} />
-          <Input label="Ad Group Name" placeholder="Auto-generated"
-            value={form.ad_group_name} onChange={(e) => setField('ad_group_name', e.target.value)} />
-          <Input label="Ad Name" placeholder="Auto-generated"
-            value={form.ad_name_prod} onChange={(e) => setField('ad_name_prod', e.target.value)} />
         </div>
       </SectionCard>
 

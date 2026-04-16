@@ -113,7 +113,7 @@ export function SBVCategoryForm() {
         )}
       </div>
 
-      <SectionCard title="Targeting" description="The ASIN to advertise via category targeting">
+      <SectionCard title="Advertised Asin" description="The ASIN to advertise via category targeting">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="ASIN *" placeholder="e.g. B009GCTZWC" value={form.asin}
             onChange={(e) => setField('asin', e.target.value.trim())} error={errors.asin} className="font-mono" />

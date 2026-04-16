@@ -257,7 +257,7 @@ function SharedSettingsPanel({
   onChange: (p: Partial<SharedDefaults>) => void;
 }) {
   const { data: brands = [] } = useBrands();
-  const { logos } = useSBAssets(); // ← add this
+  const { logos } = useSBAssets(); 
 
   const inp =
     "w-full rounded-lg border border-slate-200 bg-slate-50 py-2 px-3 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 transition";
@@ -510,6 +510,26 @@ export function ProductCollectionBulkSection() {
   return [...map.entries()].filter(([, s]) => s.size < 3).length
 }, [rows])
 
+  const missingIntentCount = useMemo(
+    () =>
+      new Set(
+        typedRows
+          .filter((r) => !r.intent?.trim())
+          .map((r) => r.headline),
+      ).size,
+    [rows],
+  );
+
+  const overLimitHeadlineCount = useMemo(
+    () =>
+      new Set(
+        typedRows
+          .filter((r) => r.headline.trim().length > 50)
+          .map((r) => r.headline),
+      ).size,
+    [rows],
+  );
+
   const missingImageCount = useMemo(
     () =>
       new Set(
@@ -644,12 +664,24 @@ export function ProductCollectionBulkSection() {
               {underLimitHeadlines} campaign{underLimitHeadlines > 1 ? 's have' : ' has'} fewer than 3 unique Ad ASINs — the last ASIN will be repeated to meet Amazon's minimum of 3.
             </WarningItem>
           )}
-          {missingImageCount > 0 && (
+          {missingIntentCount > 0 && (
             <WarningItem>
-              {missingImageCount} campaign
-              {missingImageCount !== 1 ? "s are" : " is"} missing a Custom Image
-              Asset ID — fill column 6 in your paste or edit in the table.
+              {missingIntentCount} campaign{missingIntentCount !== 1 ? 's are' : ' is'} missing an Intent — fill column 7 in your paste or edit in the table. Intent is required for campaign naming.
             </WarningItem>
+          )}
+          {overLimitHeadlineCount > 0 && (
+            <WarningItem>
+              {overLimitHeadlineCount} headline{overLimitHeadlineCount !== 1 ? 's exceed' : ' exceeds'} the 50-character limit — edit in the table before submitting.
+            </WarningItem>
+          )}
+          {missingImageCount > 0 && (
+            <div className="flex items-start gap-2 text-xs text-slate-500">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
+              <span>
+                {missingImageCount} campaign
+                {missingImageCount !== 1 ? "s have" : " has"} no Custom Image Asset — this is optional and can be left blank.
+              </span>
+            </div>
           )}
           {!defaults.brand_name && (
             <WarningItem>
@@ -718,7 +750,8 @@ export function ProductCollectionBulkSection() {
               type="button"
               onClick={() => submitAll("grouped")}
               disabled={
-                groupPendingCount === 0 || isSubmitting || !defaults.brand_name
+                groupPendingCount === 0 || isSubmitting || !defaults.brand_name ||
+                missingIntentCount > 0 || overLimitHeadlineCount > 0
               }
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
