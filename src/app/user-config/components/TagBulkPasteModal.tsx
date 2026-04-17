@@ -76,7 +76,7 @@ export function TagBulkPasteModal({ title, columns, onSubmit, onClose }: Props) 
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 min-h-0">
 
       {/* Paste area */}
       <div>
@@ -104,7 +104,7 @@ export function TagBulkPasteModal({ title, columns, onSubmit, onClose }: Props) 
 
       {/* Preview table */}
       {rows.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-100">
+        <div className="overflow-hidden overflow-y-auto rounded-xl border border-slate-100 max-h-56 shrink min-h-0">
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
