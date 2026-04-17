@@ -114,6 +114,7 @@ export interface CampaignSummaryItem {
   ctr_percent: number;
   cost_per_click: number;
   acos_percent: number;
+  tag: string;
 }
 
 export interface TargetingAnalysisItem {

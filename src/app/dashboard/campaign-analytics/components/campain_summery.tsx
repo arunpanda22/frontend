@@ -53,6 +53,15 @@ export default function CampaignAdsSummary({
       pinned: 'left'
     },
     {
+      field: 'tag',
+      headerName: 'Tag',
+      type: 'text',
+      editable: false,
+      sortable: true,
+      filterable: true,
+      autoFitHeader: true,
+    },
+    {
       field: 'impressions',
       headerName: 'Impressions',
       type: 'number',
@@ -140,6 +149,7 @@ export default function CampaignAdsSummary({
     return apiCampaignData.map((campaign: CampaignSummaryItem, index: number) => {
       return {
         campaign_name: campaign.campaign_name || '',
+        tag: campaign.tag,
         impressions: formatNumber(campaign.impressions),
         clicks: formatNumber(campaign.clicks),
         ctr_percent: (campaign.ctr_percent),
