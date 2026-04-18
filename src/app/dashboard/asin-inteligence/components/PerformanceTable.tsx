@@ -77,6 +77,15 @@ export default function AsinPerformanceTable({
         maxWidth: 600,
         pinned: "left",
       },
+      {
+        field: "tags",
+        headerName: "Tag",
+        type: "text",
+        editable: false,
+        sortable: true,
+        filterable: true,
+        autoFitHeader: true,
+      },
     ];
 
     // Seller-only columns
@@ -293,6 +302,7 @@ export default function AsinPerformanceTable({
         asin: actualItem.asin || "",
         product_name: actualItem.product_name || "",
         image_url: actualItem.image_url || "",
+        tags: actualItem.tags || "",
         ads_sales: actualItem.total_ad_sales || 0,
         ads_cost: actualItem.total_ad_cost || 0 ,
 

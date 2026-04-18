@@ -341,6 +341,7 @@ export interface AsinSummaryItem {
   asin: string
   product_name: string
   image_url: string
+  tags: string
   focus_category: string
   total_sales: number
   total_units: number
