@@ -310,7 +310,7 @@ export const NgramOpportunitiesDrawer: React.FC<NgramOpportunitiesDrawerProps> =
   const [targetAcos, setTargetAcos] = useState<string>("0.20");
   const [submittedAcos, setSubmittedAcos] = useState<number | null>(null);
 
-  const { data, isLoading, error, fetchData } = useNgramOpportunities(submittedAcos);
+  const { data, isLoading, error, fetchData } = useNgramOpportunities();
 
   useEffect(() => {
     if (submittedAcos !== null) {

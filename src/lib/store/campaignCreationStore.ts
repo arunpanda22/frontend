@@ -14,7 +14,6 @@ export interface SharedDefaults {
   PP_bidding:      number
   AB_bidding:      number
   dynamic_bidding: DynamicBidding
-  default_bid:     number
   start_date:      string
   intent:          string 
 }
@@ -51,6 +50,7 @@ export interface BulkProductRow {
   budget:          number   //                               (spanned)
   start_date:      string   //                               (spanned)
   dynamic_bidding: DynamicBidding                        //  (spanned)
+  intent:          string
   _status:         RowStatus                             //  (spanned, set on all rows of group)
   _error?:         string
 }
@@ -163,7 +163,6 @@ const DEFAULT_SHARED: SharedDefaults = {
   PP_bidding:      0,
   AB_bidding:      0,
   dynamic_bidding: 'AUTO_FOR_SALES',
-  default_bid:     0,
   start_date:      today,
   intent:          '', 
 }
@@ -190,7 +189,7 @@ interface CampaignCreationState {
   /** Sets _status on every SK row sharing the same advertised asin */
   setRowStatusByAsin: (asin: string, status: RowStatus, error?: string) => void
   resetRowStatuses: () => void
-  parsePastedData: (text: string) => { added: number; skipped: number; invalidAsins: number }
+  parsePastedData: (text: string, minBudget: number) => { added: number; skipped: number; invalidAsins: number }
   clearBulkRows: () => void
 
   // ── Product targeting bulk rows ─────────────────────────────────────────────
@@ -200,7 +199,7 @@ interface CampaignCreationState {
   /** Sets _status on every row sharing the same advertised asin */
   setProductRowStatusByAsin: (asin: string, status: RowStatus, error?: string) => void
   deleteProductBulkRows: (ids: string[]) => void
-  parsePastedProductData: (text: string) => { added: number; skipped: number; invalidAsins: number }
+  parsePastedProductData: (text: string, minBudget: number) => { added: number; skipped: number; invalidAsins: number }
   clearProductBulkRows: () => void
 
   /** Recomputes campaign_name for all SK rows based on grouping mode */
@@ -305,41 +304,41 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
       bulkRows: state.bulkRows.map((r) => ({ ...r, _status: 'idle' as RowStatus, _error: undefined })),
     })),
 
-  parsePastedData: (text) => {
-    const { sharedDefaults } = get()
-    const VALID_MATCH: Record<string, MatchType> = { EXACT: 'EXACT', BROAD: 'BROAD', PHRASE: 'PHRASE' }
-    let added = 0, skipped = 0, invalidAsins = 0
-    const newRows: BulkCampaignRow[] = []
+parsePastedData: (text, minBudget) => {
+  const { sharedDefaults } = get()
+  const VALID_MATCH: Record<string, MatchType> = { EXACT: 'EXACT', BROAD: 'BROAD', PHRASE: 'PHRASE' }
+  let added = 0, skipped = 0, invalidAsins = 0
+  const newRows: BulkCampaignRow[] = []
 
-    text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
-      const [rawAsin, rawKeyword, rawBid, rawMatch] = line.split('\t').map((c) => c.trim())
-      const asin    = rawAsin?.trim()
-      const keyword = rawKeyword?.trim()
-      if (!asin || !keyword) { skipped++; return }
-      // Reject rows where keyword column looks like an ASIN — likely PT data pasted in wrong section
-      if (isValidAsin(keyword)) { skipped++; return }
-      // Skip rows with invalid advertised ASIN
-      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
+  text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
+    const [rawAsin, rawKeyword, rawBid, rawMatch, rawIntent] = line.split('\t').map((c) => c.trim())
+    const asin    = rawAsin?.trim()
+    const keyword = rawKeyword?.trim()
+    if (!asin || !keyword) { skipped++; return }
+    if (isValidAsin(keyword)) { skipped++; return }
+    if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
 
-      newRows.push({
-        _id:             uid(),
-        campaign_name:   buildSKCampaignName(asin, keyword, 'individual'),
-        asin,
-        keyword,
-        match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
-        bid:             Number(rawBid) || sharedDefaults.default_bid || 0,
-        budget:          sharedDefaults.budget,
-        start_date:      sharedDefaults.start_date,
-        dynamic_bidding: sharedDefaults.dynamic_bidding,
-        intent:        sharedDefaults.intent,
-        _status:         'idle',
-      })
-      added++
+    const bid = Number(rawBid) || 0
+
+    newRows.push({
+      _id:             uid(),
+      campaign_name:   buildSKCampaignName(asin, keyword, 'individual', rawIntent?.trim()),
+      asin,
+      keyword,
+      match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
+      bid,
+      budget:          bid > 0 ? Math.max(minBudget, bid * 15) : sharedDefaults.budget,
+      start_date:      sharedDefaults.start_date,
+      dynamic_bidding: sharedDefaults.dynamic_bidding,
+      intent:          rawIntent?.trim(),
+      _status:         'idle',
     })
+    added++
+  })
 
-    if (newRows.length > 0) set((state) => ({ bulkRows: [...state.bulkRows, ...newRows] }))
-    return { added, skipped, invalidAsins }
-  },
+  if (newRows.length > 0) set((state) => ({ bulkRows: [...state.bulkRows, ...newRows] }))
+  return { added, skipped, invalidAsins }
+},
 
   clearBulkRows: () => set({ bulkRows: [] }),
 
@@ -373,41 +372,44 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
   // Flat paste parser — one row per pasted line.
   // Columns: Advertised ASIN | Target ASIN | Bid | Match Type
   // Rows with the same advertised ASIN are shown grouped by the table (groupByFields).
-  parsePastedProductData: (text) => {
-    const { sharedDefaults } = get()
-    const VALID_MATCH: Record<string, ProductMatchType> = { EXACT: 'EXACT', EXPANDED: 'EXPANDED' }
-    let added = 0, skipped = 0, invalidAsins = 0
-    const newRows: BulkProductRow[] = []
+parsePastedProductData: (text, minBudget) => {
+  const { sharedDefaults } = get()
+  const VALID_MATCH: Record<string, ProductMatchType> = { EXACT: 'EXACT', EXPANDED: 'EXPANDED' }
+  let added = 0, skipped = 0, invalidAsins = 0
+  const newRows: BulkProductRow[] = []
 
-    text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
-      const [rawAsin, rawTargetAsin, rawBid, rawMatch] = line.split('\t').map((c) => c.trim())
-      const asin       = rawAsin?.trim()
-      const targetAsin = rawTargetAsin?.trim()
-      if (!asin || !targetAsin) { skipped++; return }
-      // Reject rows where target column is not a valid ASIN — likely KW data pasted in wrong section
-      if (!isValidAsin(targetAsin)) { skipped++; return }
-      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
+  text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
+    const [rawAsin, rawTargetAsin, rawBid, rawMatch, rawIntent] = line.split('\t').map((c) => c.trim())
+    const asin       = rawAsin?.trim()
+    const targetAsin = rawTargetAsin?.trim()
+    if (!asin || !targetAsin) { skipped++; return }
+    if (!isValidAsin(targetAsin)) { skipped++; return }
+    if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
 
-      newRows.push({
-        _id:             uid(),
-        campaign_name:   buildPTCampaignName(asin, targetAsin, 'individual'),
-        asin,
-        target_asin:     targetAsin,
-        match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
-        bid:             Number(rawBid) || sharedDefaults.default_bid || 0,
-        budget:          sharedDefaults.budget,
-        start_date:      sharedDefaults.start_date,
-        dynamic_bidding: sharedDefaults.dynamic_bidding,
-        _status:         'idle',
-      })
-      added++
+    const bid    = Number(rawBid) || 0
+    const intent = rawIntent?.trim() ?? ''
+
+    newRows.push({
+      _id:             uid(),
+      campaign_name:   buildPTCampaignName(asin, targetAsin, 'individual', intent),
+      asin,
+      target_asin:     targetAsin,
+      match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
+      bid,
+      budget:          bid > 0 ? Math.max(minBudget, bid * 15) : sharedDefaults.budget,
+      start_date:      sharedDefaults.start_date,
+      dynamic_bidding: sharedDefaults.dynamic_bidding,
+      intent,
+      _status:         'idle',
     })
+    added++
+  })
 
-    if (newRows.length > 0) {
-      set((state) => ({ productBulkRows: [...state.productBulkRows, ...newRows] }))
-    }
-    return { added, skipped, invalidAsins }
-  },
+  if (newRows.length > 0) {
+    set((state) => ({ productBulkRows: [...state.productBulkRows, ...newRows] }))
+  }
+  return { added, skipped, invalidAsins }
+},
 
   clearProductBulkRows: () => set({ productBulkRows: [] }),
 
@@ -427,18 +429,18 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
     }),
 
   renameProductBulkRows: (mode) =>
-    set((state) => {
-      const countByAsin = new Map<string, number>()
-      for (const r of state.productBulkRows) {
-        countByAsin.set(r.asin, (countByAsin.get(r.asin) ?? 0) + 1)
-      }
-      return {
-        productBulkRows: state.productBulkRows.map((r) => {
-          const effectiveMode = (countByAsin.get(r.asin) ?? 1) > 1 ? mode : 'individual'
-          return { ...r, campaign_name: buildPTCampaignName(r.asin, r.target_asin, effectiveMode) }
-        }),
-      }
-    }),
+  set((state) => {
+    const countByAsin = new Map<string, number>()
+    for (const r of state.productBulkRows) {
+      countByAsin.set(r.asin, (countByAsin.get(r.asin) ?? 0) + 1)
+    }
+    return {
+      productBulkRows: state.productBulkRows.map((r) => {
+        const effectiveMode = (countByAsin.get(r.asin) ?? 1) > 1 ? mode : 'individual'
+        return { ...r, campaign_name: buildPTCampaignName(r.asin, r.target_asin, effectiveMode, r.intent) }  // ← add r.intent
+      }),
+    }
+  }),
 
   // ── Multi-ASIN KW Bulk ──────────────────────────────────────────────────────
 
@@ -484,7 +486,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
         asin,
         keyword,
         match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
-        bid:             Number(rawBid) || sharedDefaults.default_bid || 0,
+        bid:             Number(rawBid) || 0,
         budget:          sharedDefaults.budget,
         start_date:      sharedDefaults.start_date,
         dynamic_bidding: sharedDefaults.dynamic_bidding,
@@ -573,7 +575,7 @@ export const useCampaignCreationStore = create<CampaignCreationState>((set, get)
         asin,
         target_asin:     targetAsin,
         match_type:      VALID_MATCH[rawMatch?.toUpperCase()] ?? 'EXACT',
-        bid:             Number(rawBid) || sharedDefaults.default_bid || 0,
+        bid:             Number(rawBid) || 0,
         budget:          sharedDefaults.budget,
         start_date:      sharedDefaults.start_date,
         dynamic_bidding: sharedDefaults.dynamic_bidding,

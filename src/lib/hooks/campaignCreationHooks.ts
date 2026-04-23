@@ -280,6 +280,7 @@ function rowToPayload(
   ROS: number,
   PP: number,
   AB: number,
+  minBid: number,   
 ): KeywordTargetingPayload {
   return {
     campaign_name:   row.campaign_name, 
@@ -289,7 +290,7 @@ function rowToPayload(
     PP_bidding:      PP,
     AB_bidding:      AB,
     dynamic_bidding: row.dynamic_bidding,
-    default_bid:     row.bid,
+    default_bid:     minBid, 
     start_date:      row.start_date,
     asins:           [row.asin],
     keywords: [{ text: row.keyword, match_type: row.match_type, bid: row.bid }],
@@ -307,6 +308,7 @@ export function useBulkCampaignSubmit() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+  const { minBid } = useCampaignDefaults() 
 
   const submitAll = useCallback(async (mode: GroupingMode): Promise<BulkSubmitSummary> => {
     const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
@@ -326,7 +328,7 @@ export function useBulkCampaignSubmit() {
         setRowStatus(row._id, 'loading')
         try {
           const response = await campaignApi.createKeywordTargeting(
-            rowToPayload(row, TOS_bidding, ROS_bidding, PP_bidding, AB_bidding)
+            rowToPayload(row, TOS_bidding, ROS_bidding, PP_bidding, AB_bidding, minBid)
           )
           console.log(`✅ KW campaign [${row.asin} / ${row.keyword}]:`, response.data.campaign_id)
           setRowStatus(row._id, 'success')
@@ -363,7 +365,7 @@ export function useBulkCampaignSubmit() {
             PP_bidding,
             AB_bidding,
             dynamic_bidding: first.dynamic_bidding,
-            default_bid:     first.bid,
+            default_bid:     minBid,
             start_date:      first.start_date,
             asins:           [asin],
             keywords:        rows.map((r) => ({
@@ -441,6 +443,7 @@ export function useBulkProductSubmit() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+  const { minBid } = useCampaignDefaults() 
 
   const submitAll = useCallback(async (mode: GroupingMode): Promise<BulkSubmitSummary> => {
     const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
@@ -460,13 +463,14 @@ export function useBulkProductSubmit() {
         setProductRowStatus(row._id, 'loading')
         try {
           const response = await campaignApi.createProductTargeting({
+            campaign_name:   row.campaign_name,
             budget:          row.budget,
             TOS_bidding,
             ROS_bidding,
             PP_bidding,
             AB_bidding,
             dynamic_bidding: row.dynamic_bidding,
-            default_bid:     row.bid,
+            default_bid:     minBid,
             start_date:      row.start_date,
             asins:           [row.asin],
             targets:         [{ asin: row.target_asin, match_type: row.match_type, bid: row.bid }],
@@ -515,6 +519,7 @@ export function useBulkProductSubmit() {
 
       try {
         const response = await campaignApi.createProductTargeting({
+          campaign_name:   first.campaign_name, 
           budget:          first.budget,
           TOS_bidding,
           ROS_bidding,
@@ -612,6 +617,7 @@ export function useBulkMultiAsinKWSubmit() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+  const { minBid } = useCampaignDefaults()
 
   const submitAll = useCallback(async (mode: MultiAsinKWMode): Promise<BulkSubmitSummary> => {
     // Always group by theme
@@ -654,7 +660,7 @@ export function useBulkMultiAsinKWSubmit() {
           budget:          first.budget,
           TOS_bidding, ROS_bidding, PP_bidding, AB_bidding,
           dynamic_bidding: first.dynamic_bidding,
-          default_bid:     first.bid,
+          default_bid:     minBid,
           start_date:      first.start_date,
           asins,
           theme,
@@ -717,6 +723,7 @@ export function useBulkMultiAsinPTSubmit() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+  const { minBid } = useCampaignDefaults() 
 
   const submitAll = useCallback(async (mode: MultiAsinPTMode): Promise<BulkSubmitSummary> => {
     const groupMap = new Map<string, typeof multiAsinPTRows>()
@@ -756,7 +763,7 @@ export function useBulkMultiAsinPTSubmit() {
           budget:          first.budget,
           TOS_bidding, ROS_bidding, PP_bidding, AB_bidding,
           dynamic_bidding: first.dynamic_bidding,
-          default_bid:     first.bid,
+          default_bid:     minBid,
           start_date:      first.start_date,
           asins,
           theme,

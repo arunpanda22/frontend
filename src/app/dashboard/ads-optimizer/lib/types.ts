@@ -177,8 +177,8 @@ export interface NegativeKeywordSuggestion {
   ad_group_id: string;
   campaign_name: string;
   ad_group_name: string;
-  search_term?: string; // SP
-  query?: string;       // SB
+  search_term?: string; 
+  query?: string;       
   Source_Type: string;
   Type:string;
 }

@@ -5,6 +5,25 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/config";
 
+export interface AsinListItem {
+  asin: string;
+  rank: number;
+  max_gms: number;
+  product_name?: string; // from FBAEnhancedListingData.item_name
+  image_url?: string;    // image_url_catalog ?? image_url_original
+}
+
+export interface AllAsinsResponse {
+  count: number;
+  results: AsinListItem[];
+}
+
+export interface AllAsinsRequest {
+  days_back?: number;
+  search?: string;
+  limit?: number;
+}
+
 // ==================== ASIN SUGGEST TYPES ====================
 
 export interface KeywordRecommendation {
@@ -92,6 +111,9 @@ export interface SQPSearchQuery {
   EXACT: string;
   "Conversion > Market": boolean;
   keyword_exists: boolean;
+  search_query_volume: number;
+  total_query_impression_count: number;
+  asin_impression_count: number;
 }
 
 export interface SQPOpportunitiesResponse {
@@ -118,14 +140,14 @@ export interface DedupResult {
   has_duplicates: boolean;
 }
 
+
 export interface DedupResponse {
   results: DedupResult[];
-  asins: string[]; // Changed from single asin to array
+  asins: string[];
   keywords_checked: number;
   total_duplicates: number;
 }
 
-// Support both request formats
 export interface DedupRequestSingle {
   asin: string;
   keywords: string[];
@@ -274,48 +296,40 @@ export interface ProductRecommendationsRequest {
 
 // ==================== QUERY KEYS ====================
 
+export const asinQueryKeys = {
+  all: ["all-asins"] as const,
+  list: (params: AllAsinsRequest) => ["all-asins", "list", params] as const,
+};
+
 export const opportunitiesQueryKeys = {
-  // ASIN Suggest
   asinSuggest: {
     all: ["asin-suggest-opportunities"] as const,
     list: (asin: string | null) =>
       ["asin-suggest-opportunities", "list", asin] as const,
   },
-  // Ngram
   ngram: {
     all: ["ngram-opportunities"] as const,
-    list: (targetAcos: number | null) =>
-      ["ngram-opportunities", "list", targetAcos] as const,
+    list: () => ["ngram-opportunities", "list"] as const,
   },
-  // SQP
   sqp: {
     all: ["sqp-opportunities"] as const,
     list: () => ["sqp-opportunities", "list"] as const,
   },
-  // Dedup
-  // dedup: {
-  //   all: ["dedup-opportunities"] as const,
-  //   list: (asin: string | null, keywords: string[] | null) =>
-  //     ["dedup-opportunities", "list", asin, keywords] as const,
-  // },
   dedup: {
     all: ["opportunities", "dedup"] as const,
-    list: (request: DedupRequest | null) => 
+    list: (request: DedupRequest | null) =>
       ["opportunities", "dedup", "list", request] as const,
   },
-  // CompetiRank
   competiRank: {
     all: ["competirank-data"] as const,
     list: (params: CompetiRankRequest) =>
       ["competirank-data", "list", params] as const,
   },
-  // Keyword Cluster
   keywordCluster: {
     all: ["keyword-cluster"] as const,
     list: (params: KeywordClusterRequest) =>
       ["keyword-cluster", "list", params] as const,
   },
-  // Competing ASINs
   competingAsins: {
     all: ["competing-asins"] as const,
     list: (params: CompetingAsinsRequest) =>
@@ -330,6 +344,13 @@ export const opportunitiesQueryKeys = {
 
 // ==================== API FUNCTIONS ====================
 
+async function fetchAllAsins(params: AllAsinsRequest): Promise<AllAsinsResponse> {
+  const { data } = await apiClient.get("/api/v1/dashboard-api/all-asins-list/", {
+    params,
+  });
+  return data;
+}
+
 async function fetchAsinSuggestOpportunities(
   request: AsinSuggestRequest
 ): Promise<AsinSuggestResponse> {
@@ -340,12 +361,10 @@ async function fetchAsinSuggestOpportunities(
   return data;
 }
 
-async function fetchNgramOpportunities(
-  targetAcos: number
-): Promise<NgramResponse> {
-  const { data } = await apiClient.get("/api/v1/dashboard-api/ngram-opportunities/", {
-    params: { target_acos: targetAcos },
-  });
+// Target ACOS is read from the user's account settings on the backend —
+// no parameter is sent from the frontend.
+async function fetchNgramOpportunities(): Promise<NgramResponse> {
+  const { data } = await apiClient.get("/api/v1/dashboard-api/ngram-opportunities/");
   return data;
 }
 
@@ -403,6 +422,16 @@ async function fetchProductRecommendations(
 
 // ==================== HOOKS ====================
 
+export function useAllAsins(params: AllAsinsRequest = {}) {
+  return useQuery({
+    queryKey: asinQueryKeys.list(params),
+    queryFn: () => fetchAllAsins(params),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 // 1. ASIN Suggest Hook
 export const useAsinSuggestOpportunities = (asin: string | null) => {
   const [isEnabled, setIsEnabled] = useState(false);
@@ -410,9 +439,7 @@ export const useAsinSuggestOpportunities = (asin: string | null) => {
   const query = useQuery({
     queryKey: opportunitiesQueryKeys.asinSuggest.list(asin),
     queryFn: async () => {
-      if (!asin) {
-        throw new Error("ASIN is required");
-      }
+      if (!asin) throw new Error("ASIN is required");
       return fetchAsinSuggestOpportunities({ asin });
     },
     enabled: isEnabled && asin !== null && asin.trim().length > 0,
@@ -437,29 +464,22 @@ export const useAsinSuggestOpportunities = (asin: string | null) => {
   };
 };
 
-// 2. Ngram Hook
-export const useNgramOpportunities = (targetAcos: number | null) => {
+// 2. Ngram Hook — target ACOS comes from the user's account settings on the backend
+export const useNgramOpportunities = () => {
   const [isEnabled, setIsEnabled] = useState(false);
 
   const query = useQuery({
-    queryKey: opportunitiesQueryKeys.ngram.list(targetAcos),
-    queryFn: async () => {
-      if (targetAcos === null) {
-        throw new Error("Target ACOS is required");
-      }
-      return fetchNgramOpportunities(targetAcos);
-    },
-    enabled: isEnabled && targetAcos !== null,
+    queryKey: opportunitiesQueryKeys.ngram.list(),
+    queryFn: fetchNgramOpportunities,
+    enabled: isEnabled,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
   });
 
   const fetchData = () => {
-    if (targetAcos !== null) {
-      setIsEnabled(true);
-      query.refetch();
-    }
+    setIsEnabled(true);
+    query.refetch();
   };
 
   return {
@@ -483,19 +503,14 @@ export function useSQPOpportunities() {
 }
 
 // 4. Dedup Hook
-export const useDedupOpportunities = (
-  requestData: DedupRequest | null
-) => {
+export const useDedupOpportunities = (requestData: DedupRequest | null) => {
   const [isEnabled, setIsEnabled] = useState(false);
 
   const query = useQuery({
     queryKey: opportunitiesQueryKeys.dedup.list(requestData),
     queryFn: async () => {
-      if (!requestData) {
-        throw new Error("Request data is required");
-      }
+      if (!requestData) throw new Error("Request data is required");
 
-      // Validate based on format
       if ('asin_keywords' in requestData) {
         if (!requestData.asin_keywords || Object.keys(requestData.asin_keywords).length === 0) {
           throw new Error("At least one ASIN with keywords is required");
@@ -536,9 +551,7 @@ export const useCompetiRankData = (params: CompetiRankRequest) => {
 
   const query = useQuery({
     queryKey: opportunitiesQueryKeys.competiRank.list(params),
-    queryFn: async () => {
-      return fetchCompetiRankData(params);
-    },
+    queryFn: () => fetchCompetiRankData(params),
     enabled: isEnabled,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -599,9 +612,7 @@ export const useCompetingAsins = (params: CompetingAsinsRequest) => {
 
   const query = useQuery({
     queryKey: opportunitiesQueryKeys.competingAsins.list(params),
-    queryFn: async () => {
-      return fetchCompetingAsins(params);
-    },
+    queryFn: () => fetchCompetingAsins(params),
     enabled: isEnabled,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -622,15 +633,14 @@ export const useCompetingAsins = (params: CompetingAsinsRequest) => {
   };
 };
 
+// 8. Product Recommendations Hook
 export const useProductRecommendations = (asin: string | null) => {
   const [isEnabled, setIsEnabled] = useState(false);
 
   const query = useQuery({
     queryKey: opportunitiesQueryKeys.productRecommendations.list(asin),
     queryFn: async () => {
-      if (!asin) {
-        throw new Error("ASIN is required");
-      }
+      if (!asin) throw new Error("ASIN is required");
       return fetchProductRecommendations({ asin });
     },
     enabled: isEnabled && asin !== null && asin.trim().length > 0,
@@ -657,132 +667,78 @@ export const useProductRecommendations = (asin: string | null) => {
 
 // ==================== HELPER FUNCTIONS ====================
 
-// SQP Helpers
-export const getMatchTypeStatus = (query: SQPSearchQuery) => {
-  return {
-    broad: query.BROAD !== "doesn't exist",
-    phrase: query.PHRASE !== "doesn't exist",
-    exact: query.EXACT !== "doesn't exist",
-  };
-};
+export const getMatchTypeStatus = (query: SQPSearchQuery) => ({
+  broad: query.BROAD !== "doesn't exist",
+  phrase: query.PHRASE !== "doesn't exist",
+  exact: query.EXACT !== "doesn't exist",
+});
 
-export const getConversionDifference = (query: SQPSearchQuery): number => {
-  return query.asin_conversion - query.total_conversion;
-};
+export const getConversionDifference = (query: SQPSearchQuery): number =>
+  query.asin_conversion - query.total_conversion;
 
-export const getPriceDifference = (query: SQPSearchQuery): number => {
-  return query.asin_median_click_price - query.total_median_click_price;
-};
+export const getPriceDifference = (query: SQPSearchQuery): number =>
+  query.asin_median_click_price - query.total_median_click_price;
 
-// CompetiRank Helpers
 export const filterByMarketplace = (
   records: CompetiRankRecord[],
   marketplaceId: string
-) => {
-  return records.filter((record) => record.marketplace_id === marketplaceId);
-};
+) => records.filter((r) => r.marketplace_id === marketplaceId);
 
 export const filterByReportPeriod = (
   records: CompetiRankRecord[],
   reportPeriod: string
-) => {
-  return records.filter((record) => record.report_period === reportPeriod);
-};
+) => records.filter((r) => r.report_period === reportPeriod);
 
 export const getTopSearchTerms = (
   records: CompetiRankRecord[],
   limit: number = 10
-) => {
-  return records
-    .sort((a, b) => a.search_frequency_rank - b.search_frequency_rank)
-    .slice(0, limit);
-};
+) => records.sort((a, b) => a.search_frequency_rank - b.search_frequency_rank).slice(0, limit);
 
-// Competing ASINs Helpers
 export const getStrongCompetitors = (
   competitors: TopCompetitor[],
   minOccurrence: number = 5
-) => {
-  return competitors.filter((comp) => comp.occurrence_count >= minOccurrence);
-};
+) => competitors.filter((c) => c.occurrence_count >= minOccurrence);
 
 export const getHighClickShareCompetitors = (
   competitors: TopCompetitor[],
   minClickShare: number = 0.1
-) => {
-  return competitors.filter((comp) => comp.avg_click_share >= minClickShare);
-};
+) => competitors.filter((c) => c.avg_click_share >= minClickShare);
 
-// Keyword Cluster Helpers
-export const groupByDepartment = (records: KeywordClusterRecord[]) => {
-  return records.reduce((acc, record) => {
+export const groupByDepartment = (records: KeywordClusterRecord[]) =>
+  records.reduce((acc, record) => {
     const dept = record.department_name;
-    if (!acc[dept]) {
-      acc[dept] = [];
-    }
+    if (!acc[dept]) acc[dept] = [];
     acc[dept].push(record);
     return acc;
   }, {} as Record<string, KeywordClusterRecord[]>);
-};
 
-export const getUniqueSearchTerms = (records: KeywordClusterRecord[]) => {
-  return [...new Set(records.map((record) => record.search_term))];
-};
+export const getUniqueSearchTerms = (records: KeywordClusterRecord[]) =>
+  [...new Set(records.map((r) => r.search_term))];
 
-export const extractAllAsins = (
-  recommendations: ProductRecommendation[]
-): string[] => {
+export const extractAllAsins = (recommendations: ProductRecommendation[]): string[] => {
   const asins = new Set<string>();
-  
   recommendations.forEach((rec) => {
-    if (rec["Top converting targets"]) {
-      asins.add(rec["Top converting targets"]);
-    }
-    if (rec["Similar items with low ratings and reviews"]) {
-      asins.add(rec["Similar items with low ratings and reviews"]);
-    }
-    if (rec["Similar items (frequently viewed together)"]) {
-      asins.add(rec["Similar items (frequently viewed together)"]);
-    }
+    if (rec["Top converting targets"]) asins.add(rec["Top converting targets"]);
+    if (rec["Similar items with low ratings and reviews"]) asins.add(rec["Similar items with low ratings and reviews"]);
+    if (rec["Similar items (frequently viewed together)"]) asins.add(rec["Similar items (frequently viewed together)"]);
   });
-  
   return Array.from(asins).filter(Boolean);
 };
 
-// Get recommendations by category
-export const getRecommendationsByCategory = (
-  recommendations: ProductRecommendation[]
-) => {
-  return {
-    topConverting: recommendations
-      .map((r) => r["Top converting targets"])
-      .filter(Boolean) as string[],
-    lowRatings: recommendations
-      .map((r) => r["Similar items with low ratings and reviews"])
-      .filter(Boolean) as string[],
-    frequentlyViewed: recommendations
-      .map((r) => r["Similar items (frequently viewed together)"])
-      .filter(Boolean) as string[],
-  };
-};
+export const getRecommendationsByCategory = (recommendations: ProductRecommendation[]) => ({
+  topConverting: recommendations.map((r) => r["Top converting targets"]).filter(Boolean) as string[],
+  lowRatings: recommendations.map((r) => r["Similar items with low ratings and reviews"]).filter(Boolean) as string[],
+  frequentlyViewed: recommendations.map((r) => r["Similar items (frequently viewed together)"]).filter(Boolean) as string[],
+});
 
-// Count recommendations by type
-export const countRecommendationTypes = (
-  recommendations: ProductRecommendation[]
-) => {
+export const countRecommendationTypes = (recommendations: ProductRecommendation[]) => {
   let topConvertingCount = 0;
   let lowRatingsCount = 0;
   let frequentlyViewedCount = 0;
-
   recommendations.forEach((rec) => {
     if (rec["Top converting targets"]) topConvertingCount++;
     if (rec["Similar items with low ratings and reviews"]) lowRatingsCount++;
     if (rec["Similar items (frequently viewed together)"]) frequentlyViewedCount++;
   });
-
-  return {
-    topConvertingCount,
-    lowRatingsCount,
-    frequentlyViewedCount,
-  };
+  return { topConvertingCount, lowRatingsCount, frequentlyViewedCount };
 };

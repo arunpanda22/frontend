@@ -29,13 +29,6 @@ export function SharedSettingsPanel() {
           step={1}
           onChange={(e) => setSharedDefault('budget', Number(e.target.value))}
         />
-        <NumberInput
-          label="Default Bid (£)"
-          value={sharedDefaults.default_bid}
-          min={0}
-          step={0.01}
-          onChange={(e) => setSharedDefault('default_bid', Number(e.target.value))}
-        />
         <Select
           label="Bidding Strategy"
           options={DYNAMIC_BIDDING_OPTIONS}

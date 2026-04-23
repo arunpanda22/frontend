@@ -38,6 +38,7 @@ type DynamicBidding = 'AUTO_FOR_SALES' | 'LEGACY_FOR_SALES' | 'MANUAL'
 type ExpressionType = 'MANUAL' | 'AUTO'
 
 interface FormState {
+  campaign_name:   string
   theme:           string
   intent:          string
   asin:            string
@@ -50,13 +51,13 @@ interface FormState {
   PP_bidding:      number
   AB_bidding:      number
   dynamic_bidding: DynamicBidding
-  default_bid:     number | string
   start_date:      string
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 const defaultForm: FormState = {
+  campaign_name:   '',
   theme:           '',
   intent:          '',
   asin:            '',
@@ -69,7 +70,6 @@ const defaultForm: FormState = {
   PP_bidding:      0,
   AB_bidding:      0,
   dynamic_bidding: 'AUTO_FOR_SALES',
-  default_bid:     0,
   start_date:      today,
 }
 
@@ -150,26 +150,40 @@ export function CategoryForm() {
     createSingleCategoryCampaign, isSingleCatLoading, singleCatResult,
   } = useCampaignOperations()
 
-  const [mode,   setMode]   = useState<CategoryMode>('multi')
-  const [form,   setForm]   = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
-  const [errors, setErrors] = useState<FormErrors>({})
+  const [mode,       setMode]       = useState<CategoryMode>('multi')
+  const [form,       setForm]       = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
+  const [errors,     setErrors]     = useState<FormErrors>({})
+  const [nameEdited, setNameEdited] = useState(false)
 
-  const isLoading    = mode === 'multi' ? isMultiCatLoading  : isSingleCatLoading
-  const result       = mode === 'multi' ? multiCatResult     : singleCatResult
-  const campaignName = buildCampaignName(form.asin, mode, form.theme, form.intent)
+  const isLoading     = mode === 'multi' ? isMultiCatLoading  : isSingleCatLoading
+  const result        = mode === 'multi' ? multiCatResult     : singleCatResult
+  const generatedName = buildCampaignName(form.asin, mode, form.theme, form.intent)
+  const campaignNameDisplay = nameEdited ? form.campaign_name : generatedName
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm((f) => ({ ...f, [key]: val }))
     setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
+  function handleCampaignNameChange(v: string) {
+    setNameEdited(true)
+    setField('campaign_name', v)
+  }
+
+  function handleCampaignNameBlur(v: string) {
+    if (!v.trim()) {
+      setNameEdited(false)
+      setField('campaign_name', '')
+    }
+  }
+
   function validate(): boolean {
     const e: FormErrors = {}
-    if (!form.asin.trim())         e.asin = 'Required'
+    if (!form.asin.trim())            e.asin = 'Required'
     else if (!isValidAsin(form.asin)) e.asin = 'Invalid ASIN — must be 10 characters starting with B'
-    if (!form.bid)         e.bid         = 'Required'
-    if (!form.budget)      e.budget      = 'Required'
-    if (!form.start_date)  e.start_date  = 'Required'
+    if (!form.bid)        e.bid        = 'Required'
+    if (!form.budget)     e.budget     = 'Required'
+    if (!form.start_date) e.start_date = 'Required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -179,14 +193,14 @@ export function CategoryForm() {
     if (!validate()) return
 
     const payload = {
-      campaign_name:   campaignName,
+      campaign_name:   campaignNameDisplay || undefined,
       budget:          Number(form.budget),
       TOS_bidding:     form.TOS_bidding,
       ROS_bidding:     form.ROS_bidding,
       PP_bidding:      form.PP_bidding,
       AB_bidding:      form.AB_bidding,
       dynamic_bidding: form.dynamic_bidding,
-      default_bid:     Number(form.default_bid),
+      default_bid:     1,
       start_date:      form.start_date,
       asin:            form.asin.trim(),
       ...(form.theme.trim()  ? { theme:  form.theme.trim()  } : {}),
@@ -206,26 +220,35 @@ export function CategoryForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {/* Campaign name preview */}
-      {campaignName && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1">
-            Campaign Name Preview
-          </p>
-          <p className="text-sm font-mono font-medium text-indigo-700">{campaignName}</p>
-        </div>
-      )}
+      {/* Campaign Name — editable preview */}
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1.5">
+          Campaign Name
+        </p>
+        <input
+          type="text"
+          value={campaignNameDisplay}
+          onChange={(e) => handleCampaignNameChange(e.target.value)}
+          onBlur={(e) => handleCampaignNameBlur(e.target.value)}
+          placeholder="Fill in ASIN to auto-generate…"
+          className="w-full bg-transparent font-mono text-sm font-medium text-indigo-700 placeholder-indigo-300
+                     border-0 border-b border-indigo-200 focus:border-indigo-400 focus:outline-none
+                     pb-0.5 transition-colors"
+        />
+        {nameEdited && (
+          <button
+            type="button"
+            onClick={() => { setNameEdited(false); setField('campaign_name', '') }}
+            className="mt-1.5 text-[10px] text-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            ↺ Reset to auto-generated
+          </button>
+        )}
+      </div>
 
-      {/* Targeting */}
-
+      {/* Campaign Naming */}
       <SectionCard title="Campaign Naming" description="Theme groups campaigns — intent describes the targeting strategy">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label="Theme (optional)"
-            placeholder="e.g. Kids Toys"
-            value={form.theme}
-            onChange={(e) => setField('theme', e.target.value)}
-          />
           <Input
             label="Intent (optional)"
             placeholder="e.g. brand, competitor, generic"
@@ -235,6 +258,7 @@ export function CategoryForm() {
         </div>
       </SectionCard>
 
+      {/* Targeting */}
       <SectionCard
         title="Targeting"
         description="Category IDs are resolved automatically by Amazon for your ASIN"
@@ -242,7 +266,7 @@ export function CategoryForm() {
         <div className="flex flex-col gap-4">
           <ModeToggle mode={mode} onChange={(m) => { setMode(m); setErrors({}) }} />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Input
               label="Advertised ASIN"
               placeholder="e.g. B009GCTZWC"
@@ -286,15 +310,6 @@ export function CategoryForm() {
             min={minBudget}
             onChange={(e) => setField('budget', e.target.value)}
             error={errors.budget}
-          />
-          <NumberInput
-            label="Default Bid"
-            prefix={currencySymbol}
-            placeholder="0.00"
-            value={form.default_bid}
-            min={0}
-            step={0.01}
-            onChange={(e) => setField('default_bid', e.target.value)}
           />
           <Select
             label="Bidding Strategy"

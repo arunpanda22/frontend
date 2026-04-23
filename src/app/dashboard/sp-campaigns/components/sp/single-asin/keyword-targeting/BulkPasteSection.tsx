@@ -28,106 +28,6 @@ const BIDDING_OPTIONS = [
   { value: 'MANUAL',           label: 'Manual'           },
 ]
 
-const COLUMNS: CampaignColumnDefinition[] = [
-  {
-    field:      'campaign_name',
-    headerName: 'Campaign Name',
-    type:       'text',
-    span:       true,
-    editable:   true,
-    sortable:   true,
-    width:      300,
-    minWidth:   200,
-    maxWidth:   500,
-  },
-  {
-    field:      'asin',
-    headerName: 'ASIN',
-    type:       'text',
-    span:       true,
-    editable:   true,
-    sortable:   true,
-    filterable: true,
-    width:      140,
-    minWidth:   120,
-  },
-  {
-    field:      'keyword',
-    headerName: 'Keyword',
-    type:       'text',
-    span:       false,
-    editable:   true,
-    sortable:   true,
-    filterable: true,
-    width:      200,
-    minWidth:   140,
-  },
-  {
-    field:      'match_type',
-    headerName: 'Match Type',
-    type:       'dropdown',
-    span:       false,
-    editable:   true,
-    width:      120,
-    minWidth:   100,
-    options:    MATCH_OPTIONS,
-  },
-  {
-    field:      'bid',
-    headerName: 'Bid (£)',
-    type:       'number',
-    span:       false,
-    editable:   true,
-    width:      100,
-    minWidth:   80,
-  },
-  {
-    field:      'budget',
-    headerName: 'Budget (£)',
-    type:       'number',
-    span:       true,
-    editable:   true,
-    width:      110,
-    minWidth:   80,
-  },
-  {
-    field:      'intent',
-    headerName: 'Intent',
-    type:       'text',
-    span:       true,
-    editable:   true,
-    sortable:   false,
-    width:      160,
-    minWidth:   120,
-  },
-  {
-    field:      'start_date',
-    headerName: 'Start Date',
-    type:       'date',
-    span:       true,
-    editable:   true,
-    width:      150,
-  },
-  {
-    field:      'dynamic_bidding',
-    headerName: 'Strategy',
-    type:       'dropdown',
-    span:       true,
-    editable:   true,
-    width:      160,
-    minWidth:   130,
-    options:    BIDDING_OPTIONS,
-  },
-  {
-    field:      '_statusLabel',
-    headerName: 'Status',
-    type:       'text',
-    span:       true,
-    editable:   false,
-    width:      120,
-    minWidth:   100,
-  },
-]
 
 // ── Status label mapper ───────────────────────────────────────────────────────
 
@@ -142,37 +42,6 @@ function toStatusLabel(status: string, error?: string): string {
 
 // ── Shared Defaults Strip ─────────────────────────────────────────────────────
 
-function SharedDefaultsStrip({
-  intent,
-  onIntentChange,
-}: {
-  intent:         string
-  onIntentChange: (v: string) => void
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-      <span className="shrink-0 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-        Defaults
-      </span>
-      <div className="h-4 w-px bg-slate-200" />
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Intent <span className="normal-case font-normal text-slate-300">(optional)</span>
-        </label>
-        <input
-          type="text"
-          value={intent}
-          onChange={(e) => onIntentChange(e.target.value)}
-          placeholder="e.g. brand, competitor, generic"
-          className="h-8 w-64 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
-        />
-      </div>
-      <p className="text-[11px] text-slate-400 leading-relaxed ml-1">
-        Applied to all newly pasted rows — edit per-row in the table if needed.
-      </p>
-    </div>
-  )
-}
 
 // ── Paste area ────────────────────────────────────────────────────────────────
 
@@ -213,10 +82,11 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
           <span className="font-mono">ASIN</span> →&nbsp;
           <span className="font-mono">Keyword</span> →&nbsp;
           <span className="font-mono">Bid</span> →&nbsp;
-          <span className="font-mono">Match Type</span>
+          <span className="font-mono">Match Type</span> →&nbsp;
+          <span className="font-mono">Intent</span>
         </p>
         <p className="text-[11px] text-slate-400">
-          Match Type is optional — defaults to EXACT
+          Match Type defaults to excat if not provide in paste — Intent is used as a campaign name suffix
         </p>
       </div>
       <textarea
@@ -285,11 +155,9 @@ function SummaryBanner({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function BulkPasteSection() {
-  const { bulkRows, parsePastedData, setBulkRows, clearBulkRows, renameBulkRows,
-          sharedDefaults, setSharedDefault } =
-    useCampaignCreationStore()
+  const { bulkRows, parsePastedData, setBulkRows, clearBulkRows, renameBulkRows} = useCampaignCreationStore()
+  const { minBid, minBudget, currencySymbol } = useCampaignDefaults()
 
-  const { minBid, minBudget } = useCampaignDefaults()
 
   const [groupingMode, setGroupingMode] = useState<GroupingMode>('individual')
 
@@ -306,6 +174,108 @@ export function BulkPasteSection() {
     groupFailedCount,
     groupSuccessCount,
   } = useBulkCampaignSubmit()
+
+  const columns = useMemo<CampaignColumnDefinition[]>(() => [
+  {
+    field:      'campaign_name',
+    headerName: 'Campaign Name',
+    type:       'text',
+    span:       true,
+    editable:   true,
+    sortable:   true,
+    width:      300,
+    minWidth:   200,
+    maxWidth:   500,
+  },
+  {
+    field:      'asin',
+    headerName: 'ASIN',
+    type:       'text',
+    span:       true,
+    editable:   true,
+    sortable:   true,
+    filterable: true,
+    width:      140,
+    minWidth:   120,
+  },
+  {
+    field:      'keyword',
+    headerName: 'Keyword',
+    type:       'text',
+    span:       false,
+    editable:   true,
+    sortable:   true,
+    filterable: true,
+    width:      200,
+    minWidth:   140,
+  },
+  {
+    field:      'match_type',
+    headerName: 'Match Type',
+    type:       'dropdown',
+    span:       false,
+    editable:   true,
+    width:      120,
+    minWidth:   100,
+    options:    MATCH_OPTIONS,
+  },
+  {
+    field:      'bid',
+    headerName: `Bid (${currencySymbol})`, 
+    type:       'number',
+    span:       false,
+    editable:   true,
+    width:      100,
+    minWidth:   80,
+  },
+  {
+    field:      'budget',
+    headerName: `Budget (${currencySymbol})`,
+    type:       'number',
+    span:       true,
+    editable:   true,
+    width:      110,
+    minWidth:   80,
+  },
+  {
+    field:      'intent',
+    headerName: 'Intent',
+    type:       'text',
+    span:       true,
+    editable:   true,
+    sortable:   false,
+    width:      160,
+    minWidth:   120,
+  },
+  {
+    field:      'start_date',
+    headerName: 'Start Date',
+    type:       'date',
+    span:       true,
+    editable:   true,
+    width:      150,
+  },
+  {
+    field:      'dynamic_bidding',
+    headerName: 'Strategy',
+    type:       'dropdown',
+    span:       true,
+    editable:   true,
+    width:      160,
+    minWidth:   130,
+    options:    BIDDING_OPTIONS,
+  },
+  {
+    field:      '_statusLabel',
+    headerName: 'Status',
+    type:       'text',
+    span:       true,
+    editable:   false,
+    width:      120,
+    minWidth:   100,
+  },
+], [currencySymbol])
+
 
   const pendingCount = groupingMode === 'individual' ? rowPendingCount : groupPendingCount
   const failedCount  = groupingMode === 'individual' ? rowFailedCount  : groupFailedCount
@@ -330,7 +300,7 @@ export function BulkPasteSection() {
 
   // ── Paste handler ──────────────────────────────────────────────────────────
   function handlePaste(text: string) {
-    const result = parsePastedData(text)
+    const result = parsePastedData(text, minBudget) 
     setParseInfo(result)
     setTimeout(() => setParseInfo(null), 4000)
   }
@@ -391,11 +361,7 @@ export function BulkPasteSection() {
           </p>
         </div>
         <div className="p-6 flex flex-col gap-3">
-          {/* Shared defaults strip */}
-          <SharedDefaultsStrip
-            intent={sharedDefaults.intent}
-            onIntentChange={(v) => setSharedDefault('intent', v)}
-          />
+
 
           <PasteArea onPaste={handlePaste} />
 
@@ -463,7 +429,7 @@ export function BulkPasteSection() {
           {/* Editable table */}
           <CampaignDataTable
             data={tableData}
-            columns={COLUMNS}
+            columns={columns}
             groupByFields={groupingMode === 'grouped' ? ['asin'] : ['_id']}
             onDataChange={handleTableChange}
             showCheckboxColumn
