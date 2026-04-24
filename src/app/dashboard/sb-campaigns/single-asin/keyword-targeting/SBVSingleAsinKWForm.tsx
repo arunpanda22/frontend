@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import { Input, NumberInput, DatePicker, SectionCard, SubmitButton } from '../../../sp-campaigns/components/shared/FormFields'
 import { PerKeywordTable, SBResultBanner, type KWRow } from '../../shared/SBFormComponents'
-import { useSBOperations, useCampaignDefaults } from '@/lib/hooks/sbCampaignHooks'
+import { useSBOperations, useCampaignDefaults, useSBBrands } from '@/lib/hooks/sbCampaignHooks'
 import { isValidAsin } from '@/lib/utils/asinValidation'
 
 const today = new Date().toISOString().split('T')[0]
 
 interface Form {
-  campaign_name:   string   // now the editable "preview" field
+  campaign_name:   string
   ad_group_name:   string
   product_ad_name: string
   asin:            string
@@ -17,6 +17,7 @@ interface Form {
   budget:          number | string
   start_date:      string
   intent:          string
+  brand_entity_id: string
 }
 
 type Errors = Partial<Record<keyof Form | 'keywords', string>>
@@ -24,6 +25,7 @@ type Errors = Partial<Record<keyof Form | 'keywords', string>>
 const defaultForm = (): Form => ({
   campaign_name: '', ad_group_name: '', product_ad_name: '', asin: '',
   video_asset_id: '', budget: '', start_date: today, intent: '',
+  brand_entity_id: '',
 })
 
 function buildName(asin: string, rows: KWRow[], intent: string) {
@@ -41,14 +43,13 @@ function buildName(asin: string, rows: KWRow[], intent: string) {
 export function SBVSingleAsinKWForm() {
   const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
   const { createSBVSingleKW, loading, result } = useSBOperations()
+  const brands = useSBBrands()
 
   const [form,     setForm]     = useState<Form>(() => ({ ...defaultForm(), budget: minBudget }))
   const [keywords, setKeywords] = useState<KWRow[]>([{ text: '', matchType: 'exact', bid: '' }])
   const [errors,   setErrors]   = useState<Errors>({})
-
-  // Track whether the user has manually edited the campaign name.
-  // If not, keep it in sync with the auto-generated value.
   const [nameEdited, setNameEdited] = useState(false)
+
   const generatedName = buildName(form.asin, keywords, form.intent)
   const campaignNameDisplay = nameEdited ? form.campaign_name : generatedName
 
@@ -62,7 +63,6 @@ export function SBVSingleAsinKWForm() {
     setField('campaign_name', v)
   }
 
-  // If the user clears the name field, revert to auto-generated behaviour
   function handleCampaignNameBlur(v: string) {
     if (!v.trim()) {
       setNameEdited(false)
@@ -73,8 +73,6 @@ export function SBVSingleAsinKWForm() {
   function handleKeywordsChange(rows: KWRow[]) {
     setKeywords(rows)
     setErrors((e) => ({ ...e, keywords: undefined }))
-    // If name hasn't been manually edited, the display updates automatically
-    // via generatedName — nothing extra needed here.
     const bids = rows.filter((r) => r.text.trim()).map((r) => Number(r.bid)).filter((b) => b > 0)
     if (bids.length > 0) {
       const rec = recommendedBudget(bids)
@@ -84,15 +82,16 @@ export function SBVSingleAsinKWForm() {
 
   function validate() {
     const e: Errors = {}
-    if (!form.asin.trim())            e.asin           = 'Required'
-    else if (!isValidAsin(form.asin)) e.asin           = 'Invalid ASIN'
-    if (!form.video_asset_id.trim())  e.video_asset_id = 'Required'
-    if (!form.budget)                 e.budget         = 'Required'
-    if (!form.start_date)             e.start_date     = 'Required'
+    if (!form.asin.trim())             e.asin            = 'Required'
+    else if (!isValidAsin(form.asin))  e.asin            = 'Invalid ASIN'
+    if (!form.video_asset_id.trim())   e.video_asset_id  = 'Required'
+    if (!form.brand_entity_id.trim())  e.brand_entity_id = 'Required'
+    if (!form.budget)                  e.budget          = 'Required'
+    if (!form.start_date)              e.start_date      = 'Required'
     const filled = keywords.filter((r) => r.text.trim())
-    if (filled.length === 0)          e.keywords       = 'At least one keyword required'
+    if (filled.length === 0)           e.keywords        = 'At least one keyword required'
     else if (filled.some((r) => Number(r.bid) < minBid))
-                                      e.keywords       = `All keywords need a bid ≥ ${minBid}`
+                                       e.keywords        = `All keywords need a bid ≥ ${minBid}`
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -101,15 +100,14 @@ export function SBVSingleAsinKWForm() {
     e.preventDefault()
     if (!validate()) return
     await createSBVSingleKW({
-      // Use the user-edited name if set, otherwise use the generated one
       campaign_name:   campaignNameDisplay || undefined,
       asin:            form.asin.trim(),
       video_asset_id:  form.video_asset_id.trim(),
+      brand_entity_id: form.brand_entity_id,
       keyword_text:    keywords
         .filter((r) => r.text.trim())
         .map((r) => ({ text: r.text.trim(), matchType: r.matchType, bid: Number(r.bid) })),
       budget:          Number(form.budget),
-      bid:             minBid,   // always use region minBid — no user input needed
       start_date:      form.start_date,
     })
   }
@@ -149,6 +147,27 @@ export function SBVSingleAsinKWForm() {
             onChange={(e) => setField('asin', e.target.value.trim())} error={errors.asin} className="font-mono" />
           <Input label="Intent (optional)" placeholder="e.g. brand, competitor"
             value={form.intent} onChange={(e) => setField('intent', e.target.value)} />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Brand" description="Select the brand entity for this campaign">
+        <div className="max-w-sm">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-slate-600">Brand *</label>
+            <select
+              value={form.brand_entity_id}
+              onChange={(e) => setField('brand_entity_id', e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 px-3 text-sm text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
+            >
+              <option value="">Select brand…</option>
+              {(brands.data ?? []).map((b) => (
+                <option key={b.brand_entity_id} value={b.brand_entity_id}>{b.brand_name}</option>
+              ))}
+            </select>
+            {errors.brand_entity_id && (
+              <p className="text-xs text-red-500">{errors.brand_entity_id}</p>
+            )}
+          </div>
         </div>
       </SectionCard>
 

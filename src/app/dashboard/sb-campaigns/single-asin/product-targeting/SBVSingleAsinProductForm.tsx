@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { Input, NumberInput, DatePicker, SectionCard, SubmitButton } from '../../../sp-campaigns/components/shared/FormFields'
 import { TargetAsinsTable, SBResultBanner, type SBTargetRow } from '../../shared/SBFormComponents'
-import { useSBOperations, useCampaignDefaults } from '@/lib/hooks/sbCampaignHooks'
+import { useSBOperations, useCampaignDefaults, useSBBrands } from '@/lib/hooks/sbCampaignHooks'
 import { isValidAsin } from '@/lib/utils/asinValidation'
+
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -15,6 +16,7 @@ interface Form {
   budget:         number | string
   start_date:     string
   intent:         string
+  brand_entity_id: string 
 }
 
 type Errors = Partial<Record<keyof Form | 'target_asins', string>>
@@ -22,6 +24,7 @@ type Errors = Partial<Record<keyof Form | 'target_asins', string>>
 const defaultForm = (): Form => ({
   campaign_name: '', asin: '',
   video_asset_id: '', budget: '', start_date: today, intent: '',
+  brand_entity_id: '',
 })
 
 function buildName(asin: string, targets: SBTargetRow[], intent: string) {
@@ -35,6 +38,8 @@ function buildName(asin: string, targets: SBTargetRow[], intent: string) {
 export function SBVSingleAsinProductForm() {
   const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
   const { createSBVSingleProduct, loading, result } = useSBOperations()
+
+  const brands = useSBBrands()
 
   const [form,        setForm]        = useState<Form>(() => ({ ...defaultForm(), budget: minBudget }))
   const [targetAsins, setTargetAsins] = useState<SBTargetRow[]>([{ asin: '', matchType: 'EXACT', bid: '' }])
@@ -76,6 +81,7 @@ export function SBVSingleAsinProductForm() {
     if (!form.asin.trim())               e.asin           = 'Required'
     else if (!isValidAsin(form.asin))    e.asin           = 'Invalid ASIN'
     if (!form.video_asset_id.trim())     e.video_asset_id = 'Required'
+    if (!form.brand_entity_id.trim()) e.brand_entity_id = 'Required'
     if (!form.budget)                    e.budget         = 'Required'
     if (!form.start_date)                e.start_date     = 'Required'
     const filled = targetAsins.filter((t) => t.asin.trim())
@@ -91,14 +97,15 @@ export function SBVSingleAsinProductForm() {
     e.preventDefault()
     if (!validate()) return
     await createSBVSingleProduct({
-      campaign_name:  campaignNameDisplay || undefined,
-      asin:           form.asin.trim(),
-      video_asset_id: form.video_asset_id.trim(),
-      target_asins:   targetAsins
+      campaign_name:   campaignNameDisplay || undefined,
+      asin:            form.asin.trim(),
+      video_asset_id:  form.video_asset_id.trim(),
+      brand_entity_id: form.brand_entity_id,   
+      target_asins:    targetAsins
         .filter((t) => t.asin.trim())
         .map((t) => ({ asin: t.asin.trim(), bid: Number(t.bid), matchType: t.matchType })),
-      budget:         Number(form.budget),
-      start_date:     form.start_date,
+      budget:          Number(form.budget),
+      start_date:      form.start_date,
     })
   }
 
@@ -152,6 +159,26 @@ export function SBVSingleAsinProductForm() {
           />
         </div>
       </SectionCard>
+      <SectionCard title="Brand" description="Select the brand entity for this campaign">
+      <div className="max-w-sm">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-medium text-slate-600">Brand *</label>
+          <select
+            value={form.brand_entity_id}
+            onChange={(e) => setField('brand_entity_id', e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 px-3 text-sm text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
+          >
+            <option value="">Select brand…</option>
+            {(brands.data ?? []).map((b) => (
+              <option key={b.brand_entity_id} value={b.brand_entity_id}>{b.brand_name}</option>
+            ))}
+          </select>
+          {errors.brand_entity_id && (
+            <p className="text-xs text-red-500">{errors.brand_entity_id}</p>
+          )}
+        </div>
+      </div>
+    </SectionCard>
 
       <SectionCard title="Target ASINs" description="Competitor or related ASINs to target — each with its own match type and bid">
         <TargetAsinsTable

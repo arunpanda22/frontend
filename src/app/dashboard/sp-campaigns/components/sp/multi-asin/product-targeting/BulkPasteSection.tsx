@@ -34,6 +34,7 @@ function getColumns(mode: MultiAsinPTMode): CampaignColumnDefinition[] {
   { field: 'budget',          headerName: 'Budget',        type: 'number',   span: true,  editable: true,  width: 100, minWidth: 80  },
   { field: 'start_date',      headerName: 'Start Date',    type: 'date',     span: true,  editable: true,  width: 140 },
   { field: 'dynamic_bidding', headerName: 'Strategy',      type: 'dropdown', span: true,  editable: true,  width: 150, minWidth: 130, options: BIDDING_OPTIONS },
+  { field: 'intent', headerName: 'Intent', type: 'text', span: true, editable: true, width: 160, minWidth: 120 },
   { field: '_statusLabel',    headerName: 'Status',        type: 'text',     span: true,  editable: false, width: 120, minWidth: 100 },
   ]
 }
@@ -74,10 +75,11 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
           <span className="font-mono font-medium text-slate-600">ASIN</span> →&nbsp;
           <span className="font-mono font-medium text-slate-600">Target ASIN</span> →&nbsp;
           <span className="font-mono font-medium text-slate-600">Bid</span> →&nbsp;
-          <span className="font-mono font-medium text-slate-600">Match Type</span>
+          <span className="font-mono font-medium text-slate-600">Match Type</span> →&nbsp;
+          <span className="font-mono font-medium text-slate-600">Intent</span>
         </p>
         <p className="text-[11px] text-slate-400 text-center">
-          Rows sharing the same Theme are grouped into one campaign
+           Match Type defaults to Exact if not provided. Intent is optional — Intent is used as a campaign name suffix
         </p>
       </div>
       <textarea
@@ -153,6 +155,7 @@ export function BulkPasteSection() {
     budget:          r.budget,
     start_date:      r.start_date,
     dynamic_bidding: r.dynamic_bidding,
+    intent:          r.intent,
     _statusLabel:    toStatusLabel(r._status, r._error),
   }))
 
@@ -176,6 +179,7 @@ export function BulkPasteSection() {
         budget:          Number(row.budget) || 0,
         start_date:      String(row.start_date ?? ''),
         dynamic_bidding: (row.dynamic_bidding as any) ?? 'AUTO_FOR_SALES',
+        intent:          String(row.intent ?? ''),
         _status:  multiAsinPTRows.find((r) => r._id === row._id)?._status  ?? 'idle',
         _error:   multiAsinPTRows.find((r) => r._id === row._id)?._error,
       }))

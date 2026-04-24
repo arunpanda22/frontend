@@ -31,6 +31,7 @@ function getColumns(mode: MultiAsinKWMode): CampaignColumnDefinition[] {
   { field: 'campaign_name',   headerName: 'Campaign Name',  type: 'text',     span: true,  editable: true,  sortable: true,  width: 280, minWidth: 200, maxWidth: 480 },
   { field: 'theme',           headerName: 'Theme',          type: 'text',     span: true,  editable: true,  sortable: true,  filterable: true, width: 150, minWidth: 120 },
   { field: 'asin',            headerName: 'ASIN',           type: 'text',     span: false, editable: true,  sortable: true, filterable: true, width: 150, minWidth: 120 },
+  { field: 'intent',          headerName: 'Intent',         type: 'text',     span: true,  editable: true,  width: 160,       minWidth: 120 },
   { field: 'keyword',         headerName: 'Keyword',        type: 'text',     span: mode === 'sk', editable: true,  sortable: true,  width: 180, minWidth: 140 },
   { field: 'match_type',      headerName: 'Match Type',     type: 'dropdown', span: mode === 'sk', editable: true,  width: 120, minWidth: 100, options: MATCH_OPTIONS },
   { field: 'bid',             headerName: 'Bid',            type: 'number',   span: mode === 'sk', editable: true,  sortable: true,  width: 90,  minWidth: 70  },
@@ -76,17 +77,18 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
         <ClipboardPaste className={`h-7 w-7 transition-colors ${isDragging || flash ? 'text-indigo-500' : 'text-slate-300'}`} />
         <p className="text-sm font-semibold text-slate-600">Paste Excel data here</p>
         <p className="text-xs text-slate-400 text-center leading-relaxed">
-          5 columns:&nbsp;
+          6 columns:&nbsp;
           <span className="font-mono font-medium text-slate-600">Theme</span> →&nbsp;
           <span className="font-mono font-medium text-slate-600">ASIN</span> →&nbsp;
           <span className="font-mono font-medium text-slate-600">Keyword</span> →&nbsp;
           <span className="font-mono font-medium text-slate-600">Bid</span> →&nbsp;
-          <span className="font-mono font-medium text-slate-600">Match Type</span>
+          <span className="font-mono font-medium text-slate-600">Match Type</span> →&nbsp;
+          <span className="font-mono font-medium text-slate-600">Intent</span>
         </p>
         <p className="text-[11px] text-slate-400 text-center">
-          Rows sharing the same Theme are grouped into one campaign
+          Match Type defaults to Exact if not provided and Intent is optional — Intent is used as a campaign name suffix
         </p>
-      </div>
+      </div> 
       <textarea
         onPaste={handlePaste}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer resize-none"
@@ -165,6 +167,7 @@ export function BulkPasteSection() {
     budget:          r.budget,
     start_date:      r.start_date,
     dynamic_bidding: r.dynamic_bidding,
+    intent:          r.intent,
     _statusLabel:    toStatusLabel(r._status, r._error),
   }))
 
@@ -187,6 +190,7 @@ export function BulkPasteSection() {
         bid:             Number(row.bid) || 0,
         budget:          Number(row.budget) || 0,
         start_date:      String(row.start_date ?? ''),
+        intent:   String(row.intent ?? ''),
         dynamic_bidding: (row.dynamic_bidding as any) ?? 'AUTO_FOR_SALES',
         _status:  multiAsinKWRows.find((r) => r._id === row._id)?._status  ?? 'idle',
         _error:   multiAsinKWRows.find((r) => r._id === row._id)?._error,

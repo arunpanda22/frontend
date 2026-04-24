@@ -9,6 +9,12 @@ import {
   type SBVCategoryBulkRow,
   type SBVSpotlightBulkRow,
 } from '@/lib/store/sbCampaignStore'
+import {
+  getMinBid,
+  getMinBudget,
+  getCurrencySymbol,
+  useUserProfile,
+} from '@/lib/hooks/queries/use-user-profile'
 
 // ── Re-export for convenience ─────────────────────────────────────────────────
 export { useCampaignDefaults }
@@ -85,12 +91,14 @@ export interface SBVSingleKWPayload extends SBBasePayload {
   video_asset_id:   string
   product_ad_name?: string
   asin:             string
+  brand_entity_id:  string
   keyword_text:     { text: string; matchType: 'exact' | 'phrase' | 'broad'; bid: number }[]
 }
 
 export interface SBVSingleProductPayload extends SBBasePayload {
   video_asset_id: string
   asin:           string
+  brand_entity_id: string
   target_asins:   { asin: string; bid: number; matchType: 'EXACT' | 'EXPANDED' }[]
 }
 
@@ -126,6 +134,8 @@ export function useSBOperations() {
   const [loading, setLoading] = useState(false)
   const [result,  setResult]  = useState<SBResult | null>(null)
 
+  const { minBid } = useCampaignDefaults()
+
   const run = useCallback(async (fn: () => Promise<SBResult>) => {
     setLoading(true)
     setResult(null)
@@ -146,8 +156,11 @@ export function useSBOperations() {
   )
 
   const createSBVSingleKW = useCallback(
-    (p: SBVSingleKWPayload) => run(() => post('/sbv-single-asin-multi-kw/', p)),
-    [run],
+    (p: SBVSingleKWPayload) => run(() => post('/sbv-single-asin-multi-kw/', {
+      ...p,
+      bid: minBid,
+    })),
+    [run, minBid],
   )
 
   const createSBVSingleProduct = useCallback(
@@ -205,10 +218,15 @@ function groupByBrand<R extends { _id: string; brand_name: string }>(
   return map
 }
 
+function buildSBVKWGroupedCampaignName(asin: string, intent: string): string {
+  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
+  return `${asin} - SBV - KW - Multi${intentSuffix}`
+}
+
 // ── useSBVKeywordBulkSubmit ───────────────────────────────────────────────────
 
 export function useSBVKeywordBulkSubmit() {
-  const store        = useBulkCampaignStore()
+  const store = useBulkCampaignStore()
   const { createSBVSingleKW } = useSBOperations()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -223,12 +241,13 @@ export function useSBVKeywordBulkSubmit() {
     for (const row of pending) {
       store.patchRows('sbv_keyword', [row._id], 'loading')
       const result = await createSBVSingleKW({
-        campaign_name:  row.campaign_name || undefined,
-        start_date:     row.start_date,
-        budget:         row.budget,
-        asin:           row.asin,
-        video_asset_id: row.video_asset_id,
-        keyword_text:   [{ text: row.keyword, matchType: row.match_type as any, bid: row.bid }],
+        campaign_name:   row.campaign_name || undefined,
+        start_date:      row.start_date,
+        budget:          row.budget,
+        asin:            row.asin,
+        video_asset_id:  row.video_asset_id,
+        brand_entity_id: row.brand_entity_id,
+        keyword_text:    [{ text: row.keyword, matchType: row.match_type as any, bid: row.bid }],
       })
       if (result.success) {
         store.patchRows('sbv_keyword', [row._id], 'success'); success++
@@ -247,12 +266,13 @@ export function useSBVKeywordBulkSubmit() {
       const ids   = groupRows.map((r) => r._id)
       store.patchRows('sbv_keyword', ids, 'loading')
       const result = await createSBVSingleKW({
-        campaign_name:  first.campaign_name || undefined,
-        start_date:     first.start_date,
-        budget:         first.budget,
-        asin:           first.asin,
-        video_asset_id: first.video_asset_id,
-        keyword_text:   groupRows.map((r) => ({
+        campaign_name:   buildSBVKWGroupedCampaignName(first.asin, first.intent), // ✅ override here
+        start_date:      first.start_date,
+        budget:          first.budget,
+        asin:            first.asin,
+        video_asset_id:  first.video_asset_id,
+        brand_entity_id: first.brand_entity_id,
+        keyword_text:    groupRows.map((r) => ({
           text:      r.keyword,
           matchType: r.match_type as any,
           bid:       r.bid,
@@ -283,7 +303,6 @@ export function useSBVKeywordBulkSubmit() {
     submitAll(mode)
   }, [rows, submitAll])
 
-  // ── Counts ─────────────────────────────────────────────────────────────────
   const rowPendingCount  = rows.filter((r) => r._status === 'idle').length
   const rowFailedCount   = rows.filter((r) => r._status === 'error').length
   const rowSuccessCount  = rows.filter((r) => r._status === 'success').length
@@ -324,6 +343,7 @@ export function useSBVProductBulkSubmit() {
         budget:         row.budget,
         asin:           row.asin,
         video_asset_id: row.video_asset_id,
+        brand_entity_id: row.brand_entity_id,
         target_asins:   [{ asin: row.target_asin, bid: row.bid, matchType: row.match_type as any }],
       })
       if (result.success) {
@@ -348,6 +368,7 @@ export function useSBVProductBulkSubmit() {
         budget:         first.budget,
         asin:           first.asin,
         video_asset_id: first.video_asset_id,
+        brand_entity_id: first.brand_entity_id,
         target_asins:   groupRows.map((r) => ({
           asin:      r.target_asin,
           bid:       r.bid,

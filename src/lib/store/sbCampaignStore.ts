@@ -56,23 +56,27 @@ export interface SBVKeywordBulkRow extends BulkBaseRow {
   campaign_name:  string
   asin:           string
   video_asset_id: string
+  brand_entity_id: string 
   keyword:        string
   match_type:     string
   bid:            number
   budget:         number
   start_date:     string
+  intent:          string
 }
 
 /** SBV Single ASIN Multi Product */
 export interface SBVProductBulkRow extends BulkBaseRow {
-  campaign_name:  string
-  asin:           string
-  video_asset_id: string
-  target_asin:    string
-  match_type:     string
-  bid:            number
-  budget:         number
-  start_date:     string
+  campaign_name:   string
+  asin:            string
+  video_asset_id:  string
+  brand_entity_id: string  
+  target_asin:     string
+  match_type:      string
+  bid:             number
+  budget:          number
+  start_date:      string
+  intent:          string   
 }
 
 /** SBV Category Target */

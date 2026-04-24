@@ -12,10 +12,10 @@ import {
   SubmitButton,
   ResultBanner,
 } from '../../../shared/FormFields'
-import { useCampaignOperations } from '@/lib/hooks/campaignCreationHooks'
-import { useCampaignDefaults } from '@/lib/hooks/campaignCreationHooks'
+import { useCampaignOperations, useCampaignDefaults } from '@/lib/hooks/campaignCreationHooks'
 import { isValidAsin } from '@/lib/utils/asinValidation'
 import type { ProductTargetingTarget } from '@/lib/hooks/campaignCreationHooks'
+import { AsinsInput } from '../AsinsInput'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,15 +36,14 @@ const today = new Date().toISOString().split('T')[0]
 
 type DynamicBidding = 'AUTO_FOR_SALES' | 'LEGACY_FOR_SALES' | 'MANUAL'
 
-// bid is string | number while typing — converted on submit
 interface TargetRow extends Omit<ProductTargetingTarget, 'bid'> {
   bid: number | string
 }
 
 interface FormState {
+  campaign_name:   string
   theme:           string
   intent:          string
-  asin:            string
   budget:          number | string
   TOS_bidding:     number
   ROS_bidding:     number
@@ -54,12 +53,12 @@ interface FormState {
   start_date:      string
 }
 
-type FormErrors = Partial<Record<keyof FormState | 'targets', string>>
+type FormErrors = Partial<Record<keyof FormState | 'asins' | 'targets', string>>
 
 const defaultForm: FormState = {
+  campaign_name:   '',
   theme:           '',
   intent:          '',
-  asin:            '',
   budget:          '',
   TOS_bidding:     100,
   ROS_bidding:     0,
@@ -73,17 +72,40 @@ function emptyTarget(): TargetRow {
   return { asin: '', match_type: 'EXACT', bid: '' }
 }
 
+// ── Campaign name builder ─────────────────────────────────────────────────────
+
+function buildCampaignName(asins: string[], theme: string, intent: string, targets: TargetRow[]): string {
+  const filledAsins   = asins.filter((a) => a.trim())
+  const filledTargets = targets.filter((t) => t.asin.trim())
+  if (filledAsins.length === 0) return ''
+
+  const label        = filledAsins.length > 1 ? (theme.trim() || '{theme}') : filledAsins[0]
+  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
+
+  if (filledTargets.length === 1) {
+    const mt = filledTargets[0].match_type.charAt(0) + filledTargets[0].match_type.slice(1).toLowerCase()
+    return `${label} - SP - PT - SPT - ${filledTargets[0].asin.trim()} - ${mt}${intentSuffix}`
+  }
+  const matchTypes = new Set(filledTargets.map((t) => t.match_type))
+  const mtSuffix   = matchTypes.size === 1
+    ? ` - ${[...matchTypes][0].charAt(0) + [...matchTypes][0].slice(1).toLowerCase()}`
+    : ''
+  return `${label} - SP - PT - MPT${mtSuffix}${intentSuffix}`
+}
+
 // ── Targets table ─────────────────────────────────────────────────────────────
 
 function TargetsTable({
   rows,
   onChange,
   error,
+  minBid,
   currencySymbol,
 }: {
-  rows:     TargetRow[]
-  onChange: (rows: TargetRow[]) => void
-  error?:   string
+  rows:           TargetRow[]
+  onChange:       (rows: TargetRow[]) => void
+  error?:         string
+  minBid:         number
   currencySymbol: string
 }) {
   function updateRow(index: number, patch: Partial<TargetRow>) {
@@ -92,18 +114,15 @@ function TargetsTable({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Column headers */}
-      <div className="grid grid-cols-[1fr_140px_120px_32px] gap-2 px-1">
+      <div className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 px-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Target ASIN</span>
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Match Type</span>
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bid ({currencySymbol})</span>
         <span />
       </div>
-
-      {/* Rows */}
       <div className="flex flex-col gap-2">
         {rows.map((row, index) => (
-          <div key={index} className="grid grid-cols-[1fr_140px_120px_32px] gap-2 items-center">
+          <div key={index} className="grid grid-cols-[1fr_1fr_1fr_32px] gap-2 items-center">
             <input
               type="text"
               value={row.asin}
@@ -124,8 +143,8 @@ function TargetsTable({
               type="number"
               value={row.bid}
               onChange={(e) => updateRow(index, { bid: e.target.value })}
-              placeholder="0.00"
-              min={0.02}
+              placeholder={String(minBid)}
+              min={minBid}
               step={0.01}
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 placeholder:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition"
             />
@@ -140,8 +159,6 @@ function TargetsTable({
           </div>
         ))}
       </div>
-
-      {/* Add row + error */}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -157,19 +174,6 @@ function TargetsTable({
   )
 }
 
-// ── Campaign name preview ─────────────────────────────────────────────────────
-
-function buildCampaignName(asin: string, targets: TargetRow[], theme: string, intent: string): string {
-  const label        = theme.trim() || asin.trim()
-  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
-  const filled = targets.filter((t) => t.asin.trim())
-  if (filled.length === 1) {
-    const mt = filled[0].match_type.charAt(0) + filled[0].match_type.slice(1).toLowerCase()
-    return `${label} - SP - PT - SPT - ${filled[0].asin.trim()} - ${mt}${intentSuffix}`
-  }
-  return `${label} - SP - PT - MPT${intentSuffix}`
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function IndividualForm() {
@@ -177,30 +181,54 @@ export function IndividualForm() {
   const { createProductTargetingCampaign, isProductLoading, productResult } =
     useCampaignOperations()
 
-  const [form,    setForm]    = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
+  const [asins,   setAsins]   = useState<string[]>(['', ''])
   const [targets, setTargets] = useState<TargetRow[]>([emptyTarget()])
+  const [form,    setForm]    = useState<FormState>(() => ({ ...defaultForm, budget: minBudget }))
   const [errors,  setErrors]  = useState<FormErrors>({})
+  const [nameEdited, setNameEdited] = useState(false)
 
-  const campaignName = form.asin.trim() ? buildCampaignName(form.asin, targets, form.theme, form.intent) : ''
+  const filledAsins = asins.filter((a) => a.trim())
+  const isMulti     = filledAsins.length > 1
+
+  const generatedName       = buildCampaignName(asins, form.theme, form.intent, targets)
+  const campaignNameDisplay = nameEdited ? form.campaign_name : generatedName
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
     setForm((f) => ({ ...f, [key]: val }))
     setErrors((e) => ({ ...e, [key]: undefined }))
   }
 
+  function handleCampaignNameChange(v: string) {
+    setNameEdited(true)
+    setField('campaign_name', v)
+  }
+
+  function handleCampaignNameBlur(v: string) {
+    if (!v.trim()) {
+      setNameEdited(false)
+      setField('campaign_name', '')
+    }
+  }
+
   function validate(): boolean {
     const e: FormErrors = {}
-    if (!form.asin.trim())         e.asin = 'Required'
-    else if (!isValidAsin(form.asin)) e.asin = 'Invalid ASIN — must be 10 characters starting with B'
-    if (!form.budget)      e.budget      = 'Required'
-    if (!form.start_date)  e.start_date  = 'Required'
+
+    if (filledAsins.length === 0)
+      e.asins = 'At least one ASIN is required'
+    else if (filledAsins.some((a) => !isValidAsin(a)))
+      e.asins = 'One or more ASINs are invalid — must be 10 characters starting with B'
+    if (!form.budget)     e.budget     = 'Required'
+    if (!form.start_date) e.start_date = 'Required'
+    if (isMulti && !form.theme.trim())
+      e.theme = 'Theme is required when advertising more than one ASIN'
 
     const filledTargets = targets.filter((t) => t.asin.trim())
-    if (filledTargets.length > 1 && !form.theme.trim()) e.theme = 'Required when adding multiple targets'
     if (filledTargets.length === 0) {
       e.targets = 'At least one target ASIN is required'
-    } else if (filledTargets.some((t) => Number(t.bid) < 0.02)) {
-      e.targets = 'All targets need a bid ≥ £0.02'
+    } else if (filledTargets.some((t) => !isValidAsin(t.asin))) {
+      e.targets = 'One or more target ASINs are invalid — must be 10 characters starting with B'
+    } else if (filledTargets.some((t) => Number(t.bid) < minBid)) {
+      e.targets = `All targets need a bid ≥ ${minBid}`
     }
 
     setErrors(e)
@@ -220,6 +248,7 @@ export function IndividualForm() {
       }))
 
     await createProductTargetingCampaign({
+      campaign_name:   campaignNameDisplay,
       budget:          Number(form.budget),
       TOS_bidding:     form.TOS_bidding,
       ROS_bidding:     form.ROS_bidding,
@@ -228,60 +257,80 @@ export function IndividualForm() {
       dynamic_bidding: form.dynamic_bidding,
       default_bid:     minBid,
       start_date:      form.start_date,
-      asins:           [form.asin.trim()],
-      ...(form.theme.trim()  ? { theme:  form.theme.trim()  } : {}),
-      ...(form.intent.trim() ? { intent: form.intent.trim() } : {}),
+      asins:           filledAsins,
       targets:         validTargets,
+      ...(isMulti && form.theme.trim() ? { theme:  form.theme.trim()  } : {}),
+      ...(form.intent.trim()           ? { intent: form.intent.trim() } : {}),
     })
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {campaignName && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1">
-            Campaign Name Preview
-          </p>
-          <p className="text-sm font-mono font-medium text-indigo-700">{campaignName}</p>
-        </div>
-      )}
+      {/* Campaign name */}
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1.5">
+          Campaign Name
+        </p>
+        <input
+          type="text"
+          value={campaignNameDisplay}
+          onChange={(e) => handleCampaignNameChange(e.target.value)}
+          onBlur={(e)  => handleCampaignNameBlur(e.target.value)}
+          placeholder="Fill in ASIN to auto-generate…"
+          className="w-full bg-transparent font-mono text-sm font-medium text-indigo-700 placeholder-indigo-300
+                     border-0 border-b border-indigo-200 focus:border-indigo-400 focus:outline-none
+                     pb-0.5 transition-colors"
+        />
+        {nameEdited && (
+          <button
+            type="button"
+            onClick={() => { setNameEdited(false); setField('campaign_name', '') }}
+            className="mt-1.5 text-[10px] text-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            ↺ Reset to auto-generated
+          </button>
+        )}
+      </div>
 
+      {/* Advertised ASINs */}
       <SectionCard
-        title="Advertised Product"
-        description="The ASIN you want to advertise"
+        title="Advertised Products"
+        description="All ASINs will be advertised in the same campaign"
       >
-        <div className="max-w-xs">
-          <Input
-            label="Advertised ASIN"
-            placeholder="e.g. B009GCTZWC"
-            value={form.asin}
-            onChange={(e) => setField('asin', e.target.value.trim())}
-            error={errors.asin}
-            className="font-mono"
+        <div className="flex flex-col gap-4">
+          <AsinsInput
+            asins={asins}
+            onChange={(updated) => {
+              setAsins(updated)
+              setErrors((e) => ({ ...e, asins: undefined }))
+            }}
+            error={errors.asins}
           />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <Input
+                label={`Theme${isMulti ? ' *' : ' (optional)'}`}
+                placeholder="e.g. Kids Toys"
+                value={form.theme}
+                onChange={(e) => setField('theme', e.target.value)}
+                error={errors.theme}
+              />
+              <p className="text-[11px] text-slate-400">
+                Used as the campaign name label — required when advertising more than one ASIN
+              </p>
+            </div>
+            <Input
+              label="Intent (optional)"
+              placeholder="e.g. brand, competitor, generic"
+              value={form.intent}
+              onChange={(e) => setField('intent', e.target.value)}
+            />
+          </div>
         </div>
       </SectionCard>
 
-
-      <SectionCard title="Campaign Naming" description="Theme groups campaigns — intent describes the targeting strategy">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label={`Theme${targets.filter(t => t.asin.trim()).length > 1 ? ' *' : ' (optional)'}`}
-            placeholder="e.g. Kids Toys"
-            value={form.theme}
-            onChange={(e) => setField('theme', e.target.value)}
-            error={errors.theme}
-          />
-          <Input
-            label="Intent (optional)"
-            placeholder="e.g. brand, competitor, generic"
-            value={form.intent}
-            onChange={(e) => setField('intent', e.target.value)}
-          />
-        </div>
-      </SectionCard>
-
+      {/* Product Targets */}
       <SectionCard
         title="Product Targets"
         description="ASINs to target — each with its own match type and bid"
@@ -294,14 +343,16 @@ export function IndividualForm() {
             const bids = rows.filter((r) => r.asin.trim()).map((r) => Number(r.bid)).filter((b) => b > 0)
             if (bids.length > 0) {
               const rec = recommendedBudget(bids)
-              setForm((f) => ({ ...f, budget: !f.budget || Number(f.budget) < rec ? rec : f.budget }))
+              if (!form.budget || Number(form.budget) < rec) setField('budget', rec)
             }
           }}
           error={errors.targets}
+          minBid={minBid}
           currencySymbol={currencySymbol}
         />
       </SectionCard>
 
+      {/* Campaign Settings */}
       <SectionCard title="Campaign Settings" description="Budget, bidding strategy and schedule">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <NumberInput
