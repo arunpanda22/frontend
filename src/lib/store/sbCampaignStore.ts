@@ -81,12 +81,14 @@ export interface SBVProductBulkRow extends BulkBaseRow {
 
 /** SBV Category Target */
 export interface SBVCategoryBulkRow extends BulkBaseRow {
-  campaign_name:  string
-  asin:           string
-  video_asset_id: string
-  bid:            number
-  budget:         number
-  start_date:     string
+  campaign_name:   string
+  asin:            string
+  video_asset_id:  string
+  brand_entity_id: string
+  bid:             number
+  budget:          number
+  start_date:      string
+  intent:          string
 }
 
 /** SB Store Spotlight — Keyword Targeting */
@@ -96,6 +98,7 @@ export interface SBVSpotlightBulkRow extends BulkBaseRow {
   headline:              string
   home_page_url:         string
   brand_logo_asset_id:   string
+  brand_entity_id:       string
   custom_image_asset_id: string
   keyword:               string
   match_type:            string

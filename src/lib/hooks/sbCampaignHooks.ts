@@ -71,9 +71,10 @@ export interface SBBasePayload {
 }
 
 export interface SBVCategoryPayload extends SBBasePayload {
-  bid:            number
-  asin:           string
-  video_asset_id: string
+  bid:             number
+  asin:            string
+  video_asset_id:  string
+  brand_entity_id: string
 }
 
 export interface SBProductCollectionPayload extends SBBasePayload {
@@ -107,6 +108,8 @@ export interface SBVSpotlightPayload extends SBBasePayload {
   ad_name?:               string
   asin_list:              string[]
   brand_logo_asset_id:    string
+  brand_entity_id:        string
+  brand_name:             string 
   keyword_text:           { text: string; matchType: 'exact' | 'phrase' | 'broad'; bid: number }[]
   custom_image_asset_id:  string
   home_page_url:          string
@@ -221,6 +224,11 @@ function groupByBrand<R extends { _id: string; brand_name: string }>(
 function buildSBVKWGroupedCampaignName(asin: string, intent: string): string {
   const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
   return `${asin} - SBV - KW - Multi${intentSuffix}`
+}
+
+function buildSBVCategoryName(asin: string, intent: string): string {
+  const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
+  return `${asin} - SBV - CAT${intentSuffix}`
 }
 
 // ── useSBVKeywordBulkSubmit ───────────────────────────────────────────────────
@@ -440,12 +448,13 @@ export function useSBVCategoryBulkSubmit() {
     for (const row of pending) {
       store.patchRows('sbv_category', [row._id], 'loading')
       const result = await createSBVCategory({
-        campaign_name:  row.campaign_name || undefined,
-        start_date:     row.start_date,
-        budget:         row.budget,
-        asin:           row.asin,
-        video_asset_id: row.video_asset_id,
-        bid:            row.bid,
+        campaign_name:   row.campaign_name || buildSBVCategoryName(row.asin, row.intent),
+        start_date:      row.start_date,
+        budget:          row.budget,
+        asin:            row.asin,
+        video_asset_id:  row.video_asset_id,
+        brand_entity_id: row.brand_entity_id,
+        bid:             row.bid,
       })
       if (result.success) {
         store.patchRows('sbv_category', [row._id], 'success'); success++
@@ -496,7 +505,9 @@ export function useSBVSpotlightBulkSubmit() {
         start_date:            row.start_date,
         budget:                row.budget,
         headline:              row.headline,
+        brand_name:            row.brand_name,
         brand_logo_asset_id:   row.brand_logo_asset_id,
+        brand_entity_id:       row.brand_entity_id, 
         custom_image_asset_id: row.custom_image_asset_id,
         home_page_url:         row.home_page_url,
         asin_list:             [],
@@ -528,7 +539,9 @@ export function useSBVSpotlightBulkSubmit() {
         start_date:            first.start_date,
         budget:                first.budget,
         headline:              first.headline,
+        brand_name:            first.brand_name,  
         brand_logo_asset_id:   first.brand_logo_asset_id,
+        brand_entity_id:       first.brand_entity_id,
         custom_image_asset_id: first.custom_image_asset_id,
         home_page_url:         first.home_page_url,
         asin_list:             [],

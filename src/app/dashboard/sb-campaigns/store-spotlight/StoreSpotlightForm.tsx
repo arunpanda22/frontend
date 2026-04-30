@@ -7,7 +7,8 @@ import {
   type KWRow,
   type SubPage,
 } from '../shared/SBFormComponents'
-import { useSBOperations, useCampaignDefaults } from '@/lib/hooks/sbCampaignHooks'
+import { useSBOperations, useCampaignDefaults, useSBAssets } from '@/lib/hooks/sbCampaignHooks'
+import { XCircle } from 'lucide-react'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -17,6 +18,7 @@ interface Form {
   ad_name:               string
   headline:              string
   brand_name:            string
+  brand_entity_id:       string
   home_page_url:         string
   budget:                number | string
   start_date:            string
@@ -25,11 +27,17 @@ interface Form {
   intent:                string
 }
 
+interface Asset {
+  asset_id:  string
+  asset_url: string | null
+  name?:     string
+}
+
 type Errors = Partial<Record<keyof Form | 'asin_list' | 'keywords', string>>
 
 const defaultForm = (): Form => ({
   campaign_name: '', ad_group_name: '', ad_name: '', headline: '',
-  brand_name: '', home_page_url: '', budget: '',
+  brand_name: '', brand_entity_id: '', home_page_url: '', budget: '',
   start_date: today, brand_logo_asset_id: '', custom_image_asset_id: '', intent: '',
 })
 
@@ -41,9 +49,83 @@ function buildName(brandName: string, keywords: KWRow[], intent: string) {
   return `${brandName} - SB - Spotlight - MK${intentSuffix}`
 }
 
+function ImageAssetPicker({
+  label, assets, value, onChange,
+}: {
+  label:    string
+  assets:   Asset[]
+  value:    string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = assets.find((a) => a.asset_id === value)
+
+  return (
+    <div className="flex flex-col gap-1.5 relative">
+      <label className="text-xs font-medium text-slate-600">{label}</label>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 hover:border-indigo-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition text-left"
+      >
+        {selected ? (
+          <>
+            {selected.asset_url
+              ? <img src={selected.asset_url} alt={selected.name ?? selected.asset_id}
+                  className="h-8 w-8 rounded object-cover shrink-0 border border-slate-200" />
+              : <div className="h-8 w-8 rounded bg-slate-100 shrink-0 border border-slate-200" />
+            }
+            <span className="truncate text-xs text-slate-700 font-mono">
+              {selected.name ?? selected.asset_id}
+            </span>
+          </>
+        ) : (
+          <span className="text-slate-400">Select image asset…</span>
+        )}
+        <span className="ml-auto text-slate-400 text-xs">▾</span>
+      </button>
+      {value && (
+        <button type="button" onClick={() => { onChange(''); setOpen(false) }}
+          className="absolute right-8 top-[34px] text-slate-300 hover:text-slate-500 transition"
+          aria-label="Clear selection">
+          <XCircle className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {open && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+          {assets.length === 0
+            ? <p className="px-4 py-6 text-center text-xs text-slate-400">No assets found</p>
+            : (
+              <div className="grid grid-cols-3 gap-2 p-3">
+                {assets.map((a) => (
+                  <button key={a.asset_id} type="button"
+                    onClick={() => { onChange(a.asset_id); setOpen(false) }}
+                    className={`flex flex-col items-center gap-1.5 rounded-lg border p-1.5 transition
+                      ${value === a.asset_id ? 'border-indigo-400 bg-indigo-50' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    {a.asset_url
+                      ? <img src={a.asset_url} alt={a.name ?? a.asset_id}
+                          className="h-16 w-full rounded object-cover border border-slate-100" />
+                      : <div className="h-16 w-full rounded bg-slate-100 border border-slate-100 flex items-center justify-center text-[10px] text-slate-400">No preview</div>
+                    }
+                    <span className="text-[10px] text-slate-500 truncate w-full text-center leading-tight">
+                      {a.name ?? a.asset_id}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function StoreSpotlightForm() {
   const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
   const { createSBVSpotlight, loading, result } = useSBOperations()
+  const { allImages, logos } = useSBAssets()
 
   const [form,     setForm]     = useState<Form>(() => ({ ...defaultForm(), budget: minBudget }))
   const [asinList, setAsinList] = useState<string[]>(['', '', ''])
@@ -111,6 +193,8 @@ export function StoreSpotlightForm() {
       ad_name:               form.ad_name.trim()       || undefined,
       headline:              form.headline,
       brand_logo_asset_id:   form.brand_logo_asset_id.trim(),
+      brand_entity_id:       form.brand_entity_id,
+      brand_name:            form.brand_name,
       custom_image_asset_id: form.custom_image_asset_id.trim(),
       asin_list:             asinList.filter((a) => a.trim()),
       keyword_text:          filled.map((r) => ({ text: r.text.trim(), matchType: r.matchType, bid: Number(r.bid) })),
@@ -152,24 +236,25 @@ export function StoreSpotlightForm() {
 
       <SectionCard title="Brand & Creative" description="Brand identity and creative assets">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <BrandSelect value={form.brand_name} onChange={(v) => setField('brand_name', v)} error={errors.brand_name} />
+          <BrandSelect
+            value={form.brand_name}
+            onChange={(v) => setField('brand_name', v)}
+            onEntityId={(id) => setField('brand_entity_id', id)}
+            error={errors.brand_name}
+          />
           <Input label="Headline *" placeholder="Check out our store!"
             value={form.headline} onChange={(e) => setField('headline', e.target.value)} error={errors.headline} />
-          <Input
-            label="Brand Logo Asset ID *"
-            placeholder="Paste asset ID here"
+          <ImageAssetPicker
+            label="Brand Logo Asset *"
+            assets={logos.data ?? []}
             value={form.brand_logo_asset_id}
-            onChange={(e) => setField('brand_logo_asset_id', e.target.value.trim())}
-            error={errors.brand_logo_asset_id}
-            className="font-mono"
+            onChange={(v) => setField('brand_logo_asset_id', v)}
           />
-          <Input
-            label="Custom Image Asset ID *"
-            placeholder="Paste asset ID here"
+          <ImageAssetPicker
+            label="Custom Image Asset *"
+            assets={allImages.data ?? []}
             value={form.custom_image_asset_id}
-            onChange={(e) => setField('custom_image_asset_id', e.target.value.trim())}
-            error={errors.custom_image_asset_id}
-            className="font-mono"
+            onChange={(v) => setField('custom_image_asset_id', v)}
           />
         </div>
       </SectionCard>

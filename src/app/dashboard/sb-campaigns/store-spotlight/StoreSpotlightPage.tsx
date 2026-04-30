@@ -24,8 +24,11 @@ export function StoreSpotlightPage() {
 
   return (
     <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5">
+            <StoreSpotlightForm />
+          </div>
       {/* Mode picker */}
-      <div className="flex gap-2">
+      {/* <div className="flex gap-2">
         {MODES.map((m) => (
           <button
             key={m.value}
@@ -47,7 +50,7 @@ export function StoreSpotlightPage() {
       </div>
 
       {mode === 'individual' && <StoreSpotlightForm />}
-      {mode === 'bulk'       && <StoreSpotlightBulkSection />}
+      {mode === 'bulk'       && <StoreSpotlightBulkSection />} */}
     </div>
   )
 }

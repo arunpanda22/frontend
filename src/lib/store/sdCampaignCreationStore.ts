@@ -32,6 +32,7 @@ export interface SDBaseRow {
 export interface SDRetargetBulkRow extends SDBaseRow {
   campaign_name:   string
   asin:            string
+  intent:          string 
   expression_type: 'views' | 'purchases'
   budget:          number
   default_bid:     number
@@ -41,6 +42,7 @@ export interface SDRetargetBulkRow extends SDBaseRow {
 
 export interface SDContextualProductBulkRow extends SDBaseRow {
   campaign_name: string
+  intent:        string 
   asin:          string
   target_asin:   string
   budget:        number
@@ -52,6 +54,7 @@ export interface SDContextualProductBulkRow extends SDBaseRow {
 export interface SDContextualCategoryBulkRow extends SDBaseRow {
   campaign_name: string
   asin:          string
+  intent:        string
   target_asin:   string
   budget:        number
   default_bid:   number
@@ -165,39 +168,47 @@ export const sdToday = () => new Date().toISOString().split('T')[0]
 // ── Parse helpers ─────────────────────────────────────────────────────────────
 
 /**
- * Parse a tab-delimited line into a SDRetargetBulkRow.
- * Columns: ASIN | Expression Type | Default Bid | Bid | Budget
+ * Columns: ASIN | Expression Type | Targeting Bid | Budget (opt) | Intent (opt)
+ * Budget defaults to max(minBudget, bid * 15) if missing.
+ * Intent is used to build campaign_name if provided.
  */
 export function parseSDRetargetLine(
-  line: string,
+  line:      string,
+  minBid:    number,
+  minBudget: number,
 ): { row: SDRetargetBulkRow | null; invalidAsin: boolean } {
   const cols = line.split('\t').map((c) => c.trim())
-  const [asin, expressionRaw, defaultBidRaw, bidRaw, budgetRaw] = cols
+  const [asin, expressionRaw, bidRaw, budgetRaw, intentRaw] = cols
 
   if (!asin) return { row: null, invalidAsin: false }
   if (!isValidAsin(asin)) return { row: null, invalidAsin: true }
 
-  const defaultBid = parseFloat(defaultBidRaw)
-  const bid        = parseFloat(bidRaw)
-  const budget     = parseFloat(budgetRaw)
+  const bid = parseFloat(bidRaw)
+  if (isNaN(bid) || bid <= 0) return { row: null, invalidAsin: false }
 
-  if (isNaN(defaultBid) || defaultBid <= 0) return { row: null, invalidAsin: false }
-  if (isNaN(bid)        || bid        <= 0) return { row: null, invalidAsin: false }
-  if (isNaN(budget)     || budget     <= 0) return { row: null, invalidAsin: false }
+  const parsedBudget = parseFloat(budgetRaw)
+  const budget = !isNaN(parsedBudget) && parsedBudget > 0
+    ? parsedBudget
+    : Math.max(minBudget, bid * 15)
 
   const expressionType = (
     expressionRaw?.toLowerCase() === 'purchases' ? 'purchases' : 'views'
   ) as 'views' | 'purchases'
+
+  const intent = intentRaw?.trim() ?? ''
+  const intentSuffix = intent ? ` - ${intent}` : ''
+  const campaign_name = `${asin.toUpperCase().trim()} - SD - RT - ${expressionType.charAt(0).toUpperCase() + expressionType.slice(1)}${intentSuffix}`
 
   return {
     invalidAsin: false,
     row: {
       _id:             nanoid(),
       _status:         'idle',
-      campaign_name:   '',
+      campaign_name,
+      intent,
       asin:            asin.toUpperCase().trim(),
       expression_type: expressionType,
-      default_bid:     defaultBid,
+      default_bid:     0,
       bid,
       budget,
       start_date:      sdToday(),
@@ -206,37 +217,46 @@ export function parseSDRetargetLine(
 }
 
 /**
- * Parse a tab-delimited line into a SDContextualProductBulkRow
- * or SDContextualCategoryBulkRow (same column layout, different type key).
- * Columns: ASIN | Target ASIN | Default Bid | Bid | Budget
+ * Columns: Advertised ASIN | Target ASIN | Targeting Bid | Budget (opt) | Intent (opt)
+ * Budget defaults to max(minBudget, bid * 15) if missing.
+ * subtype drives the campaign name suffix: 'product' → CP, 'category' → CAT
  */
 export function parseSDContextualLine(
-  line: string,
+  line:      string,
+  subtype:   'product' | 'category',
+  minBid:    number,
+  minBudget: number,
 ): { row: SDContextualProductBulkRow | null; invalidAsin: boolean } {
   const cols = line.split('\t').map((c) => c.trim())
-  const [asin, targetAsin, defaultBidRaw, bidRaw, budgetRaw] = cols
+  const [asin, targetAsin, bidRaw, budgetRaw, intentRaw] = cols
 
-  if (!asin || !targetAsin)   return { row: null, invalidAsin: false }
+  if (!asin || !targetAsin)     return { row: null, invalidAsin: false }
   if (!isValidAsin(asin))       return { row: null, invalidAsin: true }
   if (!isValidAsin(targetAsin)) return { row: null, invalidAsin: true }
 
-  const defaultBid = parseFloat(defaultBidRaw)
-  const bid        = parseFloat(bidRaw)
-  const budget     = parseFloat(budgetRaw)
+  const bid = parseFloat(bidRaw)
+  if (isNaN(bid) || bid <= 0) return { row: null, invalidAsin: false }
 
-  if (isNaN(defaultBid) || defaultBid <= 0) return { row: null, invalidAsin: false }
-  if (isNaN(bid)        || bid        <= 0) return { row: null, invalidAsin: false }
-  if (isNaN(budget)     || budget     <= 0) return { row: null, invalidAsin: false }
+  const parsedBudget = parseFloat(budgetRaw)
+  const budget = !isNaN(parsedBudget) && parsedBudget > 0
+    ? parsedBudget
+    : Math.max(minBudget, bid * 15)
+
+  const intent       = intentRaw?.trim() ?? ''
+  const intentSuffix = intent ? ` - ${intent}` : ''
+  const tag          = subtype === 'category' ? 'CAT' : 'CP'
+  const campaign_name = `${asin.toUpperCase().trim()} - SD - ${tag}${intentSuffix}`
 
   return {
     invalidAsin: false,
     row: {
       _id:           nanoid(),
       _status:       'idle',
-      campaign_name: '',
+      campaign_name,
+      intent,
       asin:          asin.toUpperCase().trim(),
       target_asin:   targetAsin.toUpperCase().trim(),
-      default_bid:   defaultBid,
+      default_bid:   0,
       bid,
       budget,
       start_date:    sdToday(),

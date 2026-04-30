@@ -44,7 +44,7 @@ export interface SDBasePayload {
   ad_group_name?: string
   start_date:     string
   budget:         number
-  default_bid:    number
+  default_bid?:    number
   bid:            number
 }
 
@@ -146,6 +146,7 @@ export function useSDAudienceSuggestions() {
 export function useSDOperations() {
   const [loading, setLoading] = useState(false)
   const [result,  setResult]  = useState<SDResult | null>(null)
+  const { minBid } = useCampaignDefaults()           // ← inject region min bid
 
   const run = useCallback(async (fn: () => Promise<SDResult>) => {
     setLoading(true)
@@ -157,20 +158,24 @@ export function useSDOperations() {
   }, [])
 
   const createSDRetarget = useCallback(
-    (p: SDRetargetPayload) => run(() => post('/retarget/', p)),
-    [run],
+    (p: SDRetargetPayload) =>
+      run(() => post('/retarget/', { ...p, default_bid: minBid })),
+    [run, minBid],
   )
   const createSDContextualProduct = useCallback(
-    (p: SDContextualProductPayload) => run(() => post('/contextual-product/', p)),
-    [run],
+    (p: SDContextualProductPayload) =>
+      run(() => post('/contextual-product/', { ...p, default_bid: minBid })),
+    [run, minBid],
   )
   const createSDContextualCategory = useCallback(
-    (p: SDContextualCategoryPayload) => run(() => post('/contextual-category/', p)),
-    [run],
+    (p: SDContextualCategoryPayload) =>
+      run(() => post('/contextual-category/', { ...p, default_bid: minBid })),
+    [run, minBid],
   )
   const createSDAudience = useCallback(
-    (p: SDAudiencePayload) => run(() => post('/audience/', p)),
-    [run],
+    (p: SDAudiencePayload) =>
+      run(() => post('/audience/', { ...p, default_bid: minBid })),
+    [run, minBid],
   )
 
   return {

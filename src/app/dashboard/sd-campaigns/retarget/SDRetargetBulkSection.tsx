@@ -3,8 +3,8 @@
 import { useState, useCallback } from 'react'
 import { ClipboardPaste, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { useSDRetargetStore, parseSDRetargetLine, type SDRetargetBulkRow } from '@/lib/store/sdCampaignCreationStore'
-import { useSDRetargetBulkSubmit } from '@/lib/hooks/sdCampaignHooks'
-import { SDBulkSummaryBanner, ExpressionTypeToggle, type ExpressionType } from '../shared/SDFormComponents'
+import { useSDRetargetBulkSubmit, useCampaignDefaults } from '@/lib/hooks/sdCampaignHooks'
+import { SDBulkSummaryBanner, type ExpressionType } from '../shared/SDFormComponents'
 import { CampaignDataTable } from '@/components/dashboard/table/campaign-data-table'
 import type { CampaignColumnDefinition, CampaignTableData } from '@/components/dashboard/table/campaign-data-table'
 
@@ -16,14 +16,14 @@ const EXPRESSION_OPTIONS = [
 ]
 
 const COLUMNS: CampaignColumnDefinition[] = [
-  { field: 'campaign_name',   headerName: 'Campaign Name',   type: 'text',     span: true,  editable: true,  sortable: true,  width: 280, minWidth: 180, maxWidth: 460 },
-  { field: 'asin',            headerName: 'ASIN',            type: 'text',     span: true,  editable: true,  sortable: true,  filterable: true, width: 140, minWidth: 120 },
-  { field: 'expression_type', headerName: 'Type',            type: 'dropdown', span: true,  editable: true,  width: 120, minWidth: 100, options: EXPRESSION_OPTIONS },
-  { field: 'default_bid',     headerName: 'Default Bid (£)', type: 'number',   span: true,  editable: true,  width: 130, minWidth: 100 },
-  { field: 'bid',             headerName: 'Targeting Bid (£)', type: 'number', span: true,  editable: true,  width: 140, minWidth: 100 },
-  { field: 'budget',          headerName: 'Budget (£)',      type: 'number',   span: true,  editable: true,  width: 110, minWidth: 80  },
-  { field: 'start_date',      headerName: 'Start Date',      type: 'date',     span: true,  editable: true,  width: 150 },
-  { field: '_statusLabel',    headerName: 'Status',          type: 'text',     span: true,  editable: false, width: 120, minWidth: 100 },
+  { field: 'campaign_name',   headerName: 'Campaign Name',     type: 'text',     span: true, editable: true,  sortable: true,  width: 280, minWidth: 180, maxWidth: 460 },
+  { field: 'asin',            headerName: 'ASIN',              type: 'text',     span: true, editable: true,  sortable: true,  filterable: true, width: 140, minWidth: 120 },
+  { field: 'expression_type', headerName: 'Type',              type: 'dropdown', span: true, editable: true,  width: 120, minWidth: 100, options: EXPRESSION_OPTIONS },
+  { field: 'bid',             headerName: 'Targeting Bid (£)', type: 'number',   span: true, editable: true,  width: 150, minWidth: 100 },
+  { field: 'budget',          headerName: 'Budget (£)',        type: 'number',   span: true, editable: true,  width: 110, minWidth: 80  },
+  { field: 'intent',          headerName: 'Intent',            type: 'text',     span: true, editable: true,  width: 160, minWidth: 120 },
+  { field: 'start_date',      headerName: 'Start Date',        type: 'date',     span: true, editable: true,  width: 150 },
+  { field: '_statusLabel',    headerName: 'Status',            type: 'text',     span: true, editable: false, width: 120, minWidth: 100 },
 ]
 
 function toStatusLabel(status: string, error?: string) {
@@ -48,21 +48,26 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
   }, [onPaste])
 
   return (
-    <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }} onDragLeave={() => setIsDragging(false)}
+    <div
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+      onDragLeave={() => setIsDragging(false)}
       className={`relative rounded-xl border-2 border-dashed transition-all
         ${isDragging ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-slate-50 hover:border-indigo-300'}
-        ${flash ? 'border-emerald-400 bg-emerald-50' : ''}`}>
+        ${flash ? 'border-emerald-400 bg-emerald-50' : ''}`}
+    >
       <div className="flex flex-col items-center justify-center gap-2 py-8 px-6 pointer-events-none select-none">
         <ClipboardPaste className={`h-7 w-7 transition-colors ${isDragging || flash ? 'text-indigo-500' : 'text-slate-300'}`} />
         <p className="text-sm font-semibold text-slate-600">Paste Excel data here</p>
         <p className="text-xs text-slate-400 text-center leading-relaxed">
           <span className="font-mono">ASIN</span> →&nbsp;
           <span className="font-mono">Expression Type</span> →&nbsp;
-          <span className="font-mono">Default Bid</span> →&nbsp;
           <span className="font-mono">Targeting Bid</span> →&nbsp;
-          <span className="font-mono">Budget</span>
+          <span className="font-mono text-slate-300">Budget</span> →&nbsp;
+          <span className="font-mono text-slate-300">Intent</span>
         </p>
-        <p className="text-[11px] text-slate-400">Expression Type optional — defaults to <span className="font-mono">views</span></p>
+        <p className="text-[11px] text-slate-400">
+          Last 2 columns optional · Budget defaults to <span className="font-mono">bid × 15</span> · Expression defaults to <span className="font-mono">views</span>
+        </p>
       </div>
       <textarea onPaste={handlePaste} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer resize-none" readOnly />
     </div>
@@ -72,17 +77,26 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SDRetargetBulkSection() {
-  const store = useSDRetargetStore()
-  const { rows, submitAll, retryFailed, clearSummary, isSubmitting, summary, pendingCount, failedCount, successCount } = useSDRetargetBulkSubmit()
+  const store                                  = useSDRetargetStore()
+  const { minBid, minBudget }                  = useCampaignDefaults()
+  const {
+    rows, submitAll, retryFailed, clearSummary,
+    isSubmitting, summary,
+    pendingCount, failedCount, successCount,
+  } = useSDRetargetBulkSubmit()
 
-  const [parseInfo,      setParseInfo]      = useState<{ added: number; skipped: number; invalidAsins: number } | null>(null)
-  const [filterType,     setFilterType]     = useState<ExpressionType>('views')
+  const [parseInfo, setParseInfo] = useState<{ added: number; skipped: number; invalidAsins: number } | null>(null)
 
   const tableData: CampaignTableData[] = rows.map((r) => ({
-    _id: r._id, campaign_name: r.campaign_name, asin: r.asin,
-    expression_type: r.expression_type, default_bid: r.default_bid,
-    bid: r.bid, budget: r.budget, start_date: r.start_date,
-    _statusLabel: toStatusLabel(r._status, r._error),
+    _id:             r._id,
+    campaign_name:   r.campaign_name,
+    asin:            r.asin,
+    expression_type: r.expression_type,
+    bid:             r.bid,
+    budget:          r.budget,
+    intent:          r.intent,
+    start_date:      r.start_date,
+    _statusLabel:    toStatusLabel(r._status, r._error),
   }))
 
   function handlePaste(text: string) {
@@ -90,7 +104,7 @@ export function SDRetargetBulkSection() {
     let added = 0, skipped = 0, invalidAsins = 0
     const newRows: SDRetargetBulkRow[] = []
     for (const line of lines) {
-      const { row, invalidAsin } = parseSDRetargetLine(line)
+      const { row, invalidAsin } = parseSDRetargetLine(line, minBid, minBudget)
       if (!row) { if (invalidAsin) invalidAsins++; skipped++; continue }
       newRows.push(row)
       added++
@@ -100,24 +114,49 @@ export function SDRetargetBulkSection() {
     setTimeout(() => setParseInfo(null), 4000)
   }
 
+  function buildCampaignName(asin: string, expressionType: ExpressionType, intent: string) {
+    const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
+    return `${asin.toUpperCase().trim()} - SD - RT - ${expressionType.charAt(0).toUpperCase() + expressionType.slice(1)}${intentSuffix}`
+  }
+
   function handleTableChange(updated: CampaignTableData[]) {
-    store.setRows(updated.map((row) => ({
-      _id:             String(row._id),
-      campaign_name:   String(row.campaign_name  ?? ''),
-      asin:            String(row.asin           ?? ''),
-      expression_type: (row.expression_type as ExpressionType) ?? 'views',
-      default_bid:     Number(row.default_bid)   || 0,
-      bid:             Number(row.bid)            || 0,
-      budget:          Number(row.budget)         || 0,
-      start_date:      String(row.start_date      ?? ''),
-      _status:         rows.find((r) => r._id === row._id)?._status ?? 'idle',
-      _error:          rows.find((r) => r._id === row._id)?._error,
-    })))
+    store.setRows(updated.map((row) => {
+      const asin           = String(row.asin           ?? '').toUpperCase().trim()
+      const expressionType = (row.expression_type as ExpressionType) ?? 'views'
+      const intent         = String(row.intent         ?? '')
+
+      // Rebuild name only if it still matches the previously auto-generated value
+      // (i.e. the user hasn't manually typed a custom name)
+      const existingRow  = rows.find((r) => r._id === row._id)
+      const prevAutoName = existingRow
+        ? buildCampaignName(existingRow.asin, existingRow.expression_type, existingRow.intent)
+        : ''
+      const isAutoName   = !existingRow || existingRow.campaign_name === prevAutoName
+      const campaign_name = isAutoName
+        ? buildCampaignName(asin, expressionType, intent)
+        : String(row.campaign_name ?? '')
+
+      return {
+        _id: String(row._id),
+        campaign_name,
+        intent,
+        asin,
+        expression_type: expressionType,
+        default_bid:     0,
+        bid:             Number(row.bid)    || 0,
+        budget:          Number(row.budget) || 0,
+        start_date:      String(row.start_date ?? ''),
+        _status:         existingRow?._status ?? 'idle',
+        _error:          existingRow?._error,
+      }
+    }))
   }
 
   const hasRows     = rows.length > 0
   const canSubmit   = pendingCount > 0 && !isSubmitting
-  const submitLabel = isSubmitting ? 'Creating campaigns…' : `Create ${pendingCount} Campaign${pendingCount !== 1 ? 's' : ''}`
+  const submitLabel = isSubmitting
+    ? 'Creating campaigns…'
+    : `Create ${pendingCount} Campaign${pendingCount !== 1 ? 's' : ''}`
 
   return (
     <div className="flex flex-col gap-5">
@@ -130,7 +169,10 @@ export function SDRetargetBulkSection() {
           <PasteArea onPaste={handlePaste} />
           {parseInfo && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-emerald-600 font-medium">✓ Added {parseInfo.added} row{parseInfo.added !== 1 ? 's' : ''}{parseInfo.skipped > 0 && ` · ${parseInfo.skipped} skipped`}</p>
+              <p className="text-xs text-emerald-600 font-medium">
+                ✓ Added {parseInfo.added} row{parseInfo.added !== 1 ? 's' : ''}
+                {parseInfo.skipped > 0 && ` · ${parseInfo.skipped} skipped`}
+              </p>
               {parseInfo.invalidAsins > 0 && (
                 <p className="text-xs text-amber-600 font-medium flex items-start gap-1.5">
                   <span>⚠️</span>
