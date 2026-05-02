@@ -92,6 +92,22 @@ export interface MultiAsinPTBulkRow {
   _error?: string;
 }
 
+// ── Category Bulk Row type ────────────────────────────────────────────────────
+export interface CategoryBulkRow {
+  _id:                string
+  campaign_name:      string
+  asin:               string
+  bid:                number
+  budget:             number
+  start_date:         string
+  dynamic_bidding:    DynamicBidding
+  intent:             string
+  price_greater_than: number | ''
+  mode:               'multi' | 'single'
+  _status:            RowStatus
+  _error?:            string
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function buildSKCampaignName(
@@ -215,6 +231,15 @@ interface CampaignCreationState {
   ) => { added: number; skipped: number; invalidAsins: number };
   clearBulkRows: () => void;
 
+  // ── Category bulk rows ────────────────────────────────────────────────────────
+categoryBulkRows:           CategoryBulkRow[]
+setCategoryBulkRows:        (rows: CategoryBulkRow[]) => void
+setCategoryRowStatus:       (id: string, status: RowStatus, error?: string) => void
+setCategoryRowStatusByAsin: (asin: string, status: RowStatus, error?: string) => void
+deleteCategoryBulkRows:     (ids: string[]) => void
+parsePastedCategoryData:    (text: string, minBudget: number) => { added: number; skipped: number; invalidAsins: number }
+clearCategoryBulkRows:      () => void
+
   // ── Product targeting bulk rows ─────────────────────────────────────────────
   productBulkRows: BulkProductRow[];
   setProductBulkRows: (rows: BulkProductRow[]) => void;
@@ -279,6 +304,7 @@ interface CampaignCreationState {
   };
   clearMultiAsinPTRows: () => void;
   renameMultiAsinPTRows: (mode: "mpt" | "spt") => void;
+
 
   // Reset
   reset: () => void;
@@ -587,6 +613,81 @@ export const useCampaignCreationStore = create<CampaignCreationState>(
           }),
         };
       }),
+
+    categoryBulkRows: [],
+
+setCategoryBulkRows: (rows) => set({ categoryBulkRows: rows }),
+
+setCategoryRowStatus: (id, status, error) =>
+  set((state) => ({
+    categoryBulkRows: state.categoryBulkRows.map((r) =>
+      r._id === id ? { ...r, _status: status, _error: error } : r,
+    ),
+  })),
+
+setCategoryRowStatusByAsin: (asin, status, error) =>
+  set((state) => ({
+    categoryBulkRows: state.categoryBulkRows.map((r) =>
+      r.asin === asin ? { ...r, _status: status, _error: error } : r,
+    ),
+  })),
+
+deleteCategoryBulkRows: (ids) =>
+  set((state) => ({
+    categoryBulkRows: state.categoryBulkRows.filter((r) => !ids.includes(r._id)),
+  })),
+
+parsePastedCategoryData: (text, minBudget) => {
+  const { sharedDefaults } = get()
+  const VALID_MODE: Record<string, 'multi' | 'single'> = {
+    MULTI:  'multi',
+    SINGLE: 'single',
+  }
+  let added = 0, skipped = 0, invalidAsins = 0
+  const newRows: CategoryBulkRow[] = []
+
+  text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const [rawAsin, rawBid, rawMode, rawMinPrice, rawIntent] = line
+        .split('\t')
+        .map((c) => c.trim())
+      const asin = rawAsin?.trim()
+      if (!asin) { skipped++; return }
+      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
+
+      const bid            = Number(rawBid) || 0
+      const intent         = rawIntent?.trim() ?? ''
+      const mode           = VALID_MODE[rawMode?.toUpperCase()] ?? 'multi'
+      const priceRaw       = Number(rawMinPrice)
+      const price_greater_than = rawMinPrice?.trim() && priceRaw > 0 ? priceRaw : ''
+      const suffix         = mode === 'multi' ? 'CAT - MCT' : 'CAT - SCT'
+      const intentSuffix   = intent ? ` - ${intent}` : ''
+
+      newRows.push({
+        _id:                uid(),
+        campaign_name:      `${asin} - SP - ${suffix}${intentSuffix}`,
+        asin,
+        bid,
+        budget:             bid > 0 ? Math.max(minBudget, bid * 15) : sharedDefaults.budget,
+        start_date:         sharedDefaults.start_date,
+        dynamic_bidding:    sharedDefaults.dynamic_bidding,
+        intent,
+        price_greater_than,
+        mode,
+        _status:            'idle',
+      })
+      added++
+    })
+
+  if (newRows.length > 0)
+    set((state) => ({ categoryBulkRows: [...state.categoryBulkRows, ...newRows] }))
+  return { added, skipped, invalidAsins }
+},
+
+clearCategoryBulkRows: () => set({ categoryBulkRows: [] }),
 
     // ── Multi-ASIN KW Bulk ──────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { SingleAsinKeywordPage } from './keyword-targeting/SingleAsinKeywordPage'
 import { SingleAsinProductPage } from './product-targeting/SingleAsinProductPage'
-import { CategoryForm }           from './category-targeting/CategoryForm'
+import { SingleAsinCategoryPage } from './category-targeting/SingleAsinCategoryPage'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,7 +142,7 @@ export function SingleAsinPage() {
   const [selectedMode,    setSelectedMode]    = useState<CampaignMode | null>(null)
 
   // Category goes straight to the form — no bulk mode needed
-  const DIRECT_TO_FORM: SingleAsinSubtype[] = ['category']
+  const DIRECT_TO_FORM: SingleAsinSubtype[] = []
 
   const showForm = selectedSubtype !== null &&
     (selectedMode !== null || DIRECT_TO_FORM.includes(selectedSubtype))
@@ -209,7 +209,7 @@ export function SingleAsinPage() {
 
           {selectedSubtype === 'keyword'  && <SingleAsinKeywordPage mode={selectedMode!} />}
           {selectedSubtype === 'product'  && <SingleAsinProductPage mode={selectedMode!} />}
-          {selectedSubtype === 'category' && <CategoryForm />}
+          {selectedSubtype === 'category' && <SingleAsinCategoryPage mode={selectedMode!} />}
         </>
       ) : (
         // ── Mode picker ────────────────────────────────────────────────────────

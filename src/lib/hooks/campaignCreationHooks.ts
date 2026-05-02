@@ -125,10 +125,11 @@ export interface AutoTargetingPayload extends BasePayload {
 }
 
 export interface MultiCategoryPayload extends BasePayload {
-  asin:            string
-  bid:             number
-  expression_type: 'MANUAL' | 'AUTO'
-  type:            string
+  asin:                string
+  bid:                 number
+  expression_type:     'MANUAL' | 'AUTO'
+  type:                string
+  price_greater_than?: number
 }
 
 export interface SingleCategoryPayload extends BasePayload {
@@ -137,6 +138,7 @@ export interface SingleCategoryPayload extends BasePayload {
   bid:             number
   expression_type: 'MANUAL' | 'AUTO'
   type:            string
+  price_greater_than?: number
 }
 
 // ── API Functions ─────────────────────────────────────────────────────────────
@@ -600,6 +602,94 @@ export function useBulkProductSubmit() {
     groupPendingCount: uniqueAsinStatuses.filter((s) => s === 'idle').length,
     groupFailedCount:  uniqueAsinStatuses.filter((s) => s === 'error').length,
     groupSuccessCount: uniqueAsinStatuses.filter((s) => s === 'success').length,
+  }
+}
+
+export function useBulkCategorySubmit() {
+  const {
+    categoryBulkRows,
+    sharedDefaults,
+    setCategoryRowStatus,
+  } = useCampaignCreationStore()
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+
+  const submitAll = useCallback(async (): Promise<BulkSubmitSummary> => {
+    const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
+    const pending = categoryBulkRows.filter((r) => r._status !== 'success')
+
+    if (pending.length === 0) {
+      const s = { total: 0, success: 0, failed: 0 }
+      setSummary(s)
+      return s
+    }
+
+    setIsSubmitting(true)
+    setSummary(null)
+    let successes = 0, failures = 0
+
+    for (const row of pending) {
+      setCategoryRowStatus(row._id, 'loading')
+      try {
+        const payload: MultiCategoryPayload | SingleCategoryPayload = {
+          campaign_name:   row.campaign_name,
+          budget:          row.budget,
+          TOS_bidding,
+          ROS_bidding,
+          PP_bidding,
+          AB_bidding,
+          dynamic_bidding: row.dynamic_bidding,
+          default_bid:     1,
+          start_date:      row.start_date,
+          asin:            row.asin,
+          bid:             row.bid,
+          expression_type: 'MANUAL',
+          type:            'ASIN_CATEGORY_SAME_AS',
+          ...(row.price_greater_than !== '' && Number(row.price_greater_than) > 0
+            ? { price_greater_than: Number(row.price_greater_than) }
+            : {}),
+        }
+
+        const response = row.mode === 'multi'
+          ? await campaignApi.createMultiCategory(payload as MultiCategoryPayload)
+          : await campaignApi.createSingleCategory(payload as SingleCategoryPayload)
+
+        console.log(`✅ Category [${row.asin}/${row.mode}]:`, response.data.campaign_id)
+        setCategoryRowStatus(row._id, 'success')
+        successes++
+      } catch (error) {
+        const msg = parseBulkError(error)
+        console.error(`❌ Category failed [${row.asin}]:`, msg)
+        setCategoryRowStatus(row._id, 'error', msg)
+        failures++
+      }
+    }
+
+    const s: BulkSubmitSummary = { total: pending.length, success: successes, failed: failures }
+    setSummary(s)
+    setIsSubmitting(false)
+    return s
+  }, [categoryBulkRows, sharedDefaults, setCategoryRowStatus])
+
+  const retryFailed = useCallback(() => {
+    categoryBulkRows.forEach((r) => {
+      if (r._status === 'error') setCategoryRowStatus(r._id, 'idle')
+    })
+    setSummary(null)
+  }, [categoryBulkRows, setCategoryRowStatus])
+
+  const clearSummary = useCallback(() => setSummary(null), [])
+
+  return {
+    submitAll,
+    retryFailed,
+    clearSummary,
+    isSubmitting,
+    summary,
+    pendingCount: categoryBulkRows.filter((r) => r._status === 'idle').length,
+    failedCount:  categoryBulkRows.filter((r) => r._status === 'error').length,
+    successCount: categoryBulkRows.filter((r) => r._status === 'success').length,
   }
 }
 

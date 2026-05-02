@@ -19,8 +19,8 @@ import { isValidAsin } from '@/lib/utils/asinValidation'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DYNAMIC_BIDDING_OPTIONS = [
-  { value: 'AUTO_FOR_SALES',   label: 'Auto for Sales'   },
   { value: 'LEGACY_FOR_SALES', label: 'Legacy for Sales' },
+  { value: 'AUTO_FOR_SALES',   label: 'Auto for Sales'   },
   { value: 'MANUAL',           label: 'Manual'           },
 ]
 
@@ -44,6 +44,7 @@ interface FormState {
   asin:            string
   bid:             number | string
   expression_type: ExpressionType
+  price_greater_than: number | string
   type:            string
   budget:          number | string
   TOS_bidding:     number
@@ -64,6 +65,7 @@ const defaultForm: FormState = {
   bid:             '',
   expression_type: 'MANUAL',
   type:            'ASIN_CATEGORY_SAME_AS',
+  price_greater_than: '',
   budget:          '',
   TOS_bidding:     100,
   ROS_bidding:     0,
@@ -161,6 +163,7 @@ export function CategoryForm() {
   const campaignNameDisplay = nameEdited ? form.campaign_name : generatedName
 
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
+    console.log('setField:', key, val) 
     setForm((f) => ({ ...f, [key]: val }))
     setErrors((e) => ({ ...e, [key]: undefined }))
   }
@@ -208,6 +211,9 @@ export function CategoryForm() {
       bid:             Number(form.bid),
       expression_type: form.expression_type,
       type:            form.type,
+      ...(form.price_greater_than !== '' && Number(form.price_greater_than) > 0
+        ? { price_greater_than: Number(form.price_greater_than) }
+        : {}),
     }
 
     if (mode === 'multi') {
@@ -295,6 +301,21 @@ export function CategoryForm() {
               value={form.expression_type}
               onChange={(e) => setField('expression_type', e.target.value as ExpressionType)}
             />
+          </div>
+          <div className="sm:col-span-3">
+            <NumberInput
+              label="Min. Competitor Price (optional)"
+              prefix={currencySymbol}
+              placeholder="e.g. 25.00 — only target ASINs priced above this"
+              value={form.price_greater_than}
+              min={0}
+              step={0.01}
+              onChange={(e) => setField('price_greater_than', e.target.value)}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-400 leading-snug">
+              Only show your ad on competitor listings priced higher than this amount.
+              Leave blank to target all prices.
+            </p>
           </div>
         </div>
       </SectionCard>
