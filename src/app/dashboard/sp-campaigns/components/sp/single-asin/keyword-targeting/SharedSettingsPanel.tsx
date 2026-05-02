@@ -4,8 +4,8 @@ import { useCampaignCreationStore } from "@/lib/store/campaignCreationStore"
 import { NumberInput, Select, DatePicker } from '../../../shared/FormFields'
 
 const DYNAMIC_BIDDING_OPTIONS = [
-  { value: 'AUTO_FOR_SALES',   label: 'Auto for Sales'   },
   { value: 'LEGACY_FOR_SALES', label: 'Legacy for Sales' },
+  { value: 'AUTO_FOR_SALES',   label: 'Auto for Sales'   },
   { value: 'MANUAL',           label: 'Manual'           },
 ]
 
@@ -24,13 +24,6 @@ export function SharedSettingsPanel() {
       </div>
 
       <div className="p-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <NumberInput
-          label="Budget"
-          value={sharedDefaults.budget}
-          min={1}
-          step={1}
-          onChange={(e) => setSharedDefault('budget', Number(e.target.value))}
-        />
         <Select
           label="Bidding Strategy"
           options={DYNAMIC_BIDDING_OPTIONS}
