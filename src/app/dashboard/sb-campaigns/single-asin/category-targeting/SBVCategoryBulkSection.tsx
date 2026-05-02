@@ -88,6 +88,15 @@ const COLUMNS: CampaignColumnDefinition[] = [
     minWidth: 80,
   },
   {
+    field: "price_greater_than",
+    headerName: "Min Price (£)",
+    type: "number",
+    span: true,
+    editable: true,
+    width: 130,
+    minWidth: 100,
+  },
+  {
     field: "intent",
     headerName: "Intent",
     type: "text",
@@ -135,7 +144,7 @@ function parseLine(
   defaults: SharedDefaults,
 ): { row: SBVCategoryBulkRow | null; invalidAsin: boolean } {
   const cols = line.split("\t").map((c) => c.trim());
-  const [asin, bidRaw, videoAssetId, intentRaw = ""] = cols;
+  const [asin, bidRaw, videoAssetId, minPriceRaw = "", intentRaw = ""] = cols;
 
   if (!asin || !videoAssetId) return { row: null, invalidAsin: false };
   if (!isValidAsin(asin)) return { row: null, invalidAsin: true };
@@ -144,6 +153,9 @@ function parseLine(
   if (isNaN(bid) || bid <= 0) return { row: null, invalidAsin: false };
 
   const intent = intentRaw.trim();
+  const priceRaw = Number(minPriceRaw);
+  const price_greater_than = minPriceRaw.trim() && priceRaw > 0 ? priceRaw : "";
+
   return {
     invalidAsin: false,
     row: {
@@ -154,11 +166,12 @@ function parseLine(
         : `${asin.toUpperCase().trim()} - SBV - CAT`,
       asin: asin.toUpperCase().trim(),
       video_asset_id: videoAssetId.trim(),
-      brand_entity_id: "", // stamped in handlePaste
+      brand_entity_id: "",
       intent,
       bid,
-      budget: Number(defaults.budget) || Math.max(10, bid * 10), // ← from defaults
-      start_date: defaults.start_date || today(), // ← from defaults
+      budget: Number(defaults.budget) || Math.max(10, bid * 10),
+      start_date: defaults.start_date || today(),
+      price_greater_than,
     },
   };
 }
@@ -293,6 +306,7 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
           <span className="font-mono">ASIN</span> →&nbsp;
           <span className="font-mono">Bid</span> →&nbsp;
           <span className="font-mono">Video Asset ID</span> →&nbsp;
+          <span className="font-mono">Min Price (opt.)</span> →&nbsp;
           <span className="font-mono">Intent (opt.)</span>
         </p>
         <p className="text-[11px] text-slate-400">
@@ -404,6 +418,7 @@ export function SBVCategoryBulkSection() {
     intent: r.intent,
     video_asset_id: r.video_asset_id,
     bid: r.bid,
+    price_greater_than: r.price_greater_than,
     budget: r.budget,
     start_date: r.start_date,
     _statusLabel: toStatusLabel(r._status, r._error),
@@ -443,6 +458,10 @@ export function SBVCategoryBulkSection() {
         budget: Number(row.budget) || 0,
         brand_entity_id: String(row.brand_entity_id ?? ""),
         start_date: String(row.start_date ?? ""),
+        price_greater_than:
+          row.price_greater_than !== "" && Number(row.price_greater_than) > 0
+            ? Number(row.price_greater_than)
+            : "",
         _status: rows.find((r) => r._id === row._id)?._status ?? "idle",
         _error: rows.find((r) => r._id === row._id)?._error,
       })),

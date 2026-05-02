@@ -89,6 +89,7 @@ export interface SBVCategoryBulkRow extends BulkBaseRow {
   budget:          number
   start_date:      string
   intent:          string
+  price_greater_than: number | ''
 }
 
 /** SB Store Spotlight — Keyword Targeting */

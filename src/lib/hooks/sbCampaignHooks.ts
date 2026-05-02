@@ -75,6 +75,7 @@ export interface SBVCategoryPayload extends SBBasePayload {
   asin:            string
   video_asset_id:  string
   brand_entity_id: string
+  price_greater_than?: number 
 }
 
 export interface SBProductCollectionPayload extends SBBasePayload {
@@ -455,6 +456,9 @@ export function useSBVCategoryBulkSubmit() {
         video_asset_id:  row.video_asset_id,
         brand_entity_id: row.brand_entity_id,
         bid:             row.bid,
+        ...(row.price_greater_than !== '' && Number(row.price_greater_than) > 0
+          ? { price_greater_than: Number(row.price_greater_than) }
+          : {}),
       })
       if (result.success) {
         store.patchRows('sbv_category', [row._id], 'success'); success++
