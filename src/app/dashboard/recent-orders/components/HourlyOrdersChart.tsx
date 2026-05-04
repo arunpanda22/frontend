@@ -217,7 +217,8 @@ const HourlyOrdersChart = ({
 
     // ---------------------------------------------------------------
     // Series: Yesterday + 2 Days Ago as lines, Today as bars.
-    // With vendor: Today = seller_revenue bar + vendor_revenue bar.
+    // With vendor: Today = seller_revenue bar + vendor_revenue bar
+    //              + total_revenue line (Today Total).
     // Without vendor: Today = total_revenue bar.
     // ---------------------------------------------------------------
     const cap = lastAvailableHour >= 0 ? lastAvailableHour : undefined;
@@ -235,6 +236,16 @@ const HourlyOrdersChart = ({
       }
     });
 
+    // Today total line — same data as todayTotalBar but rendered as a line
+    // so it sits on top of the split bars to show the combined value clearly.
+    const todayTotalLine = new Array<number | null>(24).fill(null);
+    (dataByDate[todayDate] ?? []).forEach((point) => {
+      const idx = getHourIndex(point.hour, point.period);
+      if (cap === undefined || idx <= cap) {
+        todayTotalLine[idx] = point.total_revenue;
+      }
+    });
+
     // Yesterday — total_revenue line, uncapped
     const yesterdayLine = new Array<number | null>(24).fill(null);
     (dataByDate[yesterdayDate] ?? []).forEach((point) => {
@@ -248,19 +259,20 @@ const HourlyOrdersChart = ({
     });
 
     // Hourly series
-    // Order: lines first (Yesterday, 2 Days Ago), then bars (Today)
-    // so ApexCharts renders bars in front of lines visually.
+    // Vendor accounts: lines (Yesterday, 2 Days Ago, Today Total) + bars (Seller, Vendor)
+    // Seller-only: all three days as lines, no bars
     const series: ApexAxisChartSeries = hasVendorAccounts
       ? [
-          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,  data: yesterdayLine,   type: "line"   },
-          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`, data: dayBeforeLine,   type: "line"   },
-          { name: "Today - Seller",                                          data: todaySellerBar,  type: "column" },
-          { name: "Today - Vendor",                                          data: todayVendorBar,  type: "column" },
+          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,   data: yesterdayLine,  type: "line"   },
+          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`,  data: dayBeforeLine,  type: "line"   },
+          { name: `Today Total (${formatDateShortFromISO(todayDate)})`,     data: todayTotalLine, type: "line"   },
+          { name: "Today - Seller",                                           data: todaySellerBar, type: "column" },
+          { name: "Today - Vendor",                                           data: todayVendorBar, type: "column" },
         ]
       : [
-          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,  data: yesterdayLine,  type: "line"   },
-          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`, data: dayBeforeLine,  type: "line"   },
-          { name: `Today (${formatDateShortFromISO(todayDate)})`,          data: todayTotalBar,  type: "column" },
+          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,  data: yesterdayLine,  type: "line" },
+          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`, data: dayBeforeLine,  type: "line" },
+          { name: `Today (${formatDateShortFromISO(todayDate)})`,          data: todayTotalLine, type: "line" },
         ];
 
     // Cumulative: all 3 days as lines — today total_revenue (capped), yesterday + day-before uncapped
@@ -301,21 +313,22 @@ const HourlyOrdersChart = ({
       animations: { enabled: true, speed: 800, animateGradually: { enabled: true, delay: 150 } },
     },
     dataLabels: { enabled: false },
-    // Lines: Yesterday (solid), 2 Days Ago (dashed). Bars: width 0.
     stroke: {
       curve: "smooth",
-      // Cumulative: all 3 series are lines. Hourly: 2 lines + bars (width 0).
-      width:     mode === "cumulative"
+      // Hourly with vendor: Yesterday (dashed), 2 Days Ago (dotted), Today Total (solid), bars (0)
+      // Hourly without vendor: Yesterday (dashed), 2 Days Ago (dotted), bars (0)
+      // Cumulative: all 3 are solid lines with varying dash
+      width: mode === "cumulative"
         ? [3, 3, 3]
-        : hasVendorAccounts ? [3, 3, 0, 0] : [3, 3, 0],
+        : hasVendorAccounts ? [3, 3, 2.5, 0, 0] : [3, 3, 3],
       dashArray: mode === "cumulative"
         ? [8, 4, 0]
-        : hasVendorAccounts ? [8, 4, 0, 0] : [8, 4, 0],
+        : hasVendorAccounts ? [8, 4, 0, 0, 0] : [8, 4, 0],
     },
     markers: {
       size: mode === "cumulative"
         ? [4, 4, 4]
-        : hasVendorAccounts ? [4, 4, 0, 0] : [4, 4, 0],
+        : hasVendorAccounts ? [4, 4, 4, 0, 0] : [4, 4, 4],
       hover: { sizeOffset: 6 },
     },
     plotOptions: {
@@ -369,30 +382,31 @@ const HourlyOrdersChart = ({
             : `${getCurrencySymbol()}${Math.round(val).toLocaleString()}${mode === "cumulative" ? " (cumulative)" : ""}`,
       },
     },
-    // Cumulative: Yesterday (purple), 2 Days Ago (pink), Today (blue) — always 3 lines
-    // Hourly: Yesterday (purple line), 2 Days Ago (pink line), Today Seller (blue bar), Today Vendor (light blue bar)
+    // Hourly with vendor:    Yesterday (purple), 2 Days Ago (pink), Today Total (teal line), Seller bar (blue), Vendor bar (light blue)
+    // Hourly seller-only:   Yesterday (purple), 2 Days Ago (pink), Today (blue) — all lines
+    // Cumulative:            Yesterday (purple), 2 Days Ago (pink), Today (blue)
     colors: mode === "cumulative"
       ? ["#8B5CF6", "#EC4899", "#3B82F6"]
       : hasVendorAccounts
-        ? ["#8B5CF6", "#EC4899", "#3B82F6", "#60A5FA"]
+        ? ["#8B5CF6", "#EC4899", "#3B82F6", "#3B82F6", "#60A5FA"]
         : ["#8B5CF6", "#EC4899", "#3B82F6"],
     annotations:
       chartData.lastAvailableHour !== null
         ? {
-            xaxis: [
-              {
-                x: chartData.lastAvailableHour,
-                x2: chartData.lastAvailableHour + 0.5,
-                borderColor: "#3b82f6",
-                fillColor: "#3b82f6",
-                opacity: 0.1,
-                label: {
-                  text: `Last: ${chartData.lastAvailableHour}-${chartData.lastAvailableHour + 1}`,
-                  position: "top",
-                  style: { color: "#fff", background: "#3b82f6", fontSize: "10px" },
-                },
-              },
-            ],
+            // xaxis: [
+            //   {
+            //     x: chartData.lastAvailableHour,
+            //     x2: chartData.lastAvailableHour + 0.5,
+            //     borderColor: "#3b82f6",
+            //     fillColor: "#3b82f6",
+            //     opacity: 0.1,
+            //     label: {
+            //       text: `Last: ${chartData.lastAvailableHour}-${chartData.lastAvailableHour + 1}`,
+            //       position: "top",
+            //       style: { color: "#fff", background: "#3b82f6", fontSize: "10px" },
+            //     },
+            //   },
+            // ],
           }
         : undefined,
   });
@@ -516,6 +530,10 @@ const HourlyOrdersChart = ({
           ) : hasVendorAccounts ? (
             <>
               <div className="flex items-center gap-2">
+                <div className="w-8 h-0.5 bg-emerald-500"></div>
+                <span className="text-gray-600">Today Total (Line)</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-500 rounded"></div>
                 <span className="text-gray-600">Today - Seller (Bar)</span>
               </div>
@@ -526,8 +544,8 @@ const HourlyOrdersChart = ({
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded"></div>
-              <span className="text-gray-600">Today (Bar)</span>
+              <div className="w-8 h-0.5 bg-blue-500"></div>
+              <span className="text-gray-600">Today</span>
             </div>
           )}
         </div>
