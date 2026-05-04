@@ -6,6 +6,8 @@ import { ApexOptions } from "apexcharts";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
 import { RevenueCard } from "./RevenueCard";
 import { useCurrency } from "@/lib/context/CurrencyContext";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrendingUp, ArrowUpRight } from "lucide-react";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
@@ -54,13 +56,12 @@ interface HourlyOrdersChartProps {
   isLoading?: boolean;
 }
 
+type ViewMode = "hourly" | "cumulative";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Parse a YYYY-MM-DD string into "Feb 25" without any timezone conversion.
- */
 function formatDateShortFromISO(dateStr: string | null): string {
   if (!dateStr) return "";
   try {
@@ -75,13 +76,6 @@ function formatDateShortFromISO(dateStr: string | null): string {
   }
 }
 
-/**
- * Convert an ISO datetime string to a wall-clock hour **in the given IANA
- * timezone**. Returns the 0-23 hour integer, or null on failure.
- *
- * This fixes the original bug where `new Date(...).getHours()` used the
- * browser's local timezone (India) instead of the marketplace timezone (US).
- */
 function getHourInTimezone(isoString: string, ianaTimezone: string): number | null {
   try {
     const date = new Date(isoString);
@@ -91,11 +85,35 @@ function getHourInTimezone(isoString: string, ianaTimezone: string): number | nu
       hour12: false,
     }).format(date);
     const h = parseInt(hourStr, 10);
-    // Intl can return 24 for midnight in some environments
     return h === 24 ? 0 : h;
   } catch {
     return null;
   }
+}
+
+/** Convert a flat hourly array into a running cumulative sum.
+ *  If `capAtIndex` is provided, slots after that index are forced to null
+ *  so the line stops at the last available hour (used for today's series). */
+function calculateCumulativeData(hourlyArray: (number | null)[], capAtIndex?: number): (number | null)[] {
+  const cumulative: (number | null)[] = [];
+  let sum = 0;
+  let hasAnyData = false;
+
+  for (let i = 0; i < hourlyArray.length; i++) {
+    if (capAtIndex !== undefined && i > capAtIndex) {
+      cumulative.push(null);
+      continue;
+    }
+    const val = hourlyArray[i];
+    if (val !== null && val !== undefined) {
+      sum += val;
+      hasAnyData = true;
+      cumulative.push(sum);
+    } else {
+      cumulative.push(hasAnyData ? sum : null);
+    }
+  }
+  return cumulative;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,10 +127,9 @@ const HourlyOrdersChart = ({
   isLoading = false,
 }: HourlyOrdersChartProps) => {
   const [isMounted, setIsMounted] = useState(false);
-  const { formatCurrencyNoDecimal, getCurrencySymbol } = useCurrency();
+  const [viewMode, setViewMode] = useState<ViewMode>("hourly");
 
-  const lineColors = ["#3B82F6", "#8B5CF6", "#EC4899"];
-  const barColors  = ["#60A5FA", "#A78BFA"];
+  const { formatCurrencyNoDecimal, getCurrencySymbol } = useCurrency();
 
   const { data: userProfile } = useUserProfile();
   const hasVendorAccounts =
@@ -128,7 +145,8 @@ const HourlyOrdersChart = ({
   // -------------------------------------------------------------------------
   const chartData = useMemo(() => {
     const empty = {
-      series: [],
+      series: [] as ApexAxisChartSeries,
+      cumulativeSeries: [] as ApexAxisChartSeries,
       categories: Array.from({ length: 24 }, (_, i) => `${i}-${i + 1}`),
       dates: { today: "", yesterday: "", dayBefore: "" },
       totals: { today: 0, yesterday: 0, dayBefore: 0 },
@@ -153,25 +171,21 @@ const HourlyOrdersChart = ({
     const yesterdayDate = dates[1] ?? "";
     const dayBeforeDate = dates[2] ?? "";
 
-    // Convert 12-h (hour + period) to 0-23 index
     const getHourIndex = (hour: string, period: string): number => {
       const h = parseInt(hour, 10);
       if (period === "AM") return h === 12 ? 0 : h;
       return h === 12 ? 12 : h + 12;
     };
 
-    // -----------------------------------------------------------------
-    // Calculate lastAvailableHour using MARKETPLACE timezone (bug fix)
-    // -----------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // lastAvailableHour — uses marketplace timezone (bug fix preserved)
+    // ------------------------------------------------------------------
     let lastAvailableHour = -1;
     const marketTz = metadata?.timezone;
 
     if (metadata?.last_refreshed_at && marketTz) {
       const h = getHourInTimezone(metadata.last_refreshed_at, marketTz);
       if (h !== null) {
-        // last_refreshed_at is the START of the most recently completed ingestion.
-        // The completed data covers hours UP TO (but not including) this hour,
-        // so the last complete hour slot is h - 1.
         lastAvailableHour = Math.max(0, h - 1);
         console.log(
           `[Chart] last_refreshed_at=${metadata.last_refreshed_at}, ` +
@@ -180,57 +194,19 @@ const HourlyOrdersChart = ({
       }
     }
 
-    // Fallback: derive from data if metadata not available
     if (lastAvailableHour === -1 && todayDate && dataByDate[todayDate]) {
       dataByDate[todayDate].forEach((point) => {
         const idx = getHourIndex(point.hour, point.period);
-        if (point.total_quantity > 0 && idx > lastAvailableHour) {
+        if (point.total_revenue > 0 && idx > lastAvailableHour) {
           lastAvailableHour = idx;
         }
       });
     }
 
-    // -----------------------------------------------------------------
-    // Build per-day arrays
-    // -----------------------------------------------------------------
-    const createDayData = (
-      date: string,
-      capAtLastAvailable = false,
-    ): number[] => {
-      const arr = new Array<number | null>(24).fill(null);
-      (dataByDate[date] ?? []).forEach((point) => {
-        const idx = getHourIndex(point.hour, point.period);
-        if (!capAtLastAvailable || idx <= lastAvailableHour) {
-          arr[idx] = point.total_quantity;
-        }
-      });
-      return arr as number[];
-    };
-
-    const createTodaySplit = () => {
-      const seller = new Array<number | null>(24).fill(null);
-      const vendor = new Array<number | null>(24).fill(null);
-      (dataByDate[todayDate] ?? []).forEach((point) => {
-        const idx = getHourIndex(point.hour, point.period);
-        if (idx <= lastAvailableHour) {
-          seller[idx] = point.seller_quantity;
-          vendor[idx] = point.vendor_quantity;
-        }
-      });
-      return { sellerData: seller as number[], vendorData: vendor as number[] };
-    };
-
-    const todayTotalData     = createDayData(todayDate, true);
-    const yesterdayTotalData = createDayData(yesterdayDate, false);
-    const dayBeforeTotalData = createDayData(dayBeforeDate, false);
-    const { sellerData: todaySellerData, vendorData: todayVendorData } =
-      createTodaySplit();
-
-    // Simple totals (for the cards)
     const sumArr = (arr: (number | null)[]) =>
       arr.reduce<number>((s, v) => s + (v ?? 0), 0);
 
-    // Build time-label lookup from whichever date has the most points
+    // Build time-label lookup
     const timeLabels = new Array<string>(24).fill("");
     const referenceDate = todayDate || yesterdayDate || dayBeforeDate;
     (dataByDate[referenceDate] ?? []).forEach((point) => {
@@ -239,28 +215,70 @@ const HourlyOrdersChart = ({
 
     const categories = Array.from({ length: 24 }, (_, i) => `${i}-${i + 1}`);
 
-    const series = hasVendorAccounts
+    // ---------------------------------------------------------------
+    // Series: Yesterday + 2 Days Ago as lines, Today as bars.
+    // With vendor: Today = seller_revenue bar + vendor_revenue bar.
+    // Without vendor: Today = total_revenue bar.
+    // ---------------------------------------------------------------
+    const cap = lastAvailableHour >= 0 ? lastAvailableHour : undefined;
+
+    // Today arrays (capped at lastAvailableHour)
+    const todaySellerBar = new Array<number | null>(24).fill(null);
+    const todayVendorBar = new Array<number | null>(24).fill(null);
+    const todayTotalBar  = new Array<number | null>(24).fill(null);
+    (dataByDate[todayDate] ?? []).forEach((point) => {
+      const idx = getHourIndex(point.hour, point.period);
+      if (cap === undefined || idx <= cap) {
+        todaySellerBar[idx] = point.seller_revenue;
+        todayVendorBar[idx] = point.vendor_revenue;
+        todayTotalBar[idx]  = point.total_revenue;
+      }
+    });
+
+    // Yesterday — total_revenue line, uncapped
+    const yesterdayLine = new Array<number | null>(24).fill(null);
+    (dataByDate[yesterdayDate] ?? []).forEach((point) => {
+      yesterdayLine[getHourIndex(point.hour, point.period)] = point.total_revenue;
+    });
+
+    // 2 Days Ago — total_revenue line, uncapped
+    const dayBeforeLine = new Array<number | null>(24).fill(null);
+    (dataByDate[dayBeforeDate] ?? []).forEach((point) => {
+      dayBeforeLine[getHourIndex(point.hour, point.period)] = point.total_revenue;
+    });
+
+    // Hourly series
+    // Order: lines first (Yesterday, 2 Days Ago), then bars (Today)
+    // so ApexCharts renders bars in front of lines visually.
+    const series: ApexAxisChartSeries = hasVendorAccounts
       ? [
-          { name: `Today Total (${formatDateShortFromISO(todayDate)})`,     data: todayTotalData,     type: "line"   as const },
-          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,   data: yesterdayTotalData, type: "line"   as const },
-          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`,  data: dayBeforeTotalData, type: "line"   as const },
-          { name: "Today - Seller",                                          data: todaySellerData,    type: "column" as const },
-          { name: "Today - Vendor",                                          data: todayVendorData,    type: "column" as const },
+          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,  data: yesterdayLine,   type: "line"   },
+          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`, data: dayBeforeLine,   type: "line"   },
+          { name: "Today - Seller",                                          data: todaySellerBar,  type: "column" },
+          { name: "Today - Vendor",                                          data: todayVendorBar,  type: "column" },
         ]
       : [
-          { name: `Today Total (${formatDateShortFromISO(todayDate)})`,     data: todayTotalData,     type: "line" as const },
-          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,   data: yesterdayTotalData, type: "line" as const },
-          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`,  data: dayBeforeTotalData, type: "line" as const },
+          { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,  data: yesterdayLine,  type: "line"   },
+          { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`, data: dayBeforeLine,  type: "line"   },
+          { name: `Today (${formatDateShortFromISO(todayDate)})`,          data: todayTotalBar,  type: "column" },
         ];
+
+    // Cumulative: all 3 days as lines — today total_revenue (capped), yesterday + day-before uncapped
+    const cumulativeSeries: ApexAxisChartSeries = [
+      { name: `Yesterday (${formatDateShortFromISO(yesterdayDate)})`,  data: calculateCumulativeData(yesterdayLine),        type: "line" },
+      { name: `2 Days Ago (${formatDateShortFromISO(dayBeforeDate)})`, data: calculateCumulativeData(dayBeforeLine),        type: "line" },
+      { name: `Today (${formatDateShortFromISO(todayDate)})`,          data: calculateCumulativeData(todayTotalBar, cap),   type: "line" },
+    ];
 
     return {
       series,
+      cumulativeSeries,
       categories,
       dates: { today: todayDate, yesterday: yesterdayDate, dayBefore: dayBeforeDate },
       totals: {
-        today:     sumArr(todayTotalData),
-        yesterday: sumArr(yesterdayTotalData),
-        dayBefore: sumArr(dayBeforeTotalData),
+        today:     sumArr(todayTotalBar),
+        yesterday: sumArr(yesterdayLine),
+        dayBefore: sumArr(dayBeforeLine),
       },
       timeLabels,
       lastAvailableHour: lastAvailableHour >= 0 ? lastAvailableHour : null,
@@ -268,9 +286,9 @@ const HourlyOrdersChart = ({
   }, [hourlyData, metadata, hasVendorAccounts]);
 
   // -------------------------------------------------------------------------
-  // ApexCharts options
+  // ApexCharts options — shared base, differing only in title + tooltip y-label
   // -------------------------------------------------------------------------
-  const options: ApexOptions = useMemo(() => ({
+  const buildOptions = (mode: ViewMode): ApexOptions => ({
     chart: {
       height: 400,
       type: "line",
@@ -280,27 +298,37 @@ const HourlyOrdersChart = ({
         show: true,
         tools: { download: true, zoom: false, zoomin: false, zoomout: false, pan: false, reset: false },
       },
-      animations: { enabled: true, easing: "easeinout", speed: 800 },
+      animations: { enabled: true, speed: 800, animateGradually: { enabled: true, delay: 150 } },
     },
     dataLabels: { enabled: false },
+    // Lines: Yesterday (solid), 2 Days Ago (dashed). Bars: width 0.
     stroke: {
-      width:     hasVendorAccounts ? [3, 3, 3, 0, 0] : [3, 3, 3],
-      curve:     "smooth",
-      dashArray: hasVendorAccounts ? [0, 8, 4, 0, 0] : [0, 8, 4],
+      curve: "smooth",
+      // Cumulative: all 3 series are lines. Hourly: 2 lines + bars (width 0).
+      width:     mode === "cumulative"
+        ? [3, 3, 3]
+        : hasVendorAccounts ? [3, 3, 0, 0] : [3, 3, 0],
+      dashArray: mode === "cumulative"
+        ? [8, 4, 0]
+        : hasVendorAccounts ? [8, 4, 0, 0] : [8, 4, 0],
+    },
+    markers: {
+      size: mode === "cumulative"
+        ? [4, 4, 4]
+        : hasVendorAccounts ? [4, 4, 0, 0] : [4, 4, 0],
+      hover: { sizeOffset: 6 },
     },
     plotOptions: {
       bar: { columnWidth: "40%", dataLabels: { position: "top" } },
     },
     title: {
-      text: "Orders by Hour - Last 3 Days",
+      text: mode === "hourly"
+        ? "Revenue by Hour - Last 3 Days"
+        : "Cumulative Revenue - Last 3 Days",
       align: "left",
       style: { fontSize: "18px", fontWeight: "bold", color: "#1a2b3c" },
     },
     legend: { show: false },
-    markers: {
-      size:  hasVendorAccounts ? [4, 0, 0, 0, 0] : [4, 0, 0],
-      hover: { sizeOffset: 6 },
-    },
     xaxis: {
       categories: chartData.categories,
       title: {
@@ -318,10 +346,10 @@ const HourlyOrdersChart = ({
     },
     yaxis: {
       title: {
-        text: "Number of Orders",
+        text: mode === "hourly" ? "Revenue" : "Cumulative Revenue",
         style: { fontSize: "13px", fontWeight: 600, color: "#374151" },
       },
-      labels: { formatter: (val) => val?.toFixed(0) ?? "0" },
+      labels: { formatter: (val: number) => val == null ? "0" : `${getCurrencySymbol()}${Math.round(val).toLocaleString()}` },
       min: 0,
     },
     grid: { show: true, borderColor: "#f3f4f6", strokeDashArray: 3 },
@@ -336,10 +364,18 @@ const HourlyOrdersChart = ({
       },
       y: {
         formatter: (val) =>
-          val === null || val === undefined ? "No data" : `${val.toFixed(0)} orders`,
+          val === null || val === undefined
+            ? "No data"
+            : `${getCurrencySymbol()}${Math.round(val).toLocaleString()}${mode === "cumulative" ? " (cumulative)" : ""}`,
       },
     },
-    colors: hasVendorAccounts ? [...lineColors, ...barColors] : lineColors,
+    // Cumulative: Yesterday (purple), 2 Days Ago (pink), Today (blue) — always 3 lines
+    // Hourly: Yesterday (purple line), 2 Days Ago (pink line), Today Seller (blue bar), Today Vendor (light blue bar)
+    colors: mode === "cumulative"
+      ? ["#8B5CF6", "#EC4899", "#3B82F6"]
+      : hasVendorAccounts
+        ? ["#8B5CF6", "#EC4899", "#3B82F6", "#60A5FA"]
+        : ["#8B5CF6", "#EC4899", "#3B82F6"],
     annotations:
       chartData.lastAvailableHour !== null
         ? {
@@ -359,10 +395,13 @@ const HourlyOrdersChart = ({
             ],
           }
         : undefined,
-  }), [chartData, hasVendorAccounts]);
+  });
+
+  const hourlyOptions     = useMemo(() => buildOptions("hourly"),     [chartData, hasVendorAccounts]);
+  const cumulativeOptions = useMemo(() => buildOptions("cumulative"), [chartData, hasVendorAccounts]);
 
   // -------------------------------------------------------------------------
-  // Derived date labels for revenue cards  (e.g. "Feb 25")
+  // Derived date labels for revenue cards
   // -------------------------------------------------------------------------
   const todayLabel     = formatDateShortFromISO(chartData.dates.today);
   const yestLabel      = formatDateShortFromISO(chartData.dates.yesterday);
@@ -425,12 +464,32 @@ const HourlyOrdersChart = ({
         <p className="text-xs text-gray-500 ml-1">Revenue shown is tax adjusted</p>
       </div>
 
+      {/* View mode toggle */}
+      <div className="flex items-center justify-end mb-4">
+        <Tabs
+          value={viewMode}
+          onValueChange={(val) => setViewMode(val as ViewMode)}
+        >
+          <TabsList>
+            <TabsTrigger value="hourly" className="gap-1.5">
+              <TrendingUp className="size-4" />
+              Hourly
+            </TabsTrigger>
+            <TabsTrigger value="cumulative" className="gap-1.5">
+              <ArrowUpRight className="size-4" />
+              Cumulative
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       {/* Chart */}
       {isMounted && (
         <div id="hybrid-orders-chart">
           <ReactApexChart
-            options={options}
-            series={chartData.series}
+            key={viewMode}
+            options={viewMode === "hourly" ? hourlyOptions : cumulativeOptions}
+            series={viewMode === "hourly" ? chartData.series : chartData.cumulativeSeries}
             type="line"
             height={400}
             width="100%"
@@ -442,28 +501,34 @@ const HourlyOrdersChart = ({
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="flex flex-wrap items-center justify-center gap-4 tracking-tighter text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-0.5 bg-blue-500"></div>
-            <span className="text-gray-600">Today Total (Line)</span>
-          </div>
-          <div className="flex items-center gap-2">
             <div className="w-8 h-0.5 border-t-2 border-dashed border-purple-500"></div>
-            <span className="text-gray-600">Yesterday (Line)</span>
+            <span className="text-gray-600">Yesterday</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-0.5 border-t-2 border-dotted border-pink-500"></div>
-            <span className="text-gray-600">2 Days Ago (Line)</span>
+            <span className="text-gray-600">2 Days Ago</span>
           </div>
-          {hasVendorAccounts && (
+          {viewMode === "cumulative" ? (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-0.5 bg-blue-500"></div>
+              <span className="text-gray-600">Today</span>
+            </div>
+          ) : hasVendorAccounts ? (
             <>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-400 rounded"></div>
-                <span className="text-gray-600">Today Seller (Bar)</span>
+                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                <span className="text-gray-600">Today - Seller (Bar)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-purple-400 rounded"></div>
-                <span className="text-gray-600">Today Vendor (Bar)</span>
+                <div className="w-4 h-4 bg-blue-300 rounded"></div>
+                <span className="text-gray-600">Today - Vendor (Bar)</span>
               </div>
             </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+              <span className="text-gray-600">Today (Bar)</span>
+            </div>
           )}
         </div>
       </div>
