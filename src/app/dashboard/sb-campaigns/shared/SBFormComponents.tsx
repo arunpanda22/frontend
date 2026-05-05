@@ -218,12 +218,11 @@ export function PerKeywordTable({ rows, onChange, error, minBid, currency }: Per
 export interface SBTargetRow {
   asin:      string
   bid:       number | string
-  matchType: 'EXACT' | 'EXPANDED'
+  matchType: 'EXACT' 
 }
 
 const PT_MATCH_OPTIONS = [
   { value: 'EXACT',    label: 'Exact'    },
-  { value: 'EXPANDED', label: 'Expanded' },
 ]
 
 // ── Target ASINs table ────────────────────────────────────────────────────────

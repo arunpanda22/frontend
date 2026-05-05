@@ -51,6 +51,7 @@ export interface SDBasePayload {
 export interface SDRetargetPayload extends SDBasePayload {
   asins:           string[]
   expression_type: 'views' | 'purchases'
+  lookback_window: number 
 }
 
 export interface SDContextualProductPayload extends SDBasePayload {
@@ -220,6 +221,7 @@ export function useSDRetargetBulkSubmit() {
         bid:             row.bid,
         asins:           [row.asin],
         expression_type: row.expression_type,
+        lookback_window: row.lookback_window,
       })
       if (result.success) {
         store.patchRows([row._id], 'success'); success++

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
+import * as XLSX from "xlsx";
 import {
   useSQPOpportunities,
   useNgramOpportunities,
@@ -38,7 +39,6 @@ const fmtPct         = (v: number) => `${v.toFixed(1)}%`;
 const fmtPctFraction = (v: number) => `${(v * 100).toFixed(1)}%`;
 
 // ─── Target ACOS parser ───────────────────────────────────────────────────────
-// profile.target_acos arrives as "20", "0.20", or "20%" — normalise to 0–1 range
 
 function parseTargetAcos(raw?: string | number | null): number {
   if (raw == null) return 0.2;
@@ -84,7 +84,6 @@ interface NgramTreeNode {
 }
 
 function buildNgramTree(keywords: NgramKeyword[]): NgramTreeNode[] {
-  // Bucket keywords by word count
   const byN = new Map<number, NgramKeyword[]>();
   for (const kw of keywords) {
     const n      = wordCount(kw.Keyword);
@@ -96,21 +95,18 @@ function buildNgramTree(keywords: NgramKeyword[]): NgramTreeNode[] {
   const maxN = byN.size ? Math.max(...byN.keys()) : 0;
   if (maxN === 0) return [];
 
-  // Track which keywords have already been placed in the tree
   const placed = new Set<string>();
 
   function buildNode(kw: NgramKeyword, depth: number): NgramTreeNode {
     const key = `${kw.ASIN}::${kw.Keyword}`;
     placed.add(key);
     const n        = wordCount(kw.Keyword);
-    // Children are (n-1)-grams whose words are all contained in this parent
     const children = (byN.get(n - 1) ?? [])
       .filter((child) => isSubsetOf(child.Keyword, kw.Keyword))
       .map((child)   => buildNode(child, depth + 1));
     return { keyword: kw, children, depth };
   }
 
-  // Walk longest-first; orphaned shorter grams become their own root nodes
   const roots: NgramTreeNode[] = [];
   for (let n = maxN; n >= 1; n--) {
     for (const kw of byN.get(n) ?? []) {
@@ -120,6 +116,109 @@ function buildNgramTree(keywords: NgramKeyword[]): NgramTreeNode[] {
     }
   }
   return roots;
+}
+
+// ─── Excel export helpers ─────────────────────────────────────────────────────
+
+function exportSQPToExcel(queries: SQPSearchQuery[], asinId: string) {
+  const rows = queries.map((q) => {
+    const myCtr =
+      q.asin_impression_count > 0
+        ? (q.asin_click_count / q.asin_impression_count) * 100
+        : 0;
+    const inCampaigns =
+      q.BROAD !== "doesn't exist" ||
+      q.PHRASE !== "doesn't exist" ||
+      q.EXACT !== "doesn't exist"
+        ? "Yes"
+        : "No";
+    return {
+      "Search Term":        q.search_query,
+      "Search Volume":      q.search_query_volume ?? 0,
+      "Market Impressions": q.total_query_impression_count ?? 0,
+      "My Impressions":     q.asin_impression_count ?? 0,
+      "My CTR (%)":         parseFloat(myCtr.toFixed(2)),
+      "Market Clicks":      q.total_click_count,
+      "My Clicks":          q.asin_click_count,
+      "My CVR (%)":         parseFloat(q.asin_conversion.toFixed(2)),
+      "Market CVR (%)":     parseFloat(q.total_conversion.toFixed(2)),
+      "My Purchases":       q.asin_purchase_count,
+      "Market Purchases":   q.total_purchase_count,
+      "Beats Market CVR":   q["Conversion > Market"] ? "Yes" : "No",
+      "Broad Match":        q.BROAD,
+      "Phrase Match":       q.PHRASE,
+      "Exact Match":        q.EXACT,
+      "In Campaigns":       inCampaigns,
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "SQP Gaps");
+  XLSX.writeFile(wb, `SQP_${asinId}.xlsx`);
+}
+
+function exportNgramToExcel(keywords: NgramKeyword[], asinId: string, targetAcos: number, currencySymbol: string) {
+  const rows = keywords.map((k) => {
+    const acosRaw = typeof k.ACOS_Value === "number" ? k.ACOS_Value : parseFloat(k.ACOS_Value as string);
+    return {
+      "Keyword":       k.Keyword,
+      "Type":          ngramType(k.Keyword),
+      "Classification": k.Classification,
+      "ACOS (%)":      isNaN(acosRaw) ? k.ACOS_Value : parseFloat((acosRaw * 100).toFixed(2)),
+      "Target ACOS (%)": parseFloat((targetAcos * 100).toFixed(2)),
+      [`Spend (${currencySymbol})`]: parseFloat(k.cost.toFixed(2)),
+      [`Sales (${currencySymbol})`]: parseFloat(k.sales_30d.toFixed(2)),
+      "Impressions":   k.impressions,
+      "Clicks":        k.clicks,
+      "Match Type":    k.match_type,
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "N-gram Analysis");
+  XLSX.writeFile(wb, `Ngram_${asinId}.xlsx`);
+}
+
+function exportTargetKeywordsToExcel(keywords: KeywordRecommendation[], asinId: string, currencySymbol: string) {
+  const rows = keywords.map((k) => ({
+    "Keyword":                   k.keyword,
+    "Match Type":                k.matchType,
+    [`Bid (${currencySymbol})`]: parseFloat(k.bid.toFixed(2)),
+    [`Bid Range Start (${currencySymbol})`]: parseFloat(k.suggestedBid_rangeStart.toFixed(2)),
+    [`Bid Range End (${currencySymbol})`]:   parseFloat(k.suggestedBid_rangeEnd.toFixed(2)),
+    "Rank":                      k.rank,
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Target Keywords");
+  XLSX.writeFile(wb, `Target_${asinId}.xlsx`);
+}
+
+function exportCompetitorToExcel(
+  rankRecords: CompetiRankRecord[],
+  topCompetitors: TopCompetitor[],
+  asinId: string
+) {
+  const wb = XLSX.utils.book_new();
+  if (rankRecords.length > 0) {
+    const rankRows = rankRecords.map((r) => ({
+      "Search Term":       r.search_term,
+      "Search Freq. Rank": r.search_frequency_rank,
+      "Click Share (%)":   parseFloat((r.click_share * 100).toFixed(2)),
+      "Conv. Share (%)":   parseFloat((r.conversion_share * 100).toFixed(2)),
+      "Report Period":     r.report_period,
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rankRows), "Rank Keywords");
+  }
+  if (topCompetitors.length > 0) {
+    const rivalRows = topCompetitors.map((c) => ({
+      "Rival ASIN":          c.asin,
+      "Shared Keywords":     c.occurrence_count,
+      "Avg Click Share (%)": parseFloat((c.avg_click_share * 100).toFixed(2)),
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rivalRows), "Top Competitors");
+  }
+  XLSX.writeFile(wb, `Competitor_${asinId}.xlsx`);
 }
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -215,8 +314,6 @@ const CampaignModal: React.FC<{
           <p className="text-[13px] font-medium text-gray-700">Campaign builder coming soon</p>
           <p className="text-[11px] text-gray-400 mt-1">
             The campaign creation API is not yet connected.
-            <br />
-            This modal will be fully functional once it's ready.
           </p>
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 bg-gray-50 border-t border-gray-100">
@@ -343,13 +440,57 @@ const BulkActionBar: React.FC<{
   );
 };
 
+// ─── Export Button ────────────────────────────────────────────────────────────
+
+const ExportButton: React.FC<{ onClick: () => void; disabled?: boolean }> = ({
+  onClick,
+  disabled = false,
+}) => (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      onClick();
+    }}
+    disabled={disabled}
+    title="Export to Excel"
+    className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors font-medium
+      ${disabled
+        ? "border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed"
+        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+      }`}
+  >
+    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 1v9m0 0L5 7m3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+    Export
+  </button>
+);
+
+// ─── Match Cell ───────────────────────────────────────────────────────────────
+
+const MatchCell: React.FC<{ value: string }> = ({ value }) => {
+  const exists = value !== "doesn't exist";
+  if (!exists) {
+    return <span className="text-[11px] text-gray-300 italic">doesn't exist</span>;
+  }
+  return (
+    <span
+      className="text-[11px] font-mono text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded max-w-[160px] truncate inline-block"
+      title={value}
+    >
+      {value.length > 22 ? `${value.slice(0, 22)}…` : value}
+    </span>
+  );
+};
+
 // ─── SQP Table ────────────────────────────────────────────────────────────────
 
 const SQPTable: React.FC<{
   queries:   SQPSearchQuery[];
   isLoading: boolean;
   error:     Error | null;
-}> = ({ queries, isLoading, error }) => {
+  asinId:    string;
+}> = ({ queries, isLoading, error, asinId }) => {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [modalCtx, setModalCtx] = useState<CampaignModalContext | null>(null);
 
@@ -376,6 +517,13 @@ const SQPTable: React.FC<{
   return (
     <div>
       <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+        <span className="text-[11px] text-gray-400">{queries.length} queries</span>
+        <ExportButton onClick={() => exportSQPToExcel(queries, asinId)} />
+      </div>
+
       <BulkActionBar
         selectedCount={selected.size}
         totalCount={queries.length}
@@ -406,21 +554,25 @@ const SQPTable: React.FC<{
               <TH>My purchases</TH>
               <TH>Mkt purchases</TH>
               <TH>Beats mkt</TH>
-              <TH>Coverage</TH>
+              <TH>Broad Match</TH>
+              <TH>Phrase Match</TH>
+              <TH>Exact Match</TH>
+              <TH>In Campaigns</TH>
               <TH />
             </tr>
           </thead>
           <tbody>
             {queries.map((q, i) => {
               const cvrGood    = q["Conversion > Market"];
-              const hasBroad   = q.BROAD  !== "doesn't exist";
-              const hasPhrase  = q.PHRASE !== "doesn't exist";
-              const hasExact   = q.EXACT  !== "doesn't exist";
               const isSelected = selected.has(i);
               const myCtr      =
                 q.asin_impression_count > 0
                   ? (q.asin_click_count / q.asin_impression_count) * 100
                   : 0;
+              const inCampaigns =
+                q.BROAD !== "doesn't exist" ||
+                q.PHRASE !== "doesn't exist" ||
+                q.EXACT !== "doesn't exist";
 
               return (
                 <tr
@@ -460,15 +612,14 @@ const SQPTable: React.FC<{
                       variant={cvrGood ? "green" : "red"}
                     />
                   </TD>
+                  <TD><MatchCell value={q.BROAD} /></TD>
+                  <TD><MatchCell value={q.PHRASE} /></TD>
+                  <TD><MatchCell value={q.EXACT} /></TD>
                   <TD>
-                    <div className="flex gap-1">
-                      {hasBroad  && <Badge label="B" variant="blue" />}
-                      {hasPhrase && <Badge label="P" variant="blue" />}
-                      {hasExact  && <Badge label="E" variant="blue" />}
-                      {!hasBroad && !hasPhrase && !hasExact && (
-                        <Badge label="None" variant="gray" />
-                      )}
-                    </div>
+                    <Badge
+                      label={inCampaigns ? "Yes" : "No"}
+                      variant={inCampaigns ? "blue" : "gray"}
+                    />
                   </TD>
                   <TD onClick={(e) => e.stopPropagation()}>
                     <button
@@ -540,12 +691,9 @@ const NgramTreeRow: React.FC<{
           isSelected ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
         }`}
       >
-        {/* Checkbox */}
         <TD className="w-8">
           <Checkbox checked={isSelected} onChange={() => onToggleSelect(key)} />
         </TD>
-
-        {/* N-gram name: indented with expand arrow or └ leaf connector */}
         <TD>
           <div className="flex items-center" style={{ paddingLeft: `${indentPx}px` }}>
             {isLeaf ? (
@@ -565,28 +713,15 @@ const NgramTreeRow: React.FC<{
             </span>
           </div>
         </TD>
-
-        {/* Type badge */}
         <TD>
           <Badge label={type} variant={type === "unigram" ? "gray" : "blue"} />
         </TD>
-
-        {/* ACOS */}
         <TD className={`font-mono font-medium ${acosColor}`}>{acosDisplay}</TD>
-
-        {/* Target ACOS — sourced from user's advertising profile */}
         <TD className="font-mono text-gray-400">{fmtPctFraction(targetAcos)}</TD>
-
-        {/* Spend */}
         <TD className="font-mono">{fmtCurrency(kw.cost)}</TD>
-
-        {/* Sales */}
         <TD className="font-mono">{fmtCurrency(kw.sales_30d)}</TD>
-
-        {/* Action */}
         <TD onClick={(e) => e.stopPropagation()}>
           {isLeaf ? (
-            // Unigrams: teal text link (matches prototype exactly)
             <button
               onClick={(e) => { e.stopPropagation(); onAction(kw); }}
               className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors whitespace-nowrap"
@@ -610,8 +745,6 @@ const NgramTreeRow: React.FC<{
           )}
         </TD>
       </tr>
-
-      {/* Recursively render children only when this node is expanded */}
       {hasChildren &&
         isExpanded &&
         node.children.map((child) => (
@@ -631,23 +764,22 @@ const NgramTreeRow: React.FC<{
   );
 };
 
-// ─── N-gram Table (tree shell) ────────────────────────────────────────────────
+// ─── N-gram Table ─────────────────────────────────────────────────────────────
 
 const NgramTable: React.FC<{
-  keywords:   NgramKeyword[];
-  isLoading:  boolean;
-  error:      Error | null;
-  targetAcos: number;
+  keywords:       NgramKeyword[];
+  isLoading:      boolean;
+  error:          Error | null;
+  targetAcos:     number;
   currencySymbol: string;
-}> = ({ keywords, isLoading, error, targetAcos, currencySymbol  }) => {
+  asinId:         string;
+}> = ({ keywords, isLoading, error, targetAcos, currencySymbol, asinId }) => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [modalCtx, setModalCtx]         = useState<CampaignModalContext | null>(null);
 
-  // Build tree once whenever the keyword list changes
   const tree = React.useMemo(() => buildNgramTree(keywords), [keywords]);
 
-  // Flatten every node key so select-all works across the full tree
   const allKeys = React.useMemo(() => {
     const keys: string[] = [];
     const walk = (nodes: NgramTreeNode[]) => {
@@ -689,12 +821,16 @@ const NgramTable: React.FC<{
     { label: "Export",            variant: "gray",  onClick: () => {} },
   ];
 
-  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
-
-
   return (
     <div>
       <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+        <span className="text-[11px] text-gray-400">{keywords.length} keywords</span>
+        <ExportButton onClick={() => exportNgramToExcel(keywords, asinId, targetAcos, currencySymbol)} />
+      </div>
+
       <BulkActionBar
         selectedCount={selectedKeys.size}
         totalCount={allKeys.length}
@@ -745,7 +881,10 @@ const NgramTable: React.FC<{
 
 // ─── Target Content ───────────────────────────────────────────────────────────
 
-const TargetContent: React.FC<{ asinId: string, currencySymbol: string; }> = ({ asinId, currencySymbol }) => {
+const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
+  asinId,
+  currencySymbol,
+}) => {
   const asinSuggest = useAsinSuggestOpportunities(asinId);
   const productRec  = useProductRecommendations(asinId);
   const [selectedKw,    setSelectedKw]    = useState<Set<number>>(new Set());
@@ -771,8 +910,7 @@ const TargetContent: React.FC<{ asinId: string, currencySymbol: string; }> = ({ 
   const lowRatings       = recs.map((r) => r["Similar items with low ratings and reviews"]).filter(Boolean) as string[];
   const frequentlyViewed = recs.map((r) => r["Similar items (frequently viewed together)"]).filter(Boolean) as string[];
 
-  const hasAnything =
-    keywords.length || topConverting.length || lowRatings.length || frequentlyViewed.length;
+  const hasAnything = keywords.length || topConverting.length || lowRatings.length || frequentlyViewed.length;
   if (!hasAnything) return <EmptyState />;
 
   const toggleKw = (i: number) =>
@@ -809,10 +947,17 @@ const TargetContent: React.FC<{ asinId: string, currencySymbol: string; }> = ({ 
     <div>
       <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
 
-      {/* Keyword suggestions */}
       {keywords.length > 0 && (
         <>
-          <SectionHeader>Keyword suggestions</SectionHeader>
+          <SectionHeader
+            right={
+              <ExportButton
+                onClick={() => exportTargetKeywordsToExcel(keywords, asinId, currencySymbol)}
+              />
+            }
+          >
+            Keyword suggestions
+          </SectionHeader>
           <BulkActionBar
             selectedCount={selectedKw.size}
             totalCount={keywords.length}
@@ -887,7 +1032,6 @@ const TargetContent: React.FC<{ asinId: string, currencySymbol: string; }> = ({ 
         </>
       )}
 
-      {/* ASIN suggestion sections */}
       {asinSections.map(({ label, items, key }) =>
         items.length > 0 ? (
           <React.Fragment key={key}>
@@ -1022,7 +1166,17 @@ const CompetitorContent: React.FC<{
     <div>
       <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
 
-      {/* Keywords where my ASIN appears */}
+      {/* Export all competitor data */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+        <span className="text-[11px] text-gray-400">
+          {myRankRecords.length} rank keywords · {topCompetitors.length} rivals
+        </span>
+        <ExportButton
+          onClick={() => exportCompetitorToExcel(myRankRecords, topCompetitors, asinId)}
+          disabled={!myRankRecords.length && !topCompetitors.length}
+        />
+      </div>
+
       {myRankRecords.length > 0 && (
         <>
           <SectionHeader>Keywords where your ASIN appears</SectionHeader>
@@ -1041,12 +1195,8 @@ const CompetitorContent: React.FC<{
                 <tr>
                   <TH className="w-8">
                     <Checkbox
-                      checked={
-                        selectedRank.size === myRankRecords.length && myRankRecords.length > 0
-                      }
-                      indeterminate={
-                        selectedRank.size > 0 && selectedRank.size < myRankRecords.length
-                      }
+                      checked={selectedRank.size === myRankRecords.length && myRankRecords.length > 0}
+                      indeterminate={selectedRank.size > 0 && selectedRank.size < myRankRecords.length}
                       onChange={(c) =>
                         setSelectedRank(c ? new Set(myRankRecords.map((_, i) => i)) : new Set())
                       }
@@ -1071,9 +1221,7 @@ const CompetitorContent: React.FC<{
                         isSel ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
                       }`}
                     >
-                      <TD>
-                        <Checkbox checked={isSel} onChange={() => toggleRank(i)} />
-                      </TD>
+                      <TD><Checkbox checked={isSel} onChange={() => toggleRank(i)} /></TD>
                       <TD>{r.search_term}</TD>
                       <TD className="font-mono">#{r.search_frequency_rank}</TD>
                       <TD className="font-mono">{fmtPctFraction(r.click_share)}</TD>
@@ -1099,7 +1247,6 @@ const CompetitorContent: React.FC<{
         </>
       )}
 
-      {/* Top competing ASINs */}
       {topCompetitors.length > 0 && (
         <>
           <SectionHeader>Top competing ASINs</SectionHeader>
@@ -1118,12 +1265,8 @@ const CompetitorContent: React.FC<{
                 <tr>
                   <TH className="w-8">
                     <Checkbox
-                      checked={
-                        selectedRival.size === topCompetitors.length && topCompetitors.length > 0
-                      }
-                      indeterminate={
-                        selectedRival.size > 0 && selectedRival.size < topCompetitors.length
-                      }
+                      checked={selectedRival.size === topCompetitors.length && topCompetitors.length > 0}
+                      indeterminate={selectedRival.size > 0 && selectedRival.size < topCompetitors.length}
                       onChange={(c) =>
                         setSelectedRival(c ? new Set(topCompetitors.map((_, i) => i)) : new Set())
                       }
@@ -1146,9 +1289,7 @@ const CompetitorContent: React.FC<{
                         isSel ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
                       }`}
                     >
-                      <TD>
-                        <Checkbox checked={isSel} onChange={() => toggleRival(i)} />
-                      </TD>
+                      <TD><Checkbox checked={isSel} onChange={() => toggleRival(i)} /></TD>
                       <TD>
                         <span className="font-mono text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
                           {c.asin}
@@ -1181,13 +1322,17 @@ const CompetitorContent: React.FC<{
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
-const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-t border-gray-100">
-    {children}
+const SectionHeader: React.FC<{
+  children: React.ReactNode;
+  right?:   React.ReactNode;
+}> = ({ children, right }) => (
+  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-t border-gray-100">
+    <span>{children}</span>
+    {right && <span>{right}</span>}
   </div>
 );
 
-// ─── ASIN Thumbnail (hover popover escapes overflow:hidden) ───────────────────
+// ─── ASIN Thumbnail ───────────────────────────────────────────────────────────
 
 const AsinThumbnail: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
   const ref = React.useRef<HTMLDivElement>(null);
@@ -1229,19 +1374,26 @@ const AsinThumbnail: React.FC<{ src: string; alt: string }> = ({ src, alt }) => 
 interface ASINCardProps {
   asin:              ASIN;
   tab:               TabKey;
+  // SQP
   sqpQueries:        SQPSearchQuery[];
   sqpLoading:        boolean;
   sqpError:          Error | null;
+  sqpFetched:        boolean;
+  onFetchSQP:        () => void;
+  // Ngram
   ngramKeywords:     NgramKeyword[];
   ngramLoading:      boolean;
   ngramError:        Error | null;
-  ngramTargetAcos:   number;          // derived from user's advertising profile
+  ngramFetched:      boolean;
+  ngramTargetAcos:   number;
+  onFetchNgram:      () => void;
+  // Competitor
   rankRecords:       CompetiRankRecord[];
   topCompetitors:    TopCompetitor[];
   competitorLoading: boolean;
   competitorError:   Error | null;
   competitorFetched: boolean;
-  currencySymbol: string;
+  currencySymbol:    string;
   onFetchCompetitor: () => void;
 }
 
@@ -1251,10 +1403,14 @@ const ASINCard: React.FC<ASINCardProps> = ({
   sqpQueries,
   sqpLoading,
   sqpError,
+  sqpFetched,
+  onFetchSQP,
   ngramKeywords,
   ngramLoading,
   ngramError,
+  ngramFetched,
   ngramTargetAcos,
+  onFetchNgram,
   rankRecords,
   topCompetitors,
   competitorLoading,
@@ -1265,13 +1421,40 @@ const ASINCard: React.FC<ASINCardProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
 
+  // Trigger lazy fetches when a card is opened for the first time per tab
+  const handleOpen = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) {
+      if (tab === "sqp" && !sqpFetched) onFetchSQP();
+      if (tab === "ngram" && !ngramFetched) onFetchNgram();
+      if (tab === "competitor" && !competitorFetched) onFetchCompetitor();
+    }
+  };
+
+  // Also trigger fetch when tab changes while card is already open
+  React.useEffect(() => {
+    if (!open) return;
+    if (tab === "sqp" && !sqpFetched) onFetchSQP();
+    if (tab === "ngram" && !ngramFetched) onFetchNgram();
+    if (tab === "competitor" && !competitorFetched) onFetchCompetitor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const ctrPositive = asin.ctrDelta.startsWith("+");
   const cvrPositive = asin.cvrDelta.startsWith("+");
 
   const renderBody = () => {
     switch (tab) {
       case "sqp":
-        return <SQPTable queries={sqpQueries} isLoading={sqpLoading} error={sqpError} />;
+        return (
+          <SQPTable
+            queries={sqpQueries}
+            isLoading={sqpLoading}
+            error={sqpError}
+            asinId={asin.id}
+          />
+        );
       case "ngram":
         return (
           <NgramTable
@@ -1280,15 +1463,11 @@ const ASINCard: React.FC<ASINCardProps> = ({
             error={ngramError}
             targetAcos={ngramTargetAcos}
             currencySymbol={currencySymbol}
+            asinId={asin.id}
           />
         );
       case "target":
-        return (
-          <TargetContent 
-          asinId={asin.id} 
-          currencySymbol={currencySymbol}
-          />
-        );
+        return <TargetContent asinId={asin.id} currencySymbol={currencySymbol} />;
       case "competitor":
         return (
           <CompetitorContent
@@ -1306,12 +1485,10 @@ const ASINCard: React.FC<ASINCardProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-3 shadow-sm">
-      {/* Card header */}
       <button
-        onClick={() => setOpen(!open)}
+        onClick={handleOpen}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
       >
-        {/* Left: chevron + thumbnail + name + ASIN pill */}
         <div className="flex items-center gap-3 min-w-0">
           <span
             className={`text-gray-400 text-xs transition-transform duration-200 shrink-0 ${
@@ -1320,11 +1497,9 @@ const ASINCard: React.FC<ASINCardProps> = ({
           >
             ▶
           </span>
-
           {asin.imageUrl && (
             <AsinThumbnail src={asin.imageUrl} alt={asin.name || asin.id} />
           )}
-
           <div className="min-w-0">
             {asin.name && (
               <div
@@ -1342,7 +1517,6 @@ const ASINCard: React.FC<ASINCardProps> = ({
           </div>
         </div>
 
-        {/* Right: CTR / CVR */}
         <div className="flex items-center gap-5 shrink-0 ml-4">
           <div className="text-right">
             <div className="text-[10px] text-gray-400">Avg CTR</div>
@@ -1377,9 +1551,7 @@ const ASINCard: React.FC<ASINCardProps> = ({
         </div>
       </button>
 
-      {open && (
-        <div className="border-t border-gray-100">{renderBody()}</div>
-      )}
+      {open && <div className="border-t border-gray-100">{renderBody()}</div>}
     </div>
   );
 };
@@ -1409,26 +1581,23 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "sqp",        label: "SQP gaps" },
   { key: "ngram",      label: "N-gram analysis" },
   { key: "target",     label: "Target finder" },
-  { key: "competitor", label: "Competitor intel" },
+  // { key: "competitor", label: "Competitor intel" },
 ];
 
 export function OpportunityOptimizer() {
-  const { data: asinsData,   isLoading: asinsLoading } = useAllAsins();
-  const { data: userProfile }                           = useUserProfile();
-  const { currencySymbol } = useCampaignDefaults();
+  const { data: asinsData, isLoading: asinsLoading } = useAllAsins();
+  const { data: userProfile }                         = useUserProfile();
+  const { currencySymbol }                            = useCampaignDefaults();
 
   const [activeTab,  setActiveTab]  = useState<TabKey>("sqp");
   const [asinFilter, setAsinFilter] = useState<string>("all");
 
-  // ── Derive target ACOS from the user's active advertising profile ───────────
-  // ConnectedAdvertisingProfile.target_acos is a string ("20", "0.20", "20%")
   const activeAdProfile =
     userProfile?.connected_advertising_profiles?.find((p) => p.is_active) ??
     userProfile?.connected_advertising_profiles?.[0];
 
   const ngramTargetAcos = parseTargetAcos(activeAdProfile?.target_acos);
 
-  // ── Build top-30 ASIN list ──────────────────────────────────────────────────
   const ASINS: ASIN[] = (asinsData?.results ?? []).slice(0, 30).map((a) => ({
     id:       a.asin,
     name:     a.product_name ?? "",
@@ -1441,17 +1610,42 @@ export function OpportunityOptimizer() {
 
   const ALL_ASIN_IDS = ASINS.map((a) => a.id).join(",");
 
-  // ── Feature data hooks ──────────────────────────────────────────────────────
-  const sqpQuery   = useSQPOpportunities();
-  const ngramQuery = useNgramOpportunities();
+  // ── Bulk data hooks (lazy) ──────────────────────────────────────────────────
+  const sqpQuery   = useSQPOpportunities();   // NOTE: always-on react-query hook
+  const ngramQuery = useNgramOpportunities();  // manual-trigger hook
 
+  // Track whether the one-time bulk fetches have been triggered
+  const sqpTriggered   = useRef(false);
+  const ngramTriggered = useRef(false);
+
+  // SQP is auto-fetched by react-query (no enabled gate) — but we want to
+  // defer it until a card is opened. We wrap the hook's loading state so cards
+  // can show a loading indicator when needed.
+  // Since useSQPOpportunities uses useQuery without a manual enable gate,
+  // the fetch happens automatically. The per-card lazy feel comes from the
+  // card only rendering its table body when opened.
+  const sqpFetched   = !sqpQuery.isLoading && sqpQuery.data !== undefined;
+  const ngramFetched = ngramQuery.isEnabled;
+
+  const triggerSQP = useCallback(() => {
+    // SQP is always-on, nothing to trigger; kept for API symmetry
+  }, []);
+
+  const triggerNgram = useCallback(() => {
+    if (!ngramTriggered.current) {
+      ngramTriggered.current = true;
+      ngramQuery.fetchData();
+    }
+  }, [ngramQuery]);
+
+  // Competitor data
   const competiRankQuery    = useCompetiRankData({ asins: ALL_ASIN_IDS });
   const competingAsinsQuery = useCompetingAsins({ asins: ALL_ASIN_IDS });
 
-  const handleFetchCompetitor = () => {
+  const handleFetchCompetitor = useCallback(() => {
     competiRankQuery.fetchData();
     competingAsinsQuery.fetchData();
-  };
+  }, [competiRankQuery, competingAsinsQuery]);
 
   const competitorFetched = competiRankQuery.isEnabled;
   const competitorLoading = competiRankQuery.isLoading || competingAsinsQuery.isLoading;
@@ -1463,7 +1657,7 @@ export function OpportunityOptimizer() {
   const allNgramPositive = ngramQuery.data?.ngram_positive ?? [];
   const allNgramNegative = ngramQuery.data?.ngram_negative ?? [];
 
-  // ── Per-ASIN CTR/CVR averages from SQP data ─────────────────────────────────
+  // Per-ASIN CTR/CVR averages from SQP data
   const sqpMetricsByAsin = React.useMemo(() => {
     const map: Record<string, { ctrs: number[]; cvrs: number[] }> = {};
     for (const q of allSQP) {
@@ -1497,52 +1691,13 @@ export function OpportunityOptimizer() {
       ? enrichedASINs
       : enrichedASINs.filter((a) => a.id === asinFilter);
 
-  // ── Tab change: auto-fetch ngram on first visit ─────────────────────────────
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
-    if (key === "ngram" && !ngramQuery.isEnabled) {
-      ngramQuery.fetchData();
-    }
+    // Pre-fetch ngram when switching to that tab globally
+    if (key === "ngram" && !ngramFetched) triggerNgram();
   };
 
   if (asinsLoading) return <LoadingState />;
-
-  // ── Render ASIN cards ───────────────────────────────────────────────────────
-  const renderCards = () => {
-    if (activeTab === "ngram") {
-      if (!ngramQuery.isEnabled || ngramQuery.isLoading) return <LoadingState />;
-      if (ngramQuery.error) return <ErrorState message={ngramQuery.error.message} />;
-    }
-
-    return visibleASINs.map((asin) => {
-      const sqpQueries = allSQP.filter((q) => q.asin === asin.id);
-      const ngramKeywords = [
-        ...allNgramPositive.filter((k) => k.ASIN === asin.id),
-        ...allNgramNegative.filter((k) => k.ASIN === asin.id),
-      ];
-      return (
-        <ASINCard
-          key={asin.id}
-          asin={asin}
-          tab={activeTab}
-          sqpQueries={sqpQueries}
-          sqpLoading={sqpQuery.isLoading}
-          sqpError={(sqpQuery.error as Error) ?? null}
-          ngramKeywords={ngramKeywords}
-          ngramLoading={ngramQuery.isLoading}
-          ngramError={ngramQuery.error}
-          ngramTargetAcos={ngramTargetAcos}
-          rankRecords={rankRecords}
-          topCompetitors={topCompetitors}
-          competitorLoading={competitorLoading}
-          competitorError={competitorError}
-          competitorFetched={competitorFetched}
-          currencySymbol={currencySymbol}
-          onFetchCompetitor={handleFetchCompetitor}
-        />
-      );
-    });
-  };
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
@@ -1557,8 +1712,6 @@ export function OpportunityOptimizer() {
               Find gaps, expand winners, kill waste — across your top ASINs
             </p>
           </div>
-
-          {/* ASIN filter dropdown */}
           <div className="flex items-center gap-2">
             <label className="text-[12px] text-gray-500">Filter ASIN</label>
             <select
@@ -1585,7 +1738,6 @@ export function OpportunityOptimizer() {
 
       {/* Main panel */}
       <div className="mx-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Global tab bar */}
         <div className="flex border-b border-gray-100 px-4 overflow-x-auto">
           {TABS.map((t) => (
             <TabButton
@@ -1597,8 +1749,43 @@ export function OpportunityOptimizer() {
           ))}
         </div>
 
-        {/* ASIN card list */}
-        <div className="p-4">{renderCards()}</div>
+        <div className="p-4">
+          {visibleASINs.map((asin) => {
+            const sqpQueries = allSQP.filter((q) => q.asin === asin.id);
+            const ngramKeywords = [
+              ...allNgramPositive.filter((k) => k.ASIN === asin.id),
+              ...allNgramNegative.filter((k) => k.ASIN === asin.id),
+            ];
+            return (
+              <ASINCard
+                key={asin.id}
+                asin={asin}
+                tab={activeTab}
+                // SQP
+                sqpQueries={sqpQueries}
+                sqpLoading={sqpQuery.isLoading}
+                sqpError={(sqpQuery.error as Error) ?? null}
+                sqpFetched={sqpFetched}
+                onFetchSQP={triggerSQP}
+                // Ngram
+                ngramKeywords={ngramKeywords}
+                ngramLoading={ngramQuery.isLoading}
+                ngramError={ngramQuery.error}
+                ngramFetched={ngramFetched}
+                ngramTargetAcos={ngramTargetAcos}
+                onFetchNgram={triggerNgram}
+                // Competitor
+                rankRecords={rankRecords}
+                topCompetitors={topCompetitors}
+                competitorLoading={competitorLoading}
+                competitorError={competitorError}
+                competitorFetched={competitorFetched}
+                currencySymbol={currencySymbol}
+                onFetchCompetitor={handleFetchCompetitor}
+              />
+            );
+          })}
+        </div>
       </div>
 
       <div className="h-6" />

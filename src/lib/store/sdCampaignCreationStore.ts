@@ -34,6 +34,7 @@ export interface SDRetargetBulkRow extends SDBaseRow {
   asin:            string
   intent:          string 
   expression_type: 'views' | 'purchases'
+  lookback_window: number 
   budget:          number
   default_bid:     number
   bid:             number
@@ -178,7 +179,12 @@ export function parseSDRetargetLine(
   minBudget: number,
 ): { row: SDRetargetBulkRow | null; invalidAsin: boolean } {
   const cols = line.split('\t').map((c) => c.trim())
-  const [asin, expressionRaw, bidRaw, budgetRaw, intentRaw] = cols
+  const [asin, expressionRaw, bidRaw, budgetRaw,lookbackRaw, intentRaw] = cols
+
+  const parsedLookback = parseInt(lookbackRaw)
+  const lookback_window = !isNaN(parsedLookback) && [7,14,30,60,90,180,365].includes(parsedLookback)
+    ? parsedLookback
+    : 30  
 
   if (!asin) return { row: null, invalidAsin: false }
   if (!isValidAsin(asin)) return { row: null, invalidAsin: true }
@@ -208,6 +214,7 @@ export function parseSDRetargetLine(
       intent,
       asin:            asin.toUpperCase().trim(),
       expression_type: expressionType,
+      lookback_window,  
       default_bid:     0,
       bid,
       budget,

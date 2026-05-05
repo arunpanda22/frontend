@@ -101,7 +101,7 @@ export interface SBVSingleProductPayload extends SBBasePayload {
   video_asset_id: string
   asin:           string
   brand_entity_id: string
-  target_asins:   { asin: string; bid: number; matchType: 'EXACT' | 'EXPANDED' }[]
+  target_asins:   { asin: string; bid: number; matchType: 'EXACT' }[]
 }
 
 export interface SBVSpotlightPayload extends SBBasePayload {

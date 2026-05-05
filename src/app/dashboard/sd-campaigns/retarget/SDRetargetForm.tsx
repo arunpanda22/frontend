@@ -14,6 +14,7 @@ interface Form {
   bid:             number | string
   start_date:      string
   expression_type: ExpressionType
+  lookback_window: number
   intent:          string
 }
 
@@ -30,7 +31,7 @@ export function SDRetargetForm() {
   const { minBid, minBudget, currencySymbol, recommendedBudget } = useCampaignDefaults()
   const { createSDRetarget, loading, result } = useSDOperations()
 
-  const [form,   setForm]   = useState<Form>({ campaign_name: '', ad_group_name: '', budget: minBudget, bid: '', start_date: today, expression_type: 'views', intent: '' })
+  const [form,   setForm]   = useState<Form>({ campaign_name: '', ad_group_name: '', budget: minBudget, bid: '', start_date: today, expression_type: 'views', intent: '', lookback_window: 30, })
   const [asins,  setAsins]  = useState<string[]>([''])
   const [errors, setErrors] = useState<Errors>({})
 
@@ -61,6 +62,7 @@ export function SDRetargetForm() {
       expression_type: form.expression_type,
       budget:          Number(form.budget),
       bid:             Number(form.bid),
+      lookback_window: form.lookback_window,
       start_date:      form.start_date,
     })
   }
@@ -75,7 +77,19 @@ export function SDRetargetForm() {
       )}
 
       <SectionCard title="Retargeting Type" description="Choose how to re-engage shoppers">
-        <ExpressionTypeToggle value={form.expression_type} onChange={(v) => setField('expression_type', v)} />
+        <ExpressionTypeToggle value={form.expression_type} onChange={(v) => {
+          setField('expression_type', v)
+          // Reset lookback if switching to views and current value is out of range
+          if (v === 'views' && form.lookback_window > 90) {
+            setField('lookback_window', 90)
+          }
+        }} />
+        {form.expression_type === 'views' && form.lookback_window > 90 && (
+          <p className="text-xs text-amber-600 font-medium flex items-center gap-1.5 mt-2">
+            <span>⚠️</span>
+            <span>Lookback reset to 90 days — max allowed for <span className="font-mono">views</span>.</span>
+          </p>
+        )}
       </SectionCard>
 
       <SectionCard title="Advertised Products" description="ASINs to advertise — resolved to SKUs by the backend">
@@ -99,6 +113,19 @@ export function SDRetargetForm() {
       <SectionCard title="Campaign Settings" description="Schedule and optional naming">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DatePicker label="Start Date" value={form.start_date} onChange={(v) => setField('start_date', v)} error={errors.start_date} />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-slate-600">Lookback Window</label>
+            <select
+              value={form.lookback_window}
+              onChange={(e) => setField('lookback_window', Number(e.target.value))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            >
+              {[7, 14, 30, 60, 90, 180, 365].map((v) => (
+                <option key={v} value={v}>{v} days</option>
+              ))}
+            </select>
+          </div>
           <Input label="Intent (optional)" placeholder="e.g. brand, competitor" value={form.intent} onChange={(e) => setField('intent', e.target.value)} />
         </div>
       </SectionCard>

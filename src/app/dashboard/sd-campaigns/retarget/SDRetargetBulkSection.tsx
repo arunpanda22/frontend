@@ -15,10 +15,21 @@ const EXPRESSION_OPTIONS = [
   { value: 'purchases', label: 'Purchases' },
 ]
 
+const LOOKBACK_OPTIONS = [
+  { value: '7',   label: '7 days'   },
+  { value: '14',  label: '14 days'  },
+  { value: '30',  label: '30 days'  },
+  { value: '60',  label: '60 days'  },
+  { value: '90',  label: '90 days'  },
+  { value: '180', label: '180 days' },
+  { value: '365', label: '365 days' },
+]
+
 const COLUMNS: CampaignColumnDefinition[] = [
   { field: 'campaign_name',   headerName: 'Campaign Name',     type: 'text',     span: true, editable: true,  sortable: true,  width: 280, minWidth: 180, maxWidth: 460 },
   { field: 'asin',            headerName: 'ASIN',              type: 'text',     span: true, editable: true,  sortable: true,  filterable: true, width: 140, minWidth: 120 },
   { field: 'expression_type', headerName: 'Type',              type: 'dropdown', span: true, editable: true,  width: 120, minWidth: 100, options: EXPRESSION_OPTIONS },
+  { field: 'lookback_window', headerName: 'Lookback',        type: 'dropdown', span: true, editable: true, width: 120, minWidth: 100, options: LOOKBACK_OPTIONS },
   { field: 'bid',             headerName: 'Targeting Bid (£)', type: 'number',   span: true, editable: true,  width: 150, minWidth: 100 },
   { field: 'budget',          headerName: 'Budget (£)',        type: 'number',   span: true, editable: true,  width: 110, minWidth: 80  },
   { field: 'intent',          headerName: 'Intent',            type: 'text',     span: true, editable: true,  width: 160, minWidth: 120 },
@@ -63,10 +74,11 @@ function PasteArea({ onPaste }: { onPaste: (text: string) => void }) {
           <span className="font-mono">Expression Type</span> →&nbsp;
           <span className="font-mono">Targeting Bid</span> →&nbsp;
           <span className="font-mono text-slate-300">Budget</span> →&nbsp;
+          <span className="font-mono text-slate-300">Lookback</span> →&nbsp;
           <span className="font-mono text-slate-300">Intent</span>
         </p>
         <p className="text-[11px] text-slate-400">
-          Last 2 columns optional · Budget defaults to <span className="font-mono">bid × 15</span> · Expression defaults to <span className="font-mono">views</span>
+          Last 3 columns optional · Budget defaults to <span className="font-mono">bid × 15</span> · Expression defaults to <span className="font-mono">views</span>
         </p>
       </div>
       <textarea onPaste={handlePaste} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer resize-none" readOnly />
@@ -96,6 +108,7 @@ export function SDRetargetBulkSection() {
     budget:          r.budget,
     intent:          r.intent,
     start_date:      r.start_date,
+    lookback_window: r.lookback_window,
     _statusLabel:    toStatusLabel(r._status, r._error),
   }))
 
@@ -119,42 +132,45 @@ export function SDRetargetBulkSection() {
     return `${asin.toUpperCase().trim()} - SD - RT - ${expressionType.charAt(0).toUpperCase() + expressionType.slice(1)}${intentSuffix}`
   }
 
-  function handleTableChange(updated: CampaignTableData[]) {
-    store.setRows(updated.map((row) => {
-      const asin           = String(row.asin           ?? '').toUpperCase().trim()
-      const expressionType = (row.expression_type as ExpressionType) ?? 'views'
-      const intent         = String(row.intent         ?? '')
+ function handleTableChange(updated: CampaignTableData[]) {
+  store.setRows(updated.map((row) => {
+    const asin           = String(row.asin           ?? '').toUpperCase().trim()
+    const expressionType = (row.expression_type as ExpressionType) ?? 'views'
+    const intent         = String(row.intent         ?? '')
 
-      // Rebuild name only if it still matches the previously auto-generated value
-      // (i.e. the user hasn't manually typed a custom name)
-      const existingRow  = rows.find((r) => r._id === row._id)
-      const prevAutoName = existingRow
-        ? buildCampaignName(existingRow.asin, existingRow.expression_type, existingRow.intent)
-        : ''
-      const isAutoName   = !existingRow || existingRow.campaign_name === prevAutoName
-      const campaign_name = isAutoName
-        ? buildCampaignName(asin, expressionType, intent)
-        : String(row.campaign_name ?? '')
+    // Clamp lookback if views doesn't support 180/365
+    const rawLookback    = Number(row.lookback_window) || 30
+    const lookback_window = expressionType === 'views' && rawLookback > 90 ? 90 : rawLookback
 
-      return {
-        _id: String(row._id),
-        campaign_name,
-        intent,
-        asin,
-        expression_type: expressionType,
-        default_bid:     0,
-        bid:             Number(row.bid)    || 0,
-        budget:          Number(row.budget) || 0,
-        start_date:      String(row.start_date ?? ''),
-        _status:         existingRow?._status ?? 'idle',
-        _error:          existingRow?._error,
-      }
-    }))
-  }
+    const existingRow  = rows.find((r) => r._id === row._id)
+    const prevAutoName = existingRow
+      ? buildCampaignName(existingRow.asin, existingRow.expression_type, existingRow.intent)
+      : ''
+    const isAutoName    = !existingRow || existingRow.campaign_name === prevAutoName
+    const campaign_name = isAutoName
+      ? buildCampaignName(asin, expressionType, intent)
+      : String(row.campaign_name ?? '')
+
+    return {
+      _id:             String(row._id),
+      campaign_name,
+      intent,
+      asin,
+      expression_type: expressionType,
+      lookback_window,                      // ← clamped
+      default_bid:     0,
+      bid:             Number(row.bid)    || 0,
+      budget:          Number(row.budget) || 0,
+      start_date:      String(row.start_date ?? ''),
+      _status:         existingRow?._status ?? 'idle',
+      _error:          existingRow?._error,
+    }
+  }))
+}
 
   const hasRows     = rows.length > 0
   const canSubmit   = pendingCount > 0 && !isSubmitting
-  const submitLabel = isSubmitting
+  const submitLabel = isSubmitting  
     ? 'Creating campaigns…'
     : `Create ${pendingCount} Campaign${pendingCount !== 1 ? 's' : ''}`
 
@@ -202,6 +218,13 @@ export function SDRetargetBulkSection() {
             onDataChange={handleTableChange} showCheckboxColumn showDeleteOption rowsPerPage={20} />
 
           {summary && <SDBulkSummaryBanner summary={summary} onRetry={retryFailed} onDismiss={clearSummary} />}
+
+          {rows.some(r => r.expression_type === 'views' && r.lookback_window > 90) && (
+            <p className="text-xs text-amber-600 font-medium flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>Lookback clamped to 90 days for <span className="font-mono">views</span> rows — max allowed is 90.</span>
+            </p>
+          )}
 
           <div className="flex justify-end">
             <button type="button" onClick={submitAll} disabled={!canSubmit}
