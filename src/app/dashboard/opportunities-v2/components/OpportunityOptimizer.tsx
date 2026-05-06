@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
-import * as XLSX from "xlsx";
+import React, { useState, useCallback } from "react";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import {
   useSQPOpportunities,
   useNgramOpportunities,
@@ -17,17 +17,20 @@ import {
   useAllAsins,
 } from "@/lib/hooks/use-opportunities";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
-import { useCampaignDefaults } from "@/lib/hooks/campaignCreationHooks";
+import {
+  SQPCampaignModal,
+  type SQPCampaignRow,
+} from "./sqp-campaign-modal";   
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ASIN {
-  id: string;
-  name: string;
+  id:       string;
+  name:     string;
   imageUrl?: string;
-  avgCtr: string;
+  avgCtr:   string;
   ctrDelta: string;
-  avgCvr: string;
+  avgCvr:   string;
   cvrDelta: string;
 }
 
@@ -37,13 +40,14 @@ type TabKey = "sqp" | "ngram" | "target" | "competitor";
 
 const fmtPct         = (v: number) => `${v.toFixed(1)}%`;
 const fmtPctFraction = (v: number) => `${(v * 100).toFixed(1)}%`;
+const fmtCurrency    = (v: number) => `$${v.toFixed(2)}`;
 
 // ─── Target ACOS parser ───────────────────────────────────────────────────────
 
 function parseTargetAcos(raw?: string | number | null): number {
   if (raw == null) return 0.2;
-  const str = String(raw);
-  const n = parseFloat(str.replace("%", "").trim());
+  if (typeof raw === "number") return raw > 1 ? raw / 100 : raw;
+  const n = parseFloat(String(raw).replace("%", "").trim());
   if (isNaN(n)) return 0.2;
   return n > 1 ? n / 100 : n;
 }
@@ -91,7 +95,6 @@ function buildNgramTree(keywords: NgramKeyword[]): NgramTreeNode[] {
     bucket.push(kw);
     byN.set(n, bucket);
   }
-
   const maxN = byN.size ? Math.max(...byN.keys()) : 0;
   if (maxN === 0) return [];
 
@@ -116,109 +119,6 @@ function buildNgramTree(keywords: NgramKeyword[]): NgramTreeNode[] {
     }
   }
   return roots;
-}
-
-// ─── Excel export helpers ─────────────────────────────────────────────────────
-
-function exportSQPToExcel(queries: SQPSearchQuery[], asinId: string) {
-  const rows = queries.map((q) => {
-    const myCtr =
-      q.asin_impression_count > 0
-        ? (q.asin_click_count / q.asin_impression_count) * 100
-        : 0;
-    const inCampaigns =
-      q.BROAD !== "doesn't exist" ||
-      q.PHRASE !== "doesn't exist" ||
-      q.EXACT !== "doesn't exist"
-        ? "Yes"
-        : "No";
-    return {
-      "Search Term":        q.search_query,
-      "Search Volume":      q.search_query_volume ?? 0,
-      "Market Impressions": q.total_query_impression_count ?? 0,
-      "My Impressions":     q.asin_impression_count ?? 0,
-      "My CTR (%)":         parseFloat(myCtr.toFixed(2)),
-      "Market Clicks":      q.total_click_count,
-      "My Clicks":          q.asin_click_count,
-      "My CVR (%)":         parseFloat(q.asin_conversion.toFixed(2)),
-      "Market CVR (%)":     parseFloat(q.total_conversion.toFixed(2)),
-      "My Purchases":       q.asin_purchase_count,
-      "Market Purchases":   q.total_purchase_count,
-      "Beats Market CVR":   q["Conversion > Market"] ? "Yes" : "No",
-      "Broad Match":        q.BROAD,
-      "Phrase Match":       q.PHRASE,
-      "Exact Match":        q.EXACT,
-      "In Campaigns":       inCampaigns,
-    };
-  });
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "SQP Gaps");
-  XLSX.writeFile(wb, `SQP_${asinId}.xlsx`);
-}
-
-function exportNgramToExcel(keywords: NgramKeyword[], asinId: string, targetAcos: number, currencySymbol: string) {
-  const rows = keywords.map((k) => {
-    const acosRaw = typeof k.ACOS_Value === "number" ? k.ACOS_Value : parseFloat(k.ACOS_Value as string);
-    return {
-      "Keyword":       k.Keyword,
-      "Type":          ngramType(k.Keyword),
-      "Classification": k.Classification,
-      "ACOS (%)":      isNaN(acosRaw) ? k.ACOS_Value : parseFloat((acosRaw * 100).toFixed(2)),
-      "Target ACOS (%)": parseFloat((targetAcos * 100).toFixed(2)),
-      [`Spend (${currencySymbol})`]: parseFloat(k.cost.toFixed(2)),
-      [`Sales (${currencySymbol})`]: parseFloat(k.sales_30d.toFixed(2)),
-      "Impressions":   k.impressions,
-      "Clicks":        k.clicks,
-      "Match Type":    k.match_type,
-    };
-  });
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "N-gram Analysis");
-  XLSX.writeFile(wb, `Ngram_${asinId}.xlsx`);
-}
-
-function exportTargetKeywordsToExcel(keywords: KeywordRecommendation[], asinId: string, currencySymbol: string) {
-  const rows = keywords.map((k) => ({
-    "Keyword":                   k.keyword,
-    "Match Type":                k.matchType,
-    [`Bid (${currencySymbol})`]: parseFloat(k.bid.toFixed(2)),
-    [`Bid Range Start (${currencySymbol})`]: parseFloat(k.suggestedBid_rangeStart.toFixed(2)),
-    [`Bid Range End (${currencySymbol})`]:   parseFloat(k.suggestedBid_rangeEnd.toFixed(2)),
-    "Rank":                      k.rank,
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Target Keywords");
-  XLSX.writeFile(wb, `Target_${asinId}.xlsx`);
-}
-
-function exportCompetitorToExcel(
-  rankRecords: CompetiRankRecord[],
-  topCompetitors: TopCompetitor[],
-  asinId: string
-) {
-  const wb = XLSX.utils.book_new();
-  if (rankRecords.length > 0) {
-    const rankRows = rankRecords.map((r) => ({
-      "Search Term":       r.search_term,
-      "Search Freq. Rank": r.search_frequency_rank,
-      "Click Share (%)":   parseFloat((r.click_share * 100).toFixed(2)),
-      "Conv. Share (%)":   parseFloat((r.conversion_share * 100).toFixed(2)),
-      "Report Period":     r.report_period,
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rankRows), "Rank Keywords");
-  }
-  if (topCompetitors.length > 0) {
-    const rivalRows = topCompetitors.map((c) => ({
-      "Rival ASIN":          c.asin,
-      "Shared Keywords":     c.occurrence_count,
-      "Avg Click Share (%)": parseFloat((c.avg_click_share * 100).toFixed(2)),
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rivalRows), "Top Competitors");
-  }
-  XLSX.writeFile(wb, `Competitor_${asinId}.xlsx`);
 }
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -251,9 +151,9 @@ const TH: React.FC<{ children?: React.ReactNode; className?: string }> = ({
 );
 
 const TD: React.FC<{
-  children:  React.ReactNode;
+  children:   React.ReactNode;
   className?: string;
-  onClick?:  (e: React.MouseEvent) => void;
+  onClick?:   (e: React.MouseEvent) => void;
 }> = ({ children, className = "", onClick }) => (
   <td
     onClick={onClick}
@@ -262,78 +162,6 @@ const TD: React.FC<{
     {children}
   </td>
 );
-
-// ─── Campaign Creation Modal ──────────────────────────────────────────────────
-
-interface CampaignModalContext {
-  type: "keyword" | "asin" | "search_query";
-  value: string;
-  asin?: string;
-}
-
-const CampaignModal: React.FC<{
-  context: CampaignModalContext | null;
-  onClose: () => void;
-}> = ({ context, onClose }) => {
-  if (!context) return null;
-
-  const typeLabel: Record<CampaignModalContext["type"], string> = {
-    keyword:      "Keyword",
-    asin:         "ASIN",
-    search_query: "Search Query",
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-[14px] font-semibold text-gray-900">Create Campaign</h2>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              {typeLabel[context.type]}:{" "}
-              <span className="font-mono text-gray-600">{context.value}</span>
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none"
-          >
-            ×
-          </button>
-        </div>
-        <div className="px-5 py-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto mb-3">
-            <span className="text-xl">🚧</span>
-          </div>
-          <p className="text-[13px] font-medium text-gray-700">Campaign builder coming soon</p>
-          <p className="text-[11px] text-gray-400 mt-1">
-            The campaign creation API is not yet connected.
-          </p>
-        </div>
-        <div className="flex justify-end gap-2 px-5 py-3 bg-gray-50 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 text-[12px] font-medium rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            disabled
-            className="px-4 py-1.5 text-[12px] font-medium rounded-lg bg-[#f5a623] text-white opacity-40 cursor-not-allowed"
-          >
-            Create Campaign
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── State helpers ────────────────────────────────────────────────────────────
 
@@ -368,9 +196,9 @@ const FetchPrompt: React.FC<{ label: string; onFetch: () => void }> = ({
 // ─── Checkbox ─────────────────────────────────────────────────────────────────
 
 const Checkbox: React.FC<{
-  checked:       boolean;
+  checked:        boolean;
   indeterminate?: boolean;
-  onChange:      (checked: boolean) => void;
+  onChange:       (checked: boolean) => void;
 }> = ({ checked, indeterminate = false, onChange }) => {
   const ref = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
@@ -393,7 +221,7 @@ const Checkbox: React.FC<{
 interface BulkAction {
   label:   string;
   variant: "green" | "red" | "gray";
-  onClick: (ids: string[]) => void;
+  onClick: () => void;
 }
 
 const BulkActionBar: React.FC<{
@@ -423,7 +251,7 @@ const BulkActionBar: React.FC<{
         {actions.map((a) => (
           <button
             key={a.label}
-            onClick={() => a.onClick([])}
+            onClick={a.onClick}
             className={`text-[11px] px-2.5 py-1 rounded border transition-colors font-medium ${variantStyles[a.variant]}`}
           >
             {a.label}
@@ -440,59 +268,25 @@ const BulkActionBar: React.FC<{
   );
 };
 
-// ─── Export Button ────────────────────────────────────────────────────────────
+// ─── SQP row status type ──────────────────────────────────────────────────────
 
-const ExportButton: React.FC<{ onClick: () => void; disabled?: boolean }> = ({
-  onClick,
-  disabled = false,
-}) => (
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      onClick();
-    }}
-    disabled={disabled}
-    title="Export to Excel"
-    className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded border transition-colors font-medium
-      ${disabled
-        ? "border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed"
-        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-      }`}
-  >
-    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M8 1v9m0 0L5 7m3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-    Export
-  </button>
-);
-
-// ─── Match Cell ───────────────────────────────────────────────────────────────
-
-const MatchCell: React.FC<{ value: string }> = ({ value }) => {
-  const exists = value !== "doesn't exist";
-  if (!exists) {
-    return <span className="text-[11px] text-gray-300 italic">doesn't exist</span>;
-  }
-  return (
-    <span
-      className="text-[11px] font-mono text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded max-w-[160px] truncate inline-block"
-      title={value}
-    >
-      {value.length > 22 ? `${value.slice(0, 22)}…` : value}
-    </span>
-  );
-};
+interface SQPRowStatus {
+  status:     "success" | "error" | "loading";
+  campaignId?: string;
+  error?:      string;
+}
 
 // ─── SQP Table ────────────────────────────────────────────────────────────────
 
 const SQPTable: React.FC<{
+  asin:      string;
   queries:   SQPSearchQuery[];
   isLoading: boolean;
   error:     Error | null;
-  asinId:    string;
-}> = ({ queries, isLoading, error, asinId }) => {
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [modalCtx, setModalCtx] = useState<CampaignModalContext | null>(null);
+}> = ({ asin, queries, isLoading, error }) => {
+  const [selected,    setSelected]    = useState<Set<number>>(new Set());
+  const [rowStatuses, setRowStatuses] = useState<Record<number, SQPRowStatus>>({});
+  const [modal,       setModal]       = useState<SQPCampaignRow[] | null>(null);
 
   const toggleRow = useCallback((i: number) => {
     setSelected((prev) => {
@@ -505,24 +299,54 @@ const SQPTable: React.FC<{
   const handleSelectAll = (checked: boolean) =>
     setSelected(checked ? new Set(queries.map((_, i) => i)) : new Set());
 
+  const openSingle = (i: number) =>
+    setModal([{ index: i, query: queries[i] }]);
+
+  const openBulk = () => {
+    const rows: SQPCampaignRow[] = [...selected].map((i) => ({
+      index: i,
+      query: queries[i],
+    }));
+    setModal(rows);
+  };
+
+  const handleRowSuccess = useCallback((index: number, campaignId: string) => {
+    setRowStatuses((prev) => ({ ...prev, [index]: { status: "success", campaignId } }));
+  }, []);
+
+  const handleRowError = useCallback((index: number, err: string) => {
+    setRowStatuses((prev) => ({ ...prev, [index]: { status: "error", error: err } }));
+  }, []);
+
   if (isLoading) return <LoadingState />;
   if (error)     return <ErrorState message={error.message} />;
   if (!queries.length) return <EmptyState />;
 
   const sqpBulkActions: BulkAction[] = [
-    { label: "+ Add to campaign", variant: "green", onClick: () => {} },
-    { label: "Export",            variant: "gray",  onClick: () => {} },
+    {
+      label:   "+ Add to campaign",
+      variant: "green",
+      onClick: openBulk,
+    },
+    {
+      label:   "Export",
+      variant: "gray",
+      onClick: () => {},
+    },
   ];
 
   return (
     <div>
-      <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
-
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
-        <span className="text-[11px] text-gray-400">{queries.length} queries</span>
-        <ExportButton onClick={() => exportSQPToExcel(queries, asinId)} />
-      </div>
+      {/* Campaign creation modal */}
+      {modal && (
+        <SQPCampaignModal
+          asin={asin}
+          rows={modal}
+          onClose={() => setModal(null)}
+          onRowSuccess={handleRowSuccess}
+          onRowError={handleRowError}
+        />
+      )}
 
       <BulkActionBar
         selectedCount={selected.size}
@@ -531,6 +355,7 @@ const SQPTable: React.FC<{
         onSelectAll={handleSelectAll}
         onClear={() => setSelected(new Set())}
       />
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -554,33 +379,40 @@ const SQPTable: React.FC<{
               <TH>My purchases</TH>
               <TH>Mkt purchases</TH>
               <TH>Beats mkt</TH>
-              <TH>Broad Match</TH>
-              <TH>Phrase Match</TH>
-              <TH>Exact Match</TH>
-              <TH>In Campaigns</TH>
+              <TH>Coverage</TH>
+              <TH>Status</TH>
               <TH />
             </tr>
           </thead>
           <tbody>
             {queries.map((q, i) => {
               const cvrGood    = q["Conversion > Market"];
+              const hasBroad   = q.BROAD  !== "doesn't exist";
+              const hasPhrase  = q.PHRASE !== "doesn't exist";
+              const hasExact   = q.EXACT  !== "doesn't exist";
               const isSelected = selected.has(i);
+              const rowStatus  = rowStatuses[i];
+              const isSuccess  = rowStatus?.status === "success";
+              const isErr      = rowStatus?.status === "error";
               const myCtr      =
                 q.asin_impression_count > 0
                   ? (q.asin_click_count / q.asin_impression_count) * 100
                   : 0;
-              const inCampaigns =
-                q.BROAD !== "doesn't exist" ||
-                q.PHRASE !== "doesn't exist" ||
-                q.EXACT !== "doesn't exist";
+
+              // Row background priority: selected > success > error > default
+              const rowBg = isSelected
+                ? "bg-blue-50 hover:bg-blue-100"
+                : isSuccess
+                  ? "bg-emerald-50 hover:bg-emerald-100"
+                  : isErr
+                    ? "bg-red-50/50 hover:bg-red-50"
+                    : "hover:bg-gray-50";
 
               return (
                 <tr
                   key={i}
                   onClick={() => toggleRow(i)}
-                  className={`transition-colors cursor-pointer ${
-                    isSelected ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
-                  }`}
+                  className={`transition-colors cursor-pointer ${rowBg}`}
                 >
                   <TD>
                     <Checkbox checked={isSelected} onChange={() => toggleRow(i)} />
@@ -612,25 +444,56 @@ const SQPTable: React.FC<{
                       variant={cvrGood ? "green" : "red"}
                     />
                   </TD>
-                  <TD><MatchCell value={q.BROAD} /></TD>
-                  <TD><MatchCell value={q.PHRASE} /></TD>
-                  <TD><MatchCell value={q.EXACT} /></TD>
                   <TD>
-                    <Badge
-                      label={inCampaigns ? "Yes" : "No"}
-                      variant={inCampaigns ? "blue" : "gray"}
-                    />
+                    <div className="flex gap-1">
+                      {hasBroad  && <Badge label="B" variant="blue" />}
+                      {hasPhrase && <Badge label="P" variant="blue" />}
+                      {hasExact  && <Badge label="E" variant="blue" />}
+                      {!hasBroad && !hasPhrase && !hasExact && (
+                        <Badge label="None" variant="gray" />
+                      )}
+                    </div>
                   </TD>
+
+                  {/* Status column */}
                   <TD onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setModalCtx({ type: "search_query", value: q.search_query });
-                      }}
-                      className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap"
-                    >
-                      + Campaign
-                    </button>
+                    {isSuccess && (
+                      <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        Created
+                      </span>
+                    )}
+                    {isErr && (
+                      <span
+                        className="flex items-center gap-1 text-red-500 text-[10px] font-medium whitespace-nowrap"
+                        title={rowStatus.error}
+                      >
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        Failed
+                      </span>
+                    )}
+                    {rowStatus?.status === "loading" && (
+                      <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                    )}
+                  </TD>
+
+                  {/* Action button */}
+                  <TD onClick={(e) => e.stopPropagation()}>
+                    {isSuccess ? (
+                      <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium whitespace-nowrap">
+                        <CheckCircle2 className="h-3 w-3" /> Done
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openSingle(i);
+                        }}
+                        className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                      >
+                        + Campaign
+                      </button>
+                    )}
                   </TD>
                 </tr>
               );
@@ -649,19 +512,15 @@ const NgramTreeRow: React.FC<{
   expandedKeys:   Set<string>;
   selectedKeys:   Set<string>;
   targetAcos:     number;
-  currencySymbol: string;
   onToggleExpand: (key: string) => void;
   onToggleSelect: (key: string) => void;
-  onAction:       (kw: NgramKeyword) => void;
 }> = ({
   node,
   expandedKeys,
   selectedKeys,
   targetAcos,
-  currencySymbol,
   onToggleExpand,
   onToggleSelect,
-  onAction,
 }) => {
   const kw          = node.keyword;
   const key         = `${kw.ASIN}::${kw.Keyword}`;
@@ -677,11 +536,8 @@ const NgramTreeRow: React.FC<{
   const acosDisplay    = isNaN(acosRaw) ? String(kw.ACOS_Value) : fmtPctFraction(acosRaw);
   const acosOverTarget = !isNaN(acosRaw) && acosRaw > targetAcos;
   const acosColor      = acosOverTarget || isNeg ? "text-red-500" : "text-emerald-600";
-
-  const type     = ngramType(kw.Keyword);
-  const indentPx = node.depth * 20;
-
-  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
+  const type           = ngramType(kw.Keyword);
+  const indentPx       = node.depth * 20;
 
   return (
     <>
@@ -722,24 +578,16 @@ const NgramTreeRow: React.FC<{
         <TD className="font-mono">{fmtCurrency(kw.sales_30d)}</TD>
         <TD onClick={(e) => e.stopPropagation()}>
           {isLeaf ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onAction(kw); }}
-              className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors whitespace-nowrap"
-            >
+            // Unigrams — teal "View Keywords" text link (prototype style)
+            <button className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors whitespace-nowrap">
               View Keywords
             </button>
           ) : !isNeg ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onAction(kw); }}
-              className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-            >
+            <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
               + Expand
             </button>
           ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); onAction(kw); }}
-              className="text-[11px] px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-            >
+            <button className="text-[11px] px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
               Negative
             </button>
           )}
@@ -754,10 +602,8 @@ const NgramTreeRow: React.FC<{
             expandedKeys={expandedKeys}
             selectedKeys={selectedKeys}
             targetAcos={targetAcos}
-            currencySymbol={currencySymbol}
             onToggleExpand={onToggleExpand}
             onToggleSelect={onToggleSelect}
-            onAction={onAction}
           />
         ))}
     </>
@@ -767,16 +613,13 @@ const NgramTreeRow: React.FC<{
 // ─── N-gram Table ─────────────────────────────────────────────────────────────
 
 const NgramTable: React.FC<{
-  keywords:       NgramKeyword[];
-  isLoading:      boolean;
-  error:          Error | null;
-  targetAcos:     number;
-  currencySymbol: string;
-  asinId:         string;
-}> = ({ keywords, isLoading, error, targetAcos, currencySymbol, asinId }) => {
+  keywords:   NgramKeyword[];
+  isLoading:  boolean;
+  error:      Error | null;
+  targetAcos: number;
+}> = ({ keywords, isLoading, error, targetAcos }) => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-  const [modalCtx, setModalCtx]         = useState<CampaignModalContext | null>(null);
 
   const tree = React.useMemo(() => buildNgramTree(keywords), [keywords]);
 
@@ -823,14 +666,6 @@ const NgramTable: React.FC<{
 
   return (
     <div>
-      <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
-
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
-        <span className="text-[11px] text-gray-400">{keywords.length} keywords</span>
-        <ExportButton onClick={() => exportNgramToExcel(keywords, asinId, targetAcos, currencySymbol)} />
-      </div>
-
       <BulkActionBar
         selectedCount={selectedKeys.size}
         totalCount={allKeys.length}
@@ -866,10 +701,8 @@ const NgramTable: React.FC<{
                 expandedKeys={expandedKeys}
                 selectedKeys={selectedKeys}
                 targetAcos={targetAcos}
-                currencySymbol={currencySymbol}
                 onToggleExpand={toggleExpand}
                 onToggleSelect={toggleSelect}
-                onAction={(kw) => setModalCtx({ type: "keyword", value: kw.Keyword })}
               />
             ))}
           </tbody>
@@ -881,15 +714,11 @@ const NgramTable: React.FC<{
 
 // ─── Target Content ───────────────────────────────────────────────────────────
 
-const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
-  asinId,
-  currencySymbol,
-}) => {
+const TargetContent: React.FC<{ asinId: string }> = ({ asinId }) => {
   const asinSuggest = useAsinSuggestOpportunities(asinId);
   const productRec  = useProductRecommendations(asinId);
   const [selectedKw,    setSelectedKw]    = useState<Set<number>>(new Set());
   const [selectedAsins, setSelectedAsins] = useState<Record<string, Set<number>>>({});
-  const [modalCtx, setModalCtx]           = useState<CampaignModalContext | null>(null);
 
   const hasFetched = asinSuggest.isEnabled;
   const isLoading  = asinSuggest.isLoading || productRec.isLoading;
@@ -910,7 +739,8 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
   const lowRatings       = recs.map((r) => r["Similar items with low ratings and reviews"]).filter(Boolean) as string[];
   const frequentlyViewed = recs.map((r) => r["Similar items (frequently viewed together)"]).filter(Boolean) as string[];
 
-  const hasAnything = keywords.length || topConverting.length || lowRatings.length || frequentlyViewed.length;
+  const hasAnything =
+    keywords.length || topConverting.length || lowRatings.length || frequentlyViewed.length;
   if (!hasAnything) return <EmptyState />;
 
   const toggleKw = (i: number) =>
@@ -941,23 +771,11 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
     { label: "Frequently viewed together",     items: frequentlyViewed, key: "fvt" },
   ] as const;
 
-  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
-
   return (
     <div>
-      <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
-
       {keywords.length > 0 && (
         <>
-          <SectionHeader
-            right={
-              <ExportButton
-                onClick={() => exportTargetKeywordsToExcel(keywords, asinId, currencySymbol)}
-              />
-            }
-          >
-            Keyword suggestions
-          </SectionHeader>
+          <SectionHeader>Keyword suggestions</SectionHeader>
           <BulkActionBar
             selectedCount={selectedKw.size}
             totalCount={keywords.length}
@@ -999,13 +817,9 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
                         isSel ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
                       }`}
                     >
-                      <TD>
-                        <Checkbox checked={isSel} onChange={() => toggleKw(i)} />
-                      </TD>
+                      <TD><Checkbox checked={isSel} onChange={() => toggleKw(i)} /></TD>
                       <TD>{k.keyword}</TD>
-                      <TD>
-                        <Badge label={k.matchType} variant="blue" />
-                      </TD>
+                      <TD><Badge label={k.matchType} variant="blue" /></TD>
                       <TD className="font-mono">{fmtCurrency(k.bid)}</TD>
                       <TD className="font-mono text-gray-400">
                         {fmtCurrency(k.suggestedBid_rangeStart)} –{" "}
@@ -1013,13 +827,7 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
                       </TD>
                       <TD className="font-mono">#{k.rank}</TD>
                       <TD onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setModalCtx({ type: "keyword", value: k.keyword });
-                          }}
-                          className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                        >
+                        <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
                           + Target
                         </button>
                       </TD>
@@ -1087,22 +895,14 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
                           isSel ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
                         }`}
                       >
-                        <TD>
-                          <Checkbox checked={isSel} onChange={() => toggleAsin(key, i)} />
-                        </TD>
+                        <TD><Checkbox checked={isSel} onChange={() => toggleAsin(key, i)} /></TD>
                         <TD>
                           <span className="font-mono text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
                             {asin}
                           </span>
                         </TD>
                         <TD onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setModalCtx({ type: "asin", value: asin });
-                            }}
-                            className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                          >
+                          <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
                             + Target
                           </button>
                         </TD>
@@ -1122,13 +922,13 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
 // ─── Competitor Content ───────────────────────────────────────────────────────
 
 const CompetitorContent: React.FC<{
-  asinId:           string;
-  rankRecords:      CompetiRankRecord[];
-  topCompetitors:   TopCompetitor[];
-  isLoading:        boolean;
-  error:            Error | null;
-  hasFetched:       boolean;
-  onFetch:          () => void;
+  asinId:          string;
+  rankRecords:     CompetiRankRecord[];
+  topCompetitors:  TopCompetitor[];
+  isLoading:       boolean;
+  error:           Error | null;
+  hasFetched:      boolean;
+  onFetch:         () => void;
 }> = ({
   asinId,
   rankRecords,
@@ -1140,7 +940,6 @@ const CompetitorContent: React.FC<{
 }) => {
   const [selectedRank,  setSelectedRank]  = useState<Set<number>>(new Set());
   const [selectedRival, setSelectedRival] = useState<Set<number>>(new Set());
-  const [modalCtx, setModalCtx]           = useState<CampaignModalContext | null>(null);
 
   if (!hasFetched) return <FetchPrompt label="Load competitor intel" onFetch={onFetch} />;
   if (isLoading)   return <LoadingState />;
@@ -1150,33 +949,20 @@ const CompetitorContent: React.FC<{
   if (!myRankRecords.length && !topCompetitors.length) return <EmptyState />;
 
   const toggleRank  = (i: number) =>
-    setSelectedRank((p) => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s; });
+    setSelectedRank((p)  => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s; });
   const toggleRival = (i: number) =>
     setSelectedRival((p) => { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); return s; });
 
-  const rankBulkActions: BulkAction[] = [
+  const rankBulkActions:  BulkAction[] = [
     { label: "+ Target selected", variant: "green", onClick: () => {} },
     { label: "Export",            variant: "gray",  onClick: () => {} },
   ];
   const rivalBulkActions: BulkAction[] = [
-    { label: "Analyze selected", variant: "gray", onClick: () => {} },
+    { label: "Analyze selected",  variant: "gray",  onClick: () => {} },
   ];
 
   return (
     <div>
-      <CampaignModal context={modalCtx} onClose={() => setModalCtx(null)} />
-
-      {/* Export all competitor data */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
-        <span className="text-[11px] text-gray-400">
-          {myRankRecords.length} rank keywords · {topCompetitors.length} rivals
-        </span>
-        <ExportButton
-          onClick={() => exportCompetitorToExcel(myRankRecords, topCompetitors, asinId)}
-          disabled={!myRankRecords.length && !topCompetitors.length}
-        />
-      </div>
-
       {myRankRecords.length > 0 && (
         <>
           <SectionHeader>Keywords where your ASIN appears</SectionHeader>
@@ -1195,8 +981,12 @@ const CompetitorContent: React.FC<{
                 <tr>
                   <TH className="w-8">
                     <Checkbox
-                      checked={selectedRank.size === myRankRecords.length && myRankRecords.length > 0}
-                      indeterminate={selectedRank.size > 0 && selectedRank.size < myRankRecords.length}
+                      checked={
+                        selectedRank.size === myRankRecords.length && myRankRecords.length > 0
+                      }
+                      indeterminate={
+                        selectedRank.size > 0 && selectedRank.size < myRankRecords.length
+                      }
                       onChange={(c) =>
                         setSelectedRank(c ? new Set(myRankRecords.map((_, i) => i)) : new Set())
                       }
@@ -1228,13 +1018,7 @@ const CompetitorContent: React.FC<{
                       <TD className="font-mono">{fmtPctFraction(r.conversion_share)}</TD>
                       <TD className="font-mono text-gray-400">{r.report_period}</TD>
                       <TD onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setModalCtx({ type: "search_query", value: r.search_term });
-                          }}
-                          className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                        >
+                        <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
                           + Target
                         </button>
                       </TD>
@@ -1265,8 +1049,12 @@ const CompetitorContent: React.FC<{
                 <tr>
                   <TH className="w-8">
                     <Checkbox
-                      checked={selectedRival.size === topCompetitors.length && topCompetitors.length > 0}
-                      indeterminate={selectedRival.size > 0 && selectedRival.size < topCompetitors.length}
+                      checked={
+                        selectedRival.size === topCompetitors.length && topCompetitors.length > 0
+                      }
+                      indeterminate={
+                        selectedRival.size > 0 && selectedRival.size < topCompetitors.length
+                      }
                       onChange={(c) =>
                         setSelectedRival(c ? new Set(topCompetitors.map((_, i) => i)) : new Set())
                       }
@@ -1298,13 +1086,7 @@ const CompetitorContent: React.FC<{
                       <TD className="font-mono">{c.occurrence_count}</TD>
                       <TD className="font-mono">{fmtPctFraction(c.avg_click_share)}</TD>
                       <TD onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setModalCtx({ type: "asin", value: c.asin });
-                          }}
-                          className="text-[11px] px-2.5 py-1 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
-                        >
+                        <button className="text-[11px] px-2.5 py-1 rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors">
                           Analyze
                         </button>
                       </TD>
@@ -1322,13 +1104,9 @@ const CompetitorContent: React.FC<{
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
-const SectionHeader: React.FC<{
-  children: React.ReactNode;
-  right?:   React.ReactNode;
-}> = ({ children, right }) => (
-  <div className="flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-t border-gray-100">
-    <span>{children}</span>
-    {right && <span>{right}</span>}
+const SectionHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-t border-gray-100">
+    {children}
   </div>
 );
 
@@ -1374,26 +1152,18 @@ const AsinThumbnail: React.FC<{ src: string; alt: string }> = ({ src, alt }) => 
 interface ASINCardProps {
   asin:              ASIN;
   tab:               TabKey;
-  // SQP
   sqpQueries:        SQPSearchQuery[];
   sqpLoading:        boolean;
   sqpError:          Error | null;
-  sqpFetched:        boolean;
-  onFetchSQP:        () => void;
-  // Ngram
   ngramKeywords:     NgramKeyword[];
   ngramLoading:      boolean;
   ngramError:        Error | null;
-  ngramFetched:      boolean;
   ngramTargetAcos:   number;
-  onFetchNgram:      () => void;
-  // Competitor
   rankRecords:       CompetiRankRecord[];
   topCompetitors:    TopCompetitor[];
   competitorLoading: boolean;
   competitorError:   Error | null;
   competitorFetched: boolean;
-  currencySymbol:    string;
   onFetchCompetitor: () => void;
 }
 
@@ -1403,43 +1173,18 @@ const ASINCard: React.FC<ASINCardProps> = ({
   sqpQueries,
   sqpLoading,
   sqpError,
-  sqpFetched,
-  onFetchSQP,
   ngramKeywords,
   ngramLoading,
   ngramError,
-  ngramFetched,
   ngramTargetAcos,
-  onFetchNgram,
   rankRecords,
   topCompetitors,
   competitorLoading,
   competitorError,
   competitorFetched,
-  currencySymbol,
   onFetchCompetitor,
 }) => {
   const [open, setOpen] = useState(false);
-
-  // Trigger lazy fetches when a card is opened for the first time per tab
-  const handleOpen = () => {
-    const next = !open;
-    setOpen(next);
-    if (next) {
-      if (tab === "sqp" && !sqpFetched) onFetchSQP();
-      if (tab === "ngram" && !ngramFetched) onFetchNgram();
-      if (tab === "competitor" && !competitorFetched) onFetchCompetitor();
-    }
-  };
-
-  // Also trigger fetch when tab changes while card is already open
-  React.useEffect(() => {
-    if (!open) return;
-    if (tab === "sqp" && !sqpFetched) onFetchSQP();
-    if (tab === "ngram" && !ngramFetched) onFetchNgram();
-    if (tab === "competitor" && !competitorFetched) onFetchCompetitor();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
 
   const ctrPositive = asin.ctrDelta.startsWith("+");
   const cvrPositive = asin.cvrDelta.startsWith("+");
@@ -1449,10 +1194,10 @@ const ASINCard: React.FC<ASINCardProps> = ({
       case "sqp":
         return (
           <SQPTable
+            asin={asin.id}                  // ← pass ASIN id down
             queries={sqpQueries}
             isLoading={sqpLoading}
             error={sqpError}
-            asinId={asin.id}
           />
         );
       case "ngram":
@@ -1462,12 +1207,10 @@ const ASINCard: React.FC<ASINCardProps> = ({
             isLoading={ngramLoading}
             error={ngramError}
             targetAcos={ngramTargetAcos}
-            currencySymbol={currencySymbol}
-            asinId={asin.id}
           />
         );
       case "target":
-        return <TargetContent asinId={asin.id} currencySymbol={currencySymbol} />;
+        return <TargetContent asinId={asin.id} />;
       case "competitor":
         return (
           <CompetitorContent
@@ -1486,7 +1229,7 @@ const ASINCard: React.FC<ASINCardProps> = ({
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-3 shadow-sm">
       <button
-        onClick={handleOpen}
+        onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -1497,9 +1240,11 @@ const ASINCard: React.FC<ASINCardProps> = ({
           >
             ▶
           </span>
+
           {asin.imageUrl && (
             <AsinThumbnail src={asin.imageUrl} alt={asin.name || asin.id} />
           )}
+
           <div className="min-w-0">
             {asin.name && (
               <div
@@ -1551,7 +1296,9 @@ const ASINCard: React.FC<ASINCardProps> = ({
         </div>
       </button>
 
-      {open && <div className="border-t border-gray-100">{renderBody()}</div>}
+      {open && (
+        <div className="border-t border-gray-100">{renderBody()}</div>
+      )}
     </div>
   );
 };
@@ -1581,23 +1328,24 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "sqp",        label: "SQP gaps" },
   { key: "ngram",      label: "N-gram analysis" },
   { key: "target",     label: "Target finder" },
-  // { key: "competitor", label: "Competitor intel" },
+  { key: "competitor", label: "Competitor intel" },
 ];
 
 export function OpportunityOptimizer() {
-  const { data: asinsData, isLoading: asinsLoading } = useAllAsins();
-  const { data: userProfile }                         = useUserProfile();
-  const { currencySymbol }                            = useCampaignDefaults();
+  const { data: asinsData,   isLoading: asinsLoading } = useAllAsins();
+  const { data: userProfile }                           = useUserProfile();
 
   const [activeTab,  setActiveTab]  = useState<TabKey>("sqp");
   const [asinFilter, setAsinFilter] = useState<string>("all");
 
+  // Derive target ACOS from the user's active advertising profile
   const activeAdProfile =
     userProfile?.connected_advertising_profiles?.find((p) => p.is_active) ??
     userProfile?.connected_advertising_profiles?.[0];
 
   const ngramTargetAcos = parseTargetAcos(activeAdProfile?.target_acos);
 
+  // Build top-30 ASIN list
   const ASINS: ASIN[] = (asinsData?.results ?? []).slice(0, 30).map((a) => ({
     id:       a.asin,
     name:     a.product_name ?? "",
@@ -1610,42 +1358,16 @@ export function OpportunityOptimizer() {
 
   const ALL_ASIN_IDS = ASINS.map((a) => a.id).join(",");
 
-  // ── Bulk data hooks (lazy) ──────────────────────────────────────────────────
-  const sqpQuery   = useSQPOpportunities();   // NOTE: always-on react-query hook
-  const ngramQuery = useNgramOpportunities();  // manual-trigger hook
+  const sqpQuery   = useSQPOpportunities();
+  const ngramQuery = useNgramOpportunities();
 
-  // Track whether the one-time bulk fetches have been triggered
-  const sqpTriggered   = useRef(false);
-  const ngramTriggered = useRef(false);
-
-  // SQP is auto-fetched by react-query (no enabled gate) — but we want to
-  // defer it until a card is opened. We wrap the hook's loading state so cards
-  // can show a loading indicator when needed.
-  // Since useSQPOpportunities uses useQuery without a manual enable gate,
-  // the fetch happens automatically. The per-card lazy feel comes from the
-  // card only rendering its table body when opened.
-  const sqpFetched   = !sqpQuery.isLoading && sqpQuery.data !== undefined;
-  const ngramFetched = ngramQuery.isEnabled;
-
-  const triggerSQP = useCallback(() => {
-    // SQP is always-on, nothing to trigger; kept for API symmetry
-  }, []);
-
-  const triggerNgram = useCallback(() => {
-    if (!ngramTriggered.current) {
-      ngramTriggered.current = true;
-      ngramQuery.fetchData();
-    }
-  }, [ngramQuery]);
-
-  // Competitor data
   const competiRankQuery    = useCompetiRankData({ asins: ALL_ASIN_IDS });
   const competingAsinsQuery = useCompetingAsins({ asins: ALL_ASIN_IDS });
 
-  const handleFetchCompetitor = useCallback(() => {
+  const handleFetchCompetitor = () => {
     competiRankQuery.fetchData();
     competingAsinsQuery.fetchData();
-  }, [competiRankQuery, competingAsinsQuery]);
+  };
 
   const competitorFetched = competiRankQuery.isEnabled;
   const competitorLoading = competiRankQuery.isLoading || competingAsinsQuery.isLoading;
@@ -1657,7 +1379,7 @@ export function OpportunityOptimizer() {
   const allNgramPositive = ngramQuery.data?.ngram_positive ?? [];
   const allNgramNegative = ngramQuery.data?.ngram_negative ?? [];
 
-  // Per-ASIN CTR/CVR averages from SQP data
+  // Per-ASIN CTR/CVR averages computed from SQP data
   const sqpMetricsByAsin = React.useMemo(() => {
     const map: Record<string, { ctrs: number[]; cvrs: number[] }> = {};
     for (const q of allSQP) {
@@ -1693,15 +1415,50 @@ export function OpportunityOptimizer() {
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
-    // Pre-fetch ngram when switching to that tab globally
-    if (key === "ngram" && !ngramFetched) triggerNgram();
+    if (key === "ngram" && !ngramQuery.isEnabled) {
+      ngramQuery.fetchData();
+    }
   };
 
   if (asinsLoading) return <LoadingState />;
 
+  const renderCards = () => {
+    if (activeTab === "ngram") {
+      if (!ngramQuery.isEnabled || ngramQuery.isLoading) return <LoadingState />;
+      if (ngramQuery.error) return <ErrorState message={ngramQuery.error.message} />;
+    }
+
+    return visibleASINs.map((asin) => {
+      const sqpQueries = allSQP.filter((q) => q.asin === asin.id);
+      const ngramKeywords = [
+        ...allNgramPositive.filter((k) => k.ASIN === asin.id),
+        ...allNgramNegative.filter((k) => k.ASIN === asin.id),
+      ];
+      return (
+        <ASINCard
+          key={asin.id}
+          asin={asin}
+          tab={activeTab}
+          sqpQueries={sqpQueries}
+          sqpLoading={sqpQuery.isLoading}
+          sqpError={(sqpQuery.error as Error) ?? null}
+          ngramKeywords={ngramKeywords}
+          ngramLoading={ngramQuery.isLoading}
+          ngramError={ngramQuery.error}
+          ngramTargetAcos={ngramTargetAcos}
+          rankRecords={rankRecords}
+          topCompetitors={topCompetitors}
+          competitorLoading={competitorLoading}
+          competitorError={competitorError}
+          competitorFetched={competitorFetched}
+          onFetchCompetitor={handleFetchCompetitor}
+        />
+      );
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
-      {/* Page header */}
       <div className="px-6 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -1712,6 +1469,7 @@ export function OpportunityOptimizer() {
               Find gaps, expand winners, kill waste — across your top ASINs
             </p>
           </div>
+
           <div className="flex items-center gap-2">
             <label className="text-[12px] text-gray-500">Filter ASIN</label>
             <select
@@ -1736,7 +1494,6 @@ export function OpportunityOptimizer() {
         </div>
       </div>
 
-      {/* Main panel */}
       <div className="mx-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-100 px-4 overflow-x-auto">
           {TABS.map((t) => (
@@ -1749,43 +1506,7 @@ export function OpportunityOptimizer() {
           ))}
         </div>
 
-        <div className="p-4">
-          {visibleASINs.map((asin) => {
-            const sqpQueries = allSQP.filter((q) => q.asin === asin.id);
-            const ngramKeywords = [
-              ...allNgramPositive.filter((k) => k.ASIN === asin.id),
-              ...allNgramNegative.filter((k) => k.ASIN === asin.id),
-            ];
-            return (
-              <ASINCard
-                key={asin.id}
-                asin={asin}
-                tab={activeTab}
-                // SQP
-                sqpQueries={sqpQueries}
-                sqpLoading={sqpQuery.isLoading}
-                sqpError={(sqpQuery.error as Error) ?? null}
-                sqpFetched={sqpFetched}
-                onFetchSQP={triggerSQP}
-                // Ngram
-                ngramKeywords={ngramKeywords}
-                ngramLoading={ngramQuery.isLoading}
-                ngramError={ngramQuery.error}
-                ngramFetched={ngramFetched}
-                ngramTargetAcos={ngramTargetAcos}
-                onFetchNgram={triggerNgram}
-                // Competitor
-                rankRecords={rankRecords}
-                topCompetitors={topCompetitors}
-                competitorLoading={competitorLoading}
-                competitorError={competitorError}
-                competitorFetched={competitorFetched}
-                currencySymbol={currencySymbol}
-                onFetchCompetitor={handleFetchCompetitor}
-              />
-            );
-          })}
-        </div>
+        <div className="p-4">{renderCards()}</div>
       </div>
 
       <div className="h-6" />
