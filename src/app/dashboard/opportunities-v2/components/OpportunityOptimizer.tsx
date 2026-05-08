@@ -21,6 +21,12 @@ import {
   SQPCampaignModal,
   type SQPCampaignRow,
 } from "./sqp-campaign-modal";   
+import { useCampaignDefaults } from "@/lib/hooks/campaignCreationHooks";
+import {
+  TargetCampaignModal,
+  type TargetKWRow,
+  type TargetASINRow,
+} from "./target-campaign-modal"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +46,7 @@ type TabKey = "sqp" | "ngram" | "target" | "competitor";
 
 const fmtPct         = (v: number) => `${v.toFixed(1)}%`;
 const fmtPctFraction = (v: number) => `${(v * 100).toFixed(1)}%`;
-const fmtCurrency    = (v: number) => `$${v.toFixed(2)}`;
+
 
 // ─── Target ACOS parser ───────────────────────────────────────────────────────
 
@@ -512,6 +518,7 @@ const NgramTreeRow: React.FC<{
   expandedKeys:   Set<string>;
   selectedKeys:   Set<string>;
   targetAcos:     number;
+  currencySymbol: string; 
   onToggleExpand: (key: string) => void;
   onToggleSelect: (key: string) => void;
 }> = ({
@@ -519,6 +526,7 @@ const NgramTreeRow: React.FC<{
   expandedKeys,
   selectedKeys,
   targetAcos,
+  currencySymbol, 
   onToggleExpand,
   onToggleSelect,
 }) => {
@@ -529,6 +537,7 @@ const NgramTreeRow: React.FC<{
   const hasChildren = node.children.length > 0;
   const isLeaf      = !hasChildren;
   const isNeg       = isNegativeKeyword(kw);
+  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
 
   const acosRaw        = typeof kw.ACOS_Value === "number"
     ? kw.ACOS_Value
@@ -602,6 +611,7 @@ const NgramTreeRow: React.FC<{
             expandedKeys={expandedKeys}
             selectedKeys={selectedKeys}
             targetAcos={targetAcos}
+            currencySymbol={currencySymbol}
             onToggleExpand={onToggleExpand}
             onToggleSelect={onToggleSelect}
           />
@@ -617,7 +627,8 @@ const NgramTable: React.FC<{
   isLoading:  boolean;
   error:      Error | null;
   targetAcos: number;
-}> = ({ keywords, isLoading, error, targetAcos }) => {
+  currencySymbol: string; 
+}> = ({ keywords, isLoading, error, targetAcos, currencySymbol  }) => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
 
@@ -701,6 +712,7 @@ const NgramTable: React.FC<{
                 expandedKeys={expandedKeys}
                 selectedKeys={selectedKeys}
                 targetAcos={targetAcos}
+                currencySymbol={currencySymbol}
                 onToggleExpand={toggleExpand}
                 onToggleSelect={toggleSelect}
               />
@@ -712,70 +724,203 @@ const NgramTable: React.FC<{
   );
 };
 
-// ─── Target Content ───────────────────────────────────────────────────────────
+interface TargetRowStatus {
+  status:      "success" | "error" | "loading"
+  campaignId?: string
+  error?:      string
+}
 
-const TargetContent: React.FC<{ asinId: string }> = ({ asinId }) => {
-  const asinSuggest = useAsinSuggestOpportunities(asinId);
-  const productRec  = useProductRecommendations(asinId);
-  const [selectedKw,    setSelectedKw]    = useState<Set<number>>(new Set());
-  const [selectedAsins, setSelectedAsins] = useState<Record<string, Set<number>>>({});
+interface TargetModalState {
+  mode:      'keyword' | 'product'
+  kwRows?:   TargetKWRow[]
+  asinRows?: TargetASINRow[]
+}
 
-  const hasFetched = asinSuggest.isEnabled;
-  const isLoading  = asinSuggest.isLoading || productRec.isLoading;
+const MARKETPLACE_DOMAINS: Record<string, string> = {
+  'ATVPDKIKX0DER': 'amazon.com',
+  'A1F83G8C2ARO7P': 'amazon.co.uk',
+  'A1PA6795UKMFR9': 'amazon.de',
+  'A13V1IB3VIYZZH': 'amazon.fr',
+  'APJ6JRA9NG5V4':  'amazon.it',
+  'A1RKKUPIHCS9HS': 'amazon.es',
+  'A1AM78C64UM0Y8': 'amazon.com.mx',
+  'A2EUQ1WTGCTBG2': 'amazon.ca',
+  'A39IBJ37TRP1C6': 'amazon.com.au',
+  'A21TJRUUN4KGV':  'amazon.in',
+}
 
-  const handleFetch = () => {
-    asinSuggest.fetchData();
-    productRec.fetchData();
-  };
+// ─── TargetContent ────────────────────────────────────────────────────────────
+ 
+const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
+  asinId,
+  currencySymbol,
+}) => {
+  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`
+  const { data: userProfile } = useUserProfile()
 
-  if (!hasFetched) return <FetchPrompt label="Load recommendations" onFetch={handleFetch} />;
-  if (isLoading)   return <LoadingState />;
-  if (asinSuggest.error) return <ErrorState message={asinSuggest.error.message} />;
+  const activeProfile = userProfile?.connected_advertising_profiles?.find((p) => p.is_active)
+    ?? userProfile?.connected_advertising_profiles?.[0]
+  const amazonDomain = MARKETPLACE_DOMAINS[activeProfile?.marketplace_id ?? ''] ?? 'amazon.com'
+ 
+  // ── Data hooks — must be first, unconditionally ─────────────────────────────
+  const asinSuggest = useAsinSuggestOpportunities(asinId)
+  const productRec  = useProductRecommendations(asinId)
+ 
+  // ── All state hooks — must come before any early return ────────────────────
+  const [selectedKw,    setSelectedKw]    = useState<Set<number>>(new Set())
+  const [selectedAsins, setSelectedAsins] = useState<Record<string, Set<number>>>({})
+  const [kwStatuses,    setKwStatuses]    = useState<Record<number, TargetRowStatus>>({})
+  const [asinStatuses,  setAsinStatuses]  = useState<Record<string, TargetRowStatus>>({})
+  const [modal,         setModal]         = useState<TargetModalState | null>(null)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
 
-  const keywords: KeywordRecommendation[] = asinSuggest.data?.keywords ?? [];
-  const recs = productRec.data?.recommendations ?? [];
+ 
+  // ── All callbacks — must come before any early return ──────────────────────
+  const handleRowSuccess = useCallback(
+    (index: number, category: string | null, campaignId: string) => {
+      if (category === null) {
+        setKwStatuses((prev) => ({ ...prev, [index]: { status: 'success', campaignId } }))
+      } else {
+        setAsinStatuses((prev) => ({
+          ...prev,
+          [`${category}::${index}`]: { status: 'success', campaignId },
+        }))
+      }
+    },
+    []
+  )
 
-  const topConverting    = recs.map((r) => r["Top converting targets"]).filter(Boolean) as string[];
-  const lowRatings       = recs.map((r) => r["Similar items with low ratings and reviews"]).filter(Boolean) as string[];
-  const frequentlyViewed = recs.map((r) => r["Similar items (frequently viewed together)"]).filter(Boolean) as string[];
-
-  const hasAnything =
-    keywords.length || topConverting.length || lowRatings.length || frequentlyViewed.length;
-  if (!hasAnything) return <EmptyState />;
-
-  const toggleKw = (i: number) =>
+  const toggleSection = useCallback((key: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }, [])
+ 
+  const handleRowError = useCallback(
+    (index: number, category: string | null, error: string) => {
+      if (category === null) {
+        setKwStatuses((prev) => ({ ...prev, [index]: { status: 'error', error } }))
+      } else {
+        setAsinStatuses((prev) => ({
+          ...prev,
+          [`${category}::${index}`]: { status: 'error', error },
+        }))
+      }
+    },
+    []
+  )
+ 
+  const toggleKw = useCallback((i: number) => {
     setSelectedKw((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-
-  const toggleAsin = (category: string, i: number) =>
+      const next = new Set(prev)
+      next.has(i) ? next.delete(i) : next.add(i)
+      return next
+    })
+  }, [])
+ 
+  const toggleAsin = useCallback((category: string, i: number) => {
     setSelectedAsins((prev) => {
-      const set = new Set(prev[category] ?? []);
-      set.has(i) ? set.delete(i) : set.add(i);
-      return { ...prev, [category]: set };
-    });
-
+      const set = new Set(prev[category] ?? [])
+      set.has(i) ? set.delete(i) : set.add(i)
+      return { ...prev, [category]: set }
+    })
+  }, [])
+ 
+  // ── Derived flags ───────────────────────────────────────────────────────────
+  const hasFetched = asinSuggest.isEnabled
+  const isLoading  = asinSuggest.isLoading || productRec.isLoading
+ 
+  // ── Early returns — AFTER all hooks ────────────────────────────────────────
+  const handleFetch = () => {
+    asinSuggest.fetchData()
+    productRec.fetchData()
+  }
+ 
+  if (!hasFetched) return <FetchPrompt label="Load recommendations" onFetch={handleFetch} />
+  if (isLoading)   return <LoadingState />
+  if (asinSuggest.error) return <ErrorState message={asinSuggest.error.message} />
+ 
+  // ── Derive data ─────────────────────────────────────────────────────────────
+  const keywords: KeywordRecommendation[] = asinSuggest.data?.keywords ?? []
+  const recs = productRec.data?.recommendations ?? []
+ 
+  const topConverting    = recs.map((r) => r['Top converting targets']).filter(Boolean) as string[]
+  const lowRatings       = recs.map((r) => r['Similar items with low ratings and reviews']).filter(Boolean) as string[]
+  const frequentlyViewed = recs.map((r) => r['Similar items (frequently viewed together)']).filter(Boolean) as string[]
+ 
+  const hasAnything =
+    keywords.length || topConverting.length || lowRatings.length || frequentlyViewed.length
+  if (!hasAnything) return <EmptyState />
+ 
+  // ── Modal open helpers ──────────────────────────────────────────────────────
+  const openSingleKW = (i: number) =>
+    setModal({ mode: 'keyword', kwRows: [{ index: i, keyword: keywords[i] }] })
+ 
+  const openBulkKW = () => {
+    const rows: TargetKWRow[] = [...selectedKw].map((i) => ({
+      index:   i,
+      keyword: keywords[i],
+    }))
+    setModal({ mode: 'keyword', kwRows: rows })
+  }
+ 
+  const openSingleASIN = (category: string, i: number, asin: string) =>
+    setModal({ mode: 'product', asinRows: [{ index: i, asin, category }] })
+ 
+  const openBulkASIN = (category: string, items: string[]) => {
+    const rows: TargetASINRow[] = [...(selectedAsins[category] ?? new Set())].map((i) => ({
+      index:    i,
+      asin:     items[i],
+      category,
+    }))
+    setModal({ mode: 'product', asinRows: rows })
+  }
+ 
+  // ── Bulk actions ────────────────────────────────────────────────────────────
   const kwBulkActions: BulkAction[] = [
-    { label: "+ Target selected", variant: "green", onClick: () => {} },
-    { label: "Export",            variant: "gray",  onClick: () => {} },
-  ];
-  const asinBulkActions: BulkAction[] = [
-    { label: "+ Target selected", variant: "green", onClick: () => {} },
-  ];
-
+    { label: '+ Add targets', variant: 'green', onClick: openBulkKW },
+    { label: 'Export',        variant: 'gray',  onClick: () => {} },
+  ]
+ 
   const asinSections = [
-    { label: "Top converting targets",         items: topConverting,    key: "top" },
-    { label: "Similar items with low ratings", items: lowRatings,       key: "low" },
-    { label: "Frequently viewed together",     items: frequentlyViewed, key: "fvt" },
-  ] as const;
-
+    { label: 'Top converting targets',         items: topConverting,    key: 'top' },
+    { label: 'Similar items with low ratings', items: lowRatings,       key: 'low' },
+    { label: 'Frequently viewed together',     items: frequentlyViewed, key: 'fvt' },
+  ] as const
+ 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* Modal */}
+      {modal && (
+        <TargetCampaignModal
+          asin={asinId}
+          mode={modal.mode}
+          kwRows={modal.kwRows}
+          asinRows={modal.asinRows}
+          onClose={() => setModal(null)}
+          onRowSuccess={handleRowSuccess}
+          onRowError={handleRowError}
+        />
+      )}
+ 
+      {/* ── Keyword suggestions ──────────────────────────────────────────── */}
       {keywords.length > 0 && (
         <>
-          <SectionHeader>Keyword suggestions</SectionHeader>
+          <button
+              onClick={() => toggleSection('keywords')}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-t border-gray-100 hover:bg-gray-100 transition-colors"
+            >
+              Keyword suggestions
+              <span className={`text-[9px] transition-transform duration-150 ${collapsedSections.has('keywords') ? '' : 'rotate-90'}`}>
+                ▶
+              </span>
+            </button>
+
+          {!collapsedSections.has('keywords') && (
+            <>
           <BulkActionBar
             selectedCount={selectedKw.size}
             totalCount={keywords.length}
@@ -803,47 +948,116 @@ const TargetContent: React.FC<{ asinId: string }> = ({ asinId }) => {
                   <TH>Bid</TH>
                   <TH>Bid range</TH>
                   <TH>Rank</TH>
+                  <TH>Status</TH>
                   <TH />
                 </tr>
               </thead>
               <tbody>
                 {keywords.map((k, i) => {
-                  const isSel = selectedKw.has(i);
+                  const isSel     = selectedKw.has(i)
+                  const rowStatus = kwStatuses[i]
+                  const isSuccess = rowStatus?.status === 'success'
+                  const isErr     = rowStatus?.status === 'error'
+ 
+                  const rowBg = isSel
+                    ? 'bg-blue-50 hover:bg-blue-100'
+                    : isSuccess
+                      ? 'bg-emerald-50 hover:bg-emerald-100'
+                      : isErr
+                        ? 'bg-red-50/50 hover:bg-red-50'
+                        : 'hover:bg-gray-50'
+ 
                   return (
                     <tr
                       key={i}
                       onClick={() => toggleKw(i)}
-                      className={`transition-colors cursor-pointer ${
-                        isSel ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
-                      }`}
+                      className={`transition-colors cursor-pointer ${rowBg}`}
                     >
-                      <TD><Checkbox checked={isSel} onChange={() => toggleKw(i)} /></TD>
+                      <TD>
+                        <Checkbox checked={isSel} onChange={() => toggleKw(i)} />
+                      </TD>
                       <TD>{k.keyword}</TD>
-                      <TD><Badge label={k.matchType} variant="blue" /></TD>
+                      <TD>
+                        <Badge label={k.matchType} variant="blue" />
+                      </TD>
                       <TD className="font-mono">{fmtCurrency(k.bid)}</TD>
                       <TD className="font-mono text-gray-400">
-                        {fmtCurrency(k.suggestedBid_rangeStart)} –{" "}
+                        {fmtCurrency(k.suggestedBid_rangeStart)} –{' '}
                         {fmtCurrency(k.suggestedBid_rangeEnd)}
                       </TD>
                       <TD className="font-mono">#{k.rank}</TD>
+ 
                       <TD onClick={(e) => e.stopPropagation()}>
-                        <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
-                          + Target
-                        </button>
+                        {isSuccess && (
+                          <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
+                            <CheckCircle2 className="h-3 w-3 shrink-0" />
+                            Created
+                          </span>
+                        )}
+                        {isErr && (
+                          <span
+                            className="flex items-center gap-1 text-red-500 text-[10px] font-medium whitespace-nowrap"
+                            title={rowStatus.error}
+                          >
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            Failed
+                          </span>
+                        )}
+                      </TD>
+ 
+                      <TD onClick={(e) => e.stopPropagation()}>
+                        {isSuccess ? (
+                          <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium whitespace-nowrap">
+                            <CheckCircle2 className="h-3 w-3" /> Done
+                          </span>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openSingleKW(i)
+                            }}
+                            className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                          >
+                            + Add target
+                          </button>
+                        )}
                       </TD>
                     </tr>
-                  );
+                  )
                 })}
               </tbody>
             </table>
           </div>
+            </>
+)}
         </>
       )}
-
-      {asinSections.map(({ label, items, key }) =>
-        items.length > 0 ? (
+ 
+      {/* ── ASIN suggestion sections ─────────────────────────────────────── */}
+      {asinSections.map(({ label, items, key }) => {
+        if (!items.length) return null
+ 
+        const asinBulkActions: BulkAction[] = [
+          {
+            label:   '+ Add targets',
+            variant: 'green',
+            onClick: () => openBulkASIN(key, items),
+          },
+        ]
+ 
+        return (
           <React.Fragment key={key}>
-            <SectionHeader>{label}</SectionHeader>
+            <button
+              onClick={() => toggleSection(key)}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-t border-gray-100 hover:bg-gray-100 transition-colors"
+            >
+              {label}
+              <span className={`text-[9px] transition-transform duration-150 ${collapsedSections.has(key) ? '' : 'rotate-90'}`}>
+                ▶
+              </span>
+            </button>
+            {!collapsedSections.has(key) && (
+  <>
             <BulkActionBar
               selectedCount={(selectedAsins[key] ?? new Set()).size}
               totalCount={items.length}
@@ -881,43 +1095,103 @@ const TargetContent: React.FC<{ asinId: string }> = ({ asinId }) => {
                       />
                     </TH>
                     <TH>ASIN</TH>
+                    <TH>Status</TH>
                     <TH />
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((asin, i) => {
-                    const isSel = (selectedAsins[key] ?? new Set()).has(i);
+                    const isSel     = (selectedAsins[key] ?? new Set()).has(i)
+                    const statusKey = `${key}::${i}`
+                    const rowStatus = asinStatuses[statusKey]
+                    const isSuccess = rowStatus?.status === 'success'
+                    const isErr     = rowStatus?.status === 'error'
+ 
+                    const rowBg = isSel
+                      ? 'bg-blue-50 hover:bg-blue-100'
+                      : isSuccess
+                        ? 'bg-emerald-50 hover:bg-emerald-100'
+                        : isErr
+                          ? 'bg-red-50/50 hover:bg-red-50'
+                          : 'hover:bg-gray-50'
+ 
                     return (
                       <tr
                         key={i}
                         onClick={() => toggleAsin(key, i)}
-                        className={`transition-colors cursor-pointer ${
-                          isSel ? "bg-blue-50 hover:bg-blue-100" : "hover:bg-gray-50"
-                        }`}
+                        className={`transition-colors cursor-pointer ${rowBg}`}
                       >
-                        <TD><Checkbox checked={isSel} onChange={() => toggleAsin(key, i)} /></TD>
                         <TD>
-                          <span className="font-mono text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                            {asin}
-                          </span>
+                          <Checkbox
+                            checked={isSel}
+                            onChange={() => toggleAsin(key, i)}
+                          />
                         </TD>
                         <TD onClick={(e) => e.stopPropagation()}>
-                          <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
-                            + Target
-                          </button>
+                          <a
+                            href={`https://www.${amazonDomain}/d/${asin}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[11px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+                            title={`View ${asin} on Amazon`}
+                          >
+                            {asin}
+                            <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M4.5 3H3a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V7.5M7 2h3m0 0v3m0-3L5 7" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </a>
+                        </TD>
+ 
+                        <TD onClick={(e) => e.stopPropagation()}>
+                          {isSuccess && (
+                            <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
+                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                              Created
+                            </span>
+                          )}
+                          {isErr && (
+                            <span
+                              className="flex items-center gap-1 text-red-500 text-[10px] font-medium whitespace-nowrap"
+                              title={rowStatus.error}
+                            >
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              Failed
+                            </span>
+                          )}
+                        </TD>
+ 
+                        <TD onClick={(e) => e.stopPropagation()}>
+                          {isSuccess ? (
+                            <span className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium whitespace-nowrap">
+                              <CheckCircle2 className="h-3 w-3" /> Done
+                            </span>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openSingleASIN(key, i, asin)
+                              }}
+                              className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                            >
+                              + Add target
+                            </button>
+                          )}
                         </TD>
                       </tr>
-                    );
+                    )
                   })}
                 </tbody>
               </table>
             </div>
+              </>
+)}
           </React.Fragment>
-        ) : null
-      )}
+          
+        )
+      })}
     </div>
-  );
-};
+  )
+}
 
 // ─── Competitor Content ───────────────────────────────────────────────────────
 
@@ -1164,6 +1438,7 @@ interface ASINCardProps {
   competitorLoading: boolean;
   competitorError:   Error | null;
   competitorFetched: boolean;
+  currencySymbol: string;
   onFetchCompetitor: () => void;
 }
 
@@ -1182,6 +1457,7 @@ const ASINCard: React.FC<ASINCardProps> = ({
   competitorLoading,
   competitorError,
   competitorFetched,
+  currencySymbol,
   onFetchCompetitor,
 }) => {
   const [open, setOpen] = useState(false);
@@ -1207,10 +1483,11 @@ const ASINCard: React.FC<ASINCardProps> = ({
             isLoading={ngramLoading}
             error={ngramError}
             targetAcos={ngramTargetAcos}
+            currencySymbol={currencySymbol}
           />
         );
       case "target":
-        return <TargetContent asinId={asin.id} />;
+        return <TargetContent asinId={asin.id} currencySymbol={currencySymbol} />;
       case "competitor":
         return (
           <CompetitorContent
@@ -1333,7 +1610,8 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 export function OpportunityOptimizer() {
   const { data: asinsData,   isLoading: asinsLoading } = useAllAsins();
-  const { data: userProfile }                           = useUserProfile();
+  const { data: userProfile } = useUserProfile();
+  const { currencySymbol } = useCampaignDefaults();
 
   const [activeTab,  setActiveTab]  = useState<TabKey>("sqp");
   const [asinFilter, setAsinFilter] = useState<string>("all");
@@ -1451,6 +1729,7 @@ export function OpportunityOptimizer() {
           competitorLoading={competitorLoading}
           competitorError={competitorError}
           competitorFetched={competitorFetched}
+          currencySymbol={currencySymbol} 
           onFetchCompetitor={handleFetchCompetitor}
         />
       );
