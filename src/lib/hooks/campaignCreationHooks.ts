@@ -901,3 +901,105 @@ export function useBulkMultiAsinPTSubmit() {
     successCount: themeStatuses.filter((s) => s === 'success').length,
   }
 }
+
+// ── useBulkAutoSubmit ─────────────────────────────────────────────────────────
+
+import type { AutoTargetGroup } from '@/lib/store/campaignCreationStore'
+
+const PAUSED = 'PAUSED' as const
+const ENABLED = 'ENABLED' as const
+
+function buildAutoPayload(
+  row: import('@/lib/store/campaignCreationStore').AutoTargetingBulkRow,
+  TOS: number, ROS: number, PP: number, AB: number,
+  minBid: number,
+): AutoTargetingPayload {
+  const g = row.target_group
+  return {
+    campaign_name:     row.campaign_name,
+    budget:            row.budget,
+    TOS_bidding:       TOS,
+    ROS_bidding:       ROS,
+    PP_bidding:        PP,
+    AB_bidding:        AB,
+    dynamic_bidding:   row.dynamic_bidding,
+    default_bid:       minBid,
+    start_date:        row.start_date,
+    asins:             [row.asin],
+    close_match_state: g === 'close_match'  ? ENABLED : PAUSED,
+    close_match_bid:   g === 'close_match'  ? row.bid : minBid,
+    loose_match_state: g === 'loose_match'  ? ENABLED : PAUSED,
+    loose_match_bid:   g === 'loose_match'  ? row.bid : minBid,
+    substitutes_state: g === 'substitutes'  ? ENABLED : PAUSED,
+    substitutes_bid:   g === 'substitutes'  ? row.bid : minBid,
+    complements_state: g === 'complements'  ? ENABLED : PAUSED,
+    complements_bid:   g === 'complements'  ? row.bid : minBid,
+    ...(row.intent ? { intent: row.intent } : {}),
+  }
+}
+
+export function useBulkAutoSubmit() {
+  const { autoBulkRows, sharedDefaults, setAutoRowStatus } =
+    useCampaignCreationStore()
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+  const { minBid } = useCampaignDefaults()
+
+  const submitAll = useCallback(async (): Promise<BulkSubmitSummary> => {
+    const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
+    const pending = autoBulkRows.filter((r) => r._status !== 'success')
+
+    if (pending.length === 0) {
+      const s = { total: 0, success: 0, failed: 0 }
+      setSummary(s)
+      return s
+    }
+
+    setIsSubmitting(true)
+    setSummary(null)
+    let successes = 0, failures = 0
+
+    for (const row of pending) {
+      setAutoRowStatus(row._id, 'loading')
+      try {
+        const response = await campaignApi.createAutoTargeting(
+          buildAutoPayload(row, TOS_bidding, ROS_bidding, PP_bidding, AB_bidding, minBid)
+        )
+        console.log(`✅ Auto [${row.asin} / ${row.target_group}]:`, response.data.campaign_id)
+        setAutoRowStatus(row._id, 'success')
+        successes++
+      } catch (error) {
+        const msg = parseBulkError(error)
+        console.error(`❌ Auto failed [${row.asin} / ${row.target_group}]:`, msg)
+        setAutoRowStatus(row._id, 'error', msg)
+        failures++
+      }
+    }
+
+    const s: BulkSubmitSummary = { total: pending.length, success: successes, failed: failures }
+    setSummary(s)
+    setIsSubmitting(false)
+    return s
+  }, [autoBulkRows, sharedDefaults, setAutoRowStatus, minBid])
+
+  const retryFailed = useCallback(() => {
+    autoBulkRows.forEach((r) => {
+      if (r._status === 'error') setAutoRowStatus(r._id, 'idle')
+    })
+    setSummary(null)
+  }, [autoBulkRows, setAutoRowStatus])
+
+  const clearSummary = useCallback(() => setSummary(null), [])
+
+  return {
+    submitAll,
+    retryFailed,
+    clearSummary,
+    isSubmitting,
+    summary,
+    pendingCount: autoBulkRows.filter((r) => r._status === 'idle').length,
+    failedCount:  autoBulkRows.filter((r) => r._status === 'error').length,
+    successCount: autoBulkRows.filter((r) => r._status === 'success').length,
+  }
+}

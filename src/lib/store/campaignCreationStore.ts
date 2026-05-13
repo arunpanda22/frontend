@@ -6,6 +6,11 @@ import { isValidAsin } from "@/lib/utils/asinValidation";
 export type DynamicBidding = "AUTO_FOR_SALES" | "LEGACY_FOR_SALES" | "MANUAL";
 export type MatchType = "EXACT" | "BROAD" | "PHRASE";
 export type RowStatus = "idle" | "loading" | "success" | "error";
+export type AutoTargetGroup =
+  | "close_match"
+  | "loose_match"
+  | "substitutes"
+  | "complements";
 
 export interface SharedDefaults {
   budget: number;
@@ -87,25 +92,39 @@ export interface MultiAsinPTBulkRow {
   budget: number; // spanned
   start_date: string; // spanned
   dynamic_bidding: DynamicBidding; // spanned
-  intent: string, 
+  intent: string;
   _status: RowStatus; // spanned
   _error?: string;
 }
 
 // ── Category Bulk Row type ────────────────────────────────────────────────────
 export interface CategoryBulkRow {
-  _id:                string
-  campaign_name:      string
-  asin:               string
-  bid:                number
-  budget:             number
-  start_date:         string
-  dynamic_bidding:    DynamicBidding
-  intent:             string
-  price_greater_than: number | ''
-  mode:               'multi' | 'single'
-  _status:            RowStatus
-  _error?:            string
+  _id: string;
+  campaign_name: string;
+  asin: string;
+  bid: number;
+  budget: number;
+  start_date: string;
+  dynamic_bidding: DynamicBidding;
+  intent: string;
+  price_greater_than: number | "";
+  mode: "multi" | "single";
+  _status: RowStatus;
+  _error?: string;
+}
+
+export interface AutoTargetingBulkRow {
+  _id: string;
+  campaign_name: string;
+  asin: string;
+  target_group: AutoTargetGroup;
+  bid: number;
+  budget: number;
+  start_date: string;
+  dynamic_bidding: DynamicBidding;
+  intent: string;
+  _status: RowStatus;
+  _error?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -166,18 +185,29 @@ function computeMultiAsinKWName(
     : `${theme} - SP - KW - MK${intentSuffix}`;
 }
 
-function computeMultiAsinPTName(theme: string, rows: Array<{ target_asin: string; match_type: string }>, intent?: string): string {
-  const intentSuffix = intent?.trim() ? ` - ${intent.trim()}` : ''
-  const uniqueTargets = new Set(rows.map((r) => r.target_asin.toLowerCase().trim()))
-  const uniqueMatches = [...new Set(rows.map((r) => r.match_type))]
-  const mt = uniqueMatches.length === 1
-    ? uniqueMatches[0].charAt(0) + uniqueMatches[0].slice(1).toLowerCase()
-    : null
+function computeMultiAsinPTName(
+  theme: string,
+  rows: Array<{ target_asin: string; match_type: string }>,
+  intent?: string,
+): string {
+  const intentSuffix = intent?.trim() ? ` - ${intent.trim()}` : "";
+  const uniqueTargets = new Set(
+    rows.map((r) => r.target_asin.toLowerCase().trim()),
+  );
+  const uniqueMatches = [...new Set(rows.map((r) => r.match_type))];
+  const mt =
+    uniqueMatches.length === 1
+      ? uniqueMatches[0].charAt(0) + uniqueMatches[0].slice(1).toLowerCase()
+      : null;
   if (uniqueTargets.size === 1) {
-    const target = rows[0].target_asin.trim()
-    return mt ? `${theme} - SP - PT - SPT - ${target} - ${mt}${intentSuffix}` : `${theme} - SP - PT - SPT - ${target}${intentSuffix}`
+    const target = rows[0].target_asin.trim();
+    return mt
+      ? `${theme} - SP - PT - SPT - ${target} - ${mt}${intentSuffix}`
+      : `${theme} - SP - PT - SPT - ${target}${intentSuffix}`;
   }
-  return mt ? `${theme} - SP - PT - MPT - ${mt}${intentSuffix}` : `${theme} - SP - PT - MPT${intentSuffix}`
+  return mt
+    ? `${theme} - SP - PT - MPT - ${mt}${intentSuffix}`
+    : `${theme} - SP - PT - MPT${intentSuffix}`;
 }
 
 function uid(): string {
@@ -232,13 +262,20 @@ interface CampaignCreationState {
   clearBulkRows: () => void;
 
   // ── Category bulk rows ────────────────────────────────────────────────────────
-categoryBulkRows:           CategoryBulkRow[]
-setCategoryBulkRows:        (rows: CategoryBulkRow[]) => void
-setCategoryRowStatus:       (id: string, status: RowStatus, error?: string) => void
-setCategoryRowStatusByAsin: (asin: string, status: RowStatus, error?: string) => void
-deleteCategoryBulkRows:     (ids: string[]) => void
-parsePastedCategoryData:    (text: string, minBudget: number) => { added: number; skipped: number; invalidAsins: number }
-clearCategoryBulkRows:      () => void
+  categoryBulkRows: CategoryBulkRow[];
+  setCategoryBulkRows: (rows: CategoryBulkRow[]) => void;
+  setCategoryRowStatus: (id: string, status: RowStatus, error?: string) => void;
+  setCategoryRowStatusByAsin: (
+    asin: string,
+    status: RowStatus,
+    error?: string,
+  ) => void;
+  deleteCategoryBulkRows: (ids: string[]) => void;
+  parsePastedCategoryData: (
+    text: string,
+    minBudget: number,
+  ) => { added: number; skipped: number; invalidAsins: number };
+  clearCategoryBulkRows: () => void;
 
   // ── Product targeting bulk rows ─────────────────────────────────────────────
   productBulkRows: BulkProductRow[];
@@ -305,6 +342,16 @@ clearCategoryBulkRows:      () => void
   clearMultiAsinPTRows: () => void;
   renameMultiAsinPTRows: (mode: "mpt" | "spt") => void;
 
+  autoBulkRows: AutoTargetingBulkRow[];
+  setAutoBulkRows: (rows: AutoTargetingBulkRow[]) => void;
+  setAutoRowStatus: (id: string, status: RowStatus, error?: string) => void;
+  deleteAutoBulkRows: (ids: string[]) => void;
+  parsePastedAutoData: (
+    text: string,
+    minBudget: number,
+    minBid: number,
+  ) => { added: number; skipped: number; invalidAsins: number };
+  clearAutoBulkRows: () => void;
 
   // Reset
   reset: () => void;
@@ -616,78 +663,93 @@ export const useCampaignCreationStore = create<CampaignCreationState>(
 
     categoryBulkRows: [],
 
-setCategoryBulkRows: (rows) => set({ categoryBulkRows: rows }),
+    setCategoryBulkRows: (rows) => set({ categoryBulkRows: rows }),
 
-setCategoryRowStatus: (id, status, error) =>
-  set((state) => ({
-    categoryBulkRows: state.categoryBulkRows.map((r) =>
-      r._id === id ? { ...r, _status: status, _error: error } : r,
-    ),
-  })),
+    setCategoryRowStatus: (id, status, error) =>
+      set((state) => ({
+        categoryBulkRows: state.categoryBulkRows.map((r) =>
+          r._id === id ? { ...r, _status: status, _error: error } : r,
+        ),
+      })),
 
-setCategoryRowStatusByAsin: (asin, status, error) =>
-  set((state) => ({
-    categoryBulkRows: state.categoryBulkRows.map((r) =>
-      r.asin === asin ? { ...r, _status: status, _error: error } : r,
-    ),
-  })),
+    setCategoryRowStatusByAsin: (asin, status, error) =>
+      set((state) => ({
+        categoryBulkRows: state.categoryBulkRows.map((r) =>
+          r.asin === asin ? { ...r, _status: status, _error: error } : r,
+        ),
+      })),
 
-deleteCategoryBulkRows: (ids) =>
-  set((state) => ({
-    categoryBulkRows: state.categoryBulkRows.filter((r) => !ids.includes(r._id)),
-  })),
+    deleteCategoryBulkRows: (ids) =>
+      set((state) => ({
+        categoryBulkRows: state.categoryBulkRows.filter(
+          (r) => !ids.includes(r._id),
+        ),
+      })),
 
-parsePastedCategoryData: (text, minBudget) => {
-  const { sharedDefaults } = get()
-  const VALID_MODE: Record<string, 'multi' | 'single'> = {
-    MULTI:  'multi',
-    SINGLE: 'single',
-  }
-  let added = 0, skipped = 0, invalidAsins = 0
-  const newRows: CategoryBulkRow[] = []
+    parsePastedCategoryData: (text, minBudget) => {
+      const { sharedDefaults } = get();
+      const VALID_MODE: Record<string, "multi" | "single"> = {
+        MULTI: "multi",
+        SINGLE: "single",
+      };
+      let added = 0,
+        skipped = 0,
+        invalidAsins = 0;
+      const newRows: CategoryBulkRow[] = [];
 
-  text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .forEach((line) => {
-      const [rawAsin, rawBid, rawMode, rawMinPrice, rawIntent] = line
-        .split('\t')
-        .map((c) => c.trim())
-      const asin = rawAsin?.trim()
-      if (!asin) { skipped++; return }
-      if (!isValidAsin(asin)) { invalidAsins++; skipped++; return }
+      text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .forEach((line) => {
+          const [rawAsin, rawBid, rawMode, rawMinPrice, rawIntent] = line
+            .split("\t")
+            .map((c) => c.trim());
+          const asin = rawAsin?.trim();
+          if (!asin) {
+            skipped++;
+            return;
+          }
+          if (!isValidAsin(asin)) {
+            invalidAsins++;
+            skipped++;
+            return;
+          }
 
-      const bid            = Number(rawBid) || 0
-      const intent         = rawIntent?.trim() ?? ''
-      const mode           = VALID_MODE[rawMode?.toUpperCase()] ?? 'multi'
-      const priceRaw       = Number(rawMinPrice)
-      const price_greater_than = rawMinPrice?.trim() && priceRaw > 0 ? priceRaw : ''
-      const suffix         = mode === 'multi' ? 'CAT - MCT' : 'CAT - SCT'
-      const intentSuffix   = intent ? ` - ${intent}` : ''
+          const bid = Number(rawBid) || 0;
+          const intent = rawIntent?.trim() ?? "";
+          const mode = VALID_MODE[rawMode?.toUpperCase()] ?? "multi";
+          const priceRaw = Number(rawMinPrice);
+          const price_greater_than =
+            rawMinPrice?.trim() && priceRaw > 0 ? priceRaw : "";
+          const suffix = mode === "multi" ? "CAT - MCT" : "CAT - SCT";
+          const intentSuffix = intent ? ` - ${intent}` : "";
 
-      newRows.push({
-        _id:                uid(),
-        campaign_name:      `${asin} - SP - ${suffix}${intentSuffix}`,
-        asin,
-        bid,
-        budget:             bid > 0 ? Math.max(minBudget, bid * 15) : sharedDefaults.budget,
-        start_date:         sharedDefaults.start_date,
-        dynamic_bidding:    sharedDefaults.dynamic_bidding,
-        intent,
-        price_greater_than,
-        mode,
-        _status:            'idle',
-      })
-      added++
-    })
+          newRows.push({
+            _id: uid(),
+            campaign_name: `${asin} - SP - ${suffix}${intentSuffix}`,
+            asin,
+            bid,
+            budget:
+              bid > 0 ? Math.max(minBudget, bid * 15) : sharedDefaults.budget,
+            start_date: sharedDefaults.start_date,
+            dynamic_bidding: sharedDefaults.dynamic_bidding,
+            intent,
+            price_greater_than,
+            mode,
+            _status: "idle",
+          });
+          added++;
+        });
 
-  if (newRows.length > 0)
-    set((state) => ({ categoryBulkRows: [...state.categoryBulkRows, ...newRows] }))
-  return { added, skipped, invalidAsins }
-},
+      if (newRows.length > 0)
+        set((state) => ({
+          categoryBulkRows: [...state.categoryBulkRows, ...newRows],
+        }));
+      return { added, skipped, invalidAsins };
+    },
 
-clearCategoryBulkRows: () => set({ categoryBulkRows: [] }),
+    clearCategoryBulkRows: () => set({ categoryBulkRows: [] }),
 
     // ── Multi-ASIN KW Bulk ──────────────────────────────────────────────────────
 
@@ -848,11 +910,16 @@ clearCategoryBulkRows: () => set({ categoryBulkRows: [] }),
         .map((l) => l.trim())
         .filter(Boolean)
         .forEach((line) => {
-          const [rawTheme, rawAsin, rawTargetAsin, rawBid, rawMatch, rawIntent] = line
-            .split("\t")
-            .map((c) => c.trim());
+          const [
+            rawTheme,
+            rawAsin,
+            rawTargetAsin,
+            rawBid,
+            rawMatch,
+            rawIntent,
+          ] = line.split("\t").map((c) => c.trim());
           const theme = rawTheme?.trim();
-          const intent = rawIntent?.trim() ?? ''
+          const intent = rawIntent?.trim() ?? "";
           const asin = rawAsin?.trim();
           const targetAsin = rawTargetAsin?.trim();
           if (!theme || !asin || !targetAsin) {
@@ -896,7 +963,7 @@ clearCategoryBulkRows: () => set({ categoryBulkRows: [] }),
           r.campaign_name = computeMultiAsinPTName(
             r.theme,
             themeMap.get(r.theme)!,
-            r.intent
+            r.intent,
           );
         }
         set((state) => ({
@@ -921,11 +988,120 @@ clearCategoryBulkRows: () => set({ categoryBulkRows: [] }),
             const effectiveGroup = mode === "spt" ? [group[0]] : group;
             return {
               ...r,
-              campaign_name: computeMultiAsinPTName(r.theme, effectiveGroup, r.intent),
+              campaign_name: computeMultiAsinPTName(
+                r.theme,
+                effectiveGroup,
+                r.intent,
+              ),
             };
           }),
         };
       }),
+
+    autoBulkRows: [],
+
+    setAutoBulkRows: (rows) => set({ autoBulkRows: rows }),
+
+    setAutoRowStatus: (id, status, error) =>
+      set((state) => ({
+        autoBulkRows: state.autoBulkRows.map((r) =>
+          r._id === id ? { ...r, _status: status, _error: error } : r,
+        ),
+      })),
+
+    deleteAutoBulkRows: (ids) =>
+      set((state) => ({
+        autoBulkRows: state.autoBulkRows.filter((r) => !ids.includes(r._id)),
+      })),
+
+    parsePastedAutoData: (text, minBudget, minBid) => {
+      const { sharedDefaults } = get();
+
+      // Flexible group name aliases
+      const GROUP_MAP: Record<string, AutoTargetGroup> = {
+        close: "close_match",
+        close_match: "close_match",
+        "close match": "close_match",
+        loose: "loose_match",
+        loose_match: "loose_match",
+        "loose match": "loose_match",
+        subs: "substitutes",
+        substitutes: "substitutes",
+        comps: "complements",
+        complements: "complements",
+      };
+
+      const GROUP_LABEL: Record<AutoTargetGroup, string> = {
+        close_match: "Close Match",
+        loose_match: "Loose Match",
+        substitutes: "Substitutes",
+        complements: "Complements",
+      };
+
+      let added = 0,
+        skipped = 0,
+        invalidAsins = 0;
+      const newRows: AutoTargetingBulkRow[] = [];
+
+      // Paste columns: ASIN | Targeting Group | Bid | Budget | Intent
+      text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .forEach((line) => {
+          const [rawAsin, rawGroup, rawBid, rawBudget, rawIntent] = line
+            .split("\t")
+            .map((c) => c.trim());
+
+          const asin = rawAsin?.trim();
+          if (!asin) {
+            skipped++;
+            return;
+          }
+          if (!isValidAsin(asin)) {
+            invalidAsins++;
+            skipped++;
+            return;
+          }
+
+          const group = GROUP_MAP[rawGroup?.toLowerCase().trim()];
+          if (!group) {
+            skipped++;
+            return;
+          } // unrecognised group name
+
+          const bid = Number(rawBid) || minBid;
+          const intent = rawIntent?.trim() ?? "";
+
+          const budget = rawBudget
+            ? Math.max(minBudget, Number(rawBudget) || minBudget)
+            : Math.max(minBudget, bid * 15);
+
+          const groupSuffix = GROUP_LABEL[group];
+          const intentSuffix = intent ? ` - ${intent}` : "";
+          const campaign_name = `${asin} - SP - AUTO - ${groupSuffix}${intentSuffix}`;
+
+          newRows.push({
+            _id: uid(),
+            campaign_name,
+            asin,
+            target_group: group,
+            bid,
+            budget,
+            start_date: sharedDefaults.start_date,
+            dynamic_bidding: sharedDefaults.dynamic_bidding,
+            intent,
+            _status: "idle",
+          });
+          added++;
+        });
+
+      if (newRows.length > 0)
+        set((state) => ({ autoBulkRows: [...state.autoBulkRows, ...newRows] }));
+      return { added, skipped, invalidAsins };
+    },
+
+    clearAutoBulkRows: () => set({ autoBulkRows: [] }),
 
     // ── Reset ─────────────────────────────────────────────────────────────────────
 

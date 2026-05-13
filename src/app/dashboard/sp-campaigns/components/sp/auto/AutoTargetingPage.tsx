@@ -1,30 +1,32 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Boxes } from 'lucide-react'
+import { FileText, ClipboardList } from 'lucide-react'
 import { AutoTargetingForm } from './AutoTargetingForm'
+import { BulkAutoSection } from './BulkAutoSection'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type AsinVariant = 'single' | 'multi'
+type AsinVariant  = 'single' | 'multi'
+type CreationMode = 'individual' | 'bulk'
 
 // ── Mode toggle ───────────────────────────────────────────────────────────────
 
-function VariantToggle({
-  variant,
+function ModeToggle({
+  mode,
   onChange,
 }: {
-  variant:  AsinVariant
-  onChange: (v: AsinVariant) => void
+  mode:     CreationMode
+  onChange: (m: CreationMode) => void
 }) {
   return (
     <div className="flex gap-1.5">
       {([
-        { value: 'single' as AsinVariant, label: 'Single ASIN', sublabel: '1 product', icon: Box },
-        { value: 'multi'  as AsinVariant, label: 'Multi ASIN',  sublabel: '2+ products', icon: Boxes },
+        { value: 'individual' as CreationMode, label: 'Individual',  sublabel: 'One at a time',    icon: FileText      },
+        { value: 'bulk'       as CreationMode, label: 'Bulk Paste',  sublabel: 'Many from Excel',  icon: ClipboardList },
       ] as const).map((opt) => {
         const Icon     = opt.icon
-        const isActive = variant === opt.value
+        const isActive = mode === opt.value
         return (
           <button
             key={opt.value}
@@ -57,11 +59,21 @@ function VariantToggle({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function AutoTargetingPage() {
+  const [mode,    setMode]    = useState<CreationMode>('individual')
   const [variant, setVariant] = useState<AsinVariant>('single')
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 flex flex-col gap-6">
-      <AutoTargetingForm variant={variant} onVariantChange={setVariant} />
+
+      {/* Mode toggle */}
+      <ModeToggle mode={mode} onChange={setMode} />
+
+      {/* Content */}
+      {mode === 'individual'
+        ? <AutoTargetingForm variant={variant} onVariantChange={setVariant} />
+        : <BulkAutoSection />
+      }
+
     </div>
   )
 }

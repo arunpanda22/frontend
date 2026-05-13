@@ -19,12 +19,16 @@ export interface TenantScriptConfig {
   script_type:           ScriptType
   script_version:        string | null
   script_version_detail: ScriptVersionDetail | null
+  sp_target_acos:        string | null   
+  sb_target_acos:        string | null
   is_enabled:            boolean
   updated_at:            string
 }
 
 export interface UpdateScriptConfigPayload {
   script_version?: string | null
+  sp_target_acos?:  number | null
+  sb_target_acos?:  number | null
   is_enabled?:     boolean
 }
 

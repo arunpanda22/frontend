@@ -167,22 +167,30 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
 
   const [selectedVersion, setSelectedVersion] = useState<string>(config?.script_version ?? '')
   const [isEnabled,       setIsEnabled]       = useState<boolean>(config?.is_enabled ?? false)
+  const [spTargetAcos,    setSpTargetAcos]    = useState<string>(config?.sp_target_acos ?? '')
+  const [sbTargetAcos,    setSbTargetAcos]    = useState<string>(config?.sb_target_acos ?? '')
   const [saved,           setSaved]           = useState(false)
 
   useEffect(() => {
     setSelectedVersion(config?.script_version ?? '')
     setIsEnabled(config?.is_enabled ?? false)
-  }, [config?.script_version, config?.is_enabled])
+    setSpTargetAcos(config?.sp_target_acos ?? '')
+    setSbTargetAcos(config?.sb_target_acos ?? '')
+  }, [config?.script_version, config?.is_enabled, config?.sp_target_acos, config?.sb_target_acos])
 
   const isDirty =
     selectedVersion !== (config?.script_version ?? '') ||
     isEnabled       !== (config?.is_enabled      ?? false)
+    spTargetAcos    !== (config?.sp_target_acos   ?? '') ||
+    sbTargetAcos    !== (config?.sb_target_acos   ?? '')
 
   const handleSave = async () => {
     await updateConfig.mutateAsync({
       type,
       script_version: selectedVersion || null,
       is_enabled:     isEnabled,
+      sp_target_acos: spTargetAcos !== '' ? parseFloat(spTargetAcos) : null,
+      sb_target_acos: sbTargetAcos !== '' ? parseFloat(sbTargetAcos) : null,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -221,7 +229,7 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
         </div>
       </div>
 
-      <div className="flex items-end gap-3">
+      <div className="flex items-end gap-3 flex-wrap">
         <div className="w-56">
           <Select
             label="Script Version"
@@ -230,6 +238,41 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
             onChange={(e) => setSelectedVersion(e.target.value)}
           />
         </div>
+
+        {/* SP Target ACOS */}
+        <div className="w-36">
+          <label className="mb-1.5 block text-xs font-medium text-slate-600">
+            SP Target ACOS (%)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={1000}
+            step={0.01}
+            placeholder="e.g. 18.50"
+            value={spTargetAcos}
+            onChange={(e) => setSpTargetAcos(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+
+        {/* SB Target ACOS */}
+        <div className="w-36">
+          <label className="mb-1.5 block text-xs font-medium text-slate-600">
+            SB Target ACOS (%)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={1000}
+            step={0.01}
+            placeholder="e.g. 22.00"
+            value={sbTargetAcos}
+            onChange={(e) => setSbTargetAcos(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+
         <button
           type="button"
           onClick={handleSave}
