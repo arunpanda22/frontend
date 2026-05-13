@@ -584,6 +584,8 @@ const NgramTreeRow: React.FC<{
         <TD className={`font-mono font-medium ${acosColor}`}>{acosDisplay}</TD>
         <TD className="font-mono text-gray-400">{fmtPctFraction(targetAcos)}</TD>
         <TD className="font-mono">{fmtCurrency(kw.cost)}</TD>
+        <TD className="font-mono">{kw.impressions}</TD>
+        <TD className="font-mono">{kw.clicks}</TD>
         <TD className="font-mono">{fmtCurrency(kw.sales_30d)}</TD>
         <TD onClick={(e) => e.stopPropagation()}>
           {isLeaf ? (
@@ -700,6 +702,8 @@ const NgramTable: React.FC<{
               <TH>ACOS</TH>
               <TH>Target ACOS</TH>
               <TH>Spend</TH>
+              <TH>Impressions</TH>
+              <TH>CLicks</TH>
               <TH>Sales</TH>
               <TH>Action</TH>
             </tr>
