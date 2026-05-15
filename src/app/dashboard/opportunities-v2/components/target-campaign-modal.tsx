@@ -44,7 +44,7 @@ export type TargetCampaignMode = 'keyword' | 'product'
 interface TargetCampaignModalProps {
   asin:         string
   mode:         TargetCampaignMode
-  // Exactly one of these will be populated depending on mode
+  intent?:      string 
   kwRows?:      TargetKWRow[]
   asinRows?:    TargetASINRow[]
   onClose:      () => void
@@ -100,6 +100,7 @@ const PT_MATCH_OPTS: { value: PTMatchType; label: string }[] = [
 interface SingleKWFormProps {
   asin:           string
   rowIndex:       number
+  intent:         string
   keyword:        KeywordRecommendation
   minBid:         number
   minBudget:      number
@@ -111,6 +112,7 @@ interface SingleKWFormProps {
 const SingleKWForm: React.FC<SingleKWFormProps> = ({
   asin,
   rowIndex,
+  intent,
   keyword,
   minBid,
   minBudget,
@@ -121,7 +123,7 @@ const SingleKWForm: React.FC<SingleKWFormProps> = ({
   const tomorrow = getTomorrow()
 
   const [campaignName, setCampaignName] = useState(() =>
-    buildSKCampaignName(asin, keyword.keyword, 'individual', TARGET_INTENT)
+    buildSKCampaignName(asin, keyword.keyword, 'individual', intent)
   )
   const [matchType,    setMatchType]    = useState<KWMatchType>(
     // pre-select the match type from the recommendation if valid
@@ -275,7 +277,7 @@ const SingleKWForm: React.FC<SingleKWFormProps> = ({
       </Field>
 
       <div className="flex items-center gap-5 flex-wrap rounded-lg bg-gray-50 border border-gray-100 px-4 py-2.5">
-        <FixedChip label="Intent"   value="api" />
+        <FixedChip label="Intent" value={intent} />
         <FixedChip label="TOS"      value="100%" />
         <FixedChip label="Strategy" value="Legacy for Sales" />
       </div>
@@ -319,6 +321,7 @@ interface SinglePTFormProps {
   minBid:         number
   minBudget:      number
   currencySymbol: string
+  intent:         string 
   onRowSuccess:   (index: number, category: string | null, campaignId: string) => void
   onRowError:     (index: number, category: string | null, error: string) => void
 }
@@ -331,13 +334,14 @@ const SinglePTForm: React.FC<SinglePTFormProps> = ({
   minBid,
   minBudget,
   currencySymbol,
+  intent,
   onRowSuccess,
   onRowError,
 }) => {
   const tomorrow = getTomorrow()
 
   const [campaignName, setCampaignName] = useState(() =>
-    buildPTCampaignName(asin, targetAsin, 'individual', TARGET_INTENT)
+    buildPTCampaignName(asin, targetAsin, 'individual', intent)
   )
   const [matchType,    setMatchType]    = useState<PTMatchType>('EXACT')
   const [bid,          setBid]          = useState('')
@@ -479,7 +483,7 @@ const SinglePTForm: React.FC<SinglePTFormProps> = ({
       </Field>
 
       <div className="flex items-center gap-5 flex-wrap rounded-lg bg-gray-50 border border-gray-100 px-4 py-2.5">
-        <FixedChip label="Intent"   value="api" />
+        <FixedChip label="Intent" value={intent} />
         <FixedChip label="TOS"      value="100%" />
         <FixedChip label="Strategy" value="Legacy for Sales" />
       </div>
@@ -561,17 +565,18 @@ interface BulkKWTableProps {
   minBid:         number
   minBudget:      number
   currencySymbol: string
+  intent:         string
   onRowSuccess:   (index: number, category: string | null, campaignId: string) => void
   onRowError:     (index: number, category: string | null, error: string) => void
 }
 
-function initBulkKWRows(asin: string, rows: TargetKWRow[], minBudget: number): BulkKWTableRow[] {
+function initBulkKWRows(asin: string, rows: TargetKWRow[], minBudget: number, intent: string): BulkKWTableRow[] {
   const tomorrow = getTomorrow()
   return rows.map((r) => {
     const bid = r.keyword.bid > 0 ? r.keyword.bid : 0
     return {
       _id:            `${r.keyword.keyword}__${r.index}`,
-      campaign_name:  buildSKCampaignName(asin, r.keyword.keyword, 'individual', TARGET_INTENT),
+      campaign_name:  buildSKCampaignName(asin, r.keyword.keyword, 'individual', intent),
       keyword:        r.keyword.keyword,
       match_type:     (['EXACT', 'BROAD', 'PHRASE'].includes(r.keyword.matchType?.toUpperCase())
                         ? r.keyword.matchType.toUpperCase()
@@ -592,10 +597,11 @@ const BulkKWTable: React.FC<BulkKWTableProps> = ({
   minBid,
   minBudget,
   currencySymbol,
+  intent,
   onRowSuccess,
   onRowError,
 }) => {
-  const [tableRows,    setTableRows]    = useState<BulkKWTableRow[]>(() => initBulkKWRows(asin, rows, minBudget))
+  const [tableRows,    setTableRows]    = useState<BulkKWTableRow[]>(() => initBulkKWRows(asin, rows, minBudget, intent))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [summary,      setSummary]      = useState<{ total: number; success: number; failed: number } | null>(null)
 
@@ -850,15 +856,16 @@ interface BulkPTTableProps {
   minBid:         number
   minBudget:      number
   currencySymbol: string
+  intent:         string
   onRowSuccess:   (index: number, category: string | null, campaignId: string) => void
   onRowError:     (index: number, category: string | null, error: string) => void
 }
 
-function initBulkPTRows(asin: string, rows: TargetASINRow[], minBudget: number): BulkPTTableRow[] {
+function initBulkPTRows(asin: string, rows: TargetASINRow[], minBudget: number, intent: string): BulkPTTableRow[] {
   const tomorrow = getTomorrow()
   return rows.map((r) => ({
     _id:            `${r.asin}__${r.index}__${r.category}`,
-    campaign_name:  buildPTCampaignName(asin, r.asin, 'individual', TARGET_INTENT),
+    campaign_name:  buildPTCampaignName(asin, r.asin, 'individual', intent),
     target_asin:    r.asin,
     match_type:     'EXACT',
     bid:            0,
@@ -877,10 +884,11 @@ const BulkPTTable: React.FC<BulkPTTableProps> = ({
   minBid,
   minBudget,
   currencySymbol,
+  intent,
   onRowSuccess,
   onRowError,
 }) => {
-  const [tableRows,    setTableRows]    = useState<BulkPTTableRow[]>(() => initBulkPTRows(asin, rows, minBudget))
+  const [tableRows,    setTableRows]    = useState<BulkPTTableRow[]>(() => initBulkPTRows(asin, rows, minBudget, intent))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [summary,      setSummary]      = useState<{ total: number; success: number; failed: number } | null>(null)
 
@@ -1047,7 +1055,7 @@ const BulkPTTable: React.FC<BulkPTTableProps> = ({
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-5 flex-wrap rounded-lg bg-gray-50 border border-gray-100 px-4 py-2.5">
         <FixedChip label="ASIN"     value={asin} />
-        <FixedChip label="Intent"   value="api"  />
+        <FixedChip label="Intent" value={intent} />
         <FixedChip label="TOS"      value="100%" />
         <FixedChip label="Strategy" value="Legacy for Sales" />
       </div>
@@ -1131,6 +1139,7 @@ const BulkPTTable: React.FC<BulkPTTableProps> = ({
 export const TargetCampaignModal: React.FC<TargetCampaignModalProps> = ({
   asin,
   mode,
+  intent = 'api', 
   kwRows,
   asinRows,
   onClose,
@@ -1187,6 +1196,7 @@ export const TargetCampaignModal: React.FC<TargetCampaignModalProps> = ({
                 minBid={minBid}
                 minBudget={minBudget}
                 currencySymbol={currencySymbol}
+                intent={intent}
                 onRowSuccess={onRowSuccess}
                 onRowError={onRowError}
               />
@@ -1198,6 +1208,7 @@ export const TargetCampaignModal: React.FC<TargetCampaignModalProps> = ({
                 minBid={minBid}
                 minBudget={minBudget}
                 currencySymbol={currencySymbol}
+                intent={intent}
                 onRowSuccess={onRowSuccess}
                 onRowError={onRowError}
               />
@@ -1210,6 +1221,7 @@ export const TargetCampaignModal: React.FC<TargetCampaignModalProps> = ({
                 minBid={minBid}
                 minBudget={minBudget}
                 currencySymbol={currencySymbol}
+                intent={intent}
                 onRowSuccess={onRowSuccess}
                 onRowError={onRowError}
               />
@@ -1222,6 +1234,7 @@ export const TargetCampaignModal: React.FC<TargetCampaignModalProps> = ({
                 minBid={minBid}
                 minBudget={minBudget}
                 currencySymbol={currencySymbol}
+                intent={intent}
                 onRowSuccess={onRowSuccess}
                 onRowError={onRowError}
               />
