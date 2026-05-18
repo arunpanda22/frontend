@@ -24,6 +24,8 @@ import {
   type TargetKWRow,
   type TargetASINRow,
 } from "./target-campaign-modal";
+import { NgramVariantsModal } from "./ngram-actions-modal";
+import { NgramNegateModal } from "./ngram-negate-modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -562,6 +564,9 @@ const NgramTreeRow: React.FC<{
   const isNeg = isNegativeKeyword(kw);
   const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
 
+  const [showVariants, setShowVariants] = useState(false);
+  const [showNegate, setShowNegate]     = useState(false);
+
   const acosRaw =
     typeof kw.ACOS_Value === "number"
       ? kw.ACOS_Value
@@ -625,19 +630,37 @@ const NgramTreeRow: React.FC<{
         <TD className="font-mono">{kw.clicks}</TD>
         <TD className="font-mono">{fmtCurrency(kw.sales_30d)}</TD>
         <TD onClick={(e) => e.stopPropagation()}>
-          {isLeaf ? (
-            // Unigrams — teal "View Keywords" text link (prototype style)
-            <button className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 transition-colors whitespace-nowrap">
-              View Keywords
-            </button>
-          ) : !isNeg ? (
-            <button className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
-              + Expand
+          {acosOverTarget || isNeg ? (
+            // Bad ACOS — negate
+            <button
+              onClick={() => setShowNegate(true)}
+              className="text-[11px] px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors whitespace-nowrap"
+            >
+              − Negate
             </button>
           ) : (
-            <button className="text-[11px] px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
-              Negative
+            // Good ACOS — find variants
+            <button
+              onClick={() => setShowVariants(true)}
+              className="text-[11px] px-2.5 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors whitespace-nowrap"
+            >
+              + Find Variants
             </button>
+          )}
+
+          {showVariants && (
+            <NgramVariantsModal
+              keyword={kw.Keyword}
+              asin={kw.ASIN}
+              onClose={() => setShowVariants(false)}
+            />
+          )}
+          {showNegate && (
+            <NgramNegateModal
+              keyword={kw.Keyword}
+              asin={kw.ASIN}
+              onClose={() => setShowNegate(false)}
+            />
           )}
         </TD>
       </tr>
@@ -2053,6 +2076,7 @@ export function OpportunityOptimizer() {
   const allSQP = sqpQuery.data?.search_queries ?? [];
   const allNgramPositive = ngramQuery.data?.ngram_positive ?? [];
   const allNgramNegative = ngramQuery.data?.ngram_negative ?? [];
+  const allNgramObserve  = ngramQuery.data?.ngram_observe  ?? []; 
 
   // Per-ASIN CTR/CVR averages computed from SQP data
   const sqpMetricsByAsin = React.useMemo(() => {
@@ -2113,6 +2137,7 @@ export function OpportunityOptimizer() {
       const ngramKeywords = [
         ...allNgramPositive.filter((k) => k.ASIN === asin.id),
         ...allNgramNegative.filter((k) => k.ASIN === asin.id),
+        ...allNgramObserve.filter((k) => k.ASIN === asin.id),
       ];
       return (
         <ASINCard

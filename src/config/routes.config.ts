@@ -93,7 +93,7 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
   },
   {
     name: 'Opportunity Optimizer',
-    href: '/dashboard/opportunities',
+    href: '/dashboard/opportunities-v2',
     permission: 'access_oppurtunities',
     requiresSellerAccount: true,
   },

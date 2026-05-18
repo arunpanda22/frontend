@@ -80,16 +80,18 @@ export interface NgramKeyword {
 export interface NgramSummary {
   total_keywords: number;
   positive_count: number;
-  negative_count: number;
+  negative_count: number; 
   positive_bmm_count: number;
   positive_exact_count: number;
   negative_phrase_count: number;
   negative_exact_count: number;
+  observe_count: number;
 }
 
 export interface NgramResponse {
   ngram_positive: NgramKeyword[];
   ngram_negative: NgramKeyword[];
+  ngram_observe: NgramKeyword[];
   summary: NgramSummary;
 }
 
