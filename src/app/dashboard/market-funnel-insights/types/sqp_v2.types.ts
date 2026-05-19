@@ -43,6 +43,8 @@ export interface SQPSearchQueryV2 {
 
 export interface SQPASINData {
   asin: string;
+  product_name: string | null;
+  image_url: string | null; 
   avg_our_ctr: number;
   avg_market_ctr: number;
   ctr_vs_market: number;
@@ -54,11 +56,17 @@ export interface SQPASINData {
   search_queries: SQPSearchQueryV2[];
 }
 
+export interface SQPASINMeta {
+  asin: string;
+  product_name: string | null;
+  image_url: string | null;
+}
+
 export interface SQPDashboardV2Response {
   summary: SQPSummary;
   overall_trend: SQPMonthlyTrendPoint[];
   overall_funnel: SQPFunnel;
-  top_asins: string[];
+  top_asins: SQPASINMeta[];
   asins: SQPASINData[];
   metadata: {
     start_date: string;
