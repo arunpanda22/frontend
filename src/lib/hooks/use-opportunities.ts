@@ -41,6 +41,10 @@ export interface KeywordRecommendation {
   average_bid_lower_range: number;
   average_bid_higher_range: number;
   average_suggested_bid: number;
+  BROAD: string;       
+  PHRASE: string;
+  EXACT: string;
+  keyword_exists: boolean;
 }
 
 export interface AsinSuggestResponse {
@@ -75,6 +79,7 @@ export interface NgramKeyword {
   Units: number;
   Classification: string;
   match_type: string;
+  keyword_type: "positive" | "negative";
 }
 
 export interface NgramSummary {
@@ -85,14 +90,24 @@ export interface NgramSummary {
   positive_exact_count: number;
   negative_phrase_count: number;
   negative_exact_count: number;
-  observe_count: number;
 }
 
 export interface NgramResponse {
-  ngram_positive: NgramKeyword[];
-  ngram_negative: NgramKeyword[];
-  ngram_observe: NgramKeyword[];
+  asin: string;
+  page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+  items: NgramKeyword[];
   summary: NgramSummary;
+}
+
+export interface NgramRequest {
+  asin: string;
+  page?: number;
+  page_size?: number;
 }
 
 // ==================== SQP TYPES ====================
@@ -283,13 +298,25 @@ export interface ProductRecommendation {
   "Top converting targets": string | null;
   "Similar items with low ratings and reviews": string | null;
   "Similar items (frequently viewed together)": string | null;
+  BROAD: string;
+  PHRASE: string;
+  EXACT: string;
+  keyword_exists: boolean;
 }
 
 export interface ProductRecommendationsResponse {
-  recommendations: ProductRecommendation[];
+  recommendations: ProductRecommendation[];  
   total_recommendations: number;
   asin: string;
   statusCode: number;
+}
+
+export interface AnnotatedAsinRecommendation {
+  keyword: string;  
+  BROAD: string;
+  PHRASE: string;
+  EXACT: string;
+  keyword_exists: boolean;
 }
 
 export interface ProductRecommendationsRequest {
@@ -311,7 +338,7 @@ export const opportunitiesQueryKeys = {
   },
   ngram: {
     all: ["ngram-opportunities"] as const,
-    list: () => ["ngram-opportunities", "list"] as const,
+    list: (params: NgramRequest) => ["ngram-opportunities", "list", params] as const,
   },
   sqp: {
     all: ["sqp-opportunities"] as const,
@@ -365,8 +392,10 @@ async function fetchAsinSuggestOpportunities(
 
 // Target ACOS is read from the user's account settings on the backend —
 // no parameter is sent from the frontend.
-async function fetchNgramOpportunities(): Promise<NgramResponse> {
-  const { data } = await apiClient.get("/api/v1/dashboard-api/ngram-opportunities/");
+async function fetchNgramOpportunities(asin: string): Promise<NgramResponse> {
+  const { data } = await apiClient.get("/api/v1/dashboard-api/ngram-opportunities/", {
+    params: { asin, page: 1, page_size: 5000 },
+  });
   return data;
 }
 
@@ -467,27 +496,32 @@ export const useAsinSuggestOpportunities = (asin: string | null) => {
 };
 
 // 2. Ngram Hook — target ACOS comes from the user's account settings on the backend
-export const useNgramOpportunities = () => {
+export const useNgramOpportunities = (asin: string | null) => {
   const [isEnabled, setIsEnabled] = useState(false);
+  const [data, setData] = useState<{ items: NgramKeyword[]; summary: NgramSummary } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<Error | null>(null);
 
-  const query = useQuery({
-    queryKey: opportunitiesQueryKeys.ngram.list(),
-    queryFn: fetchNgramOpportunities,
-    enabled: isEnabled,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1,
-  });
-
-  const fetchData = () => {
+  const fetchData = async () => {
+    if (!asin || asin.trim().length === 0) return;
     setIsEnabled(true);
-    query.refetch();
+    setIsLoading(true);
+    setFetchError(null);
+
+    try {
+      const result = await fetchNgramOpportunities(asin);
+      setData({ items: result.items, summary: result.summary });
+    } catch (e) {
+      setFetchError(e as Error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
-    data: query.data as NgramResponse | undefined,
-    isLoading: query.isLoading,
-    error: (query.error as Error) ?? null,
+    data: data ?? undefined,
+    isLoading,
+    error: fetchError,
     fetchData,
     isEnabled,
   };
