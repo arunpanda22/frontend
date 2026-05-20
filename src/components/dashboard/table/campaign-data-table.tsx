@@ -50,6 +50,7 @@ export interface CampaignColumnDefinition {
   options?: DropdownOption[];
   /** For date columns: column-wide default ISO date string */
   defaultDate?: string;
+  bulkSet?: boolean
 }
 
 export interface CampaignTableData {
@@ -436,6 +437,7 @@ const ColumnHeader = memo(function ColumnHeader({
   onClearFilter,
   onResizeMouseDown,
   onDateHeaderClick,
+  onNumberHeaderClick,
 }: {
   col: CampaignColumnDefinition;
   sort?: SortState;
@@ -445,6 +447,7 @@ const ColumnHeader = memo(function ColumnHeader({
   onClearFilter: () => void;
   onResizeMouseDown: (e: React.MouseEvent) => void;
   onDateHeaderClick?: (e: React.MouseEvent) => void;
+  onNumberHeaderClick?: (e: React.MouseEvent) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [filterOp, setFilterOp] = useState(filter?.operator ?? "contains");
@@ -489,6 +492,11 @@ const ColumnHeader = memo(function ColumnHeader({
       onDateHeaderClick(e);
       return;
     }
+    if (col.type === 'number' && col.bulkSet && onNumberHeaderClick) {
+      e.stopPropagation();
+      onNumberHeaderClick(e);
+      return;
+    }
     openMenu(e);
   };
 
@@ -507,6 +515,11 @@ const ColumnHeader = memo(function ColumnHeader({
       >
         {isDate && (
           <Calendar className="h-3 w-3 text-slate-400 flex-shrink-0" />
+        )}
+        {col.type === 'number' && col.bulkSet && (
+          <span className="text-[10px] text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity ml-auto whitespace-nowrap">
+            Set all
+          </span>
         )}
         {col.type === "dropdown" && (
           <ChevronDown className="h-3 w-3 text-slate-400 flex-shrink-0" />
@@ -686,6 +699,56 @@ function BulkDatePopup({
     </div>,
     document.body,
   );
+}
+
+function BulkNumberPopup({
+  label,
+  min,
+  style,
+  onApply,
+  onCancel,
+}: {
+  label:   string
+  min?:    number
+  style:   React.CSSProperties
+  onApply: (value: number) => void
+  onCancel: () => void
+}) {
+  const [draft, setDraft] = useState('')
+  return createPortal(
+    <div
+      className="bg-white border border-slate-200 rounded-xl shadow-2xl p-4 flex flex-col gap-3 w-56"
+      style={style}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] font-bold text-slate-700">{label}</span>
+        <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <input
+        type="number"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && draft && onApply(parseFloat(draft))}
+        min={min}
+        step="0.01"
+        placeholder={min != null ? `Min ${min.toFixed(2)}` : 'Enter value'}
+        className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        autoFocus
+      />
+      <button
+        type="button"
+        onClick={() => draft && onApply(parseFloat(draft))}
+        disabled={!draft || isNaN(parseFloat(draft))}
+        className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-[12px] font-semibold rounded-lg py-2 transition-colors"
+      >
+        Apply to all rows
+      </button>
+    </div>,
+    document.body,
+  )
 }
 
 // ─── Main Table ───────────────────────────────────────────────────────────────
@@ -951,6 +1014,15 @@ export function CampaignDataTable({
     [bulkDateField, data, onDataChange],
   );
 
+  const [bulkNumberField, setBulkNumberField] = useState<string | null>(null)
+  const [bulkNumberStyle, setBulkNumberStyle] = useState<React.CSSProperties>({})
+
+  const applyBulkNumber = useCallback((value: number) => {
+    if (!bulkNumberField) return
+    onDataChange(data.map((row) => ({ ...row, [bulkNumberField]: value })))
+    setBulkNumberField(null)
+  }, [bulkNumberField, data, onDataChange])
+
   // ── Layout ──
   const checkboxColWidth = showCheckboxColumn ? 48 : 0;
   const totalDataRows = processedGroups.reduce((sum, g) => sum + g.rows.length, 0);
@@ -1062,6 +1134,22 @@ export function CampaignDataTable({
                                 zIndex: 9999,
                               });
                               setBulkDateField(col.field);
+                            }
+                          : undefined
+                      }
+                      onNumberHeaderClick={
+                        col.type === 'number' && col.bulkSet
+                          ? (e: React.MouseEvent) => {
+                              const r = (e.currentTarget as HTMLElement)
+                                .closest('th')
+                                ?.getBoundingClientRect()
+                              setBulkNumberStyle({
+                                position: 'fixed',
+                                top: (r?.bottom ?? 0) + 4,
+                                left: Math.max(0, r?.left ?? 0),
+                                zIndex: 9999,
+                              })
+                              setBulkNumberField(col.field)
                             }
                           : undefined
                       }
@@ -1388,6 +1476,14 @@ export function CampaignDataTable({
           style={bulkDateStyle}
           onApply={applyBulkDate}
           onCancel={() => setBulkDateField(null)}
+        />
+      )}
+      {bulkNumberField && (
+        <BulkNumberPopup
+          label="Set budget for all rows"
+          style={bulkNumberStyle}
+          onApply={applyBulkNumber}
+          onCancel={() => setBulkNumberField(null)}
         />
       )}
     </div>
