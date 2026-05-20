@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useSQPOpportunities } from "@/lib/hooks/use-opportunities";
 import { SQPOpportunitiesDrawer } from "./components/SQPOpportunitiesDrawer";
-import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer";
+// import { NgramOpportunitiesDrawer } from "./components/NgramOpportunitiesDrawer";
 import { DedupOpportunitiesDrawer } from "./components/DedupCheckDrawer";
 import { AsinSuggestDrawer } from "./components/AsinSuggestDrawer";
 import { ProductRecommendationsDrawer } from "./components/ProductRecommendationsDrawer";
@@ -200,7 +200,7 @@ export default function OpportunitiesPage() {
         />
       )}
 
-      {selectedOpportunity === "ngram-positive" && (
+      {/* {selectedOpportunity === "ngram-positive" && (
         <NgramOpportunitiesDrawer
           isOpen={true}
           onClose={closeDrawer}
@@ -214,7 +214,7 @@ export default function OpportunitiesPage() {
           onClose={closeDrawer}
           type="negative"
         />
-      )}
+      )} */}
 
       {selectedOpportunity === "dedup" && (
         <DedupOpportunitiesDrawer
