@@ -298,9 +298,8 @@ export interface ProductRecommendation {
   "Top converting targets": string | null;
   "Similar items with low ratings and reviews": string | null;
   "Similar items (frequently viewed together)": string | null;
-  BROAD: string;
-  PHRASE: string;
-  EXACT: string;
+  Exact:          string;  
+  Expanded:       string;  
   keyword_exists: boolean;
 }
 

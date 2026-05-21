@@ -1070,7 +1070,8 @@ const PaginatedAsinSection: React.FC<{
                     />
                   </TH>
                   <TH>ASIN</TH>
-                  <TH>In campaigns</TH>{/* NEW */}
+                  <TH>Targeting</TH>  
+                  <TH>In campaigns</TH>
                   <TH>Status</TH>
                   <TH />
                 </tr>
@@ -1083,6 +1084,8 @@ const PaginatedAsinSection: React.FC<{
                   const rowStatus = asinStatuses[statusKey];
                   const isSuccess = rowStatus?.status === "success";
                   const isErr     = rowStatus?.status === "error";
+                  const hasExact    = rec.Exact    !== "doesn't exist";
+                  const hasExpanded = rec.Expanded !== "doesn't exist";
 
 
 
@@ -1104,14 +1107,21 @@ const PaginatedAsinSection: React.FC<{
                         </a>
                       </TD>
 
-                      {/* ── NEW: In campaigns ───────────────────────────────── */}
+                      {/* ── Targeting ───────────────────────────────────── */}
+                      <TD>
+                        <div className="flex gap-1">
+                          {hasExact    && <Badge label="Exact"    variant="blue" />}
+                          {hasExpanded && <Badge label="Expanded" variant="amber" />}
+                          {!hasExact && !hasExpanded && <Badge label="None" variant="gray" />}
+                        </div>
+                      </TD>
+                      {/* ── In campaigns ────────────────────────────────── */}
                       <TD>
                         <Badge
                           label={rec.keyword_exists ? "Exists" : "New"}
                           variant={rec.keyword_exists ? "amber" : "green"}
                         />
                       </TD>
-                      {/* ───────────────────────────────────────────────────── */}
 
                       <TD onClick={(e) => e.stopPropagation()}>
                         {isSuccess && <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap"><CheckCircle2 className="h-3 w-3 shrink-0" /> Created</span>}
@@ -1151,7 +1161,8 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
   asinId,
   currencySymbol,
 }) => {
-  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
+  const fmtCurrency = (v: number | undefined | null) =>
+    `${currencySymbol}${(v ?? 0).toFixed(2)}`;
   const { data: userProfile } = useUserProfile();
 
   const activeProfile =
@@ -1221,7 +1232,20 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
   if (isLoading) return <LoadingState />;
   if (asinSuggest.error) return <ErrorState message={asinSuggest.error.message} />;
 
-  const keywords: KeywordRecommendation[] = asinSuggest.data?.keywords ?? [];
+  const rawKeywords = asinSuggest.data?.keywords ?? [];
+  const keywords: KeywordRecommendation[] = rawKeywords.map((k) => {
+    if (k.keyword && typeof k.keyword === "object") {
+      return {
+        ...(k.keyword as unknown as KeywordRecommendation),
+        // Preserve the top-level campaign coverage fields
+        BROAD: k.BROAD,
+        PHRASE: k.PHRASE,
+        EXACT: k.EXACT,
+        keyword_exists: k.keyword_exists,
+      };
+    }
+    return k;
+  });
   const recs = productRec.data?.recommendations ?? [];
 
   const topConverting   = recs.filter((r) => r["Top converting targets"])
@@ -1365,7 +1389,8 @@ const KeywordSuggestionsTable: React.FC<{
   onOpenBulk,
   bulkActions,
 }) => {
-  const fmtCurrency = (v: number) => `${currencySymbol}${v.toFixed(2)}`;
+  const fmtCurrency = (v: number | undefined | null) =>
+    `${currencySymbol}${(v ?? 0).toFixed(2)}`;
   const { page, totalPages, paged, setPage, totalItems, pageSize } =
     usePagination(keywords);
 
