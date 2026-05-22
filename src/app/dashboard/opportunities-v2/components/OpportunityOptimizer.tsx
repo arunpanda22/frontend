@@ -196,7 +196,6 @@ const Pagination: React.FC<PaginationProps> = ({
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, totalItems);
 
-  // Build page number buttons — show at most 5 around current
   const pages: (number | "…")[] = [];
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pages.push(i);
@@ -257,7 +256,6 @@ const Pagination: React.FC<PaginationProps> = ({
 function usePagination<T>(items: T[], pageSize = PAGE_SIZE) {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-  // Reset to page 1 when items change
   const safePageRef = React.useRef(page);
   const safePage = Math.min(page, totalPages);
   if (safePageRef.current !== safePage) safePageRef.current = safePage;
@@ -401,8 +399,14 @@ const SQPTable: React.FC<{
   const [rowStatuses, setRowStatuses] = useState<Record<number, SQPRowStatus>>({});
   const [modal, setModal] = useState<SQPCampaignRow[] | null>(null);
 
+  // ── Default sort: market clicks descending ────────────────────────────────
+  const sortedQueries = React.useMemo(
+    () => queries.slice().sort((a, b) => b.total_click_count - a.total_click_count),
+    [queries]
+  );
+
   const { page, totalPages, paged, setPage, totalItems, pageSize } =
-    usePagination(queries);
+    usePagination(sortedQueries);
 
   const toggleRow = useCallback((i: number) => {
     setSelected((prev) => {
@@ -413,14 +417,14 @@ const SQPTable: React.FC<{
   }, []);
 
   const handleSelectAll = (checked: boolean) =>
-    setSelected(checked ? new Set(queries.map((_, i) => i)) : new Set());
+    setSelected(checked ? new Set(sortedQueries.map((_, i) => i)) : new Set());
 
-  const openSingle = (i: number) => setModal([{ index: i, query: queries[i] }]);
+  const openSingle = (i: number) => setModal([{ index: i, query: sortedQueries[i] }]);
 
   const openBulk = () => {
     const rows: SQPCampaignRow[] = [...selected].map((i) => ({
       index: i,
-      query: queries[i],
+      query: sortedQueries[i],
     }));
     setModal(rows);
   };
@@ -441,12 +445,11 @@ const SQPTable: React.FC<{
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState message={error.message} />;
-  if (!queries.length) return <EmptyState />;
+  if (!sortedQueries.length) return <EmptyState />;
 
-  // Map paged items back to their original indices
   const pagedWithIndex = paged.map((q) => ({
     q,
-    i: queries.indexOf(q),
+    i: sortedQueries.indexOf(q),
   }));
 
   const sqpBulkActions: BulkAction[] = [
@@ -468,7 +471,7 @@ const SQPTable: React.FC<{
 
       <BulkActionBar
         selectedCount={selected.size}
-        totalCount={queries.length}
+        totalCount={sortedQueries.length}
         actions={sqpBulkActions}
         onSelectAll={handleSelectAll}
         onClear={() => setSelected(new Set())}
@@ -480,8 +483,8 @@ const SQPTable: React.FC<{
             <tr>
               <TH className="w-8">
                 <Checkbox
-                  checked={selected.size === queries.length && queries.length > 0}
-                  indeterminate={selected.size > 0 && selected.size < queries.length}
+                  checked={selected.size === sortedQueries.length && sortedQueries.length > 0}
+                  indeterminate={selected.size > 0 && selected.size < sortedQueries.length}
                   onChange={handleSelectAll}
                 />
               </TH>
@@ -490,7 +493,8 @@ const SQPTable: React.FC<{
               <TH>Mkt impr.</TH>
               <TH>My impr.</TH>
               <TH>My CTR</TH>
-              <TH>Mkt clicks</TH>
+              {/* Sorted column gets a subtle indicator */}
+              <TH>Mkt clicks ↓</TH>
               <TH>My clicks</TH>
               <TH>My CVR</TH>
               <TH>Mkt CVR</TH>
@@ -539,7 +543,7 @@ const SQPTable: React.FC<{
                   <TD className="font-mono">{(q.total_query_impression_count ?? 0).toLocaleString()}</TD>
                   <TD className="font-mono">{(q.asin_impression_count ?? 0).toLocaleString()}</TD>
                   <TD className="font-mono font-medium text-gray-700">{myCtr.toFixed(1)}%</TD>
-                  <TD className="font-mono">{q.total_click_count.toLocaleString()}</TD>
+                  <TD className="font-mono font-medium text-gray-800">{q.total_click_count.toLocaleString()}</TD>
                   <TD className="font-mono">{q.asin_click_count.toLocaleString()}</TD>
                   <TD className={`font-mono font-medium ${cvrGood ? "text-emerald-600" : "text-red-500"}`}>
                     {fmtPct(q.asin_conversion)}
@@ -608,8 +612,6 @@ const SQPTable: React.FC<{
 // ─── N-gram Tree Row (recursive) ──────────────────────────────────────────────
 
 const NGRAM_PAGE_SIZE = 10;
-
-// ─── N-gram Tree Row (recursive) ──────────────────────────────────────────────
 
 const NgramTreeRow: React.FC<{
   node: NgramTreeNode;
@@ -698,7 +700,7 @@ const NgramTreeRow: React.FC<{
         <TD className="font-mono text-gray-400">{fmtPctFraction(targetAcos)}</TD>
         <TD className="font-mono">{fmtCurrency(kw.cost)}</TD>
         <TD className="font-mono">{kw.impressions}</TD>
-        <TD className="font-mono">{kw.clicks}</TD>
+        <TD className="font-mono font-medium text-gray-800">{kw.clicks}</TD>
         <TD className="font-mono">{fmtCurrency(kw.sales_30d)}</TD>
         <TD onClick={(e) => e.stopPropagation()}>
           {acosOverTarget || isNeg ? (
@@ -766,7 +768,13 @@ const NgramSection: React.FC<{
 }) => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
-  const tree = React.useMemo(() => buildNgramTree(items), [items]);
+  // ── Default sort: clicks descending before tree-building ─────────────────
+  const sortedItems = React.useMemo(
+    () => items.slice().sort((a, b) => b.clicks - a.clicks),
+    [items]
+  );
+
+  const tree = React.useMemo(() => buildNgramTree(sortedItems), [sortedItems]);
 
   const { page, totalPages, paged: pagedRoots, setPage, totalItems, pageSize } =
     usePagination(tree, NGRAM_PAGE_SIZE);
@@ -839,7 +847,7 @@ const NgramSection: React.FC<{
                   <TH>Target ACOS</TH>
                   <TH>Spend</TH>
                   <TH>Impressions</TH>
-                  <TH>Clicks</TH>
+                  <TH>Clicks ↓</TH>
                   <TH>Sales</TH>
                   <TH>Action</TH>
                 </tr>
@@ -868,7 +876,7 @@ const NgramSection: React.FC<{
             pageSize={pageSize}
             onPageChange={(p) => {
               setPage(p);
-              setExpandedKeys(new Set()); // collapse all when navigating pages
+              setExpandedKeys(new Set());
             }}
           />
         </>
@@ -877,7 +885,7 @@ const NgramSection: React.FC<{
   );
 };
 
-// ─── N-gram Table (now self-contained per ASIN) ───────────────────────────────
+// ─── N-gram Table ─────────────────────────────────────────────────────────────
 
 const NgramTable: React.FC<{
   asin: string;
@@ -888,8 +896,6 @@ const NgramTable: React.FC<{
 
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-
-  // NO useEffect — fetch is triggered only when the user opens this card
 
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => {
@@ -907,7 +913,6 @@ const NgramTable: React.FC<{
     });
   }, []);
 
-  // Not yet fetched — show button
   if (!ngramQuery.isEnabled) {
     return <FetchPrompt label="Load N-gram analysis" onFetch={ngramQuery.fetchData} />;
   }
@@ -996,10 +1001,10 @@ const MARKETPLACE_DOMAINS: Record<string, string> = {
   A21TJRUUN4KGV: "amazon.in",
 };
 
-// ─── Paginated ASIN section (reusable for Target + Competitor) ────────────────
+// ─── Paginated ASIN section ───────────────────────────────────────────────────
 
 const PaginatedAsinSection: React.FC<{
-  items: { asin: string; rec: ProductRecommendation }[]; 
+  items: { asin: string; rec: ProductRecommendation }[];
   sectionKey: string;
   label: string;
   collapsed: boolean;
@@ -1034,7 +1039,6 @@ const PaginatedAsinSection: React.FC<{
     { label: "+ Add targets", variant: "green", onClick: onOpenBulk },
   ];
 
-  // Map paged items back to their original indices
   const pagedWithIndex = paged.map((item) => ({
     item,
     i: items.indexOf(item),
@@ -1070,7 +1074,7 @@ const PaginatedAsinSection: React.FC<{
                     />
                   </TH>
                   <TH>ASIN</TH>
-                  <TH>Targeting</TH>  
+                  <TH>Targeting</TH>
                   <TH>In campaigns</TH>
                   <TH>Status</TH>
                   <TH />
@@ -1086,8 +1090,6 @@ const PaginatedAsinSection: React.FC<{
                   const isErr     = rowStatus?.status === "error";
                   const hasExact    = rec.Exact    !== "doesn't exist";
                   const hasExpanded = rec.Expanded !== "doesn't exist";
-
-
 
                   const rowBg = isSel ? "bg-blue-50 hover:bg-blue-100"
                     : isSuccess ? "bg-emerald-50 hover:bg-emerald-100"
@@ -1106,8 +1108,6 @@ const PaginatedAsinSection: React.FC<{
                           </svg>
                         </a>
                       </TD>
-
-                      {/* ── Targeting ───────────────────────────────────── */}
                       <TD>
                         <div className="flex gap-1">
                           {hasExact    && <Badge label="Exact"    variant="blue" />}
@@ -1115,14 +1115,12 @@ const PaginatedAsinSection: React.FC<{
                           {!hasExact && !hasExpanded && <Badge label="None" variant="gray" />}
                         </div>
                       </TD>
-                      {/* ── In campaigns ────────────────────────────────── */}
                       <TD>
                         <Badge
                           label={rec.keyword_exists ? "Exists" : "New"}
                           variant={rec.keyword_exists ? "amber" : "green"}
                         />
                       </TD>
-
                       <TD onClick={(e) => e.stopPropagation()}>
                         {isSuccess && <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap"><CheckCircle2 className="h-3 w-3 shrink-0" /> Created</span>}
                         {isErr     && <span className="flex items-center gap-1 text-red-500 text-[10px] font-medium whitespace-nowrap" title={rowStatus.error}><AlertCircle className="h-3 w-3 shrink-0" /> Failed</span>}
@@ -1237,7 +1235,6 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
     if (k.keyword && typeof k.keyword === "object") {
       return {
         ...(k.keyword as unknown as KeywordRecommendation),
-        // Preserve the top-level campaign coverage fields
         BROAD: k.BROAD,
         PHRASE: k.PHRASE,
         EXACT: k.EXACT,
@@ -1303,7 +1300,6 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
         />
       )}
 
-      {/* ── Keyword suggestions ──────────────────────────────────────────── */}
       {keywords.length > 0 && (
         <>
           <button
@@ -1330,7 +1326,6 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
         </>
       )}
 
-      {/* ── ASIN suggestion sections ─────────────────────────────────────── */}
       {asinSections.map(({ label, items, key }) => {
         if (!items.length) return null;
         return (
@@ -1366,7 +1361,7 @@ const TargetContent: React.FC<{ asinId: string; currencySymbol: string }> = ({
   );
 };
 
-// ─── Keyword suggestions table (extracted for pagination) ─────────────────────
+// ─── Keyword suggestions table ────────────────────────────────────────────────
 
 const KeywordSuggestionsTable: React.FC<{
   keywords: KeywordRecommendation[];
@@ -1391,16 +1386,23 @@ const KeywordSuggestionsTable: React.FC<{
 }) => {
   const fmtCurrency = (v: number | undefined | null) =>
     `${currencySymbol}${(v ?? 0).toFixed(2)}`;
-  const { page, totalPages, paged, setPage, totalItems, pageSize } =
-    usePagination(keywords);
 
-  const pagedWithIndex = paged.map((k) => ({ k, i: keywords.indexOf(k) }));
+  // ── Default sort: rank ascending ─────────────────────────────────────────
+  const sortedKeywords = React.useMemo(
+    () => keywords.slice().sort((a, b) => a.rank - b.rank),
+    [keywords]
+  );
+
+  const { page, totalPages, paged, setPage, totalItems, pageSize } =
+    usePagination(sortedKeywords);
+
+  const pagedWithIndex = paged.map((k) => ({ k, i: sortedKeywords.indexOf(k) }));
 
   return (
     <>
       <BulkActionBar
         selectedCount={selectedKw.size}
-        totalCount={keywords.length}
+        totalCount={sortedKeywords.length}
         actions={bulkActions}
         onSelectAll={onSelectAll}
         onClear={() => onSelectAll(false)}
@@ -1411,8 +1413,8 @@ const KeywordSuggestionsTable: React.FC<{
             <tr>
               <TH className="w-8">
                 <Checkbox
-                  checked={selectedKw.size === keywords.length && keywords.length > 0}
-                  indeterminate={selectedKw.size > 0 && selectedKw.size < keywords.length}
+                  checked={selectedKw.size === sortedKeywords.length && sortedKeywords.length > 0}
+                  indeterminate={selectedKw.size > 0 && selectedKw.size < sortedKeywords.length}
                   onChange={onSelectAll}
                 />
               </TH>
@@ -1420,9 +1422,9 @@ const KeywordSuggestionsTable: React.FC<{
               <TH>Match type</TH>
               <TH>Bid</TH>
               <TH>Bid range</TH>
-              <TH>Rank</TH>
-              <TH>Coverage</TH>    
-              <TH>In campaigns</TH>  
+              <TH>Rank ↑</TH>
+              <TH>Coverage</TH>
+              <TH>In campaigns</TH>
               <TH>Status</TH>
             </tr>
           </thead>
@@ -1459,7 +1461,7 @@ const KeywordSuggestionsTable: React.FC<{
                   <TD className="font-mono text-gray-400">
                     {fmtCurrency(k.suggestedBid_rangeStart)} – {fmtCurrency(k.suggestedBid_rangeEnd)}
                   </TD>
-                  <TD className="font-mono">#{k.rank}</TD>
+                  <TD className="font-mono font-medium text-gray-800">#{k.rank}</TD>
                   <TD>
                     <div className="flex gap-1">
                       {hasBroad  && <Badge label="B" variant="blue" />}
@@ -1470,7 +1472,6 @@ const KeywordSuggestionsTable: React.FC<{
                       )}
                     </div>
                   </TD>
-                  {/* ── NEW: keyword_exists pill ──────────────────────────── */}
                   <TD>
                     <Badge
                       label={k.keyword_exists ? "Exists" : "New"}
@@ -1688,7 +1689,6 @@ const CompetitorContent: React.FC<{
         />
       )}
 
-      {/* ── Section 1: Keywords where your ASIN appears ───────────────────── */}
       {myRankRecords.length > 0 && (
         <>
           <button
@@ -1714,7 +1714,6 @@ const CompetitorContent: React.FC<{
         </>
       )}
 
-      {/* ── Section 2: Top competing ASINs ────────────────────────────────── */}
       {topCompetitors.length > 0 && (
         <>
           <button
@@ -1744,7 +1743,7 @@ const CompetitorContent: React.FC<{
   );
 };
 
-// ─── Rank Records Table (paginated) ──────────────────────────────────────────
+// ─── Rank Records Table ───────────────────────────────────────────────────────
 
 const RankRecordsTable: React.FC<{
   records: CompetiRankRecord[];
@@ -1764,15 +1763,21 @@ const RankRecordsTable: React.FC<{
   onSelectAll,
   onOpenSingle,
 }) => {
+  // ── Default sort: search frequency rank ascending (lower # = higher volume) ─
+  const sortedRecords = React.useMemo(
+    () => records.slice().sort((a, b) => a.search_frequency_rank - b.search_frequency_rank),
+    [records]
+  );
+
   const { page, totalPages, paged, setPage, totalItems, pageSize } =
-    usePagination(records);
-  const pagedWithIndex = paged.map((r) => ({ r, i: records.indexOf(r) }));
+    usePagination(sortedRecords);
+  const pagedWithIndex = paged.map((r) => ({ r, i: sortedRecords.indexOf(r) }));
 
   return (
     <>
       <BulkActionBar
         selectedCount={selectedRank.size}
-        totalCount={records.length}
+        totalCount={sortedRecords.length}
         actions={bulkActions}
         onSelectAll={onSelectAll}
         onClear={() => onSelectAll(false)}
@@ -1783,15 +1788,17 @@ const RankRecordsTable: React.FC<{
             <tr>
               <TH className="w-8">
                 <Checkbox
-                  checked={selectedRank.size === records.length && records.length > 0}
-                  indeterminate={selectedRank.size > 0 && selectedRank.size < records.length}
+                  checked={selectedRank.size === sortedRecords.length && sortedRecords.length > 0}
+                  indeterminate={selectedRank.size > 0 && selectedRank.size < sortedRecords.length}
                   onChange={onSelectAll}
                 />
               </TH>
               <TH>Search term</TH>
-              <TH>SFR</TH>
+              <TH>SFR ↑</TH>
               <TH>Click share</TH>
               <TH>Conv. share</TH>
+              <TH>Coverage</TH>
+              <TH>In campaigns</TH>
               <TH>Status</TH>
               <TH />
             </tr>
@@ -1802,6 +1809,11 @@ const RankRecordsTable: React.FC<{
               const rowStatus = rankStatuses[i];
               const isSuccess = rowStatus?.status === "success";
               const isErr = rowStatus?.status === "error";
+
+              const hasBroad  = r.BROAD  !== "doesn't exist";
+              const hasPhrase = r.PHRASE !== "doesn't exist";
+              const hasExact  = r.EXACT  !== "doesn't exist";
+
               const rowBg = isSel
                 ? "bg-blue-50 hover:bg-blue-100"
                 : isSuccess
@@ -1814,9 +1826,28 @@ const RankRecordsTable: React.FC<{
                 <tr key={i} onClick={() => onToggleRank(i)} className={`transition-colors cursor-pointer ${rowBg}`}>
                   <TD><Checkbox checked={isSel} onChange={() => onToggleRank(i)} /></TD>
                   <TD>{r.search_term}</TD>
-                  <TD className="font-mono">#{r.search_frequency_rank}</TD>
+                  <TD className="font-mono font-medium text-gray-800">#{r.search_frequency_rank}</TD>
                   <TD className="font-mono">{fmtPctFraction(r.click_share)}</TD>
                   <TD className="font-mono">{fmtPctFraction(r.conversion_share)}</TD>
+
+                  <TD>
+                    <div className="flex gap-1">
+                      {hasBroad  && <Badge label="B" variant="blue" />}
+                      {hasPhrase && <Badge label="P" variant="blue" />}
+                      {hasExact  && <Badge label="E" variant="blue" />}
+                      {!hasBroad && !hasPhrase && !hasExact && (
+                        <Badge label="None" variant="gray" />
+                      )}
+                    </div>
+                  </TD>
+
+                  <TD>
+                    <Badge
+                      label={r.keyword_exists ? "Exists" : "New"}
+                      variant={r.keyword_exists ? "amber" : "green"}
+                    />
+                  </TD>
+
                   <TD onClick={(e) => e.stopPropagation()}>
                     {isSuccess && (
                       <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
@@ -1854,7 +1885,7 @@ const RankRecordsTable: React.FC<{
   );
 };
 
-// ─── Rival ASINs Table (paginated) ───────────────────────────────────────────
+// ─── Rival ASINs Table ────────────────────────────────────────────────────────
 
 const RivalAsinsTable: React.FC<{
   competitors: TopCompetitor[];
@@ -1876,15 +1907,21 @@ const RivalAsinsTable: React.FC<{
   onSelectAll,
   onOpenSingle,
 }) => {
+  // ── Default sort: shared keywords (occurrence_count) descending ───────────
+  const sortedCompetitors = React.useMemo(
+    () => competitors.slice().sort((a, b) => b.occurrence_count - a.occurrence_count),
+    [competitors]
+  );
+
   const { page, totalPages, paged, setPage, totalItems, pageSize } =
-    usePagination(competitors);
-  const pagedWithIndex = paged.map((c) => ({ c, i: competitors.indexOf(c) }));
+    usePagination(sortedCompetitors);
+  const pagedWithIndex = paged.map((c) => ({ c, i: sortedCompetitors.indexOf(c) }));
 
   return (
     <>
       <BulkActionBar
         selectedCount={selectedRival.size}
-        totalCount={competitors.length}
+        totalCount={sortedCompetitors.length}
         actions={bulkActions}
         onSelectAll={onSelectAll}
         onClear={() => onSelectAll(false)}
@@ -1895,13 +1932,13 @@ const RivalAsinsTable: React.FC<{
             <tr>
               <TH className="w-8">
                 <Checkbox
-                  checked={selectedRival.size === competitors.length && competitors.length > 0}
-                  indeterminate={selectedRival.size > 0 && selectedRival.size < competitors.length}
+                  checked={selectedRival.size === sortedCompetitors.length && sortedCompetitors.length > 0}
+                  indeterminate={selectedRival.size > 0 && selectedRival.size < sortedCompetitors.length}
                   onChange={onSelectAll}
                 />
               </TH>
               <TH>Rival ASIN</TH>
-              <TH>Shared keywords</TH>
+              <TH>Shared keywords ↓</TH>
               <TH>Avg click share</TH>
               <TH>Status</TH>
               <TH />
@@ -1937,7 +1974,7 @@ const RivalAsinsTable: React.FC<{
                       </svg>
                     </a>
                   </TD>
-                  <TD className="font-mono">{c.occurrence_count}</TD>
+                  <TD className="font-mono font-medium text-gray-800">{c.occurrence_count}</TD>
                   <TD className="font-mono">{fmtPctFraction(c.avg_click_share)}</TD>
                   <TD onClick={(e) => e.stopPropagation()}>
                     {isSuccess && (
@@ -2211,9 +2248,6 @@ export function OpportunityOptimizer() {
   const topCompetitors = competingAsinsQuery.data?.top_competitors ?? [];
 
   const allSQP = sqpQuery.data?.search_queries ?? [];
-  // const allNgramPositive = ngramQuery.data?.ngram_positive ?? [];
-  // const allNgramNegative = ngramQuery.data?.ngram_negative ?? [];
-  // const allNgramObserve = ngramQuery.data?.ngram_observe ?? [];
 
   const sqpMetricsByAsin = React.useMemo(() => {
     const map: Record<string, { ctrs: number[]; cvrs: number[] }> = {};
@@ -2252,7 +2286,6 @@ export function OpportunityOptimizer() {
   if (asinsLoading) return <LoadingState />;
 
   const renderCards = () => {
-
     return visibleASINs.map((asin) => {
       const sqpQueries = allSQP.filter((q) => q.asin === asin.id);
 

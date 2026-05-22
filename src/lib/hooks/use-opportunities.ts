@@ -189,6 +189,10 @@ export interface CompetiRankRecord {
   conversion_share: number;
   report_period: string;
   marketplace_id: string;
+  BROAD: string;
+  PHRASE: string;
+  EXACT: string;
+  keyword_exists: boolean;
 }
 
 export interface CompetiRankSummary {
