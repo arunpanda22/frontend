@@ -438,6 +438,7 @@ const ColumnHeader = memo(function ColumnHeader({
   onResizeMouseDown,
   onDateHeaderClick,
   onNumberHeaderClick,
+  onDropdownHeaderClick,
 }: {
   col: CampaignColumnDefinition;
   sort?: SortState;
@@ -448,6 +449,7 @@ const ColumnHeader = memo(function ColumnHeader({
   onResizeMouseDown: (e: React.MouseEvent) => void;
   onDateHeaderClick?: (e: React.MouseEvent) => void;
   onNumberHeaderClick?: (e: React.MouseEvent) => void;
+  onDropdownHeaderClick?: (e: React.MouseEvent) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [filterOp, setFilterOp] = useState(filter?.operator ?? "contains");
@@ -497,6 +499,11 @@ const ColumnHeader = memo(function ColumnHeader({
       onNumberHeaderClick(e);
       return;
     }
+    if (col.type === 'dropdown' && col.bulkSet && onDropdownHeaderClick) {
+    e.stopPropagation();
+    onDropdownHeaderClick(e);
+    return;
+  }
     openMenu(e);
   };
 
@@ -521,8 +528,10 @@ const ColumnHeader = memo(function ColumnHeader({
             Set all
           </span>
         )}
-        {col.type === "dropdown" && (
-          <ChevronDown className="h-3 w-3 text-slate-400 flex-shrink-0" />
+        {col.type === 'dropdown' && col.bulkSet && (
+          <span className="text-[10px] text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity ml-auto whitespace-nowrap">
+            Set all
+          </span>
         )}
         <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider truncate">
           {col.headerName}
@@ -746,6 +755,46 @@ function BulkNumberPopup({
       >
         Apply to all rows
       </button>
+    </div>,
+    document.body,
+  )
+}
+
+function BulkDropdownPopup({
+  label,
+  options,
+  style,
+  onApply,
+  onCancel,
+}: {
+  label:    string
+  options:  DropdownOption[]
+  style:    React.CSSProperties
+  onApply:  (value: string) => void
+  onCancel: () => void
+}) {
+  return createPortal(
+    <div
+      className="bg-white border border-slate-200 rounded-xl shadow-2xl p-1.5 flex flex-col w-44"
+      style={style}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between px-2.5 py-2 pb-1.5">
+        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+        <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          className="w-full text-left px-3 py-2 text-[13px] hover:bg-blue-50 text-slate-700 rounded-lg transition-colors"
+          onClick={() => onApply(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>,
     document.body,
   )
@@ -1016,12 +1065,21 @@ export function CampaignDataTable({
 
   const [bulkNumberField, setBulkNumberField] = useState<string | null>(null)
   const [bulkNumberStyle, setBulkNumberStyle] = useState<React.CSSProperties>({})
+  const [bulkDropdownField,  setBulkDropdownField]  = useState<string | null>(null)
+  const [bulkDropdownStyle,  setBulkDropdownStyle]  = useState<React.CSSProperties>({})
+  const [bulkDropdownOptions, setBulkDropdownOptions] = useState<DropdownOption[]>([])
 
   const applyBulkNumber = useCallback((value: number) => {
     if (!bulkNumberField) return
     onDataChange(data.map((row) => ({ ...row, [bulkNumberField]: value })))
     setBulkNumberField(null)
   }, [bulkNumberField, data, onDataChange])
+
+  const applyBulkDropdown = useCallback((value: string) => {
+    if (!bulkDropdownField) return
+    onDataChange(data.map((row) => ({ ...row, [bulkDropdownField]: value })))
+    setBulkDropdownField(null)
+  }, [bulkDropdownField, data, onDataChange])
 
   // ── Layout ──
   const checkboxColWidth = showCheckboxColumn ? 48 : 0;
@@ -1150,6 +1208,23 @@ export function CampaignDataTable({
                                 zIndex: 9999,
                               })
                               setBulkNumberField(col.field)
+                            }
+                          : undefined
+                      }
+                      onDropdownHeaderClick={
+                        col.type === 'dropdown' && col.bulkSet
+                          ? (e: React.MouseEvent) => {
+                              const r = (e.currentTarget as HTMLElement)
+                                .closest('th')
+                                ?.getBoundingClientRect()
+                              setBulkDropdownStyle({
+                                position: 'fixed',
+                                top: (r?.bottom ?? 0) + 4,
+                                left: Math.max(0, r?.left ?? 0),
+                                zIndex: 9999,
+                              })
+                              setBulkDropdownOptions(col.options ?? [])
+                              setBulkDropdownField(col.field)
                             }
                           : undefined
                       }
@@ -1484,6 +1559,15 @@ export function CampaignDataTable({
           style={bulkNumberStyle}
           onApply={applyBulkNumber}
           onCancel={() => setBulkNumberField(null)}
+        />
+      )}
+      {bulkDropdownField && (
+        <BulkDropdownPopup
+          label="Set all rows"
+          options={bulkDropdownOptions}
+          style={bulkDropdownStyle}
+          onApply={applyBulkDropdown}
+          onCancel={() => setBulkDropdownField(null)}
         />
       )}
     </div>

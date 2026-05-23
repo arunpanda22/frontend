@@ -580,7 +580,7 @@ function initBulkKWRows(asin: string, rows: TargetKWRow[], minBudget: number, in
       keyword:        r.keyword.keyword,
       match_type:     (['EXACT', 'BROAD', 'PHRASE'].includes(r.keyword.matchType?.toUpperCase())
                         ? r.keyword.matchType.toUpperCase()
-                        : 'EXACT'),
+                        : 'PHRASE'),
       bid,
       budget:         calcBudget(bid, minBudget),
       start_date:     tomorrow,
@@ -627,6 +627,7 @@ const BulkKWTable: React.FC<BulkKWTableProps> = ({
       headerName: 'Match type',
       type:       'dropdown',
       editable:   true,
+      bulkSet:    true,
       width:      120,
       options:    [
         { value: 'EXACT',  label: 'Exact'  },
@@ -679,7 +680,7 @@ const BulkKWTable: React.FC<BulkKWTableProps> = ({
         return {
           ...existing!,
           campaign_name: String(row.campaign_name ?? existing?.campaign_name ?? ''),
-          match_type:    String(row.match_type ?? 'EXACT'),
+          match_type:    String(row.match_type ?? 'PHRASE'),
           bid:           newBid,
           budget:        newBudget,
           start_date:    String(row.start_date ?? existing?.start_date ?? getTomorrow()),
@@ -869,7 +870,7 @@ function initBulkPTRows(asin: string, rows: TargetASINRow[], minBudget: number, 
     _id:            `${r.asin}__${r.index}__${r.category}`,
     campaign_name:  buildPTCampaignName(asin, r.asin, 'individual', intent),
     target_asin:    r.asin,
-    match_type:     'EXACT',
+    match_type:     'PHRASE',
     bid:            0,
     budget:         minBudget,
     start_date:     tomorrow,

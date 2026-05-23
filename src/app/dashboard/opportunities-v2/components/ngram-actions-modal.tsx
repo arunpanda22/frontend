@@ -94,7 +94,7 @@ export const NgramVariantsModal: React.FC<NgramVariantsModalProps> = ({
       index: i,
       keyword: {
         keyword: uniqueRecords[i].search_term,
-        matchType: "EXACT",
+        matchType: "PHRASE",
         bid: 0,
         rank: uniqueRecords[i].search_frequency_rank,
         suggestedBid_rangeStart: 0,

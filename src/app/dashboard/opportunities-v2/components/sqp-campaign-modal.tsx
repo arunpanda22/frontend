@@ -103,7 +103,7 @@ const SingleCampaignForm: React.FC<SingleFormProps> = ({
   const [campaignName, setCampaignName] = useState(() =>
     buildSKCampaignName(asin, query.search_query, 'individual', SQP_INTENT)
   )
-  const [matchType,    setMatchType]    = useState<MatchType>('EXACT')
+  const [matchType,    setMatchType]    = useState<MatchType>('PHRASE')
   const [bid,          setBid]          = useState('')
   const [budgetManual, setBudgetManual] = useState('')
   const [startDate,    setStartDate]    = useState(tomorrow)
@@ -336,7 +336,7 @@ function initBulkRows(
     _id:            r.query.search_query + '__' + r.index,
     campaign_name:  buildSKCampaignName(asin, r.query.search_query, 'individual', SQP_INTENT),
     keyword:        r.query.search_query,
-    match_type:     'EXACT',
+    match_type:     'PHRASE',
     bid:            0,
     budget:         minBudget,
     start_date:     tomorrow,
@@ -383,6 +383,7 @@ const BulkCampaignTable: React.FC<BulkTableProps> = ({
       headerName: 'Match type',
       type:       'dropdown',
       editable:   true,
+      bulkSet:    true,
       width:      120,
       options:    [
         { value: 'EXACT',  label: 'Exact'  },
