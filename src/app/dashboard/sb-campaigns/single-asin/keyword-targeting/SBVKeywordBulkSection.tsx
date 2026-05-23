@@ -116,6 +116,7 @@ function buildColumns(currencySymbol: string): CampaignColumnDefinition[] {
       type: "number",
       span: true,
       editable: true,
+      bulkSet: true,
       width: 110,
       minWidth: 80,
     },
@@ -209,6 +210,7 @@ function parseLine(
   line: string,
   defaults: SharedDefaults,
   minBid: number,
+  minBudget: number, 
 ): SBVKeywordBulkRow | null {
   const cols = line.split("\t").map((c) => c.trim());
   // ASIN | Keyword | Bid | Match Type | Video Asset ID | Intent
@@ -217,8 +219,8 @@ function parseLine(
   if (!isValidAsin(asin)) return null;
   const bid = parseFloat(bidRaw) || minBid;
   if (bid <= 0) return null;
-  const budget = Number(defaults.budget) || Math.max(10, bid * 10);
-  const matchType = matchRaw?.trim() || "exact";
+  const budget = Math.max(minBudget, bid * 15)
+  const matchType = (matchRaw?.trim() || "exact").toLowerCase();
   const intent = rawIntent?.trim() || defaults.intent || "";
   return {
     _id: nanoid(),
@@ -541,7 +543,7 @@ export function SBVKeywordBulkSection() {
       invalidAsins = 0;
     const newRows: SBVKeywordBulkRow[] = [];
     for (const line of lines) {
-      const row = parseLine(line, sharedDefaults, minBid);
+      const row = parseLine(line, sharedDefaults, minBid, minBudget);
       if (!row) {
         const cols = line.split("\t").map((c) => c.trim());
         if (cols[0] && !isValidAsin(cols[0])) invalidAsins++;
@@ -560,25 +562,35 @@ export function SBVKeywordBulkSection() {
 
   function handleTableChange(updated: CampaignTableData[]) {
     store.setRows<SBVKeywordBulkRow>(
-      "sbv_keyword",
-      updated.map((row) => ({
-        _id: String(row._id),
-        campaign_name: String(row.campaign_name ?? ""),
-        asin: String(row.asin ?? ""),
-        video_asset_id: String(row.video_asset_id ?? ""),
-        brand_entity_id:
-          rows.find((r) => r._id === row._id)?.brand_entity_id ??
-          sharedDefaults.brand_entity_id,
-        keyword: String(row.keyword ?? ""),
-        match_type: String(row.match_type ?? "exact").toLowerCase(),
-        bid: Number(row.bid) || 0,
-        budget: Number(row.budget) || 0,
-        start_date: String(row.start_date ?? ""),
-        intent: String(row.intent ?? ""),
-        _status: rows.find((r) => r._id === row._id)?._status ?? "idle",
-        _error: rows.find((r) => r._id === row._id)?._error,
-      })),
-    );
+      'sbv_keyword',
+      updated.map((row) => {
+        const prev       = rows.find((r) => r._id === row._id)
+        const newBid     = Number(row.bid) || 0
+        const bidChanged = prev && newBid !== prev.bid
+
+        const newBudget = bidChanged
+          ? Math.max(minBudget, newBid * 15)
+          : Number(row.budget) || 0
+
+        return {
+          _id:             String(row._id),
+          campaign_name:   String(row.campaign_name ?? ''),
+          asin:            String(row.asin ?? ''),
+          video_asset_id:  String(row.video_asset_id ?? ''),
+          brand_entity_id:
+            rows.find((r) => r._id === row._id)?.brand_entity_id ??
+            sharedDefaults.brand_entity_id,
+          keyword:    String(row.keyword ?? ''),
+          match_type: String(row.match_type ?? 'exact').toLowerCase(),
+          bid:        newBid,
+          budget:     newBudget,
+          start_date: String(row.start_date ?? ''),
+          intent:     String(row.intent ?? ''),
+          _status:    rows.find((r) => r._id === row._id)?._status ?? 'idle',
+          _error:     rows.find((r) => r._id === row._id)?._error,
+        }
+      }),
+    )
   }
 
   const hasRows = rows.length > 0;

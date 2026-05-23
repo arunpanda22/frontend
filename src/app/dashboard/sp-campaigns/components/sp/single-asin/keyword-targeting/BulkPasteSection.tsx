@@ -233,6 +233,7 @@ export function BulkPasteSection() {
     headerName: `Budget (${currencySymbol})`,
     type:       'number',
     span:       true,
+    bulkSet:    true,
     editable:   true,
     width:      110,
     minWidth:   80,
@@ -313,7 +314,6 @@ export function BulkPasteSection() {
         const newBid  = Number(row.bid) || 0
         const bidChanged = prev && newBid !== prev.bid
 
-        // Recalculate budget whenever bid changes: max(minBudget, bid * 15)
         const newBudget = bidChanged
           ? Math.max(minBudget, newBid * 15)
           : Number(row.budget) || 0
