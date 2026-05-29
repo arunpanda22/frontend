@@ -47,10 +47,10 @@ export function useStateRevenueDetail(
 
 // ─── Cohort hook ──────────────────────────────────────────────────────────────
 
-export function useCohortOrders(params?: OrderAnalyticsParams, enabled = true) {
+export function useCohortOrders( enabled = true) {
   return useQuery({
-    queryKey: orderAnalyticsQueryKeys.cohortOrders(params),
-    queryFn: () => orderAnalyticsService.getCohortOrders(params),
+    queryKey: orderAnalyticsQueryKeys.cohortOrders(),
+    queryFn: () => orderAnalyticsService.getCohortOrders(),
     enabled,
     staleTime: 10 * 60 * 1000,  // cohort data changes less frequently
     gcTime: 30 * 60 * 1000,
@@ -62,7 +62,7 @@ export function useCohortOrders(params?: OrderAnalyticsParams, enabled = true) {
 export function useOrderAnalyticsPage(params?: OrderAnalyticsParams) {
   const hasRange = !!params?.date_from && !!params?.date_to
   const revenueMap   = useRevenueMap(params, hasRange)
-  const cohortOrders = useCohortOrders(params, hasRange)
+  const cohortOrders = useCohortOrders()
 
   return {
     revenueMap,
