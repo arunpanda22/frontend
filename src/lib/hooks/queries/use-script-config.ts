@@ -14,22 +14,35 @@ export interface ScriptVersionDetail {
   created_at:  string
 }
 
+
 export interface TenantScriptConfig {
   id:                    string
   script_type:           ScriptType
   script_version:        string | null
   script_version_detail: ScriptVersionDetail | null
-  sp_target_acos:        string | null   
-  sb_target_acos:        string | null
+  // global toggle
   is_enabled:            boolean
+  // per-ad-type target ACoS
+  sp_target_acos:        string | null
+  sb_target_acos:        string | null
+  sd_target_acos:        string | null   
+  // per-ad-type enable toggles
+  sp_is_enabled:         boolean       
+  sb_is_enabled:         boolean      
+  sd_is_enabled:         boolean       
   updated_at:            string
 }
 
 export interface UpdateScriptConfigPayload {
+  type:            ScriptType
   script_version?: string | null
-  sp_target_acos?:  number | null
-  sb_target_acos?:  number | null
   is_enabled?:     boolean
+  sp_target_acos?: number | null
+  sb_target_acos?: number | null
+  sd_target_acos?: number | null
+  sp_is_enabled?:  boolean
+  sb_is_enabled?:  boolean
+  sd_is_enabled?:  boolean
 }
 
 // ── Script Versions ───────────────────────────────────────────────────────────

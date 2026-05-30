@@ -166,23 +166,48 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
   const updateConfig            = useUpdateScriptConfig()
 
   const [selectedVersion, setSelectedVersion] = useState<string>(config?.script_version ?? '')
-  const [isEnabled,       setIsEnabled]       = useState<boolean>(config?.is_enabled ?? false)
-  const [spTargetAcos,    setSpTargetAcos]    = useState<string>(config?.sp_target_acos ?? '')
-  const [sbTargetAcos,    setSbTargetAcos]    = useState<string>(config?.sb_target_acos ?? '')
+  const [isEnabled,       setIsEnabled]       = useState<boolean>(config?.is_enabled    ?? false)
+  const [spTargetAcos,    setSpTargetAcos]    = useState<string>(config?.sp_target_acos  ?? '')
+  const [sbTargetAcos,    setSbTargetAcos]    = useState<string>(config?.sb_target_acos  ?? '')
+  const [sdTargetAcos,    setSdTargetAcos]    = useState<string>(config?.sd_target_acos  ?? '')
+  const [spIsEnabled,     setSpIsEnabled]     = useState<boolean>(config?.sp_is_enabled  ?? false)
+  const [sbIsEnabled,     setSbIsEnabled]     = useState<boolean>(config?.sb_is_enabled  ?? false)
+  const [sdIsEnabled,     setSdIsEnabled]     = useState<boolean>(config?.sd_is_enabled  ?? false)
   const [saved,           setSaved]           = useState(false)
 
+  // Sync local state when server data arrives / changes
   useEffect(() => {
-    setSelectedVersion(config?.script_version ?? '')
-    setIsEnabled(config?.is_enabled ?? false)
-    setSpTargetAcos(config?.sp_target_acos ?? '')
-    setSbTargetAcos(config?.sb_target_acos ?? '')
-  }, [config?.script_version, config?.is_enabled, config?.sp_target_acos, config?.sb_target_acos])
+    setSelectedVersion(config?.script_version  ?? '')
+    setIsEnabled(      config?.is_enabled      ?? false)
+    setSpTargetAcos(   config?.sp_target_acos  ?? '')
+    setSbTargetAcos(   config?.sb_target_acos  ?? '')
+    setSdTargetAcos(   config?.sd_target_acos  ?? '')
+    setSpIsEnabled(    config?.sp_is_enabled   ?? false)
+    setSbIsEnabled(    config?.sb_is_enabled   ?? false)
+    setSdIsEnabled(    config?.sd_is_enabled   ?? false)
+  }, [
+    config?.script_version,
+    config?.is_enabled,
+    config?.sp_target_acos,
+    config?.sb_target_acos,
+    config?.sd_target_acos,
+    config?.sp_is_enabled,
+    config?.sb_is_enabled,
+    config?.sd_is_enabled,
+  ])
 
   const isDirty =
-    selectedVersion !== (config?.script_version ?? '') ||
-    isEnabled       !== (config?.is_enabled      ?? false)
-    spTargetAcos    !== (config?.sp_target_acos   ?? '') ||
-    sbTargetAcos    !== (config?.sb_target_acos   ?? '')
+    selectedVersion !== (config?.script_version  ?? '')    ||
+    isEnabled       !== (config?.is_enabled      ?? false) ||
+    spTargetAcos    !== (config?.sp_target_acos  ?? '')    ||
+    sbTargetAcos    !== (config?.sb_target_acos  ?? '')    ||
+    spIsEnabled     !== (config?.sp_is_enabled   ?? false) ||
+    sbIsEnabled     !== (config?.sb_is_enabled   ?? false) ||
+    // SD only relevant for daily
+    (type === 'daily' && (
+      sdTargetAcos  !== (config?.sd_target_acos  ?? '')    ||
+      sdIsEnabled   !== (config?.sd_is_enabled   ?? false)
+    ))
 
   const handleSave = async () => {
     await updateConfig.mutateAsync({
@@ -191,6 +216,13 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
       is_enabled:     isEnabled,
       sp_target_acos: spTargetAcos !== '' ? parseFloat(spTargetAcos) : null,
       sb_target_acos: sbTargetAcos !== '' ? parseFloat(sbTargetAcos) : null,
+      sp_is_enabled:  spIsEnabled,
+      sb_is_enabled:  sbIsEnabled,
+      // SD only applies to daily
+      ...(type === 'daily' && {
+        sd_target_acos: sdTargetAcos !== '' ? parseFloat(sdTargetAcos) : null,
+        sd_is_enabled:  sdIsEnabled,
+      }),
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -201,8 +233,29 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
     ...versions.map((v) => ({ value: v.id, label: v.version })),
   ]
 
+  // Reusable inline toggle (avoids repetition for SP/SB/SD)
+  const AdTypeToggle = ({
+    label, value, onChange,
+  }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        className={`relative h-5 w-9 rounded-full transition-colors focus:outline-none ${
+          value ? 'bg-indigo-600' : 'bg-slate-300'
+        }`}
+      >
+        <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          value ? 'translate-x-4' : 'translate-x-0'
+        }`} />
+      </button>
+      <span className="text-xs text-slate-500 w-16">{label}</span>
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-slate-100 bg-slate-50/60 p-5">
+      {/* Header row: label + global enable toggle */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
@@ -229,6 +282,7 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
         </div>
       </div>
 
+      {/* Script version + Save */}
       <div className="flex items-end gap-3 flex-wrap">
         <div className="w-56">
           <Select
@@ -236,40 +290,6 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
             options={versionOptions}
             value={selectedVersion}
             onChange={(e) => setSelectedVersion(e.target.value)}
-          />
-        </div>
-
-        {/* SP Target ACOS */}
-        <div className="w-36">
-          <label className="mb-1.5 block text-xs font-medium text-slate-600">
-            SP Target ACOS (%)
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={1000}
-            step={0.01}
-            placeholder="e.g. 18.50"
-            value={spTargetAcos}
-            onChange={(e) => setSpTargetAcos(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          />
-        </div>
-
-        {/* SB Target ACOS */}
-        <div className="w-36">
-          <label className="mb-1.5 block text-xs font-medium text-slate-600">
-            SB Target ACOS (%)
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={1000}
-            step={0.01}
-            placeholder="e.g. 22.00"
-            value={sbTargetAcos}
-            onChange={(e) => setSbTargetAcos(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
           />
         </div>
 
@@ -287,6 +307,59 @@ function ScriptConfigRow({ type, label, description, icon, config }: ScriptConfi
             <><Save className="h-4 w-4" /> Save</>
           )}
         </button>
+      </div>
+
+      {/* Per-ad-type ACoS + enable toggles */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1 border-t border-slate-100">
+        {/* SP */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">SP</span>
+            <AdTypeToggle label={spIsEnabled ? 'On' : 'Off'} value={spIsEnabled} onChange={setSpIsEnabled} />
+          </div>
+          <input
+            type="number"
+            min={1} max={1000} step={0.01}
+            placeholder="Target ACOS %"
+            value={spTargetAcos}
+            onChange={(e) => setSpTargetAcos(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+
+        {/* SB */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">SB</span>
+            <AdTypeToggle label={sbIsEnabled ? 'On' : 'Off'} value={sbIsEnabled} onChange={setSbIsEnabled} />
+          </div>
+          <input
+            type="number"
+            min={1} max={1000} step={0.01}
+            placeholder="Target ACOS %"
+            value={sbTargetAcos}
+            onChange={(e) => setSbTargetAcos(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+
+        {/* SD */}
+        {type === 'daily' && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">SD</span>
+            <AdTypeToggle label={sdIsEnabled ? 'On' : 'Off'} value={sdIsEnabled} onChange={setSdIsEnabled} />
+          </div>
+          <input
+            type="number"
+            min={1} max={1000} step={0.01}
+            placeholder="Target ACOS %"
+            value={sdTargetAcos}
+            onChange={(e) => setSdTargetAcos(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+        )}
       </div>
 
       {config?.script_version_detail && (
@@ -578,14 +651,14 @@ function ConfigurationPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="Brand Name *"
-              placeholder="e.g. Skillofun"
+              placeholder="Your brand name"
               value={brandForm.brand_name}
               onChange={(e) => setBrandForm((f) => ({ ...f, brand_name: e.target.value }))}
               error={brandError && !brandForm.brand_name.trim() ? 'Required' : undefined}
             />
             <Input
               label="Brand Entity ID *"
-              placeholder="e.g. ENTITY1A2B3C4D"
+              placeholder="e.g. ENTITY123ABCD"
               value={brandForm.brand_entity_id}
               onChange={(e) => setBrandForm((f) => ({ ...f, brand_entity_id: e.target.value }))}
               error={brandError && !brandForm.brand_entity_id.trim() ? 'Required' : undefined}
