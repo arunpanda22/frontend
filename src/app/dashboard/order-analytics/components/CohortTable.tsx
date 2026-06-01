@@ -22,15 +22,14 @@ interface CohortTableProps {
 }
 
 interface TooltipState {
-  orderMonth:  string   // row
-  cohortMonth: string   // column
+  orderMonth:  string
+  cohortMonth: string
   x: number
   y: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Last N calendar months as 'yyyy-MM', newest first */
 function lastNMonths(n: number): string[] {
   return Array.from({ length: n }, (_, i) =>
     format(startOfMonth(subMonths(new Date(), i)), 'yyyy-MM')
@@ -47,10 +46,7 @@ function fmtRevenue(v: number): string {
   return `₹${v.toFixed(0)}`
 }
 
-/** Blue intensity — first-time buyers (cohort == orderMonth) are darkest */
 function cellOpacity(isNewCustomer: boolean, cohortAge: number): number {
-  // cohortAge = how many months ago the customer first purchased
-  // 0 = new this month (darkest), increases = older cohort (lighter)
   if (isNewCustomer) return 0.92
   const ramp = [0.70, 0.52, 0.38, 0.28, 0.20, 0.14]
   return ramp[Math.min(cohortAge - 1, ramp.length - 1)]
@@ -64,8 +60,10 @@ function CohortSkeleton() {
       <div className="h-5 w-40 bg-gray-100 rounded animate-pulse" />
       <div className="h-px bg-gray-100" />
       <div className="space-y-2 pt-2">
-        {[6, 5, 4, 3, 2, 1].map((cols, i) => (
+        {[1, 2, 3, 4, 5, 6].map((cols, i) => (
           <div key={i} className="flex gap-2">
+            {/* Total skeleton */}
+            <div className="h-12 w-20 bg-gray-200 rounded-lg animate-pulse shrink-0" />
             <div className="h-12 w-24 bg-gray-100 rounded-lg animate-pulse shrink-0" />
             {Array.from({ length: cols }, (_, j) => (
               <div key={j} className="h-12 w-20 rounded-lg animate-pulse"
@@ -86,35 +84,18 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
   const [tooltip,  setTooltip]  = useState<TooltipState | null>(null)
 
   // ── Build matrix ─────────────────────────────────────────────────────────
-  //
-  //   matrix[orderMonth][cohortMonth] = CohortCell
-  //
-  //   orderMonth  = the month this order was placed       (row)
-  //   cohortMonth = the month the customer first bought   (column)
-  //
-  //   Rows:    6 window months, newest first (May → Dec)
-  //   Columns: every cohort present in data, newest first
-  //            A cohort column only appears in rows where orderMonth >= cohortMonth
-  //            (can't have a repeat purchase before first purchase)
-  //
-  const { matrix, orderMonths, cohortMonths, maxValue } = useMemo(() => {
-    const windowMonths = lastNMonths(6)  // newest first
+  const { matrix, orderMonths, maxCohortAge, maxValue } = useMemo(() => {
+    const windowMonths = lastNMonths(6)
 
-    // matrix: orderMonth → cohortMonth → CohortCell
     const matrix = new Map<string, Map<string, CohortCell>>()
     windowMonths.forEach(m => matrix.set(m, new Map()))
-
-    const allCohortMonths = new Set<string>()
 
     orders.forEach(o => {
       const orderMonth  = format(new Date(o['purchase-date']), 'yyyy-MM')
       const cohortMonth = o['first-purchase-month']
       const revenue     = parseFloat(o['item-price']) || 0
-      const email       = o['buyer-email']
 
-      if (!matrix.has(orderMonth)) return  // outside window
-
-      allCohortMonths.add(cohortMonth)
+      if (!matrix.has(orderMonth)) return
 
       const row = matrix.get(orderMonth)!
       if (!row.has(cohortMonth)) {
@@ -123,21 +104,27 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
       const cell = row.get(cohortMonth)!
       cell.revenue    += revenue
       cell.orderCount += 1
-      // uniqueCustomers is approximate here; good enough for per-customer calc
       cell.uniqueCustomers += 1
     })
 
-    // Cohort columns: only include cohorts that have data,
-    // sorted newest first so the "new customers" column is always leftmost
-    const cohortMonths = Array.from(allCohortMonths).sort().reverse()
-
-    // Only keep order months that have at least one cell
     const orderMonths = windowMonths.filter(m => {
       const row = matrix.get(m)
       return row && row.size > 0
     })
 
-    // Max value for percentage scale
+    // Find the maximum cohort age across all rows (determines header column count)
+    let maxCohortAge = 0
+    orderMonths.forEach(om => {
+      const row = matrix.get(om)!
+      row.forEach((_, cm) => {
+        const cohortDate = parse(cm, 'yyyy-MM', new Date())
+        const orderDate  = parse(om, 'yyyy-MM', new Date())
+        const age = (orderDate.getFullYear() - cohortDate.getFullYear()) * 12
+                  + (orderDate.getMonth() - cohortDate.getMonth())
+        if (age > maxCohortAge) maxCohortAge = age
+      })
+    })
+
     let maxValue = 0
     matrix.forEach(row => {
       row.forEach(cell => {
@@ -148,7 +135,7 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
       })
     })
 
-    return { matrix, orderMonths, cohortMonths, maxValue }
+    return { matrix, orderMonths, maxCohortAge, maxValue }
   }, [orders, metric, calcType])
 
   // ── Cell value ────────────────────────────────────────────────────────────
@@ -176,14 +163,30 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
 
   // ── CSV ───────────────────────────────────────────────────────────────────
   const downloadCSV = () => {
-    let csv = 'Order Month,' + cohortMonths.map(fmtMonth).join(',') + '\n'
+    const headers = ['Order Month', 'Total', ...Array.from({ length: maxCohortAge + 1 }, (_, i) => `Month -${i}`)]
+    let csv = headers.join(',') + '\n'
     orderMonths.forEach(om => {
-      csv += fmtMonth(om)
-      cohortMonths.forEach(cm => {
-        const cell = matrix.get(om)?.get(cm)
-        csv += ',' + (cell ? formatValue(getCellValue(cell)) : '')
+      const row = matrix.get(om)!
+      const rowRevenue = Array.from(row.values()).reduce((s, c) => s + c.revenue, 0)
+      const rowOrders  = Array.from(row.values()).reduce((s, c) => s + c.orderCount, 0)
+      const totalVal   = metric === 'revenue' ? fmtRevenue(rowRevenue) : rowOrders.toLocaleString()
+
+      // Build cells by age offset
+      const cellsByAge = new Map<number, CohortCell>()
+      row.forEach((cell, cm) => {
+        const cohortDate = parse(cm, 'yyyy-MM', new Date())
+        const orderDate  = parse(om, 'yyyy-MM', new Date())
+        const age = (orderDate.getFullYear() - cohortDate.getFullYear()) * 12
+                  + (orderDate.getMonth() - cohortDate.getMonth())
+        cellsByAge.set(age, cell)
       })
-      csv += '\n'
+
+      const ageCells = Array.from({ length: maxCohortAge + 1 }, (_, i) => {
+        const cell = cellsByAge.get(i)
+        return cell ? formatValue(getCellValue(cell)) : ''
+      })
+
+      csv += [fmtMonth(om), totalVal, ...ageCells].join(',') + '\n'
     })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
@@ -206,6 +209,9 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
   const tooltipCell = tooltip
     ? matrix.get(tooltip.orderMonth)?.get(tooltip.cohortMonth)
     : null
+
+  // Header columns: Month -0 (newest/new), Month -1, Month -2 ... up to maxCohortAge
+  const headerOffsets = Array.from({ length: maxCohortAge + 1 }, (_, i) => i)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -270,18 +276,28 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
       <div className="overflow-x-auto">
         <div className="p-4" style={{ minWidth: 'max-content' }}>
 
-          {/* Column headers = cohort months + Total */}
-          <div className="flex gap-1.5 mb-2 ml-[100px]">
-            {cohortMonths.map(cm => (
-              <div key={cm} className="shrink-0 text-center" style={{ width: 84 }}>
-                <span className="text-[10px] font-medium text-gray-500">{fmtMonth(cm)}</span>
-                <p className="text-[9px] text-gray-400">first purchase</p>
-              </div>
-            ))}
+          {/* Column headers: [row label] [Total] [Month -0] [Month -1] ... */}
+          <div className="flex gap-1.5 mb-2">
+            {/* Row label spacer */}
+            <div style={{ width: 88, flexShrink: 0 }} />
+
+            {/* Total header */}
             <div className="shrink-0 text-center" style={{ width: 84 }}>
               <span className="text-[10px] font-semibold text-gray-700">Total</span>
               <p className="text-[9px] text-gray-400">all cohorts</p>
             </div>
+
+            {/* Month -0, Month -1, ... */}
+            {headerOffsets.map(offset => (
+              <div key={offset} className="shrink-0 text-center" style={{ width: 84 }}>
+                <span className="text-[10px] font-medium text-gray-500">
+                  Month -{offset}
+                </span>
+                <p className="text-[9px] text-gray-400">
+                  {offset === 0 ? 'new customers' : `${offset}mo ago`}
+                </p>
+              </div>
+            ))}
           </div>
 
           {/* Rows = order months, newest first */}
@@ -289,53 +305,81 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
             {orderMonths.map(om => {
               const row = matrix.get(om)!
 
-              // How many columns does this row show?
-              // Only cohorts where cohortMonth <= orderMonth make sense
-              const visibleCohorts = cohortMonths.filter(cm => cm <= om)
+              // Build a map of age → cell for this row
+              const cellsByAge = new Map<number, { cell: CohortCell; cohortMonth: string }>()
+              row.forEach((cell, cm) => {
+                const cohortDate = parse(cm, 'yyyy-MM', new Date())
+                const orderDate  = parse(om, 'yyyy-MM', new Date())
+                const age = (orderDate.getFullYear() - cohortDate.getFullYear()) * 12
+                          + (orderDate.getMonth() - cohortDate.getMonth())
+                cellsByAge.set(age, { cell, cohortMonth: cm })
+              })
+
+              const rowRevenue = Array.from(row.values()).reduce((s, c) => s + c.revenue, 0)
+              const rowOrders  = Array.from(row.values()).reduce((s, c) => s + c.orderCount, 0)
 
               return (
                 <div key={om} className="flex items-stretch gap-1.5">
 
-                  {/* Row label = the order month */}
+                  {/* Row label */}
                   <div className="shrink-0 flex flex-col justify-center px-3 py-2 rounded-lg bg-gray-50 border border-gray-100"
                     style={{ width: 88 }}>
                     <p className="text-xs font-semibold text-gray-700">{fmtMonth(om)}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">orders</p>
                   </div>
 
-                  {/* One cell per cohort column */}
-                  {cohortMonths.map(cm => {
-                    // Grey placeholder for impossible cells (cohort after order month)
-                    if (cm > om) {
+                  {/* ── Total cell — left of month blocks ── */}
+                  <div
+                    className="rounded-lg flex flex-col items-center justify-center shrink-0"
+                    style={{ width: 84, height: 52, backgroundColor: '#1e293b' }}
+                  >
+                    <span className="text-[11px] font-semibold text-white leading-none">
+                      {metric === 'revenue' ? fmtRevenue(rowRevenue) : rowOrders.toLocaleString()}
+                    </span>
+                    <span className="text-[9px] text-slate-400 mt-0.5 leading-none">
+                      {rowOrders.toLocaleString()} orders
+                    </span>
+                  </div>
+
+                  {/* Month offset cells: 0, 1, 2 ... maxCohortAge */}
+                  {headerOffsets.map(offset => {
+                    const entry = cellsByAge.get(offset)
+
+                    // This row doesn't have a cohort this old (e.g. May row only has Month -0)
+                    if (!entry) {
+                      // Only show placeholder if this offset is reachable for this row
+                      // (i.e. offset <= maxCohortAge for rows newer than older rows)
+                      // For rows where the offset simply didn't exist yet, show nothing
+                      const maxPossibleAge = orderMonths.indexOf(om) === -1
+                        ? 0
+                        : (() => {
+                          let max = 0
+                          cellsByAge.forEach((_, age) => { if (age > max) max = age })
+                          return max
+                        })()
+
+                      if (offset > maxPossibleAge) {
+                        // Beyond this row's oldest possible cohort — grey spacer
+                        return (
+                          <div key={offset} className="rounded-lg bg-gray-50/50"
+                            style={{ width: 84, height: 52, flexShrink: 0 }} />
+                        )
+                      }
+                      // Valid offset but no orders — dashed empty
                       return (
-                        <div key={cm} className="rounded-lg bg-gray-50/50"
-                          style={{ width: 84, height: 52, flexShrink: 0 }} />
-                      )
-                    }
-
-                    const cell      = row.get(cm)
-                    const isHovered = tooltip?.orderMonth === om && tooltip?.cohortMonth === cm
-
-                    // Cohort age: how many months before this order month did the customer first buy
-                    const cohortDate = parse(cm, 'yyyy-MM', new Date())
-                    const orderDate  = parse(om, 'yyyy-MM', new Date())
-                    const cohortAge  = (orderDate.getFullYear() - cohortDate.getFullYear()) * 12
-                                     + (orderDate.getMonth() - cohortDate.getMonth())
-                    const isNew      = cohortAge === 0
-
-                    if (!cell) {
-                      // Cohort is valid but no orders this month — dashed empty
-                      return (
-                        <div key={cm} className="rounded-lg"
+                        <div key={offset} className="rounded-lg"
                           style={{ width: 84, height: 52, flexShrink: 0, border: '1.5px dashed #e5e7eb' }} />
                       )
                     }
 
-                    const opacity = cellOpacity(isNew, cohortAge)
-                    const value   = getCellValue(cell)
+                    const { cell, cohortMonth: cm } = entry
+                    const isNew      = offset === 0
+                    const isHovered  = tooltip?.orderMonth === om && tooltip?.cohortMonth === cm
+                    const opacity    = cellOpacity(isNew, offset)
+                    const value      = getCellValue(cell)
 
                     return (
-                      <div key={cm}
+                      <div key={offset}
                         className="rounded-lg flex flex-col items-center justify-center transition-all duration-150 cursor-default"
                         style={{
                           width:           84,
@@ -354,30 +398,11 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
                           {formatValue(value)}
                         </span>
                         <span className="text-[9px] text-blue-200/80 mt-0.5 leading-none">
-                          {isNew ? 'new' : `${cohortAge}mo ago`}
+                          {isNew ? 'new' : `${offset}mo ago`}
                         </span>
                       </div>
                     )
                   })}
-
-                  {/* ── Total cell ── */}
-                  {(() => {
-                    const rowRevenue = Array.from(row.values()).reduce((s, c) => s + c.revenue, 0)
-                    const rowOrders  = Array.from(row.values()).reduce((s, c) => s + c.orderCount, 0)
-                    return (
-                      <div
-                        className="rounded-lg flex flex-col items-center justify-center shrink-0"
-                        style={{ width: 84, height: 52, backgroundColor: '#1e293b' }}
-                      >
-                        <span className="text-[11px] font-semibold text-white leading-none">
-                          {metric === 'revenue' ? fmtRevenue(rowRevenue) : rowOrders.toLocaleString()}
-                        </span>
-                        <span className="text-[9px] text-slate-400 mt-0.5 leading-none">
-                          {rowOrders.toLocaleString()} orders
-                        </span>
-                      </div>
-                    )
-                  })()}
                 </div>
               )
             })}
@@ -439,8 +464,8 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
               </p>
               <div className="border-t border-gray-700 mt-2 pt-2 space-y-1">
                 {([
-                  ['Revenue',      fmtRevenue(tooltipCell.revenue)],
-                  ['Orders',       String(tooltipCell.orderCount)],
+                  ['Revenue', fmtRevenue(tooltipCell.revenue)],
+                  ['Orders',  String(tooltipCell.orderCount)],
                 ] as [string, string][]).map(([label, val]) => (
                   <div key={label} className="flex justify-between gap-4">
                     <span className="text-gray-400">{label}</span>

@@ -55,6 +55,13 @@ const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
+    name: 'Order Analytics',
+    href: '/dashboard/order-analytics',
+    description: 'Track and analyze shpment data',
+    permission: 'view_order_analytics',
+    requiresSellerAccount: true,
+  },
+  {
     name: 'InventoryPulse',
     href: '/dashboard/inventorypulse',
     description: 'Monitor inventory levels and trends',

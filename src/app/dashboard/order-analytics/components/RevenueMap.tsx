@@ -331,7 +331,7 @@ export function RevenueMap({ data, params, isLoading }: RevenueMapProps) {
       </div>
 
       {/* ── Body: map 2/3 + sidebar 1/3 ── */}
-      <div className="flex min-h-[520px]">
+      <div className="flex" style={{ height: '600px' }}>
 
         {/* Map — flex-1 ≈ 2/3 */}
         <div className="flex-1 relative overflow-hidden border-r border-gray-50">
