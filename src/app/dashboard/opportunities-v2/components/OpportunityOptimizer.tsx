@@ -399,7 +399,6 @@ const SQPTable: React.FC<{
   const [rowStatuses, setRowStatuses] = useState<Record<number, SQPRowStatus>>({});
   const [modal, setModal] = useState<SQPCampaignRow[] | null>(null);
 
-  // ── Default sort: market clicks descending ────────────────────────────────
   const sortedQueries = React.useMemo(
     () => queries.slice().sort((a, b) => b.total_click_count - a.total_click_count),
     [queries]
@@ -430,17 +429,11 @@ const SQPTable: React.FC<{
   };
 
   const handleRowSuccess = useCallback((index: number, campaignId: string) => {
-    setRowStatuses((prev) => ({
-      ...prev,
-      [index]: { status: "success", campaignId },
-    }));
+    setRowStatuses((prev) => ({ ...prev, [index]: { status: "success", campaignId } }));
   }, []);
 
   const handleRowError = useCallback((index: number, err: string) => {
-    setRowStatuses((prev) => ({
-      ...prev,
-      [index]: { status: "error", error: err },
-    }));
+    setRowStatuses((prev) => ({ ...prev, [index]: { status: "error", error: err } }));
   }, []);
 
   if (isLoading) return <LoadingState />;
@@ -493,7 +486,6 @@ const SQPTable: React.FC<{
               <TH>Mkt impr.</TH>
               <TH>My impr.</TH>
               <TH>My CTR</TH>
-              {/* Sorted column gets a subtle indicator */}
               <TH>Mkt clicks ↓</TH>
               <TH>My clicks</TH>
               <TH>My CVR</TH>
@@ -502,20 +494,21 @@ const SQPTable: React.FC<{
               <TH>Mkt purchases</TH>
               <TH>Beats mkt</TH>
               <TH>Coverage</TH>
+              <TH>In campaigns</TH>
               <TH>Status</TH>
               <TH />
             </tr>
           </thead>
           <tbody>
             {pagedWithIndex.map(({ q, i }) => {
-              const cvrGood = q["Conversion > Market"];
-              const hasBroad = q.BROAD !== "doesn't exist";
+              const cvrGood   = q["Conversion > Market"];
+              const hasBroad  = q.BROAD  !== "doesn't exist";
               const hasPhrase = q.PHRASE !== "doesn't exist";
-              const hasExact = q.EXACT !== "doesn't exist";
+              const hasExact  = q.EXACT  !== "doesn't exist";
               const isSelected = selected.has(i);
-              const rowStatus = rowStatuses[i];
-              const isSuccess = rowStatus?.status === "success";
-              const isErr = rowStatus?.status === "error";
+              const rowStatus  = rowStatuses[i];
+              const isSuccess  = rowStatus?.status === "success";
+              const isErr      = rowStatus?.status === "error";
               const myCtr =
                 q.asin_impression_count > 0
                   ? (q.asin_click_count / q.asin_impression_count) * 100
@@ -556,12 +549,23 @@ const SQPTable: React.FC<{
                   </TD>
                   <TD>
                     <div className="flex gap-1">
-                      {hasBroad && <Badge label="B" variant="blue" />}
+                      {hasBroad  && <Badge label="B" variant="blue" />}
                       {hasPhrase && <Badge label="P" variant="blue" />}
-                      {hasExact && <Badge label="E" variant="blue" />}
-                      {!hasBroad && !hasPhrase && !hasExact && <Badge label="None" variant="gray" />}
+                      {hasExact  && <Badge label="E" variant="blue" />}
+                      {!hasBroad && !hasPhrase && !hasExact && (
+                        <Badge label="None" variant="gray" />
+                      )}
                     </div>
                   </TD>
+
+                  {/* ── In campaigns — mirrors KeywordSuggestionsTable ── */}
+                  <TD>
+                    <Badge
+                      label={q.keyword_exists ? "Exists" : "New"}
+                      variant={q.keyword_exists ? "amber" : "green"}
+                    />
+                  </TD>
+
                   <TD onClick={(e) => e.stopPropagation()}>
                     {isSuccess && (
                       <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
