@@ -62,7 +62,6 @@ function CohortSkeleton() {
       <div className="space-y-2 pt-2">
         {[1, 2, 3, 4, 5, 6].map((cols, i) => (
           <div key={i} className="flex gap-2">
-            {/* Total skeleton */}
             <div className="h-12 w-20 bg-gray-200 rounded-lg animate-pulse shrink-0" />
             <div className="h-12 w-24 bg-gray-100 rounded-lg animate-pulse shrink-0" />
             {Array.from({ length: cols }, (_, j) => (
@@ -84,7 +83,10 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
   const [tooltip,  setTooltip]  = useState<TooltipState | null>(null)
 
   // ── Build matrix ─────────────────────────────────────────────────────────
-  const { matrix, orderMonths, maxCohortAge, maxValue } = useMemo(() => {
+  // NOTE: matrix and orderMonths/maxCohortAge do NOT depend on metric/calcType —
+  // those only affect display. maxRawValue is always the raw metric max (no
+  // per-customer or percentage scaling applied), so percentage view is stable.
+  const { matrix, orderMonths, maxCohortAge } = useMemo(() => {
     const windowMonths = lastNMonths(6)
 
     const matrix = new Map<string, Map<string, CohortCell>>()
@@ -112,7 +114,6 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
       return row && row.size > 0
     })
 
-    // Find the maximum cohort age across all rows (determines header column count)
     let maxCohortAge = 0
     orderMonths.forEach(om => {
       const row = matrix.get(om)!
@@ -120,37 +121,45 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
         const cohortDate = parse(cm, 'yyyy-MM', new Date())
         const orderDate  = parse(om, 'yyyy-MM', new Date())
         const age = (orderDate.getFullYear() - cohortDate.getFullYear()) * 12
-                  + (orderDate.getMonth() - cohortDate.getMonth())
+                  + (orderDate.getMonth()    - cohortDate.getMonth())
         if (age > maxCohortAge) maxCohortAge = age
       })
     })
 
-    let maxValue = 0
-    matrix.forEach(row => {
-      row.forEach(cell => {
-        const base = metric === 'revenue' ? cell.revenue : cell.orderCount
-        const v    = calcType === 'per-customer'
-          ? base / Math.max(1, cell.uniqueCustomers) : base
-        if (v > maxValue) maxValue = v
-      })
-    })
+    return { matrix, orderMonths, maxCohortAge }
+  }, [orders])
 
-    return { matrix, orderMonths, maxCohortAge, maxValue }
-  }, [orders, metric, calcType])
+  // ── Row totals — used for row-relative percentage (all cells in a row sum to 100%) ──
+  const rowTotals = useMemo(() => {
+    const m = new Map<string, number>()
+    orderMonths.forEach(om => {
+      const row = matrix.get(om)!
+      let total = 0
+      row.forEach(cell => { total += metric === 'revenue' ? cell.revenue : cell.orderCount })
+      m.set(om, total)
+    })
+    return m
+  }, [matrix, orderMonths, metric])
 
   // ── Cell value ────────────────────────────────────────────────────────────
-  const getCellValue = (cell: CohortCell): number => {
+  // percentage = cell base / row total × 100  →  all cells in a row sum to 100%
+  // per-customer = cell base / cell unique customers
+  // total = raw base
+  const getCellValue = useCallback((cell: CohortCell, orderMonth: string): number => {
     const base = metric === 'revenue' ? cell.revenue : cell.orderCount
     if (calcType === 'per-customer') return base / Math.max(1, cell.uniqueCustomers)
-    if (calcType === 'percentage')   return maxValue > 0 ? (base / maxValue) * 100 : 0
+    if (calcType === 'percentage') {
+      const rowTotal = rowTotals.get(orderMonth) ?? 0
+      return rowTotal > 0 ? (base / rowTotal) * 100 : 0
+    }
     return base
-  }
+  }, [metric, calcType, rowTotals])
 
-  const formatValue = (v: number): string => {
+  const formatValue = useCallback((v: number): string => {
     if (calcType === 'percentage') return `${v.toFixed(1)}%`
     if (metric === 'revenue')      return fmtRevenue(v)
     return v.toFixed(0)
-  }
+  }, [metric, calcType])
 
   // ── Tooltip ───────────────────────────────────────────────────────────────
   const handleMouseEnter = useCallback((e: React.MouseEvent, orderMonth: string, cohortMonth: string) => {
@@ -171,7 +180,6 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
       const rowOrders  = Array.from(row.values()).reduce((s, c) => s + c.orderCount, 0)
       const totalVal   = metric === 'revenue' ? fmtRevenue(rowRevenue) : rowOrders.toLocaleString()
 
-      // Build cells by age offset
       const cellsByAge = new Map<number, CohortCell>()
       row.forEach((cell, cm) => {
         const cohortDate = parse(cm, 'yyyy-MM', new Date())
@@ -183,7 +191,7 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
 
       const ageCells = Array.from({ length: maxCohortAge + 1 }, (_, i) => {
         const cell = cellsByAge.get(i)
-        return cell ? formatValue(getCellValue(cell)) : ''
+        return cell ? formatValue(getCellValue(cell, om)) : ''
       })
 
       csv += [fmtMonth(om), totalVal, ...ageCells].join(',') + '\n'
@@ -210,7 +218,6 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
     ? matrix.get(tooltip.orderMonth)?.get(tooltip.cohortMonth)
     : null
 
-  // Header columns: Month -0 (newest/new), Month -1, Month -2 ... up to maxCohortAge
   const headerOffsets = Array.from({ length: maxCohortAge + 1 }, (_, i) => i)
 
   return (
@@ -276,23 +283,16 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
       <div className="overflow-x-auto">
         <div className="p-4" style={{ minWidth: 'max-content' }}>
 
-          {/* Column headers: [row label] [Total] [Month -0] [Month -1] ... */}
+          {/* Column headers */}
           <div className="flex gap-1.5 mb-2">
-            {/* Row label spacer */}
             <div style={{ width: 88, flexShrink: 0 }} />
-
-            {/* Total header */}
             <div className="shrink-0 text-center" style={{ width: 84 }}>
               <span className="text-[10px] font-semibold text-gray-700">Total</span>
               <p className="text-[9px] text-gray-400">all cohorts</p>
             </div>
-
-            {/* Month -0, Month -1, ... */}
             {headerOffsets.map(offset => (
               <div key={offset} className="shrink-0 text-center" style={{ width: 84 }}>
-                <span className="text-[10px] font-medium text-gray-500">
-                  Month -{offset}
-                </span>
+                <span className="text-[10px] font-medium text-gray-500">Month -{offset}</span>
                 <p className="text-[9px] text-gray-400">
                   {offset === 0 ? 'new customers' : `${offset}mo ago`}
                 </p>
@@ -300,12 +300,11 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
             ))}
           </div>
 
-          {/* Rows = order months, newest first */}
+          {/* Rows */}
           <div className="flex flex-col gap-1.5">
             {orderMonths.map(om => {
               const row = matrix.get(om)!
 
-              // Build a map of age → cell for this row
               const cellsByAge = new Map<number, { cell: CohortCell; cohortMonth: string }>()
               row.forEach((cell, cm) => {
                 const cohortDate = parse(cm, 'yyyy-MM', new Date())
@@ -328,11 +327,9 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
                     <p className="text-[10px] text-gray-400 mt-0.5">orders</p>
                   </div>
 
-                  {/* ── Total cell — left of month blocks ── */}
-                  <div
-                    className="rounded-lg flex flex-col items-center justify-center shrink-0"
-                    style={{ width: 84, height: 52, backgroundColor: '#1e293b' }}
-                  >
+                  {/* Total cell */}
+                  <div className="rounded-lg flex flex-col items-center justify-center shrink-0"
+                    style={{ width: 84, height: 52, backgroundColor: '#1e293b' }}>
                     <span className="text-[11px] font-semibold text-white leading-none">
                       {metric === 'revenue' ? fmtRevenue(rowRevenue) : rowOrders.toLocaleString()}
                     </span>
@@ -341,42 +338,27 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
                     </span>
                   </div>
 
-                  {/* Month offset cells: 0, 1, 2 ... maxCohortAge */}
+                  {/* Month offset cells */}
                   {headerOffsets.map(offset => {
                     const entry = cellsByAge.get(offset)
 
-                    // This row doesn't have a cohort this old (e.g. May row only has Month -0)
                     if (!entry) {
-                      // Only show placeholder if this offset is reachable for this row
-                      // (i.e. offset <= maxCohortAge for rows newer than older rows)
-                      // For rows where the offset simply didn't exist yet, show nothing
-                      const maxPossibleAge = orderMonths.indexOf(om) === -1
-                        ? 0
-                        : (() => {
-                          let max = 0
-                          cellsByAge.forEach((_, age) => { if (age > max) max = age })
-                          return max
-                        })()
-
-                      if (offset > maxPossibleAge) {
-                        // Beyond this row's oldest possible cohort — grey spacer
-                        return (
-                          <div key={offset} className="rounded-lg bg-gray-50/50"
-                            style={{ width: 84, height: 52, flexShrink: 0 }} />
-                        )
+                      // Determine if this offset is just beyond this row's reach
+                      let maxAge = 0
+                      cellsByAge.forEach((_, age) => { if (age > maxAge) maxAge = age })
+                      if (offset > maxAge) {
+                        return <div key={offset} className="rounded-lg bg-gray-50/50"
+                          style={{ width: 84, height: 52, flexShrink: 0 }} />
                       }
-                      // Valid offset but no orders — dashed empty
-                      return (
-                        <div key={offset} className="rounded-lg"
-                          style={{ width: 84, height: 52, flexShrink: 0, border: '1.5px dashed #e5e7eb' }} />
-                      )
+                      return <div key={offset} className="rounded-lg"
+                        style={{ width: 84, height: 52, flexShrink: 0, border: '1.5px dashed #e5e7eb' }} />
                     }
 
                     const { cell, cohortMonth: cm } = entry
-                    const isNew      = offset === 0
-                    const isHovered  = tooltip?.orderMonth === om && tooltip?.cohortMonth === cm
-                    const opacity    = cellOpacity(isNew, offset)
-                    const value      = getCellValue(cell)
+                    const isNew     = offset === 0
+                    const isHovered = tooltip?.orderMonth === om && tooltip?.cohortMonth === cm
+                    const opacity   = cellOpacity(isNew, offset)
+                    const value     = getCellValue(cell, om)
 
                     return (
                       <div key={offset}
@@ -441,7 +423,7 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
         </div>
       </div>
 
-      {/* ── Fixed tooltip ── */}
+      {/* ── Tooltip ── */}
       {tooltip && tooltipCell && (() => {
         const cohortDate = parse(tooltip.cohortMonth, 'yyyy-MM', new Date())
         const orderDate  = parse(tooltip.orderMonth,  'yyyy-MM', new Date())
@@ -466,6 +448,8 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
                 {([
                   ['Revenue', fmtRevenue(tooltipCell.revenue)],
                   ['Orders',  String(tooltipCell.orderCount)],
+                  // Always show the raw % vs global max in tooltip for transparency
+                  ['% of row', (() => { const rt = rowTotals.get(tooltip.orderMonth) ?? 0; const base = tooltipCell[metric === 'revenue' ? 'revenue' : 'orderCount']; return rt > 0 ? `${((base / rt) * 100).toFixed(1)}%` : '—' })()],
                 ] as [string, string][]).map(([label, val]) => (
                   <div key={label} className="flex justify-between gap-4">
                     <span className="text-gray-400">{label}</span>
