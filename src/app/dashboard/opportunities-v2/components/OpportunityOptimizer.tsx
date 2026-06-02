@@ -487,14 +487,14 @@ const SQPTable: React.FC<{
               <TH>My impr.</TH>
               <TH>My CTR</TH>
               <TH>Mkt clicks ↓</TH>
-              <TH>My clicks</TH>
+              <TH>My clicks</TH> 
               <TH>My CVR</TH>
               <TH>Mkt CVR</TH>
               <TH>My purchases</TH>
               <TH>Mkt purchases</TH>
               <TH>Beats mkt</TH>
-              <TH>Coverage</TH>
-              <TH>In campaigns</TH>
+              <TH>SK Coverage</TH>
+              <TH>MK Coverage</TH>
               <TH>Status</TH>
               <TH />
             </tr>
