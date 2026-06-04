@@ -221,12 +221,12 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
   const headerOffsets = Array.from({ length: maxCohortAge + 1 }, (_, i) => i)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+      <div className="flex items-center justify-between p-4 border-b-2 border-gray-300">
         <div>
-          <h2 className="text-sm font-semibold text-gray-800">Customer Cohorts</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Customer Cohorts</h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Last 6 months · {new Set(orders.map(o => o['buyer-email'])).size.toLocaleString()} unique customers
           </p>
@@ -267,7 +267,7 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        {/* <div className="ml-auto flex items-center gap-2">
           <span className="text-[10px] text-gray-400">New customers</span>
           <div className="flex gap-0.5">
             {[0.92, 0.70, 0.52, 0.38, 0.28, 0.20].map(o => (
@@ -276,7 +276,7 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
             ))}
           </div>
           <span className="text-[10px] text-gray-400">Older cohorts</span>
-        </div>
+        </div> */}
       </div>
 
       {/* ── Grid ── */}
@@ -324,7 +324,7 @@ export function CohortTable({ orders, isLoading }: CohortTableProps) {
                   <div className="shrink-0 flex flex-col justify-center px-3 py-2 rounded-lg bg-gray-50 border border-gray-100"
                     style={{ width: 88 }}>
                     <p className="text-xs font-semibold text-gray-700">{fmtMonth(om)}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">orders</p>
+                    {/* <p className="text-[10px] text-gray-400 mt-0.5">orders</p> */}
                   </div>
 
                   {/* Total cell */}

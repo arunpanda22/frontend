@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   orderAnalyticsService,
   type OrderAnalyticsParams,
-} from '@/lib/api/services/order-analytics.service'
+  type CohortTopSkusResponse,
+} from "@/lib/api/services/order-analytics.service";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
 
@@ -57,6 +58,18 @@ export function useCohortOrders( enabled = true) {
   })
 }
 
+export function useCohortTopSkus(
+
+  enabled = true,
+) {
+  return useQuery<CohortTopSkusResponse>({
+    queryKey:  ["cohort-top-skus"],
+    queryFn:   () => orderAnalyticsService.getCohortTopSkus(),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 // ─── Composite page hook ──────────────────────────────────────────────────────
 
 export function useOrderAnalyticsPage(params?: OrderAnalyticsParams) {
@@ -71,6 +84,8 @@ export function useOrderAnalyticsPage(params?: OrderAnalyticsParams) {
     isError:   revenueMap.isError   || cohortOrders.isError,
   }
 }
+
+
 
 // ─── Manual refresh ───────────────────────────────────────────────────────────
 

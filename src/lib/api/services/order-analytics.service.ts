@@ -40,13 +40,13 @@ export interface StateRevenueDetailResponse {
   cities: StateRevenueDetailCity[];
 }
 
-// ─── Cohort ───────────────────────────────────────────────────────────────────
+// ─── Cohort Orders ────────────────────────────────────────────────────────────
 
 export interface CohortOrder {
   "buyer-email":          string;
-  "purchase-date":        string;   // ISO-8601 — the order date
-  "item-price":           string;   // net revenue for this row
-  "first-purchase-month": string;   // 'yyyy-MM' — customer's first-ever purchase
+  "purchase-date":        string;
+  "item-price":           string;
+  "first-purchase-month": string;
 }
 
 export interface CohortOrdersResponse {
@@ -54,14 +54,35 @@ export interface CohortOrdersResponse {
   orders: CohortOrder[];
 }
 
+// ─── Cohort Top SKUs ──────────────────────────────────────────────────────────
+
+export interface CohortTopSku {
+  sku:                     string;
+  asin:                    string | null;
+  product_name:            string | null;
+  image_url:               string | null;
+  revenue:                 string;
+  orders:                  number;
+  quantity:                number;
+  unique_customers:        number;
+  returning_customers:     number;
+  returning_pct:           number;
+  avg_orders_per_customer: number;
+}
+
+export interface CohortTopSkusResponse {
+  count: number;
+  skus:  CohortTopSku[];
+}
+
 // ─── Shared params ────────────────────────────────────────────────────────────
 
 export interface OrderAnalyticsParams {
-  date_from?: string;
-  date_to?: string;
-  sku?: string;
-  sales_channel?: string;
-  fulfillment_channel?: string;
+  date_from?:            string;
+  date_to?:              string;
+  sku?:                  string;
+  sales_channel?:        string;
+  fulfillment_channel?:  string;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -82,9 +103,14 @@ export const orderAnalyticsService = {
     return res.data;
   },
 
-  // Cohort always fetches last 6 months — backend ignores date params
   async getCohortOrders(): Promise<CohortOrdersResponse> {
     const res = await apiClient.get<CohortOrdersResponse>(`${BASE}/cohort-orders/`);
     return res.data;
   },
+
+  async getCohortTopSkus(params?: OrderAnalyticsParams): Promise<CohortTopSkusResponse> {
+    const res = await apiClient.get<CohortTopSkusResponse>(`${BASE}/cohort-top-skus/`, { params });
+    return res.data;
+  },
+
 };
