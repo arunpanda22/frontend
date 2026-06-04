@@ -38,6 +38,7 @@ interface ASIN {
   ctrDelta: string;
   avgCvr: string;
   cvrDelta: string;
+  isCustom?: boolean;
 }
 
 type TabKey = "sqp" | "ngram" | "target" | "competitor";
@@ -487,7 +488,7 @@ const SQPTable: React.FC<{
               <TH>My impr.</TH>
               <TH>My CTR</TH>
               <TH>Mkt clicks ↓</TH>
-              <TH>My clicks</TH> 
+              <TH>My clicks</TH>
               <TH>My CVR</TH>
               <TH>Mkt CVR</TH>
               <TH>My purchases</TH>
@@ -557,15 +558,12 @@ const SQPTable: React.FC<{
                       )}
                     </div>
                   </TD>
-
-                  {/* ── In campaigns — mirrors KeywordSuggestionsTable ── */}
                   <TD>
                     <Badge
                       label={q.keyword_exists ? "Exists" : "New"}
                       variant={q.keyword_exists ? "amber" : "green"}
                     />
                   </TD>
-
                   <TD onClick={(e) => e.stopPropagation()}>
                     {isSuccess && (
                       <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
@@ -772,7 +770,6 @@ const NgramSection: React.FC<{
 }) => {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
-  // ── Default sort: clicks descending before tree-building ─────────────────
   const sortedItems = React.useMemo(
     () => items.slice().sort((a, b) => b.clicks - a.clicks),
     [items]
@@ -1391,7 +1388,6 @@ const KeywordSuggestionsTable: React.FC<{
   const fmtCurrency = (v: number | undefined | null) =>
     `${currencySymbol}${(v ?? 0).toFixed(2)}`;
 
-  // ── Default sort: rank ascending ─────────────────────────────────────────
   const sortedKeywords = React.useMemo(
     () => keywords.slice().sort((a, b) => a.rank - b.rank),
     [keywords]
@@ -1767,7 +1763,6 @@ const RankRecordsTable: React.FC<{
   onSelectAll,
   onOpenSingle,
 }) => {
-  // ── Default sort: search frequency rank ascending (lower # = higher volume) ─
   const sortedRecords = React.useMemo(
     () => records.slice().sort((a, b) => a.search_frequency_rank - b.search_frequency_rank),
     [records]
@@ -1833,7 +1828,6 @@ const RankRecordsTable: React.FC<{
                   <TD className="font-mono font-medium text-gray-800">#{r.search_frequency_rank}</TD>
                   <TD className="font-mono">{fmtPctFraction(r.click_share)}</TD>
                   <TD className="font-mono">{fmtPctFraction(r.conversion_share)}</TD>
-
                   <TD>
                     <div className="flex gap-1">
                       {hasBroad  && <Badge label="B" variant="blue" />}
@@ -1844,14 +1838,12 @@ const RankRecordsTable: React.FC<{
                       )}
                     </div>
                   </TD>
-
                   <TD>
                     <Badge
                       label={r.keyword_exists ? "Exists" : "New"}
                       variant={r.keyword_exists ? "amber" : "green"}
                     />
                   </TD>
-
                   <TD onClick={(e) => e.stopPropagation()}>
                     {isSuccess && (
                       <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-medium whitespace-nowrap">
@@ -1911,7 +1903,6 @@ const RivalAsinsTable: React.FC<{
   onSelectAll,
   onOpenSingle,
 }) => {
-  // ── Default sort: shared keywords (occurrence_count) descending ───────────
   const sortedCompetitors = React.useMemo(
     () => competitors.slice().sort((a, b) => b.occurrence_count - a.occurrence_count),
     [competitors]
@@ -2071,9 +2062,9 @@ interface ASINCardProps {
 const ASINCard: React.FC<ASINCardProps> = ({
   asin,
   tab,
-  sqpQueries,
-  sqpLoading,
-  sqpError,
+  sqpLoading: _sqpLoading,   // unused — owned internally now
+  sqpError: _sqpError,       // unused — owned internally now
+  sqpQueries: _sqpQueries,   // unused — owned internally now
   ngramTargetAcos,
   rankRecords,
   topCompetitors,
@@ -2084,6 +2075,51 @@ const ASINCard: React.FC<ASINCardProps> = ({
   onFetchCompetitor,
 }) => {
   const [open, setOpen] = useState(false);
+  const sqpQuery = useSQPOpportunities(asin.id);
+
+  const handleToggle = () => {
+    const opening = !open;
+    setOpen(opening);
+    // When opening on SQP tab, kick off the fetch automatically
+    if (opening && activeTabRef.current === "sqp" && !sqpQuery.isEnabled) {
+      sqpQuery.fetchData();
+    }
+  };
+
+  // Also fetch when tab switches to SQP while card is already open
+  const prevTabRef = React.useRef(tab);
+  React.useEffect(() => {
+    if (open && tab === "sqp" && prevTabRef.current !== "sqp" && !sqpQuery.isEnabled) {
+      sqpQuery.fetchData();
+    }
+    prevTabRef.current = tab;
+  }, [tab, open, sqpQuery]);
+
+  // Keep a ref to the current tab so handleToggle can read it synchronously
+  const activeTabRef = React.useRef(tab);
+  React.useEffect(() => {
+    activeTabRef.current = tab;
+  }, [tab]);
+
+  const sqpQueries = sqpQuery.data?.search_queries ?? [];
+
+  const { avgCtr, avgCvr } = React.useMemo(() => {
+    const ctrs: number[] = [];
+    const cvrs: number[] = [];
+    for (const q of sqpQueries) {
+      if (q.asin_impression_count > 0)
+        ctrs.push((q.asin_click_count / q.asin_impression_count) * 100);
+      if (q.asin_conversion != null) cvrs.push(q.asin_conversion);
+    }
+    return {
+      avgCtr: ctrs.length
+        ? `${(ctrs.reduce((a, b) => a + b, 0) / ctrs.length).toFixed(1)}%`
+        : "–",
+      avgCvr: cvrs.length
+        ? `${(cvrs.reduce((a, b) => a + b, 0) / cvrs.length).toFixed(1)}%`
+        : "–",
+    };
+  }, [sqpQueries]);
 
   const ctrPositive = asin.ctrDelta.startsWith("+");
   const cvrPositive = asin.cvrDelta.startsWith("+");
@@ -2091,7 +2127,23 @@ const ASINCard: React.FC<ASINCardProps> = ({
   const renderBody = () => {
     switch (tab) {
       case "sqp":
-        return <SQPTable asin={asin.id} queries={sqpQueries} isLoading={sqpLoading} error={sqpError} />;
+        // Not yet fetched — show the load button just like N-gram does
+        if (!sqpQuery.isEnabled) {
+          return (
+            <FetchPrompt
+              label="Load SQP data"
+              onFetch={() => sqpQuery.fetchData()}
+            />
+          );
+        }
+        return (
+          <SQPTable
+            asin={asin.id}
+            queries={sqpQueries}
+            isLoading={sqpQuery.isLoading}
+            error={sqpQuery.error}
+          />
+        );
       case "ngram":
         return (
           <NgramTable
@@ -2121,25 +2173,43 @@ const ASINCard: React.FC<ASINCardProps> = ({
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-3 shadow-sm">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={handleToggle}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className={`text-gray-400 text-xs transition-transform duration-200 shrink-0 ${open ? "rotate-90" : ""}`}>▶</span>
-          {asin.imageUrl && <AsinThumbnail src={asin.imageUrl} alt={asin.name || asin.id} />}
+          <span
+            className={`text-gray-400 text-xs transition-transform duration-200 shrink-0 ${
+              open ? "rotate-90" : ""
+            }`}
+          >
+            ▶
+          </span>
+          {asin.imageUrl && (
+            <AsinThumbnail src={asin.imageUrl} alt={asin.name || asin.id} />
+          )}
           <div className="min-w-0">
-            {asin.name && (
+            {asin.name ? (
               <div
                 className="font-medium text-gray-800 text-[13px] truncate leading-tight"
                 title={asin.name.length > 50 ? asin.name : undefined}
               >
                 {asin.name.length > 50 ? `${asin.name.slice(0, 50)}…` : asin.name}
               </div>
-            )}
+            ) : asin.isCustom ? (
+              <div className="font-medium text-amber-600 text-[12px] leading-tight flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Custom ASIN
+              </div>
+            ) : null}
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded leading-tight">
                 {asin.id}
               </span>
+              {asin.isCustom && (
+                <span className="text-[10px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded-full font-medium">
+                  custom
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -2147,13 +2217,17 @@ const ASINCard: React.FC<ASINCardProps> = ({
         <div className="flex items-center gap-5 shrink-0 ml-4">
           <div className="text-right">
             <div className="text-[10px] text-gray-400">Avg CTR</div>
-            {asin.avgCtr === "–" ? (
+            {sqpQuery.isLoading ? (
               <div className="h-4 w-12 bg-gray-100 rounded animate-pulse mt-0.5" />
             ) : (
               <div className="text-[13px] font-semibold font-mono text-gray-800">
-                {asin.avgCtr}
+                {avgCtr}
                 {asin.ctrDelta && (
-                  <span className={`text-[10px] font-normal ml-1 ${ctrPositive ? "text-emerald-600" : "text-red-500"}`}>
+                  <span
+                    className={`text-[10px] font-normal ml-1 ${
+                      ctrPositive ? "text-emerald-600" : "text-red-500"
+                    }`}
+                  >
                     {asin.ctrDelta}
                   </span>
                 )}
@@ -2162,13 +2236,17 @@ const ASINCard: React.FC<ASINCardProps> = ({
           </div>
           <div className="text-right">
             <div className="text-[10px] text-gray-400">Avg CVR</div>
-            {asin.avgCvr === "–" ? (
+            {sqpQuery.isLoading ? (
               <div className="h-4 w-12 bg-gray-100 rounded animate-pulse mt-0.5" />
             ) : (
               <div className="text-[13px] font-semibold font-mono text-gray-800">
-                {asin.avgCvr}
+                {avgCvr}
                 {asin.cvrDelta && (
-                  <span className={`text-[10px] font-normal ml-1 ${cvrPositive ? "text-emerald-600" : "text-red-500"}`}>
+                  <span
+                    className={`text-[10px] font-normal ml-1 ${
+                      cvrPositive ? "text-emerald-600" : "text-red-500"
+                    }`}
+                  >
                     {asin.cvrDelta}
                   </span>
                 )}
@@ -2217,13 +2295,18 @@ export function OpportunityOptimizer() {
   const [activeTab, setActiveTab] = useState<TabKey>("sqp");
   const [asinFilter, setAsinFilter] = useState<string>("all");
 
+  // ─── Custom ASIN state ────────────────────────────────────────────────────
+  const [customAsinInput, setCustomAsinInput] = useState<string>("");
+  const [customAsins, setCustomAsins] = useState<ASIN[]>([]);
+
   const activeAdProfile =
     userProfile?.connected_advertising_profiles?.find((p) => p.is_active) ??
     userProfile?.connected_advertising_profiles?.[0];
 
   const ngramTargetAcos = parseTargetAcos(activeAdProfile?.target_acos);
 
-  const ASINS: ASIN[] = (asinsData?.results ?? []).slice(0, 30).map((a) => ({
+  // ─── Top-30 ASINs from API ────────────────────────────────────────────────
+  const top30Asins: ASIN[] = (asinsData?.results ?? []).slice(0, ).map((a) => ({
     id: a.asin,
     name: a.product_name ?? "",
     imageUrl: a.image_url ?? undefined,
@@ -2231,19 +2314,71 @@ export function OpportunityOptimizer() {
     ctrDelta: "",
     avgCvr: "–",
     cvrDelta: "",
+    isCustom: false,
   }));
 
-  const ALL_ASIN_IDS = ASINS.map((a) => a.id).join(",");
+  // ─── Custom ASIN helpers ──────────────────────────────────────────────────
+  const addCustomAsin = useCallback(() => {
+    const id = customAsinInput.trim().toUpperCase();
+    if (id.length < 10) return;
 
-  const sqpQuery = useSQPOpportunities();
+    // If it already exists in top-30, just filter to it
+    const alreadyInTop30 = top30Asins.some((a) => a.id === id);
+    const alreadyCustom = customAsins.some((a) => a.id === id);
+
+    if (alreadyInTop30 || alreadyCustom) {
+      setAsinFilter(id);
+      setCustomAsinInput("");
+      return;
+    }
+
+    const newAsin: ASIN = {
+      id,
+      name: "",
+      avgCtr: "–",
+      ctrDelta: "",
+      avgCvr: "–",
+      cvrDelta: "",
+      isCustom: true,
+    };
+    setCustomAsins((prev) => [...prev, newAsin]);
+    setAsinFilter(id);
+    setCustomAsinInput("");
+  }, [customAsinInput, top30Asins, customAsins]);
+
+  const removeCustomAsin = useCallback(
+    (id: string) => {
+      setCustomAsins((prev) => prev.filter((a) => a.id !== id));
+      if (asinFilter === id) setAsinFilter("all");
+    },
+    [asinFilter]
+  );
+
+  // ─── Merge top-30 + custom ────────────────────────────────────────────────
+  const allAsins: ASIN[] = React.useMemo(
+    () => [...top30Asins, ...customAsins],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [asinsData, customAsins]
+  );
+
+  const visibleAsins = React.useMemo(
+    () =>
+      asinFilter === "all"
+        ? allAsins
+        : allAsins.filter((a) => a.id === asinFilter),
+    [allAsins, asinFilter]
+  );
+
+  // ─── Competitor data (shared across all ASIN cards) ───────────────────────
+  const ALL_ASIN_IDS = allAsins.map((a) => a.id).join(",");
 
   const competiRankQuery = useCompetiRankData({ asins: ALL_ASIN_IDS });
   const competingAsinsQuery = useCompetingAsins({ asins: ALL_ASIN_IDS });
 
-  const handleFetchCompetitor = () => {
+  const handleFetchCompetitor = useCallback(() => {
     competiRankQuery.fetchData();
     competingAsinsQuery.fetchData();
-  };
+  }, [competiRankQuery, competingAsinsQuery]);
 
   const competitorFetched = competiRankQuery.isEnabled;
   const competitorLoading = competiRankQuery.isLoading || competingAsinsQuery.isLoading;
@@ -2251,73 +2386,12 @@ export function OpportunityOptimizer() {
   const rankRecords = competiRankQuery.data?.data ?? [];
   const topCompetitors = competingAsinsQuery.data?.top_competitors ?? [];
 
-  const allSQP = sqpQuery.data?.search_queries ?? [];
-
-  const sqpMetricsByAsin = React.useMemo(() => {
-    const map: Record<string, { ctrs: number[]; cvrs: number[] }> = {};
-    for (const q of allSQP) {
-      if (!map[q.asin]) map[q.asin] = { ctrs: [], cvrs: [] };
-      if (q.asin_impression_count > 0)
-        map[q.asin].ctrs.push((q.asin_click_count / q.asin_impression_count) * 100);
-      if (q.asin_conversion != null) map[q.asin].cvrs.push(q.asin_conversion);
-    }
-    const result: Record<string, { avgCtr: string; avgCvr: string }> = {};
-    for (const [asin, { ctrs, cvrs }] of Object.entries(map)) {
-      const avgCtr = ctrs.length > 0 ? ctrs.reduce((a, b) => a + b, 0) / ctrs.length : null;
-      const avgCvr = cvrs.length > 0 ? cvrs.reduce((a, b) => a + b, 0) / cvrs.length : null;
-      result[asin] = {
-        avgCtr: avgCtr != null ? `${avgCtr.toFixed(1)}%` : "–",
-        avgCvr: avgCvr != null ? `${avgCvr.toFixed(1)}%` : "–",
-      };
-    }
-    return result;
-  }, [allSQP]);
-
-  const enrichedASINs: ASIN[] = ASINS.map((a) => {
-    const m = sqpMetricsByAsin[a.id];
-    return m ? { ...a, avgCtr: m.avgCtr, ctrDelta: "", avgCvr: m.avgCvr, cvrDelta: "" } : a;
-  });
-
-  const visibleASINs =
-    asinFilter === "all"
-      ? enrichedASINs
-      : enrichedASINs.filter((a) => a.id === asinFilter);
-
-  const handleTabChange = (key: TabKey) => {
-    setActiveTab(key);
-  };
-
   if (asinsLoading) return <LoadingState />;
-
-  const renderCards = () => {
-    return visibleASINs.map((asin) => {
-      const sqpQueries = allSQP.filter((q) => q.asin === asin.id);
-
-      return (
-        <ASINCard
-          key={asin.id}
-          asin={asin}
-          tab={activeTab}
-          sqpQueries={sqpQueries}
-          sqpLoading={sqpQuery.isLoading}
-          sqpError={(sqpQuery.error as Error) ?? null}
-          ngramTargetAcos={ngramTargetAcos}
-          rankRecords={rankRecords}
-          topCompetitors={topCompetitors}
-          competitorLoading={competitorLoading}
-          competitorError={competitorError}
-          competitorFetched={competitorFetched}
-          currencySymbol={currencySymbol}
-          onFetchCompetitor={handleFetchCompetitor}
-        />
-      );
-    });
-  };
 
   return (
     <div className="min-h-screen bg-[#f4f5f7]">
       <div className="px-6 pt-6 pb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-[18px] font-semibold text-gray-900 flex items-center gap-2">
               🎯 Opportunity Optimizer
@@ -2327,22 +2401,69 @@ export function OpportunityOptimizer() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-[12px] text-gray-500">Filter ASIN</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Filter dropdown */}
+            <label className="text-[12px] text-gray-500 shrink-0">Filter ASIN</label>
             <select
               value={asinFilter}
               onChange={(e) => setAsinFilter(e.target.value)}
               className="text-[12px] border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#f5a623]"
             >
               <option value="all">All ASINs</option>
-              {ASINS.map((a) => (
+              {allAsins.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.id}{a.name ? ` — ${a.name.length > 50 ? `${a.name.slice(0, 50)}…` : a.name}` : ""}
+                  {a.isCustom ? "⚡ " : ""}
+                  {a.id}
+                  {a.name
+                    ? ` — ${a.name.length > 50 ? `${a.name.slice(0, 50)}…` : a.name}`
+                    : ""}
                 </option>
               ))}
             </select>
-            <span className="text-[11px] bg-white border border-gray-200 text-gray-400 rounded-full px-2.5 py-0.5 shadow-sm">
-              {visibleASINs.length} ASIN{visibleASINs.length !== 1 ? "s" : ""}
+
+            {/* Custom ASIN input */}
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={customAsinInput}
+                onChange={(e) =>
+                  setCustomAsinInput(e.target.value.trim().toUpperCase())
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addCustomAsin();
+                }}
+                placeholder="Add ASIN…"
+                maxLength={10}
+                className="text-[12px] border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#f5a623] w-32 font-mono placeholder:font-sans placeholder:text-gray-400"
+              />
+              <button
+                onClick={addCustomAsin}
+                disabled={customAsinInput.length < 10}
+                className="text-[12px] px-3 py-1.5 rounded-lg bg-[#f5a623] text-white font-medium hover:bg-[#e09010] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm whitespace-nowrap"
+              >
+                + Add
+              </button>
+            </div>
+
+            {/* Custom ASIN pills */}
+            {customAsins.map((a) => (
+              <span
+                key={a.id}
+                className="inline-flex items-center gap-1.5 text-[11px] bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2.5 py-0.5 font-mono"
+              >
+                {a.id}
+                <button
+                  onClick={() => removeCustomAsin(a.id)}
+                  className="hover:text-red-500 transition-colors leading-none text-[13px] font-light"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+
+            <span className="text-[11px] bg-white border border-gray-200 text-gray-400 rounded-full px-2.5 py-0.5 shadow-sm shrink-0">
+              {visibleAsins.length} ASIN{visibleAsins.length !== 1 ? "s" : ""}
             </span>
           </div>
         </div>
@@ -2355,11 +2476,35 @@ export function OpportunityOptimizer() {
               key={t.key}
               label={t.label}
               active={activeTab === t.key}
-              onClick={() => handleTabChange(t.key)}
+              onClick={() => setActiveTab(t.key)}
             />
           ))}
         </div>
-        <div className="p-4">{renderCards()}</div>
+
+        <div className="p-4">
+          {visibleAsins.length === 0 ? (
+            <EmptyState />
+          ) : (
+            visibleAsins.map((asin) => (
+              <ASINCard
+                key={asin.id}
+                asin={asin}
+                tab={activeTab}
+                sqpQueries={[]}        // no longer passed — fetched inside ASINCard
+                sqpLoading={false}     // no longer passed — owned inside ASINCard
+                sqpError={null}        // no longer passed — owned inside ASINCard
+                ngramTargetAcos={ngramTargetAcos}
+                rankRecords={rankRecords}
+                topCompetitors={topCompetitors}
+                competitorLoading={competitorLoading}
+                competitorError={competitorError}
+                competitorFetched={competitorFetched}
+                currencySymbol={currencySymbol}
+                onFetchCompetitor={handleFetchCompetitor}
+              />
+            ))
+          )}
+        </div>
       </div>
 
       <div className="h-6" />

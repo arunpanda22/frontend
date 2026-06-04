@@ -345,7 +345,7 @@ export const opportunitiesQueryKeys = {
   },
   sqp: {
     all: ["sqp-opportunities"] as const,
-    list: () => ["sqp-opportunities", "list"] as const,
+    list: (asin: string | null) => ["sqp-opportunities", "list", asin] as const,
   },
   dedup: {
     all: ["opportunities", "dedup"] as const,
@@ -402,8 +402,10 @@ async function fetchNgramOpportunities(asin: string): Promise<NgramResponse> {
   return data;
 }
 
-async function fetchSQPOpportunities(): Promise<SQPOpportunitiesResponse> {
-  const { data } = await apiClient.get("/api/v1/dashboard-api/sqp-opportunities/");
+async function fetchSQPOpportunities(asin: string): Promise<SQPOpportunitiesResponse> {
+  const { data } = await apiClient.get("/api/v1/dashboard-api/sqp-opportunities/", {
+    params: { asin },
+  });
   return data;
 }
 
@@ -531,15 +533,36 @@ export const useNgramOpportunities = (asin: string | null) => {
 };
 
 // 3. SQP Hook
-export function useSQPOpportunities() {
-  return useQuery({
-    queryKey: opportunitiesQueryKeys.sqp.list(),
-    queryFn: fetchSQPOpportunities,
+export const useSQPOpportunities = (asin: string | null) => {
+  const [isEnabled, setIsEnabled] = useState(false);
+
+  const query = useQuery({
+    queryKey: opportunitiesQueryKeys.sqp.list(asin),
+    queryFn: async () => {
+      if (!asin) throw new Error("ASIN is required");
+      return fetchSQPOpportunities(asin);
+    },
+    enabled: isEnabled && asin !== null && asin.trim().length > 0,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
   });
-}
+
+  const fetchData = () => {
+    if (asin && asin.trim().length > 0) {
+      setIsEnabled(true);
+      query.refetch();
+    }
+  };
+
+  return {
+    data: query.data as SQPOpportunitiesResponse | undefined,
+    isLoading: query.isLoading,
+    error: (query.error as Error) ?? null,
+    fetchData,
+    isEnabled,
+  };
+};
 
 // 4. Dedup Hook
 export const useDedupOpportunities = (requestData: DedupRequest | null) => {
