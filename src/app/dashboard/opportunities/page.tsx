@@ -143,7 +143,7 @@ export default function OpportunitiesPage() {
   const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
 
   // Fetch SQP data
-  const { data: sqpData, isLoading: sqpLoading, error: sqpError } = useSQPOpportunities();
+  const { data: sqpData, isLoading: sqpLoading, error: sqpError, fetchData: fetchSqpData } = useSQPOpportunities(null);
 
   const handleCardClick = (opportunityId: string) => {
     if (opportunityId === "sqp") {
