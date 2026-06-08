@@ -5,6 +5,9 @@ import {
   orderAnalyticsService,
   type OrderAnalyticsParams,
   type CohortTopSkusResponse,
+  type HeatmapDataResponse,
+  type HeatmapFilterOptions,
+  type HeatmapParams,
 } from "@/lib/api/services/order-analytics.service";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
@@ -19,7 +22,12 @@ export const orderAnalyticsQueryKeys = {
 
   cohortOrders: (params?: OrderAnalyticsParams) =>
     ['order-analytics', 'cohort-orders', params] as const,
-}
+
+  heatmapData: (params: HeatmapParams) =>
+    ['order-analytics', 'heatmap', params] as const,
+  heatmapFilters: (marketplace?: string) =>
+    ['order-analytics', 'heatmap-filters', marketplace] as const,
+};
 
 // ─── Revenue Map hooks ────────────────────────────────────────────────────────
 
@@ -46,27 +54,49 @@ export function useStateRevenueDetail(
   })
 }
 
-// ─── Cohort hook ──────────────────────────────────────────────────────────────
+// ─── Cohort hooks ─────────────────────────────────────────────────────────────
 
-export function useCohortOrders( enabled = true) {
+export function useCohortOrders(enabled = true) {
   return useQuery({
     queryKey: orderAnalyticsQueryKeys.cohortOrders(),
     queryFn: () => orderAnalyticsService.getCohortOrders(),
     enabled,
-    staleTime: 10 * 60 * 1000,  // cohort data changes less frequently
+    staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   })
 }
 
-export function useCohortTopSkus(
-
-  enabled = true,
-) {
+export function useCohortTopSkus(enabled = true) {
   return useQuery<CohortTopSkusResponse>({
     queryKey:  ["cohort-top-skus"],
     queryFn:   () => orderAnalyticsService.getCohortTopSkus(),
     enabled,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// ─── Heatmap hooks ────────────────────────────────────────────────────────────
+
+export function useHeatmapData(params: HeatmapParams, enabled = true) {
+  return useQuery<HeatmapDataResponse>({
+    queryKey: orderAnalyticsQueryKeys.heatmapData(params),
+    queryFn:  () => orderAnalyticsService.getHeatmapData(params),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
+  });
+}
+
+export function useHeatmapFilterOptions(
+  marketplace_id?: string,
+  enabled = true,
+) {
+  return useQuery<HeatmapFilterOptions>({
+    queryKey: orderAnalyticsQueryKeys.heatmapFilters(marketplace_id),
+    queryFn:  () => orderAnalyticsService.getHeatmapFilterOptions(marketplace_id),
+    enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
   });
 }
 
@@ -84,8 +114,6 @@ export function useOrderAnalyticsPage(params?: OrderAnalyticsParams) {
     isError:   revenueMap.isError   || cohortOrders.isError,
   }
 }
-
-
 
 // ─── Manual refresh ───────────────────────────────────────────────────────────
 

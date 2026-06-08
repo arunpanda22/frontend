@@ -7,6 +7,7 @@ import type { Range } from 'react-date-range'
 import { RevenueMap } from './components/RevenueMap'
 import { CohortTable } from './components/CohortTable'
 import TopCohortSkus from './components/TopCohortSkus'
+import { AdsHeatmap } from './components/AdsHeatmap'
 import MetricsCard from '@/components/dashboard/ui/MetricsCard'
 import { useRevenueMap, useCohortOrders, useCohortTopSkus } from '@/lib/hooks/queries/use-order-analytics'
 import {
@@ -19,13 +20,12 @@ import {
 import type { CohortOrder } from '@/lib/api/services/order-analytics.service'
 
 // ─── Cohort metric derivations ────────────────────────────────────────────────
-// All computed from the raw orders array already in memory — no extra API call.
 
 interface CohortMetrics {
-  totalRevenue:          number   // sum of all item-prices
-  avgLTV:                number   // total revenue / unique customers
-  avgOrdersPerCustomer:  number   // total orders / unique customers
-  retentionRate:         number   // % of customers with > 1 order
+  totalRevenue:          number
+  avgLTV:                number
+  avgOrdersPerCustomer:  number
+  retentionRate:         number
   uniqueCustomers:       number
   totalOrders:           number
 }
@@ -73,44 +73,44 @@ function CohortMetricsRow({ orders, isLoading }: { orders: CohortOrder[]; isLoad
 
   const cards = [
     {
-      title:      'Average LTV',
-      value:      isLoading ? '—' : fmtRevenue(m.avgLTV),
-      icon:       IndianRupee,
-      bgColor:    "bg-white",
-      color:      "bg-ocean-300",
-      subtitle:   'Revenue per unique customer',
+      title:    'Average LTV',
+      value:    isLoading ? '—' : fmtRevenue(m.avgLTV),
+      icon:     IndianRupee,
+      bgColor:  "bg-white",
+      color:    "bg-ocean-300",
+      subtitle: 'Revenue per unique customer',
     },
     {
-      title:      'Total Revenue',
-      value:      isLoading ? '—' : fmtRevenue(m.totalRevenue),
-      icon:       TrendingUp,
-      bgColor:    "bg-white",
-      color:      "bg-gold-400",
-      subtitle:   'Last 6 months',
+      title:    'Total Revenue',
+      value:    isLoading ? '—' : fmtRevenue(m.totalRevenue),
+      icon:     TrendingUp,
+      bgColor:  "bg-white",
+      color:    "bg-gold-400",
+      subtitle: 'Last 6 months',
     },
     {
-      title:      'Orders / Customer',
-      value:      isLoading ? '—' : m.avgOrdersPerCustomer.toFixed(2),
-      icon:       ShoppingCart,
-      bgColor:    "bg-white",
-      color:      "bg-ocean-300",
-      subtitle:   'Avg across all customers',
+      title:    'Orders / Customer',
+      value:    isLoading ? '—' : m.avgOrdersPerCustomer.toFixed(2),
+      icon:     ShoppingCart,
+      bgColor:  "bg-white",
+      color:    "bg-ocean-300",
+      subtitle: 'Avg across all customers',
     },
     {
-      title:      'Retention Rate',
-      value:      isLoading ? '—' : `${m.retentionRate.toFixed(1)}%`,
-      icon:       RefreshCw,
-      bgColor:    "bg-white",
-      color:      "bg-gold-400",
-      subtitle:   'Customers with > 1 order',
+      title:    'Retention Rate',
+      value:    isLoading ? '—' : `${m.retentionRate.toFixed(1)}%`,
+      icon:     RefreshCw,
+      bgColor:  "bg-white",
+      color:    "bg-gold-400",
+      subtitle: 'Customers with > 1 order',
     },
     {
-      title:      'Unique Customers',
-      value:      isLoading ? '—' : m.uniqueCustomers.toLocaleString(),
-      icon:       Users,
-      bgColor:    "bg-white",
-      color:      "bg-ocean-300",
-      subtitle:   'Last 6 months',
+      title:    'Unique Customers',
+      value:    isLoading ? '—' : m.uniqueCustomers.toLocaleString(),
+      icon:     Users,
+      bgColor:  "bg-white",
+      color:    "bg-ocean-300",
+      subtitle: 'Last 6 months',
     },
   ]
 
@@ -140,10 +140,10 @@ const OrderAnalyticsPage = () => {
     date_to:   dateRange.endDate   ?? undefined,
   }
 
-  const hasDateRange    = !!dateRange.startDate && !!dateRange.endDate
-  const revenueMap      = useRevenueMap(analyticsParams, hasDateRange)
-  const cohortOrders    = useCohortOrders()
-  const cohortTopSkus   = useCohortTopSkus()
+  const hasDateRange  = !!dateRange.startDate && !!dateRange.endDate
+  const revenueMap    = useRevenueMap(analyticsParams, hasDateRange)
+  const cohortOrders  = useCohortOrders()
+  const cohortTopSkus = useCohortTopSkus()
 
   const filterBarDateRange = {
     startDate: dateRange.startDate ? new Date(dateRange.startDate) : undefined,
@@ -181,7 +181,6 @@ const OrderAnalyticsPage = () => {
 
         {/* ── Cohort table (2/3) + Top SKUs card (1/3) ── */}
         <div className="flex gap-6 items-stretch">
-
           <div className="flex-[2] min-w-0 overflow-hidden">
             {cohortOrders.isError ? (
               <div className="bg-red-50 border border-red-100 rounded-xl px-6 py-4 text-sm text-red-500">
@@ -216,6 +215,10 @@ const OrderAnalyticsPage = () => {
             isLoading={revenueMap.isLoading}
           />
         )}
+
+        {/* ── Ads Performance Heatmap ── */}
+        {/* No date props — component uses its own rolling 7-day window */}
+        <AdsHeatmap />
 
       </div>
     </div>
