@@ -111,6 +111,7 @@ export default function AdminReportsPage() {
               <option value="">All sources</option>
               <option value="ads">Ads</option>
               <option value="fba">FBA</option>
+              <option value="vendor">VENDOR</option>
             </select>
           </div>
           <div className="md:col-span-1">
