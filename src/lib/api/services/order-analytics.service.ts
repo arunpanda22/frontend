@@ -122,6 +122,26 @@ export interface HeatmapParams {
   ad_types?:       string;   // comma-separated subset of "sp,sb,sd"
 }
 
+export interface WeekdaySalesDay {
+  day:         string;   // "Sunday" … "Saturday"
+  day_index:   number;   // 0=Sunday … 6=Saturday
+  revenue:     number;
+  revenue_pct: number;
+  orders:      number;
+  orders_pct:  number;
+}
+
+export interface WeekdaySalesResponse {
+  total_revenue: number;
+  total_orders:  number;
+  days:          WeekdaySalesDay[];
+}
+
+export interface WeekdaySalesParams {
+  date_from?: string;
+  date_to?:   string;
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 const BASE = "/api/v1/dashboard-analytics";
@@ -161,6 +181,11 @@ export const orderAnalyticsService = {
     const res = await apiClient.get<HeatmapFilterOptions>(`${BASE}/heatmap/filters/`, {
       params: { marketplace_id },
     });
+    return res.data;
+  },
+
+  async getWeekdaySales(params?: WeekdaySalesParams): Promise<WeekdaySalesResponse> {
+    const res = await apiClient.get<WeekdaySalesResponse>(`${BASE}/weekday-sales/`, { params });
     return res.data;
   },
 

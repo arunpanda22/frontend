@@ -8,6 +8,8 @@ import { RevenueMap } from './components/RevenueMap'
 import { CohortTable } from './components/CohortTable'
 import TopCohortSkus from './components/TopCohortSkus'
 import { AdsHeatmap } from './components/AdsHeatmap'
+import { WeekdaySalesChart } from './components/WeekdaySalesChart'
+import { useWeekdaySales }    from '@/lib/hooks/queries/use-order-analytics'
 import MetricsCard from '@/components/dashboard/ui/MetricsCard'
 import { useRevenueMap, useCohortOrders, useCohortTopSkus } from '@/lib/hooks/queries/use-order-analytics'
 import {
@@ -163,6 +165,11 @@ const OrderAnalyticsPage = () => {
     }
   }
 
+  const weekdaySales = useWeekdaySales(
+    hasDateRange ? analyticsParams : undefined,
+    true   // always fetch — falls back to all-time when no date range selected
+  )
+
   return (
     <div className="min-h-screen bg-[#f8fafc] py-12 px-12 font-montserrat">
       <div className="w-full transition-all duration-300 space-y-6">
@@ -218,8 +225,28 @@ const OrderAnalyticsPage = () => {
 
         {/* ── Ads Performance Heatmap ── */}
         {/* No date props — component uses its own rolling 7-day window */}
-        <AdsHeatmap />
+        <div className="flex gap-6 items-stretch">
+          {/* Heatmap — takes ~2/3 */}
+          <div className="flex-[2] min-w-0">
+            <AdsHeatmap />
+          </div>
 
+          {/* Weekday bar chart — takes ~1/3 */}
+          <div className="flex-[1] min-w-0 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-slate-700">Sales by Day of Week</h3>
+              <p className="text-xs text-slate-400 mt-0.5">% share of total revenue</p>
+            </div>
+            <div className="flex-1 min-h-0">
+              <WeekdaySalesChart
+                days={weekdaySales.data?.days ?? []}
+                isLoading={weekdaySales.isLoading}
+                isError={weekdaySales.isError}
+                metric="revenue"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -8,6 +8,8 @@ import {
   type HeatmapDataResponse,
   type HeatmapFilterOptions,
   type HeatmapParams,
+  WeekdaySalesResponse,
+  WeekdaySalesParams,
 } from "@/lib/api/services/order-analytics.service";
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
@@ -27,6 +29,9 @@ export const orderAnalyticsQueryKeys = {
     ['order-analytics', 'heatmap', params] as const,
   heatmapFilters: (marketplace?: string) =>
     ['order-analytics', 'heatmap-filters', marketplace] as const,
+
+  weekdaySales: (params?: WeekdaySalesParams) =>
+    ['order-analytics', 'weekday-sales', params] as const,
 };
 
 // ─── Revenue Map hooks ────────────────────────────────────────────────────────
@@ -97,6 +102,16 @@ export function useHeatmapFilterOptions(
     enabled,
     staleTime: 10 * 60 * 1000,
     gcTime:   30 * 60 * 1000,
+  });
+}
+
+export function useWeekdaySales(params?: WeekdaySalesParams, enabled = true) {
+  return useQuery<WeekdaySalesResponse>({
+    queryKey: orderAnalyticsQueryKeys.weekdaySales(params),
+    queryFn:  () => orderAnalyticsService.getWeekdaySales(params),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime:    30 * 60 * 1000,
   });
 }
 
