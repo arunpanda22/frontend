@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import FilterBar from '../../../components/dashboard/ui/FilterBar'
 import { DateRangeProvider, useDateRange } from '@/lib/context/DateRangeContext'
 import type { Range } from 'react-date-range'
@@ -137,9 +137,16 @@ function CohortMetricsRow({ orders, isLoading }: { orders: CohortOrder[]; isLoad
 const OrderAnalyticsPage = () => {
   const { dateRange, updateCustomDates } = useDateRange()
 
+  const [asinFilter, setAsinFilter] = useState<string | undefined>(undefined)
+
   const analyticsParams = {
     date_from: dateRange.startDate ?? undefined,
     date_to:   dateRange.endDate   ?? undefined,
+    ...(asinFilter ? { asin: asinFilter } : {}),  // only include when set
+  }
+
+  const handleAsinChange = (asin: string) => {
+    setAsinFilter(asin || undefined)
   }
 
   const hasDateRange  = !!dateRange.startDate && !!dateRange.endDate
@@ -219,6 +226,7 @@ const OrderAnalyticsPage = () => {
           <RevenueMap
             data={revenueMap.data ?? { total_revenue: 0, total_orders: 0, min_revenue: 0, max_revenue: 0, states: [] }}
             params={analyticsParams}
+            onAsinChange={handleAsinChange}   
             isLoading={revenueMap.isLoading}
           />
         )}

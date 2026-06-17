@@ -78,11 +78,12 @@ export interface CohortTopSkusResponse {
 // ─── Shared params ────────────────────────────────────────────────────────────
 
 export interface OrderAnalyticsParams {
-  date_from?:            string;
-  date_to?:              string;
-  sku?:                  string;
-  sales_channel?:        string;
-  fulfillment_channel?:  string;
+  date_from?:           string;
+  date_to?:             string;
+  asin?:                string;  
+  sku?:                 string;
+  sales_channel?:       string;
+  fulfillment_channel?: string;
 }
 
 // ─── Ads Heatmap ─────────────────────────────────────────────────────────────

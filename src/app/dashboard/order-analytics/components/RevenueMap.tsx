@@ -3,23 +3,14 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import type { RevenueMapResponse, RevenueByState, OrderAnalyticsParams } from '@/lib/api/services/order-analytics.service'
 import { useStateRevenueDetail } from '@/lib/hooks/queries/use-order-analytics'
+import { useAllAsins } from '@/lib/hooks/use-opportunities'
+import ASINFilterDropdown from '../../market-funnel-insights/components/ASINFilterDropdown'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface GeoJSONFeature {
-  type: string
-  properties: Record<string, any>
-  geometry: { type: string; coordinates: any }
-}
-
-interface GeoJSONData {
-  type: string
-  features: GeoJSONFeature[]
-}
-
 interface GeoFeature {
   type: string
-  properties: Record<string, any>  // ← change from { NAME_1: string }
+  properties: Record<string, any>
   geometry: { type: string; coordinates: any }
 }
 
@@ -42,14 +33,14 @@ function getColor(revenue: number | string, min: number | string, max: number | 
   const r = Number(revenue), mn = Number(min), mx = Number(max)
   if (r === 0)   return '#EFF6FF'
   if (mx === mn) return '#BFDBFE'
-  const t = Math.pow((r - mn) / (mx - mn), 0.5)
+  const t  = Math.pow((r - mn) / (mx - mn), 0.5)
   const rv = Math.round(219 - (219 - 29)  * t)
   const g  = Math.round(234 - (234 - 78)  * t)
   const b  = Math.round(254 - (254 - 216) * t)
   return `rgb(${rv},${g},${b})`
 }
 
-// ─── GeoJSON → SVG projection (Mercator-fitted to India) ─────────────────────
+// ─── GeoJSON → SVG projection ─────────────────────────────────────────────────
 
 const MIN_LON = 68,  MAX_LON = 97.5
 const MIN_LAT = 7.5, MAX_LAT = 37
@@ -67,32 +58,29 @@ function coordinatesToPath(coords: any, type: string): string {
       const [x, y] = projectPoint(c[0], c[1])
       return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
     }).join(' ') + ' Z'
-
   if (type === 'Polygon')      return (coords as number[][][]).map(ring2path).join(' ')
-  if (type === 'MultiPolygon') return (coords as number[][][][]).flatMap(poly => poly.map(ring2path)).join(' ')
+  if (type === 'MultiPolygon') return (coords as number[][][][]).flatMap(p => p.map(ring2path)).join(' ')
   return ''
 }
 
-// ─── Name normalisation: TopoJSON NAME_1 → your API state names ──────────────
-// The GeoJSON uses older names; map them to what your API returns.
+// ─── State name normalisation ─────────────────────────────────────────────────
+
 const NAME_MAP: Record<string, string> = {
-  'orissa':                    'Odisha',
-  'uttaranchal':               'Uttarakhand',
-  'pondicherry':               'Puducherry',
-  'jammu & kashmir':           'Jammu and Kashmir',
-  'andaman and nicobar':       'Andaman and Nicobar Islands',
-  'dadra and nagar haveli':    'Dadra and Nagar Haveli and Daman and Diu',
-  'daman and diu':             'Dadra and Nagar Haveli and Daman and Diu',
+  'orissa':                 'Odisha',
+  'uttaranchal':            'Uttarakhand',
+  'pondicherry':            'Puducherry',
+  'jammu & kashmir':        'Jammu and Kashmir',
+  'andaman and nicobar':    'Andaman and Nicobar Islands',
+  'dadra and nagar haveli': 'Dadra and Nagar Haveli and Daman and Diu',
+  'daman and diu':          'Dadra and Nagar Haveli and Daman and Diu',
 }
 
 function normalise(rawName: string): string {
   const lower = rawName.toLowerCase().trim()
-  if (NAME_MAP[lower]) return NAME_MAP[lower]
-  // Title-case as fallback (GeoJSON already has good names like "Maharashtra")
-  return rawName.trim()
+  return NAME_MAP[lower] ?? rawName.trim()
 }
 
-// ─── State detail panel (shown when a state is selected) ─────────────────────
+// ─── State detail panel ───────────────────────────────────────────────────────
 
 interface StatePanelProps {
   state: RevenueByState
@@ -105,7 +93,6 @@ function StatePanel({ state, params, onClose }: StatePanelProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 mb-0.5">
@@ -121,7 +108,6 @@ function StatePanel({ state, params, onClose }: StatePanelProps) {
         </button>
       </div>
 
-      {/* KPI grid */}
       <div className="grid grid-cols-2 gap-px bg-gray-100 shrink-0">
         {[
           { label: 'Revenue', value: formatRevenue(state.revenue) },
@@ -136,7 +122,6 @@ function StatePanel({ state, params, onClose }: StatePanelProps) {
         ))}
       </div>
 
-      {/* Share bar */}
       <div className="px-5 py-3 border-b border-gray-50 shrink-0">
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
@@ -149,7 +134,6 @@ function StatePanel({ state, params, onClose }: StatePanelProps) {
         </p>
       </div>
 
-      {/* Drill-down */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
         {isLoading ? (
           <div className="space-y-2">
@@ -175,7 +159,6 @@ function StatePanel({ state, params, onClose }: StatePanelProps) {
                 </div>
               </div>
             )}
-
             {data.cities?.length > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Cities</p>
@@ -207,7 +190,7 @@ function StatePanel({ state, params, onClose }: StatePanelProps) {
   )
 }
 
-// ─── Default sidebar: ranked list of all states ───────────────────────────────
+// ─── Top states sidebar ───────────────────────────────────────────────────────
 
 interface TopStatesSidebarProps {
   states: RevenueByState[]
@@ -273,30 +256,52 @@ function TopStatesSidebar({ states, activeState, onSelect, minRevenue, maxRevenu
 interface RevenueMapProps {
   data: RevenueMapResponse
   params?: OrderAnalyticsParams
+  onAsinChange: (asin: string) => void  // ← new
   isLoading?: boolean
 }
 
-export function RevenueMap({ data, params, isLoading }: RevenueMapProps) {
-  const [activeState, setActiveState] = useState<RevenueByState | null>(null)
-  const [tooltip, setTooltip]         = useState<{ x: number; y: number; state: RevenueByState } | null>(null)
-  const [geoData, setGeoData]         = useState<GeoData | null>(null)
-  const [geoError, setGeoError]       = useState(false)
-  
+export function RevenueMap({ data, params, onAsinChange, isLoading }: RevenueMapProps) {
+  const [activeState,  setActiveState]  = useState<RevenueByState | null>(null)
+  const [tooltip,      setTooltip]      = useState<{ x: number; y: number; state: RevenueByState } | null>(null)
+  const [geoData,      setGeoData]      = useState<GeoData | null>(null)
+  const [geoError,     setGeoError]     = useState(false)
+  const [selectedAsin, setSelectedAsin] = useState<string>('')  // ← new
 
-  // Lookup map: lowercase state name → revenue data
+  // Fetch ASIN list for the dropdown
+  const { data: allAsinsData } = useAllAsins()
+  const asins = useMemo(
+    () => (allAsinsData?.results ?? []).map(item => ({
+      asin:         item.asin,
+      product_name: item.product_name ?? null,
+      image_url:    item.image_url    ?? null,
+    })),
+    [allAsinsData]
+  )
+
+  const handleAsinSelect = (asin: string) => {
+    setSelectedAsin(asin)
+    setActiveState(null)  // clear drill-down when filter changes
+    onAsinChange(asin)
+  }
+
+  const handleAsinSelectAll = () => {
+    setSelectedAsin('')
+    setActiveState(null)
+    onAsinChange('')
+  }
+
   const stateMap = useMemo(() => {
     const m = new Map<string, RevenueByState>()
     data.states.forEach((s) => m.set(s.state.toLowerCase().trim(), s))
     return m
   }, [data.states])
 
-  // Load TopoJSON from /public/india-states.json
   useEffect(() => {
     fetch('/india-states.json')
-        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-        .then((geo: GeoData) => setGeoData(geo))
-        .catch((e) => { console.error('[RevenueMap]', e); setGeoError(true) })
-    }, [])
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then((geo: GeoData) => setGeoData(geo))
+      .catch((e) => { console.error('[RevenueMap]', e); setGeoError(true) })
+  }, [])
 
   if (isLoading) {
     return (
@@ -320,20 +325,20 @@ export function RevenueMap({ data, params, isLoading }: RevenueMapProps) {
             {formatRevenue(data.total_revenue)} across {Number(data.total_orders).toLocaleString()} orders
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-400">{formatRevenue(data.min_revenue)}</span>
-          <div
-            className="w-28 h-2.5 rounded-full border border-gray-100"
-            style={{ background: 'linear-gradient(to right, #EFF6FF, #1D4ED8)' }}
-          />
-          <span className="text-[10px] text-gray-400">{formatRevenue(data.max_revenue)}</span>
-        </div>
+
+        {/* ← Legend removed; ASIN dropdown takes its place */}
+        <ASINFilterDropdown
+          asins={asins}
+          selectedAsin={selectedAsin}
+          onSelect={handleAsinSelect}
+          onSelectAll={handleAsinSelectAll}
+        />
       </div>
 
-      {/* ── Body: map 2/3 + sidebar 1/3 ── */}
+      {/* ── Body ── */}
       <div className="flex" style={{ height: '600px' }}>
 
-        {/* Map — flex-1 ≈ 2/3 */}
+        {/* Map */}
         <div className="flex-1 relative overflow-hidden border-r border-gray-50">
           {geoError && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-red-400">
@@ -346,13 +351,8 @@ export function RevenueMap({ data, params, isLoading }: RevenueMapProps) {
             </div>
           )}
 
-          <svg
-            viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-            className="w-full h-full"
-            style={{ display: 'block' }}
-          >
+          <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-full" style={{ display: 'block' }}>
             {geoData?.features.map((feat, idx) => {
-              // TopoJSON property key is NAME_1 in our generated file
               const rawName  = feat.properties?.NAME_1 ?? feat.properties?.st_nm ?? feat.properties?.name ?? ''
               const dispName = normalise(rawName)
               const stData   = stateMap.get(dispName.toLowerCase().trim())
@@ -374,9 +374,7 @@ export function RevenueMap({ data, params, isLoading }: RevenueMapProps) {
                     filter:     isActive ? 'drop-shadow(0 1px 4px rgba(29,78,216,0.25))' : 'none',
                     transition: 'fill 150ms, stroke 150ms',
                   }}
-                  onClick={() => {
-                    if (stData) setActiveState(isActive ? null : stData)
-                  }}
+                  onClick={() => { if (stData) setActiveState(isActive ? null : stData) }}
                   onMouseEnter={(e) => {
                     if (!stData) return
                     const rect = e.currentTarget.ownerSVGElement?.getBoundingClientRect()
@@ -407,7 +405,7 @@ export function RevenueMap({ data, params, isLoading }: RevenueMapProps) {
           )}
         </div>
 
-        {/* Sidebar — fixed w-72 ≈ 1/3 */}
+        {/* Sidebar */}
         <div className="w-72 shrink-0 flex flex-col overflow-hidden">
           {activeState ? (
             <StatePanel
