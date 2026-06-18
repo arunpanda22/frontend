@@ -158,6 +158,7 @@ const COLUMN_MAPPINGS: Record<string, ColumnDefinition[]> = {
     { field: 'Targeting', headerName: 'Target', type: 'text', editable: false, width: 250, autoFitHeader: true },
     { field: 'match_type', headerName: 'Match Type', type: 'text', editable: false, width: 130, autoFitHeader: true },
     { field: 'Ad Type', headerName: 'Ad Type', type: 'text', editable: false, width: 150, autoFitHeader: true },
+    { field: 'video_asset_id', headerName: 'Asset id', type: 'text', editable: false, width: 150, autoFitHeader: true },
     { field: 'Bid', headerName: 'Bid', type: 'number', editable: true, width: 120, autoFitHeader: true },
   ],
   sp_negatives: [
@@ -329,14 +330,15 @@ export const OptimizationTableDrawer: React.FC<OptimizationTableDrawerProps> = (
     setShowPushConfirm(true);
   }, [tableData, categoryKey]);
 
+  
+
   const handlePush = useCallback(async (dryrun = false) => {
     setIsPushing(true);
     setShowPushConfirm(false);
     try {
       const clean = getCleanData();
-      // Save to store first so the card count reflects the pushed data
+      await onPush(categoryKey, clean, dryrun); 
       onSave(categoryKey, clean);
-      await onPush(categoryKey, clean, dryrun);
       setValidationErrors([]);
       onClose();
     } catch (err) {

@@ -165,6 +165,7 @@ export interface NewCampaignSuggestion {
   "Product Pages Amazon": number;
   "Amazon Business"?: number;
   "Ad Type"?: string;
+  "video_asset_id"?: string;
   Source: string;
 }
 

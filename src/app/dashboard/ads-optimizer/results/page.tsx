@@ -117,7 +117,7 @@ export default function AdsOptimizerResultsPage() {
       { position: "top-right" },
     );
     try {
-      const result = await pushCategory(key as any, dryrun);
+      const result = await pushCategory(key as any, dryrun, data);  // ← pass data
       if (result.success) {
         toast.success(
           dryrun

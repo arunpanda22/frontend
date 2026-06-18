@@ -109,24 +109,23 @@ export function usePushOptimizations() {
    * fine, the backend handles it.
    */
   const pushCategory = useCallback(
-    async (category: OptimizationKey, dryrun = false): Promise<PushResult> => {
+    async (
+      category: OptimizationKey,
+      dryrun = false,
+      rowsOverride?: any[],   // ← add this
+    ): Promise<PushResult> => {
       try {
-        const rows = categoryData[category];
+        const rows = rowsOverride ?? categoryData[category];  // ← prefer override
         if (!rows || rows.length === 0) {
           return { success: false, error: "No data to push" };
         }
 
         const linked = BID_PLACEMENT_LINKS[category];
 
-        // ── Linked: bid + placement in one request ────────────────────────
         if (linked) {
           const linkedRows = categoryData[linked] ?? [];
-
           const payload = {
-            optimizations: {
-              [category]: rows,
-              [linked]:   linkedRows,
-            },
+            optimizations: { [category]: rows, [linked]: linkedRows },
             dryrun,
           };
 
