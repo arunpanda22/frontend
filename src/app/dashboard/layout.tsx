@@ -34,7 +34,8 @@ export default function MainDashboardLayout({ children }: { children: React.Reac
 
   const noLinkedAccounts = !!userProfile &&
     (userProfile.connected_advertising_profiles?.length ?? 0) === 0 &&
-    (userProfile.connected_seller_accounts?.length ?? 0) === 0;
+    (userProfile.connected_seller_accounts?.length ?? 0) === 0 &&
+    (userProfile.connected_vendor_accounts?.length ?? 0);
 
   if (noLinkedAccounts) {
     return (

@@ -12,6 +12,7 @@ import {
 } from '@/lib/api/config'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { ConnectedVendorAccount } from '../hooks/queries/use-user-profile'
 
 // Your existing interfaces (keep them as is)
 export interface RBACContext {
@@ -76,6 +77,7 @@ export interface UserProfile {
   rbac_context: RBACContext | null
   connected_advertising_profiles: ConnectedAdvertisingProfile[]
   connected_seller_accounts: ConnectedSellerAccount[]
+  connected_vendor_accounts: ConnectedVendorAccount[]
   isImpersonating?: boolean
   originalUser?: {
     id: number
@@ -213,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           rbac_context: userData.rbac_context || null,
           connected_advertising_profiles: userData.connected_advertising_profiles || [],
           connected_seller_accounts: userData.connected_seller_accounts || [],
+          connected_vendor_accounts: userData.connected_vendor_accounts || [],
           isImpersonating: impersonationActive,
           originalUser: originalUser
         }

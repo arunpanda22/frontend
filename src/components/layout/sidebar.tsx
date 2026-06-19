@@ -43,7 +43,11 @@ export function Sidebar() {
       });
       if (!hasAccess) return false;
       if (route.requiresSellerAccount) {
-        return (userProfile?.connected_seller_accounts?.length ?? 0) > 0;
+        return (
+          (userProfile?.connected_seller_accounts?.length ?? 0) > 0 ||
+          (userProfile?.connected_vendor_accounts?.length ?? 0) > 0 ||
+          (userProfile?.connected_advertising_profiles?.length ?? 0) > 0
+        );
       }
       return true;
     });
