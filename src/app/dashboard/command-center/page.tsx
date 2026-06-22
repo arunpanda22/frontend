@@ -18,6 +18,10 @@ import TopAsinsRevenue from "./components/TopAsinsCard";
 import CategoryRevenueDonut from "./components/CategoryRevenueDonut";
 import ReturnReplacementCards from "./components/ReturnReplacementCard";
 import { useAdsSalesData } from "@/lib/hooks/queries/use-dashboard";
+import {
+  useHasSellerAccount,
+  useHasVendorAccount,
+} from "@/lib/hooks/queries/use-user-profile";
 
 // Separate component that uses the context
 const DashboardContent = () => {
@@ -31,6 +35,18 @@ const DashboardContent = () => {
     getCurrencySymbol,
     formatChange,
   } = useCurrency();
+
+  // Account connectivity — this is what we gate rendering on, not RBAC.
+  // Any user with at least one connected Amazon account (seller or vendor)
+  // can see this page; what differs is which cards make sense to show,
+  // since some data sources (returns/replacements, inventory aging) have
+  // no vendor-side equivalent at all.
+  const { hasSellerAccount, isLoading: isSellerAccountLoading } =
+    useHasSellerAccount();
+  const { hasVendorAccount, isLoading: isVendorAccountLoading } =
+    useHasVendorAccount();
+
+  const isAccountInfoLoading = isSellerAccountLoading || isVendorAccountLoading;
 
   // Convert context date range to FilterBar format
   const filterBarDateRange = {
@@ -165,6 +181,23 @@ const DashboardContent = () => {
     console.error("Error fetching ads-sales data:", adsSalesError);
   }
 
+  // Avoid a layout flash where seller-only cards briefly render before we
+  // know which accounts are connected. Account info is cheap/cached
+  // (useUserProfile has a 30min staleTime) so this should resolve fast.
+  if (isAccountInfoLoading) {
+    return (
+      <div className="min-h-screen py-12 px-12 font-montserrat">
+        <div className="w-full transition-all duration-300">
+          <FilterBar
+            title="Command Center"
+            dateRange={filterBarDateRange}
+            onDateRangeChange={handleDateRangeChange}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen py-12 px-12 font-montserrat">
       <div className="w-full transition-all duration-300">
@@ -216,10 +249,17 @@ const DashboardContent = () => {
 
               {/* Right: Donut + Lowlights */}
               <div className="lg:col-span-4 flex flex-col gap-4 md:gap-6">
-   
+
                   <CategoryRevenueDonut />
 
-                  <ReturnReplacementCards />
+                  {/*
+                    ReturnReplacementCards has no vendor-data equivalent —
+                    FBA-only by definition (return/replacement reports only
+                    exist for Seller Central). Don't mount it at all for
+                    vendor-only accounts rather than letting it fetch and
+                    fail, or render an empty/broken card.
+                  */}
+                  {hasSellerAccount && <ReturnReplacementCards />}
               </div>
             </div>
           {/* </section> */}
@@ -241,14 +281,30 @@ const DashboardContent = () => {
           </div>
         </div>
 
+        {hasSellerAccount && (
         <div className="flex flex-col">
           <h2 className="text-xl font-bold text-[#1a2b3c] mb-6 tracking-tight px-2">
             Inventory
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">
-            <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
-              <InventoryAging />
-            </div>
+            {/*
+              InventoryAging has no vendor-data equivalent — there's no
+              vendor aging/days-in-inventory report at all, so this card
+              only makes sense for seller accounts. Same treatment as
+              ReturnReplacementCards above: don't mount it for vendor-only.
+            */}
+            
+              <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
+                <InventoryAging />
+              </div>
+            
+
+            {/*
+              InventoryHealthDonut and InventoryReplenishment both call
+              inventory-health, which now computes correctly from vendor
+              data alone when there's no seller account (see InventoryService
+              vendor-only fix). These can always render — no gating needed.
+            */}
             <div className="col-span-2 lg:col-span-2 row-span-1 h-full">
               <InventoryHealthDonut />
             </div>
@@ -257,6 +313,7 @@ const DashboardContent = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

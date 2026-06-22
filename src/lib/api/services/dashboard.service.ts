@@ -554,7 +554,7 @@ export const dashboardService = {
     supply_chain_lead_time?: number;
   }) {
     const res = await apiClient.get<InventoryHealthResponse>(
-      "/api/v1/dashboard-api/inventory-health/",
+      "/api/v1/optivise-x/inventory-health/",
       {
         params: options,
       }
@@ -704,7 +704,7 @@ export const dashboardService = {
     console.log("Fetching ads-sales data with options:", options);
     const res = await apiClient.get<
       AdsSalesResponse | { json: AdsSalesResponse }
-    >("/api/v1/dashboard-api/ads-sales/", { params: options });
+    >("/api/v1/optivise-x/ads-sales/", { params: options });
 
     // Handle wrapped response structure - extract from 'json' if present
     if ("json" in res.data) {
