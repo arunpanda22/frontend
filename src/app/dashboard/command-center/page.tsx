@@ -319,7 +319,7 @@ const DashboardContent = () => {
   );
 };
 
-// Main wrapper component
+
 export default function DashboardLayout() {
   return (
     <DateRangeProvider defaultPreset="this month">

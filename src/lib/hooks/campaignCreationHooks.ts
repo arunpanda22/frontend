@@ -12,6 +12,8 @@ import {
   type BulkProductRow,
   type MultiAsinKWBulkRow,
   type MultiAsinPTBulkRow,
+  type MultiAsinAutoBulkRow,
+  type AutoTargetGroup,
   type RowStatus,
 } from '@/lib/store/campaignCreationStore'
 
@@ -904,8 +906,6 @@ export function useBulkMultiAsinPTSubmit() {
 
 // ── useBulkAutoSubmit ─────────────────────────────────────────────────────────
 
-import type { AutoTargetGroup } from '@/lib/store/campaignCreationStore'
-
 const PAUSED = 'PAUSED' as const
 const ENABLED = 'ENABLED' as const
 
@@ -1001,5 +1001,140 @@ export function useBulkAutoSubmit() {
     pendingCount: autoBulkRows.filter((r) => r._status === 'idle').length,
     failedCount:  autoBulkRows.filter((r) => r._status === 'error').length,
     successCount: autoBulkRows.filter((r) => r._status === 'success').length,
+  }
+}
+
+// ── useBulkMultiAsinAutoSubmit ────────────────────────────────────────────────
+// Rollup mode for Auto Targeting: rows are grouped by theme, pooling many ASINs
+// into a single campaign. Within a theme, each distinct target_group present
+// becomes ENABLED at the campaign level with its own bid; groups with no rows
+// stay PAUSED. Since Auto Targeting state/bid is campaign-level (not per-ASIN),
+// the "first row wins" dedup rule for a given (theme, target_group) is applied
+// at parse-time in the store (parsePastedMultiAsinAutoData) — every row reaching
+// this hook for a given theme+group is already unique.
+
+function buildMultiAsinAutoPayload(
+  rows: MultiAsinAutoBulkRow[],
+  first: MultiAsinAutoBulkRow,
+  TOS: number, ROS: number, PP: number, AB: number,
+  minBid: number,
+): AutoTargetingPayload {
+  const asins = [...new Set(rows.map((r) => r.asin).filter(Boolean))]
+
+  const bidFor = (g: AutoTargetGroup): number => {
+    const row = rows.find((r) => r.target_group === g)
+    return row ? row.bid : minBid
+  }
+  const stateFor = (g: AutoTargetGroup): AutoState =>
+    rows.some((r) => r.target_group === g) ? ENABLED : PAUSED
+
+  return {
+    campaign_name:     first.campaign_name,
+    budget:            first.budget,
+    TOS_bidding:       TOS,
+    ROS_bidding:       ROS,
+    PP_bidding:        PP,
+    AB_bidding:        AB,
+    dynamic_bidding:   first.dynamic_bidding,
+    default_bid:       minBid,
+    start_date:        first.start_date,
+    asins,
+    theme:             first.theme,   // ← required by backend whenever asins.length > 1
+    close_match_state: stateFor('close_match'),
+    close_match_bid:   bidFor('close_match'),
+    loose_match_state: stateFor('loose_match'),
+    loose_match_bid:   bidFor('loose_match'),
+    substitutes_state: stateFor('substitutes'),
+    substitutes_bid:   bidFor('substitutes'),
+    complements_state: stateFor('complements'),
+    complements_bid:   bidFor('complements'),
+    ...(first.intent ? { intent: first.intent } : {}),
+  }
+}
+
+export function useBulkMultiAsinAutoSubmit() {
+  const { multiAsinAutoRows, sharedDefaults, setMultiAsinAutoStatusByTheme } =
+    useCampaignCreationStore()
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [summary,      setSummary]      = useState<BulkSubmitSummary | null>(null)
+  const { minBid } = useCampaignDefaults()
+
+  const submitAll = useCallback(async (): Promise<BulkSubmitSummary> => {
+    // Always group by theme — pools every ASIN + targeting-group row sharing
+    // the same theme into a single Auto Targeting campaign.
+    const groupMap = new Map<string, typeof multiAsinAutoRows>()
+    for (const row of multiAsinAutoRows) {
+      if (!groupMap.has(row.theme)) groupMap.set(row.theme, [])
+      groupMap.get(row.theme)!.push(row)
+    }
+
+    const pending = [...groupMap.entries()].filter(
+      ([, rows]) => rows.some((r) => r._status !== 'success')
+    )
+
+    if (pending.length === 0) {
+      const s = { total: 0, success: 0, failed: 0 }
+      setSummary(s)
+      return s
+    }
+
+    setIsSubmitting(true)
+    setSummary(null)
+    const { TOS_bidding, ROS_bidding, PP_bidding, AB_bidding } = sharedDefaults
+    let successes = 0, failures = 0
+
+    for (const [theme, rows] of pending) {
+      const first = rows[0]
+      setMultiAsinAutoStatusByTheme(theme, 'loading')
+      try {
+        const response = await campaignApi.createAutoTargeting(
+          buildMultiAsinAutoPayload(rows, first, TOS_bidding, ROS_bidding, PP_bidding, AB_bidding, minBid)
+        )
+        const uniqueAsins  = new Set(rows.map((r) => r.asin)).size
+        const uniqueGroups = new Set(rows.map((r) => r.target_group)).size
+        console.log(
+          `✅ Multi-ASIN Auto [${theme}] (${uniqueAsins} asins, ${uniqueGroups} groups):`,
+          response.data.campaign_id,
+        )
+        setMultiAsinAutoStatusByTheme(theme, 'success')
+        successes++
+      } catch (error) {
+        const msg = parseBulkError(error)
+        console.error(`❌ Multi-ASIN Auto failed [${theme}]:`, msg)
+        setMultiAsinAutoStatusByTheme(theme, 'error', msg)
+        failures++
+      }
+    }
+
+    const s: BulkSubmitSummary = { total: pending.length, success: successes, failed: failures }
+    setSummary(s)
+    setIsSubmitting(false)
+    return s
+  }, [multiAsinAutoRows, sharedDefaults, setMultiAsinAutoStatusByTheme, minBid])
+
+  const retryFailed = useCallback(() => {
+    const failedThemes = new Set(multiAsinAutoRows.filter((r) => r._status === 'error').map((r) => r.theme))
+    failedThemes.forEach((t) => setMultiAsinAutoStatusByTheme(t, 'idle'))
+    setSummary(null)
+  }, [multiAsinAutoRows, setMultiAsinAutoStatusByTheme])
+
+  const clearSummary = useCallback(() => setSummary(null), [])
+
+  const themeStatuses = useMemo(() => {
+    const map = new Map<string, 'idle' | 'loading' | 'success' | 'error'>()
+    const priority = { error: 4, loading: 3, idle: 2, success: 1 } as const
+    for (const row of multiAsinAutoRows) {
+      const cur = map.get(row.theme)
+      if (!cur || priority[row._status] > priority[cur]) map.set(row.theme, row._status)
+    }
+    return [...map.values()]
+  }, [multiAsinAutoRows])
+
+  return {
+    submitAll, retryFailed, clearSummary, isSubmitting, summary,
+    pendingCount: themeStatuses.filter((s) => s === 'idle').length,
+    failedCount:  themeStatuses.filter((s) => s === 'error').length,
+    successCount: themeStatuses.filter((s) => s === 'success').length,
   }
 }

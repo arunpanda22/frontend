@@ -97,6 +97,23 @@ export interface MultiAsinPTBulkRow {
   _error?: string;
 }
 
+// ── Multi-ASIN Auto Targeting bulk row type ───────────────────────────────────
+
+export interface MultiAsinAutoBulkRow {
+  _id: string;
+  campaign_name: string; // spanned — same for all rows with same theme
+  theme: string; // spanned — campaign grouping key
+  asin: string; // per-row — one ASIN per row, pooled into asins[] at submit
+  target_group: AutoTargetGroup; // per-row
+  bid: number; // per-row — first occurrence per (theme, group) wins
+  budget: number; // spanned
+  start_date: string; // spanned
+  dynamic_bidding: DynamicBidding; // spanned
+  intent: string; // spanned
+  _status: RowStatus; // spanned
+  _error?: string;
+}
+
 // ── Category Bulk Row type ────────────────────────────────────────────────────
 export interface CategoryBulkRow {
   _id: string;
@@ -158,6 +175,29 @@ export function buildPTCampaignName(
   }
   const target = targetAsin.trim() ? ` - ${targetAsin.trim()}` : "";
   return `${asin.trim()} - SP - PT - SPT${target}${intentSuffix}`;
+}
+
+const AUTO_GROUP_LABEL: Record<AutoTargetGroup, string> = {
+  close_match: "Close Match",
+  loose_match: "Loose Match",
+  substitutes: "Substitutes",
+  complements: "Complements",
+};
+
+export function computeMultiAsinAutoName(
+  theme: string,
+  rows: Array<{ target_group: AutoTargetGroup }>,
+  intent?: string,
+): string {
+  const intentSuffix = intent?.trim() ? ` - ${intent.trim()}` : "";
+  const uniqueGroups = [...new Set(rows.map((r) => r.target_group))];
+  const suffix =
+    uniqueGroups.length === 0
+      ? "AUTO"
+      : uniqueGroups.length === 1
+        ? `AUTO - ${AUTO_GROUP_LABEL[uniqueGroups[0]]}`
+        : "AUTO - multi-state";
+  return `${theme} - SP - ${suffix}${intentSuffix}`;
 }
 
 function computeMultiAsinKWName(
@@ -352,6 +392,21 @@ interface CampaignCreationState {
     minBid: number,
   ) => { added: number; skipped: number; invalidAsins: number };
   clearAutoBulkRows: () => void;
+
+  // ── Multi-ASIN Auto Targeting bulk (rollup) ──────────────────────────────
+  multiAsinAutoRows: MultiAsinAutoBulkRow[];
+  setMultiAsinAutoRows: (rows: MultiAsinAutoBulkRow[]) => void;
+  setMultiAsinAutoStatusByTheme: (
+    theme: string,
+    status: RowStatus,
+    error?: string,
+  ) => void;
+  parsePastedMultiAsinAutoData: (
+    text: string,
+    minBudget: number,
+    minBid: number,
+  ) => { added: number; skipped: number; invalidAsins: number };
+  clearMultiAsinAutoRows: () => void;
 
   // Reset
   reset: () => void;
@@ -1103,6 +1158,116 @@ export const useCampaignCreationStore = create<CampaignCreationState>(
 
     clearAutoBulkRows: () => set({ autoBulkRows: [] }),
 
+    multiAsinAutoRows: [],
+    setMultiAsinAutoRows: (rows) => set({ multiAsinAutoRows: rows }),
+
+    setMultiAsinAutoStatusByTheme: (theme, status, error) =>
+      set((state) => ({
+        multiAsinAutoRows: state.multiAsinAutoRows.map((r) =>
+          r.theme === theme ? { ...r, _status: status, _error: error } : r,
+        ),
+      })),
+
+    parsePastedMultiAsinAutoData: (text, minBudget, minBid) => {
+      const { sharedDefaults } = get();
+
+      const GROUP_MAP: Record<string, AutoTargetGroup> = {
+        close: "close_match",
+        close_match: "close_match",
+        "close match": "close_match",
+        loose: "loose_match",
+        loose_match: "loose_match",
+        "loose match": "loose_match",
+        subs: "substitutes",
+        substitutes: "substitutes",
+        comps: "complements",
+        complements: "complements",
+      };
+
+      let added = 0,
+        skipped = 0,
+        invalidAsins = 0;
+      const newRows: MultiAsinAutoBulkRow[] = [];
+      const seenKeys = new Set<string>(); // theme|asin|target_group — first row wins
+
+      // Paste columns: Theme | ASIN | Targeting Group | Bid | Budget | Intent
+      text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .forEach((line) => {
+          const [rawTheme, rawAsin, rawGroup, rawBid, rawBudget, rawIntent] =
+            line.split("\t").map((c) => c.trim());
+
+          const theme = rawTheme?.trim();
+          const asin = rawAsin?.trim();
+          if (!theme || !asin) {
+            skipped++;
+            return;
+          }
+          if (!isValidAsin(asin)) {
+            invalidAsins++;
+            skipped++;
+            return;
+          }
+
+          const group = GROUP_MAP[rawGroup?.toLowerCase().trim()];
+          if (!group) {
+            skipped++; // unrecognised targeting group name
+            return;
+          }
+
+          const key = `${theme}|${asin}|${group}`;
+          if (seenKeys.has(key)) {
+            skipped++; // duplicate ASIN + group within the same theme — first row wins
+            return;
+          }
+          seenKeys.add(key);
+
+          const bid = Number(rawBid) || minBid;
+          const intent = rawIntent?.trim() ?? "";
+          const budget = rawBudget
+            ? Math.max(minBudget, Number(rawBudget) || minBudget)
+            : sharedDefaults.budget;
+
+          newRows.push({
+            _id: uid(),
+            campaign_name: "", // computed below, once grouped by theme
+            theme,
+            asin,
+            target_group: group,
+            bid,
+            budget,
+            start_date: sharedDefaults.start_date,
+            dynamic_bidding: sharedDefaults.dynamic_bidding,
+            intent,
+            _status: "idle",
+          });
+          added++;
+        });
+
+      if (newRows.length > 0) {
+        const themeMap = new Map<string, typeof newRows>();
+        for (const r of newRows) {
+          if (!themeMap.has(r.theme)) themeMap.set(r.theme, []);
+          themeMap.get(r.theme)!.push(r);
+        }
+        for (const r of newRows) {
+          r.campaign_name = computeMultiAsinAutoName(
+            r.theme,
+            themeMap.get(r.theme)!,
+            r.intent,
+          );
+        }
+        set((state) => ({
+          multiAsinAutoRows: [...state.multiAsinAutoRows, ...newRows],
+        }));
+      }
+      return { added, skipped, invalidAsins };
+    },
+
+    clearMultiAsinAutoRows: () => set({ multiAsinAutoRows: [] }),
+
     // ── Reset ─────────────────────────────────────────────────────────────────────
 
     reset: () =>
@@ -1113,6 +1278,8 @@ export const useCampaignCreationStore = create<CampaignCreationState>(
         productBulkRows: [],
         multiAsinKWRows: [],
         multiAsinPTRows: [],
+        autoBulkRows: [],
+        multiAsinAutoRows: [],
       }),
   }),
 );
