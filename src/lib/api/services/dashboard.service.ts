@@ -576,7 +576,7 @@ export const dashboardService = {
   // Campaign Summary
   async getCampaignSummary(period?: string) {
     const res = await apiClient.get<CampaignSummaryItem[]>(
-      "/api/v1/dashboard-api/campaign-summary/",
+      "/api/v1/optivise-x/campaign-summary/",
       {
         params: { period },
       }
@@ -614,7 +614,7 @@ export const dashboardService = {
       finalParams: params,
     });
 
-    const res = await apiClient.get("/api/v1/dashboard-api/campaign-summary/", {
+    const res = await apiClient.get("/api/v1/optivise-x/campaign-summary/", {
       params,
     });
 
@@ -670,7 +670,7 @@ export const dashboardService = {
   }) {
     console.log("Fetching weekly data with options:", options);
     const res = await apiClient.get<WeeklyDataResponse>(
-      "/api/v1/dashboard-api/weekly/",
+      "/api/v1/optivise-x/weekly/",
       {
         params: options,
       }
@@ -757,7 +757,7 @@ export const dashboardService = {
     focus_level?: "high" | "medium" | "low" | "all"
   }): Promise<CombinedAsinSummaryResponse> {
     const res = await apiClient.get<CombinedAsinSummaryResponse>(
-      "/api/v1/dashboard-api/asin-summary-combined/",
+      "/api/v1/optivise-x/asin-summary-combined/",
       {
         params: options,
       }
@@ -796,7 +796,7 @@ export const dashboardService = {
   }) {
     console.log("Fetching campaign metrics with options:", options);
     const res = await apiClient.get<CampaignMetricsResponse>(
-      "/api/v1/dashboard-api/campaign-metrics/",
+      "/api/v1/optivise-x/campaign-metrics/",
       {
         params: options,
       }
@@ -852,7 +852,7 @@ export const dashboardService = {
       options
     );
     const res = await apiClient.get<SalesContributionResponse>(
-      "/api/v1/dashboard-api/sales-contribution-by-category/",
+      "/api/v1/optivise-x/sales-contribution-by-category/",
       {
         params: options,
       }
