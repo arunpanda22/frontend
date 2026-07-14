@@ -99,6 +99,12 @@ const DASHBOARD_ADOPTIMUS_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
+    name: 'Image Studio',
+    href: '/dashboard/image-generator',
+    permission: 'access_catalogue_creation',
+    requiresSellerAccount: true,
+  },
+  {
     name: 'Opportunity Optimizer',
     href: '/dashboard/opportunities-v2',
     permission: 'access_oppurtunities',

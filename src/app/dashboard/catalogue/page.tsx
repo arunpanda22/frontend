@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import {
   ChevronDown,
   Copy,
   Zap,
   BarChart3,
   LayoutTemplate,
-  Images,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,14 +17,10 @@ import { KeywordsList } from "./components/keywords-list";
 import { ContentEditor } from "./components/content-editor";
 import { CatalogueForm } from "./components/catalogue-form";
 import { KeywordFilterTable } from "./components/keyword-filter-table";
-import {
-  ImageGenerationDrawer,
-  type DrawerMode,
-} from "./components/ImageGenerationDrawer";
 import { useToast } from "@/components/ui/use-toast";
 import { useCatalogStore } from "@/lib/hooks/queries/use-catalog-store";
 import { useCatalogOperations } from "@/lib/hooks/use-catalogue-operations";
-import { Download, Image, Vrpano } from "@mui/icons-material";
+import { Download } from "@mui/icons-material";
 
 export default function CataloguePage() {
   const { toast } = useToast();
@@ -52,8 +49,6 @@ export default function CataloguePage() {
     setDescription,
     setBackendKeywords,
     setIsOptimizing,
-    generatedImages,
-    generatedBanners,
   } = useCatalogStore();
 
   // Local UI state
@@ -62,7 +57,6 @@ export default function CataloguePage() {
   const [showKeywordInput, setShowKeywordInput] = useState(false);
   const [formCollapsed, setFormCollapsed] = useState(false);
   const [tableCollapsed, setTableCollapsed] = useState(false);
-  const [activeDrawer, setActiveDrawer] = useState<DrawerMode | null>(null);
   const [showEditorSection, setShowEditorSection] = useState(false);
 
   // ── Derived keyword data ────────────────────────────────────────────────────
@@ -122,10 +116,6 @@ export default function CataloguePage() {
     () => words.filter((w) => !wordUsage.has(w.toLowerCase())),
     [words, wordUsage],
   );
-
-  // ── Image presence flags ────────────────────────────────────────────────────
-  const hasProductImages = Object.keys(generatedImages).length > 0;
-  const hasAplusImages = Object.keys(generatedBanners).length > 0;
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const copyToClipboard = useCallback(
@@ -267,7 +257,7 @@ export default function CataloguePage() {
     }
   };
 
-  // ── Download ZIP (content only when no images) ───────────────────────────
+  // ── Download ZIP (listing content + image/A+ briefs — no generated images) ──
   const handleDownload = useCallback(async () => {
     const { default: JSZip } = await import("jszip");
     const { Document, Packer, Paragraph, TextRun, AlignmentType } =
@@ -432,42 +422,6 @@ export default function CataloguePage() {
       zip.file("aplus-brief.docx", await Packer.toBlob(doc));
     }
 
-    // ── 4. Product images ─────────────────────────────────────────────────────
-    if (Object.keys(generatedImages).length > 0) {
-      const folder = zip.folder("product-images")!;
-      for (const [id, url] of Object.entries(generatedImages)) {
-        try {
-          folder.file(
-            `image-${id}.png`,
-            url.startsWith("data:")
-              ? url.split(",")[1]
-              : await (await fetch(url)).blob(),
-            url.startsWith("data:") ? { base64: true } : {},
-          );
-        } catch {
-          /* skip failed */
-        }
-      }
-    }
-
-    // ── 5. A+ banner images ───────────────────────────────────────────────────
-    if (Object.keys(generatedBanners).length > 0) {
-      const folder = zip.folder("aplus-images")!;
-      for (const [id, url] of Object.entries(generatedBanners)) {
-        try {
-          folder.file(
-            `banner-${id}.png`,
-            url.startsWith("data:")
-              ? url.split(",")[1]
-              : await (await fetch(url)).blob(),
-            url.startsWith("data:") ? { base64: true } : {},
-          );
-        } catch {
-          /* skip failed */
-        }
-      }
-    }
-
     const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
     Object.assign(document.createElement("a"), {
@@ -477,18 +431,14 @@ export default function CataloguePage() {
     URL.revokeObjectURL(url);
 
     toast({
-      description: `Downloaded Word documents${hasProductImages || hasAplusImages ? " and images" : ""}`,
+      description: "Downloaded Word documents",
     });
   }, [
     title,
     bullets,
     description,
     backendKeywords,
-    generatedImages,
-    generatedBanners,
     catalogueFormState.asin,
-    hasProductImages,
-    hasAplusImages,
     toast,
   ]);
 
@@ -510,17 +460,26 @@ export default function CataloguePage() {
               Create keyword-optimized product listings in minutes
             </p>
           </div>
-          <button
-            onClick={() => setShowEditorSection((v) => !v)}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium transition-colors mt-1 ${
-              showEditorSection
-                ? "border-cyan-300 bg-cyan-600 text-white hover:bg-cyan-700"
-                : "border-white/30 bg-white/10 text-white hover:bg-white/20"
-            }`}
-          >
-            <LayoutTemplate className="w-3.5 h-3.5 flex-shrink-0" />
-            {showEditorSection ? "Hide Editor" : "Open Editor"}
-          </button>
+          <div className="flex items-center gap-2 mt-1">
+            <Link
+              href="/dashboard/image-generator"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-white/30 bg-white/10 text-white hover:bg-white/20 text-xs font-medium transition-colors"
+            >
+              <Wand2 className="w-3.5 h-3.5 flex-shrink-0" />
+              Open Image Studio
+            </Link>
+            <button
+              onClick={() => setShowEditorSection((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium transition-colors ${
+                showEditorSection
+                  ? "border-cyan-300 bg-cyan-600 text-white hover:bg-cyan-700"
+                  : "border-white/30 bg-white/10 text-white hover:bg-white/20"
+              }`}
+            >
+              <LayoutTemplate className="w-3.5 h-3.5 flex-shrink-0" />
+              {showEditorSection ? "Hide Editor" : "Open Editor"}
+            </button>
+          </div>
         </div>
 
         {/* Catalogue Setup */}
@@ -560,11 +519,6 @@ export default function CataloguePage() {
                       AI-Powered Listing &{" "}
                       <span className="text-cyan-600">Creative Builder</span>
                     </h3>
-                    {/* <p className="text-slate-500 text-sm mb-8 max-w-lg">
-                      Build your Amazon listing, images, and A+ in one
-                      streamlined flow. Add your details, benchmark competitors,
-                      and generate conversion-ready content in minutes.
-                    </p> */}
 
                     <div className="space-y-5">
                       {[
@@ -590,8 +544,8 @@ export default function CataloguePage() {
                         },
                         {
                           step: "05",
-                          title: "Optimize & Create Visuals",
-                          desc: "Use the live editor to improve keyword usage and messaging.\nDownload structured image & A+ briefs for your designer, or use the AI Image Generator after refining the prompts to match your product.",
+                          title: "Optimize & Generate Visuals",
+                          desc: "Use the live editor to improve keyword usage and messaging.\nDownload structured image & A+ briefs for your designer, or head to the Image Studio to generate visuals from your refined prompts.",
                         },
                       ].map(({ step, title, desc }) => (
                         <div key={step} className="flex gap-4">
@@ -676,7 +630,6 @@ export default function CataloguePage() {
           </Card>
         )}
 
-        {/* Words / Phrases / Content Editor */}
         {/* Words / Phrases / Content Editor — shown when content exists OR user manually opens editor */}
         {(showEditorSection || title || bullets.some((b) => b.trim()) || description) && (
           <>
@@ -894,30 +847,16 @@ export default function CataloguePage() {
             {/* ── Action bar — lives outside the card ── */}
             <div className="flex items-center gap-2 px-1">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mr-2">
-                Images & Export
+                Export
               </p>
 
-              <button
-                onClick={() => setActiveDrawer("product")}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 h-7 rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-medium"
+              <Link
+                href="/dashboard/image-generator"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 h-7 rounded-md border border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors text-xs font-medium"
               >
-                <Image className="w-3.5 h-3.5 flex-shrink-0" />
-                Product Images
-                {hasProductImages && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveDrawer("aplus")}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 h-7 rounded-md border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors text-xs font-medium"
-              >
-                <Vrpano className="w-3.5 h-3.5 flex-shrink-0" />
-                A+ Images
-                {hasAplusImages && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500 flex-shrink-0" />
-                )}
-              </button>
+                <Wand2 className="w-3.5 h-3.5 flex-shrink-0" />
+                Generate Images
+              </Link>
 
               <button
                 onClick={handleDownload}
@@ -946,15 +885,6 @@ export default function CataloguePage() {
             </Card>
           )}
       </div>
-
-      {/* Image Generation Drawers */}
-      {(activeDrawer === "product" || activeDrawer === "aplus") && (
-        <ImageGenerationDrawer
-          mode={activeDrawer}
-          open={true}
-          onClose={() => setActiveDrawer(null)}
-        />
-      )}
     </div>
   );
 }
