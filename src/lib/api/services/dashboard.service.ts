@@ -730,7 +730,7 @@ export const dashboardService = {
         replacement_rate: number;
         "Return Rate": number;
       };
-    }>("/api/v1/dashboard-api/asin-summary/", {
+    }>("/api/v1/optivise-x/asin-summary/", {
       params: options,
     });
 
@@ -811,7 +811,7 @@ export const dashboardService = {
     limit?: number;
   }) {
     const res = await apiClient.get<OrganicSalesResponse>(
-      "/api/v1/dashboard-api/organic-sales/",
+      "/api/v1/optivise-x/organic-sales/",
       {
         params: options,
       }
