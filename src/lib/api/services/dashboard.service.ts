@@ -685,7 +685,7 @@ export const dashboardService = {
   }) {
     console.log("Fetching trends data with options:", options);
     const res = await apiClient.get<TrendsDataResponse>(
-      "/api/v1/dashboard-api/trends/",
+      "/api/v1/optivise-x/trends/",
       {
         params: options,
       }
