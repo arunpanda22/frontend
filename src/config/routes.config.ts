@@ -41,6 +41,13 @@ const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
     requiresSellerAccount: true,
   },
   {
+    name: 'Ads Live',
+    href: '/dashboard/ads-revenue',
+    description: 'Live ads dashboard',
+    permission: 'view_dashboard',
+    requiresSellerAccount: true,
+  },
+  {
     name: 'ASIN Intelligence',
     href: '/dashboard/asin-inteligence',
     description: 'Analyze ASIN performance metrics',
