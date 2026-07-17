@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useConnectAmazonAdvertising } from '@/lib/hooks/queries/use-amazon-advertising'
 import { AdvertisingAccounts } from './AdvertisingAccounts'
 import { AccountRegionDialog } from './AccountRegionDialog'
-import { AlertTriangle, ArrowRight, ShoppingCart } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ShoppingCart, UserCog } from 'lucide-react'
 import { Icons } from '../icons'
 import { SellerAccounts } from './SellerAccounts'
 import type { UserProfile } from '@/lib/hooks/queries/use-user-profile'
@@ -17,17 +17,19 @@ interface AmazonConnectorProps {
 }
 
 export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps) {
-  const { user } = useAuth()
+  const { user, isImpersonating } = useAuth()
   const [connectError, setConnectError] = useState<string | null>(null)
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
-  
+
+  const impersonating = isImpersonating()
+
   const { 
     mutate: connectAmazonAdvertising, 
     isPending: isConnectingAdvertising 
   } = useConnectAmazonAdvertising()
 
   const handleConnectAmazonAdvertising = () => {
-    if (!user) return
+    if (!user || impersonating) return
     setConnectError(null)
     
     connectAmazonAdvertising(
@@ -48,11 +50,19 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
   }
 
   const handleConnectSellerOrVendor = () => {
+    if (impersonating) return
     setIsAccountDialogOpen(true)
   }
 
   return (
     <div className="space-y-8">
+      {impersonating && (
+        <div className="p-3 rounded-md bg-amber-50 border border-amber-100 text-amber-900 text-sm flex items-center gap-2">
+          <UserCog className="h-4 w-4 flex-shrink-0" />
+          <span>You&apos;re viewing this account as an impersonated user. Connecting new Amazon accounts is disabled.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Amazon Advertising Connection */}
         <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100">
@@ -66,8 +76,9 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
               
               <Button 
                 onClick={handleConnectAmazonAdvertising}
-                disabled={isConnectingAdvertising}
-                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white"
+                disabled={isConnectingAdvertising || impersonating}
+                title={impersonating ? 'Disabled while impersonating a seller' : undefined}
+                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isConnectingAdvertising ? (
                   <>
@@ -108,7 +119,9 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
               
               <Button 
                 onClick={handleConnectSellerOrVendor}
-                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white"
+                disabled={impersonating}
+                title={impersonating ? 'Disabled while impersonating a seller' : undefined}
+                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Connect Account
                 <ArrowRight className="ml-2 h-4 w-4" />
