@@ -288,19 +288,19 @@ export default function AdsRevenueDashboardPage() {
             Analytics
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-3 py-6 gap-6">
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-3">
               <HourlyAdsRevenueChart
                 hourlyTrend={data?.hourly_trend || null}
                 metadata={data?.metadata || null}
                 isLoading={isLoading}
               />
             </div>
-            <div className="lg:col-span-1">
+            {/* <div className="lg:col-span-1">
               <TopCampaignsCard
                 topCampaigns={data?.top_campaigns || null}
                 isLoading={isLoading}
               />
-            </div>
+            </div> */}
           </div>
         </div>
 
