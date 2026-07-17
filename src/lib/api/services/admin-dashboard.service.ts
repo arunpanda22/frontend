@@ -1192,6 +1192,19 @@ export const adminDashboardService = {
     return res.data
   },
 
+  async removeAgencyRole(userId: number) {
+    const res = await apiClient.delete(
+      '/api/v1/rbac-admin/user-assignments/',
+      { 
+        data: {
+          action: 'remove_agency_role',
+          user_id: userId
+        }
+      }
+    )
+    return res.data
+  },
+
   // ========================================================================
   // SELLER-STAFF ASSIGNMENT MANAGEMENT
   // ========================================================================
