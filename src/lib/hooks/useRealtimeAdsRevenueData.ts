@@ -14,6 +14,7 @@ export interface AdTypeMetrics {
   units: number;
   clicks: number;
   impressions: number;
+  cost: number;
 }
 
 export interface PeriodPerformance {
@@ -22,6 +23,7 @@ export interface PeriodPerformance {
   units: number;
   clicks: number;
   impressions: number;
+  cost: number;
   asp: number;
   by_ad_type: Partial<Record<AdType, AdTypeMetrics>>;
 }

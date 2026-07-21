@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { DollarSign, Eye, MousePointerClick, ShoppingCart, TrendingUp } from "lucide-react";
+import { DollarSign, Eye, MousePointerClick, ShoppingCart, Wallet } from "lucide-react";
 import { MetricsCard } from "@/components/dashboard/ui";
 import { useRealtimeAdsRevenueDataLive } from "@/lib/hooks/useRealtimeAdsRevenueData";
 import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
@@ -90,7 +90,7 @@ function useMarketClock(ianaTimezone: string | undefined) {
 // ---------------------------------------------------------------------------
 
 export default function AdsRevenueDashboardPage() {
-  const { formatCurrency, formatCurrencyNoDecimal, getCurrencySymbol } = useCurrency();
+  const { formatCurrencyNoDecimal, getCurrencySymbol } = useCurrency();
 
   // Use the seller's actual marketplace timezone for bucketing/capping
   // "today" — not our IST default. Without this, the hourly chart's cutoff
@@ -126,24 +126,24 @@ export default function AdsRevenueDashboardPage() {
   const metricsData = useMemo(() => {
     if (!data?.today_performance) {
       return [
-        { title: "Ad Revenue",   value: "Loading...", icon: DollarSign,        bgColor: "bg-white", color: "bg-ocean-300" },
-        { title: "Orders",       value: "Loading...", icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
-        { title: "Clicks",       value: "Loading...", icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
         { title: "Impressions",  value: "Loading...", icon: Eye,               bgColor: "bg-white", color: "bg-gold-400"  },
-        { title: "ASP",          value: "Loading...", icon: TrendingUp,        bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Clicks",       value: "Loading...", icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Orders",       value: "Loading...", icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Ad Cost",      value: "Loading...", icon: Wallet,            bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Ad Revenue",   value: "Loading...", icon: DollarSign,        bgColor: "bg-white", color: "bg-ocean-300" },
       ];
     }
 
-    const { revenue, orders, clicks, impressions, asp } = data.today_performance;
+    const { impressions, clicks, orders, cost, revenue } = data.today_performance;
 
     return [
-      { title: "Ad Revenue",  value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`, icon: DollarSign,        bgColor: "bg-white", color: "bg-ocean-300" },
-      { title: "Orders",      value: orders.toString(),                                             icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
-      { title: "Clicks",      value: clicks.toLocaleString(),                                       icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
       { title: "Impressions", value: impressions.toLocaleString(),                                  icon: Eye,               bgColor: "bg-white", color: "bg-gold-400"  },
-      { title: "ASP",         value: `${getCurrencySymbol()}${formatCurrency(asp)}`,               icon: TrendingUp,        bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Clicks",      value: clicks.toLocaleString(),                                       icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Orders",      value: orders.toString(),                                             icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Ad Cost",     value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(cost)}`,      icon: Wallet,            bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Ad Revenue",  value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`, icon: DollarSign,        bgColor: "bg-white", color: "bg-ocean-300" },
     ];
-  }, [data, formatCurrency, formatCurrencyNoDecimal, getCurrencySymbol]);
+  }, [data, formatCurrencyNoDecimal, getCurrencySymbol]);
 
   const adTypesIncluded = data?.metadata?.ad_types_included ?? AD_TYPE_ORDER;
   const showBreakdown = adTypesIncluded.length > 1;
