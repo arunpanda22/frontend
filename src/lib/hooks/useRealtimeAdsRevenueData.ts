@@ -38,6 +38,7 @@ export interface HourlyTrendPoint {
 
 export interface TopCampaign {
   campaign_id: string;
+  campaign_name: string | null; // null if not found in any targeting table
   ad_type: AdType;
   revenue: number;
   orders: number;

@@ -55,10 +55,15 @@ export default function TopCampaignsCard({
                 <div className="flex-1 min-w-0">
                   <p
                     className="text-sm font-medium text-gray-900 truncate"
-                    title={campaign.campaign_id}
+                    title={campaign.campaign_name ?? campaign.campaign_id}
                   >
-                    {campaign.campaign_id}
+                    {campaign.campaign_name ?? campaign.campaign_id}
                   </p>
+                  {campaign.campaign_name && (
+                    <p className="text-[11px] text-gray-400 truncate" title={campaign.campaign_id}>
+                      ID: {campaign.campaign_id}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mt-0.5">
                     <span
                       className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${meta.badgeBg} ${meta.badgeText}`}
