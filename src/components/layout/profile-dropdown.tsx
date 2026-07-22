@@ -52,7 +52,7 @@ export default function ProfileDropdown() {
 
   if (!user) return null
 
-  const displayName = userProfile?.first_name || userProfile?.username
+  const displayName = userProfile?.username
   const initials = (displayName || '?')
     .split(' ')
     .map(part => part[0])
