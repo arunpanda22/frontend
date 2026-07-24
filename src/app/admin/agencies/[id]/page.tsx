@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { adminDashboardService } from '@/lib/api/services/admin-dashboard.service'
 import {
   useAdminAgencyDetails,
+  useAdminAgencySellers,
   useAdminUsers,
   useAdminQueryRefresh
 } from '@/lib/hooks/queries/use-admin'
@@ -22,14 +23,13 @@ export default function AdminAgencyDetailPage() {
   const agencyId = useMemo(() => Number(params?.id), [params])
 
   const agencyQuery = useAdminAgencyDetails(agencyId)
-  const sellersQuery = useAdminUsers({ role_name: 'seller', page_size: 1000 })
+  const agencySellersQuery = useAdminAgencySellers(agencyId)
   const agencyUsersQuery = useAdminUsers({ role_name: 'agency', page_size: 1000 })
   const plainUsersQuery = useAdminUsers({ role_name: 'user', page_size: 1000 })
 
-  const { refreshAgencies, refreshUsers } = useAdminQueryRefresh()
+  const { refreshAgencies, refreshUsers, refreshAgencySellers } = useAdminQueryRefresh()
 
   const agency = agencyQuery.data
-  const allSellers = useMemo(() => sellersQuery.data?.results || [], [sellersQuery.data])
 
   const [status, setStatus] = useState<{ saving: boolean; message?: string; error?: string }>({ saving: false })
   const [editMode, setEditMode] = useState(false)
@@ -58,11 +58,12 @@ export default function AdminAgencyDetailPage() {
     )
   }, [plainUsersQuery.data, searchEligibleUsers])
 
-  const { assignedSellers, unassignedSellers } = useMemo(() => {
-    const assigned = allSellers.filter((s: any) => s.current_role?.agency_id === agencyId)
-    const unassigned = allSellers.filter((s: any) => !s.current_role?.agency_id)
-    return { assignedSellers: assigned, unassignedSellers: unassigned }
-  }, [allSellers, agencyId])
+  // Source of truth now comes from the dedicated backend endpoint, which computes
+  // the split from AgencyClientAssignment directly instead of guessing from
+  // current_role.agency_id (which is always null for sellers, since only the
+  // agency-role user's own UserRole carries the agency FK).
+  const assignedSellers = agencySellersQuery.data?.assigned_sellers || []
+  const unassignedSellers = agencySellersQuery.data?.available_sellers || []
 
   const filteredAssigned = useMemo(() => {
     if (!searchAssigned) return assignedSellers
@@ -112,7 +113,7 @@ export default function AdminAgencyDetailPage() {
       await Promise.all(promises)
       setSelectedSellersToAssign([])
       setServiceTier('')
-      await Promise.all([refreshUsers(), refreshAgencies()])
+      await Promise.all([refreshAgencySellers(agencyId), refreshAgencies()])
       setStatus({ saving: false, message: `Assigned ${selectedSellersToAssign.length} seller(s)` })
       setTimeout(() => setStatus({ saving: false }), 3000)
     } catch (e: any) {
@@ -167,7 +168,7 @@ export default function AdminAgencyDetailPage() {
     setStatus({ saving: true })
     try {
       await adminDashboardService.removeSellerFromAgency(sellerId, agencyId)
-      await Promise.all([refreshUsers(), refreshAgencies()])
+      await Promise.all([refreshAgencySellers(agencyId), refreshAgencies()])
       setStatus({ saving: false, message: `Removed ${sellerEmail}` })
       setTimeout(() => setStatus({ saving: false }), 3000)
     } catch (e: any) {
@@ -250,7 +251,7 @@ export default function AdminAgencyDetailPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => { refreshAgencies(); refreshUsers() }}
+            onClick={() => { refreshAgencies(); refreshUsers(); refreshAgencySellers(agencyId) }}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Refresh
@@ -356,6 +357,7 @@ export default function AdminAgencyDetailPage() {
         )}
       </div>
 
+      {/* Agency Login User */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Agency Login User</h3>
         <div className="space-y-4">
@@ -458,7 +460,7 @@ export default function AdminAgencyDetailPage() {
               />
             </div>
             <div className="border border-gray-300 rounded-md max-h-60 overflow-y-auto">
-              {sellersQuery.isLoading ? (
+              {agencySellersQuery.isLoading ? (
                 <div className="p-4 text-sm text-gray-500 text-center">Loading sellers...</div>
               ) : filteredUnassigned.length === 0 ? (
                 <div className="p-4 text-sm text-gray-500 text-center">No unassigned sellers found</div>
@@ -534,7 +536,9 @@ export default function AdminAgencyDetailPage() {
             className="w-64 px-3 py-1.5 text-sm border border-gray-300 rounded-md"
           />
         </div>
-        {filteredAssigned.length === 0 ? (
+        {agencySellersQuery.isLoading ? (
+          <p className="text-gray-500 text-sm">Loading assigned sellers...</p>
+        ) : filteredAssigned.length === 0 ? (
           <p className="text-gray-500 text-sm">No sellers assigned to this agency yet</p>
         ) : (
           <div className="space-y-2">

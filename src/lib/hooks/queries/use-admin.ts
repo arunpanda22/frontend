@@ -19,6 +19,7 @@ export const adminQueryKeys = {
   permissionsByModule: (module: string) => ['admin', 'permissions', 'module', module] as const,
   agencies: ['admin', 'agencies'] as const,
   agencyDetails: (id: number) => ['admin', 'agencies', id] as const,
+  agencySellers: (id: number) => ['admin', 'agencies', id, 'sellers'] as const,
   dashboardStats: ['admin', 'dashboard-stats'] as const,
   reportStatusSummary: ['admin', 'report-status-summary'] as const,
   staffEmails: ['admin', 'staff-emails'] as const,
@@ -183,6 +184,15 @@ export function useAdminAgencyDetails(id: number) {
   })
 }
 
+export function useAdminAgencySellers(agencyId: number) {
+  return useQuery({
+    queryKey: adminQueryKeys.agencySellers(agencyId),
+    queryFn: () => adminDashboardService.getAgencySellers(agencyId),
+    enabled: !!agencyId,
+    staleTime: 60 * 1000,
+  })
+}
+
 // Dashboard stats
 export function useAdminDashboardStats() {
   return useQuery({
@@ -281,6 +291,10 @@ export function useAdminQueryRefresh() {
     refreshAgencies: async () => {
       await queryClient.invalidateQueries({ queryKey: adminQueryKeys.agencies })
       return queryClient.refetchQueries({ queryKey: adminQueryKeys.agencies })
+    },
+    refreshAgencySellers: async (agencyId: number) => {
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.agencySellers(agencyId) })
+      return queryClient.refetchQueries({ queryKey: adminQueryKeys.agencySellers(agencyId) })
     },
     refreshStatusSummary: async () => {
       await queryClient.invalidateQueries({ queryKey: adminQueryKeys.reportStatusSummary })

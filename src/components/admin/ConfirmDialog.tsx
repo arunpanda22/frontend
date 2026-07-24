@@ -41,17 +41,15 @@ export default function ConfirmDialog({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, isLoading, onCancel])
 
-  // Force-clear any inherited pointer-events:none while the dialog is open.
-  // Some component libraries (Radix, Headless UI, etc.) toggle pointer-events
-  // on <body> or on other portaled siblings for a11y/scroll-lock purposes,
-  // and if this custom portal isn't registered with them it can get stuck
-  // uninteractive. This guarantees the dialog itself always stays clickable.
+  // Defensive: some UI libraries (Radix-based dialogs/dropdowns/toasts) set
+  // pointer-events: none on <body> during their close transition and can
+  // leave it stuck if interrupted. Force it back on while our dialog is open.
   useEffect(() => {
     if (!open) return
-    const prevBodyPointerEvents = document.body.style.pointerEvents
-    document.body.style.pointerEvents = ''
+    const previousValue = document.body.style.pointerEvents
+    document.body.style.pointerEvents = 'auto'
     return () => {
-      document.body.style.pointerEvents = prevBodyPointerEvents
+      document.body.style.pointerEvents = previousValue
     }
   }, [open])
 
@@ -65,27 +63,22 @@ export default function ConfirmDialog({
   const dialog = (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
-      style={{ pointerEvents: 'auto' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 z-0 bg-gray-900/50"
-        style={{ pointerEvents: 'auto' }}
-        onMouseDown={(e) => {
-          // only close if the mousedown AND mouseup both happen on the backdrop
-          // (prevents drag-from-panel-out-to-backdrop from closing it)
-          if (e.target === e.currentTarget && !isLoading) onCancel()
-        }}
+        className="absolute inset-0 bg-gray-900/50"
+        onClick={() => !isLoading && onCancel()}
       />
 
       {/* Panel */}
       <div
-        className="relative z-10 bg-white rounded-lg shadow-xl w-full max-w-sm p-6"
-        style={{ pointerEvents: 'auto' }}
+        className="relative bg-white rounded-lg shadow-xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">
           {variant === 'danger' && (

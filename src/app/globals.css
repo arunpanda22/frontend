@@ -133,7 +133,7 @@
 }
 
 /* Fix for dropdown visibility */
-.dropdown-menu, .absolute {
+.dropdown-menu {
   z-index: 100 !important;
 }
 

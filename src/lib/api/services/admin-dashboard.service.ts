@@ -98,6 +98,19 @@ export interface UserRolesResponse {
   reports_enabled: boolean
 }
 
+export interface AgencySellerItem {
+  id: number
+  email: string
+  display_name: string
+  service_tier?: string
+  assigned_at?: string
+}
+
+export interface AgencySellersResponse {
+  assigned_sellers: AgencySellerItem[]
+  available_sellers: AgencySellerItem[]
+}
+
 export interface Permission {
   id: string
   codename: string
@@ -1264,6 +1277,13 @@ export const adminDashboardService = {
           user_id: userId
         }
       }
+    )
+    return res.data
+  },
+
+  async getAgencySellers(agencyId: number) {
+    const res = await apiClient.get<AgencySellersResponse>(
+      `/api/v1/rbac-admin/agencies/${agencyId}/sellers/`
     )
     return res.data
   },
