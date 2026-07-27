@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api/config'
+import { apiClientNoRetry } from '@/lib/api/config'
 import {
   getMinBid,
   getMinBudget,
@@ -147,31 +147,31 @@ export interface SingleCategoryPayload extends BasePayload {
 
 export const campaignApi = {
   createKeywordTargeting: (payload: KeywordTargetingPayload) =>
-    apiClient.post<CampaignSuccessResponse>(
+    apiClientNoRetry.post<CampaignSuccessResponse>(
       '/api/v1/campaign-creation/keyword-targeting/',
       payload
     ),
 
   createProductTargeting: (payload: ProductTargetingPayload) =>
-    apiClient.post<CampaignSuccessResponse>(
+    apiClientNoRetry.post<CampaignSuccessResponse>(
       '/api/v1/campaign-creation/product-targeting/',
       payload
     ),
 
   createAutoTargeting: (payload: AutoTargetingPayload) =>
-    apiClient.post<CampaignSuccessResponse>(
+    apiClientNoRetry.post<CampaignSuccessResponse>(
       '/api/v1/campaign-creation/auto-targeting/',
       payload
     ),
 
   createMultiCategory: (payload: MultiCategoryPayload) =>
-    apiClient.post<CampaignSuccessResponse>(
+    apiClientNoRetry.post<CampaignSuccessResponse>(
       '/api/v1/campaign-creation/multi-category/',
       payload
     ),
 
   createSingleCategory: (payload: SingleCategoryPayload) =>
-    apiClient.post<CampaignSuccessResponse>(
+    apiClientNoRetry.post<CampaignSuccessResponse>(
       '/api/v1/campaign-creation/single-category/',
       payload
     ),

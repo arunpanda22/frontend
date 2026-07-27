@@ -27,7 +27,8 @@ const JWT_TOKEN_LIFETIME = 10 * 60 * 1000; // 55 minutes (Django default is 60mi
 const JWT_REFRESH_BUFFER = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 let jwtRefreshPromise: Promise<string | null> | null = null;
 
-// Create axios instance
+// Create axios instance — this one has automatic retries (see axiosRetry call below).
+// Use this for GET/idempotent calls.
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -39,14 +40,18 @@ export const apiClient: AxiosInstance = axios.create({
   xsrfHeaderName: 'X-CSRFToken',
 });
 
-// Add retry logic
-axiosRetry(apiClient, {
-  retries: 3,
-  retryDelay: axiosRetry.exponentialDelay,
-  retryCondition: (error: AxiosError) => {
-    return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
-           (error.response?.status ? error.response.status >= 500 : false);
-  }
+// Non-retrying client — use for non-idempotent POST calls (e.g. campaign creation)
+// where an automatic retry after a 5xx/network error could create duplicate resources.
+// Shares the exact same auth/CSRF interceptor behavior as apiClient, just no axiosRetry.
+export const apiClientNoRetry: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  timeout: LONG_OPERATION_TIMEOUT,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken',
 });
 
 export const longOpClient: AxiosInstance = axios.create({
@@ -59,8 +64,6 @@ export const longOpClient: AxiosInstance = axios.create({
   xsrfCookieName: "csrftoken",
   xsrfHeaderName: "X-CSRFToken",
 });
-
-
 
 // Firebase token cache
 let cachedFirebaseToken: string | null = null;
@@ -278,185 +281,224 @@ async function getValidJWTToken(): Promise<string | null> {
   return currentToken;
 }
 
-// 🔧 IMPROVED: Main authentication interceptor
-apiClient.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
-    try {
-      // Check if we're in an impersonation session
-      if (isImpersonating()) {
-        // Get valid JWT token (with auto-refresh)
-        const jwtToken = await getValidJWTToken();
-        
-        if (!jwtToken) {
-          console.warn('⚠️ Impersonation active but no valid JWT token');
-          clearJWTTokens();
+// 🔧 Shared interceptor setup — attached to both apiClient and apiClientNoRetry
+// so auth/CSRF/401/403 handling behaves identically. The only difference between
+// the two instances is that apiClient additionally gets axiosRetry applied below.
+function attachInterceptors(instance: AxiosInstance) {
+  // 🔧 IMPROVED: Main authentication interceptor
+  instance.interceptors.request.use(
+    async (config: InternalAxiosRequestConfig) => {
+      try {
+        // Check if we're in an impersonation session
+        if (isImpersonating()) {
+          // Get valid JWT token (with auto-refresh)
+          const jwtToken = await getValidJWTToken();
+          
+          if (!jwtToken) {
+            console.warn('⚠️ Impersonation active but no valid JWT token');
+            clearJWTTokens();
+            return config;
+          }
+
+          if (!config.headers) {
+            config.headers = new AxiosHeaders();
+          }
+          
+          config.headers.set('Authorization', `Bearer ${jwtToken}`);
+          
+          if (isDevelopment) {
+            console.log('🔑 Using JWT token (impersonation)');
+          }
+          
           return config;
         }
 
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
+        // Normal flow - use Firebase token
+        const currentUser = auth?.currentUser;
+        if (!currentUser) {
+          return config; // No user, proceed without auth header
         }
-        
-        config.headers.set('Authorization', `Bearer ${jwtToken}`);
-        
-        if (isDevelopment) {
-          console.log('🔑 Using JWT token (impersonation)');
+
+        // Use cached Firebase token if still valid
+        if (isFirebaseTokenValid()) {
+          if (!config.headers) {
+            config.headers = new AxiosHeaders();
+          }
+          config.headers.set('Authorization', `Bearer ${cachedFirebaseToken}`);
+          return config;
         }
-        
-        return config;
-      }
 
-      // Normal flow - use Firebase token
-      const currentUser = auth?.currentUser;
-      if (!currentUser) {
-        return config; // No user, proceed without auth header
-      }
-
-      // Use cached Firebase token if still valid
-      if (isFirebaseTokenValid()) {
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
-        }
-        config.headers.set('Authorization', `Bearer ${cachedFirebaseToken}`);
-        return config;
-      }
-
-      // Handle concurrent Firebase token requests
-      if (firebaseTokenPromise) {
-        if (isDevelopment) {
-          console.log('⏳ Waiting for existing Firebase token request...');
-        }
-        cachedFirebaseToken = await firebaseTokenPromise;
-      } else {
-        // Create new Firebase token request
-        firebaseTokenPromise = getFreshFirebaseToken(currentUser, false)
-          .finally(() => {
-            firebaseTokenPromise = null;
-          });
-        
-        cachedFirebaseToken = await firebaseTokenPromise;
-      }
-
-      if (cachedFirebaseToken) {
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
-        }
-        config.headers.set('Authorization', `Bearer ${cachedFirebaseToken}`);
-      }
-
-    } catch (error) {
-      console.error('Error getting auth token:', error);
-      clearAuthTokenCache();
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// 🔧 IMPROVED: Response interceptor with better JWT refresh handling
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const status = error.response?.status;
-    const url = error.config?.url || '';
-    const originalRequest = error.config;
-
-    // Log errors in development
-    if (isDevelopment) {
-      const isVerifyToken = url.includes('/api/v1/auth/verify-token/');
-      const isExpectedBootstrap = isVerifyToken && status === 400;
-      
-      if (!isExpectedBootstrap) {
-        console.error('Response Error:', {
-          message: error.message,
-          status,
-          url,
-          data: error.response?.data,
-        });
-      }
-    }
-
-    // Handle 401 errors
-    if (status === 401 && originalRequest) {
-      // Check if we're in impersonation mode
-      if (isImpersonating()) {
-        // Check if JWT token is expired
-        if (isJWTExpired()) {
+        // Handle concurrent Firebase token requests
+        if (firebaseTokenPromise) {
           if (isDevelopment) {
-            console.log('🔄 JWT expired, attempting refresh...');
+            console.log('⏳ Waiting for existing Firebase token request...');
           }
-
-          // Try to refresh JWT token
-          const newAccessToken = await refreshJWTAccessToken();
+          cachedFirebaseToken = await firebaseTokenPromise;
+        } else {
+          // Create new Firebase token request
+          firebaseTokenPromise = getFreshFirebaseToken(currentUser, false)
+            .finally(() => {
+              firebaseTokenPromise = null;
+            });
           
-          if (newAccessToken) {
-            // Retry the original request with new token
-            originalRequest.headers = originalRequest.headers || new AxiosHeaders();
-            originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
-            
-            if (isDevelopment) {
-              console.log('✅ Retrying request with refreshed JWT');
-            }
-            
-            return apiClient.request(originalRequest);
-          } else {
-            // JWT refresh failed, end impersonation
-            console.warn('⚠️ JWT refresh failed, ending impersonation session');
-            clearJWTTokens();
-            
-            // Reload to return to normal Firebase auth
-            if (typeof window !== 'undefined') {
-              window.location.reload();
-            }
-          }
+          cachedFirebaseToken = await firebaseTokenPromise;
         }
-      } else {
-        // Normal Firebase auth - handle as before
-        console.warn('🔐 Auth error 401 detected. Clearing Firebase token cache...');
-        clearAuthTokenCache();
-        await handleAuthError(error);
-      }
-    }
 
-    // Handle 403 errors
-    if (status === 403 && originalRequest) {
-      if (isImpersonating()) {
-        // For impersonation, 403 might mean permissions changed
-        console.warn('⚠️ Permission denied during impersonation');
-      } else {
-        // Try refreshing Firebase token
-        if (!originalRequest.headers?.['X-Retry-Auth']) {
-          try {
-            const currentUser = auth?.currentUser;
-            if (currentUser) {
+        if (cachedFirebaseToken) {
+          if (!config.headers) {
+            config.headers = new AxiosHeaders();
+          }
+          config.headers.set('Authorization', `Bearer ${cachedFirebaseToken}`);
+        }
+
+      } catch (error) {
+        console.error('Error getting auth token:', error);
+        clearAuthTokenCache();
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // 🔧 IMPROVED: Response interceptor with better JWT refresh handling
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+      const status = error.response?.status;
+      const url = error.config?.url || '';
+      const originalRequest = error.config;
+
+      // Log errors in development
+      if (isDevelopment) {
+        const isVerifyToken = url.includes('/api/v1/auth/verify-token/');
+        const isExpectedBootstrap = isVerifyToken && status === 400;
+        
+        if (!isExpectedBootstrap) {
+          console.error('Response Error:', {
+            message: error.message,
+            status,
+            url,
+            data: error.response?.data,
+          });
+        }
+      }
+
+      // Handle 401 errors
+      if (status === 401 && originalRequest) {
+        // Check if we're in impersonation mode
+        if (isImpersonating()) {
+          // Check if JWT token is expired
+          if (isJWTExpired()) {
+            if (isDevelopment) {
+              console.log('🔄 JWT expired, attempting refresh...');
+            }
+
+            // Try to refresh JWT token
+            const newAccessToken = await refreshJWTAccessToken();
+            
+            if (newAccessToken) {
+              // Retry the original request with new token
+              originalRequest.headers = originalRequest.headers || new AxiosHeaders();
+              originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
+              
               if (isDevelopment) {
-                console.log('🔄 Retrying with force-refreshed Firebase token...');
+                console.log('✅ Retrying request with refreshed JWT');
               }
               
-              const freshToken = await getFreshFirebaseToken(currentUser, true);
+              return instance.request(originalRequest);
+            } else {
+              // JWT refresh failed, end impersonation
+              console.warn('⚠️ JWT refresh failed, ending impersonation session');
+              clearJWTTokens();
               
-              originalRequest.headers = originalRequest.headers || new AxiosHeaders();
-              originalRequest.headers.set('Authorization', `Bearer ${freshToken}`);
-              originalRequest.headers.set('X-Retry-Auth', 'true');
-
-              return apiClient.request(originalRequest);
+              // Reload to return to normal Firebase auth
+              if (typeof window !== 'undefined') {
+                window.location.reload();
+              }
             }
-          } catch (retryError) {
-            console.error('❌ Firebase token refresh retry failed:', retryError);
+          }
+        } else {
+          // Normal Firebase auth - handle as before
+          console.warn('🔐 Auth error 401 detected. Clearing Firebase token cache...');
+          clearAuthTokenCache();
+          await handleAuthError(error);
+        }
+      }
+
+      // Handle 403 errors
+      if (status === 403 && originalRequest) {
+        if (isImpersonating()) {
+          // For impersonation, 403 might mean permissions changed
+          console.warn('⚠️ Permission denied during impersonation');
+        } else {
+          // Try refreshing Firebase token
+          if (!originalRequest.headers?.['X-Retry-Auth']) {
+            try {
+              const currentUser = auth?.currentUser;
+              if (currentUser) {
+                if (isDevelopment) {
+                  console.log('🔄 Retrying with force-refreshed Firebase token...');
+                }
+                
+                const freshToken = await getFreshFirebaseToken(currentUser, true);
+                
+                originalRequest.headers = originalRequest.headers || new AxiosHeaders();
+                originalRequest.headers.set('Authorization', `Bearer ${freshToken}`);
+                originalRequest.headers.set('X-Retry-Auth', 'true');
+
+                return instance.request(originalRequest);
+              }
+            } catch (retryError) {
+              console.error('❌ Firebase token refresh retry failed:', retryError);
+            }
           }
         }
       }
-    }
 
-    return Promise.reject(error);
+      return Promise.reject(error);
+    }
+  );
+
+  // CSRF token interceptor
+  instance.interceptors.request.use(
+    async (config: InternalAxiosRequestConfig) => {
+      const method = config.method?.toLowerCase();
+      if (method && method !== 'get') {
+        try {
+          const token = await getCsrfToken();
+          if (!config.headers) {
+            config.headers = new AxiosHeaders();
+          }
+          config.headers['X-CSRFToken'] = token;
+          config.headers['X-Requested-With'] = 'XMLHttpRequest';
+        } catch (error) {
+          console.warn('Failed to get CSRF token:', error);
+        }
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+}
+
+attachInterceptors(apiClient);
+attachInterceptors(apiClientNoRetry);
+
+// Add retry logic — apiClient only. apiClientNoRetry intentionally never gets this.
+axiosRetry(apiClient, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error: AxiosError) => {
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+           (error.response?.status ? error.response.status >= 500 : false);
   }
-);
+});
 
 // Debug interceptor for development
 if (isDevelopment) {
-  apiClient.interceptors.request.use(request => {
+  const debugRequestLogger = (request: InternalAxiosRequestConfig) => {
     const url = request.url;
     const authHeader = request.headers?.Authorization as string;
     
@@ -477,7 +519,10 @@ if (isDevelopment) {
       });
     }
     return request;
-  });
+  };
+
+  apiClient.interceptors.request.use(debugRequestLogger);
+  apiClientNoRetry.interceptors.request.use(debugRequestLogger);
 }
 
 // CSRF token management
@@ -531,26 +576,5 @@ const getCsrfToken = async (): Promise<string> => {
     throw error;
   }
 };
-
-// CSRF token interceptor
-apiClient.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
-    const method = config.method?.toLowerCase();
-    if (method && method !== 'get') {
-      try {
-        const token = await getCsrfToken();
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
-        }
-        config.headers['X-CSRFToken'] = token;
-        config.headers['X-Requested-With'] = 'XMLHttpRequest';
-      } catch (error) {
-        console.warn('Failed to get CSRF token:', error);
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 export { getCsrfToken };
