@@ -65,42 +65,38 @@ import {
 const TABLE1_COLUMNS: CampaignColumnDefinition[] = [
   { field: "ad_type", headerName: "Ad Type", type: "text", span: true, sortable: true, filterable: true, width: 80, minWidth: 70 },
   { field: "campaign_name", headerName: "Campaign", type: "text", span: true, sortable: true, filterable: true, width: 220, minWidth: 140 },
-  { field: "campaign_id", headerName: "Campaign ID", type: "text", span: true, sortable: true, filterable: true, width: 150, minWidth: 120 },
   { field: "today_impressions", headerName: "Today Impr.", type: "number", span: true, sortable: true, width: 110 },
   { field: "dow_avg_impressions_elapsed_hours", headerName: "DOW Avg Impr. (elapsed)", type: "number", span: true, sortable: true, width: 160 },
   { field: "impression_threshold_0_7x", headerName: "0.7x Threshold", type: "number", span: true, sortable: true, width: 120 },
   { field: "placement", headerName: "Placement", type: "text", sortable: true, filterable: true, width: 160, minWidth: 120 },
   { field: "today_placement_impressions", headerName: "Placement Impr.", type: "number", sortable: true, width: 120 },
   { field: "today_placement_clicks", headerName: "Placement Clicks", type: "number", sortable: true, width: 120 },
-  { field: "today_placement_ctr_pct", headerName: "Placement CTR %", type: "number", sortable: true, width: 130 },
-  { field: "dow_placement_ctr_pct", headerName: "DOW Placement CTR %", type: "number", sortable: true, width: 150 },
-  { field: "account_dow_avg_ctr_pct", headerName: "Account Avg CTR %", type: "number", span: true, sortable: true, width: 140 },
-  { field: "current_bid_adjustment_pct", headerName: "Current Bid Adj %", type: "number", sortable: true, width: 130 },
+  { field: "today_placement_ctr_pct", headerName: "Placement CTR", type: "number", sortable: true, width: 130 },
+  { field: "dow_placement_ctr_pct", headerName: "DOW Placement CTR", type: "number", sortable: true, width: 150 },
+  { field: "account_dow_avg_ctr_pct", headerName: "Account Avg CTR", type: "number", span: true, sortable: true, width: 140 },
+  { field: "current_bid_adjustment_pct", headerName: "Current Bid Adj", type: "number", sortable: true, width: 130 },
   { field: "proposed_bid_adjustment_pct", headerName: "Proposed Bid Adj %", type: "number", editable: true, bulkSet: true, sortable: false, width: 150, minWidth: 130 },
 ];
 
 const TABLE2_COLUMNS: CampaignColumnDefinition[] = [
   { field: "ad_type", headerName: "Ad Type", type: "text", span: true, sortable: true, filterable: true, width: 80, minWidth: 70 },
   { field: "campaign_name", headerName: "Campaign", type: "text", span: true, sortable: true, filterable: true, width: 220, minWidth: 140 },
-  { field: "campaign_id", headerName: "Campaign ID", type: "text", span: true, sortable: true, filterable: true, width: 150, minWidth: 120 },
-  { field: "today_campaign_ctr_pct", headerName: "Today Campaign CTR %", type: "number", span: true, sortable: true, width: 160 },
-  { field: "dow_avg_campaign_ctr_pct", headerName: "DOW Avg Campaign CTR %", type: "number", span: true, sortable: true, width: 170 },
+  { field: "today_campaign_ctr_pct", headerName: "Today Campaign CTR", type: "number", span: true, sortable: true, width: 160 },
+  { field: "dow_avg_campaign_ctr_pct", headerName: "DOW Avg Campaign CTR", type: "number", span: true, sortable: true, width: 170 },
   { field: "placement", headerName: "Placement", type: "text", sortable: true, filterable: true, width: 160, minWidth: 120 },
-  { field: "today_placement_ctr_pct", headerName: "Placement CTR %", type: "number", sortable: true, width: 130 },
-  { field: "dow_avg_placement_ctr_pct", headerName: "DOW Placement CTR %", type: "number", sortable: true, width: 150 },
-  { field: "current_bid_adjustment_pct", headerName: "Current Bid Adj %", type: "number", sortable: true, width: 130 },
+  { field: "today_placement_ctr_pct", headerName: "Placement CTR", type: "number", sortable: true, width: 130 },
+  { field: "dow_avg_placement_ctr_pct", headerName: "DOW Placement CTR", type: "number", sortable: true, width: 150 },
+  { field: "current_bid_adjustment_pct", headerName: "Current Bid Adj", type: "number", sortable: true, width: 130 },
   { field: "proposed_bid_adjustment_pct", headerName: "Proposed Bid Adj %", type: "number", editable: true, bulkSet: true, sortable: false, width: 150, minWidth: 130 },
 ];
 
 const TABLE3_COLUMNS: CampaignColumnDefinition[] = [
   { field: "ad_type", headerName: "Ad Type", type: "text", sortable: true, filterable: true, width: 80, minWidth: 70 },
   { field: "campaign_name", headerName: "Campaign", type: "text", sortable: true, filterable: true, width: 240, minWidth: 140 },
-  { field: "campaign_id", headerName: "Campaign ID", type: "text", sortable: true, filterable: true, width: 150, minWidth: 120 },
   { field: "today_cpc", headerName: "Today CPC", type: "number", sortable: true, width: 110 },
   { field: "dow_avg_cpc", headerName: "DOW Avg CPC", type: "number", sortable: true, width: 120 },
-  { field: "cpc_threshold_1_3x", headerName: "1.3x Threshold", type: "number", sortable: true, width: 120 },
-  { field: "today_ctr_pct", headerName: "Today CTR %", type: "number", sortable: true, width: 110 },
-  { field: "dow_avg_ctr_pct", headerName: "DOW Avg CTR %", type: "number", sortable: true, width: 130 },
+  { field: "today_ctr_pct", headerName: "Today CTR", type: "number", sortable: true, width: 110 },
+  { field: "dow_avg_ctr_pct", headerName: "DOW Avg CTR", type: "number", sortable: true, width: 130 },
   { field: "proposed_bid_change_pct", headerName: "Proposed Bid Change %", type: "number", editable: true, bulkSet: true, sortable: false, width: 170, minWidth: 140 },
 ];
 
