@@ -9,6 +9,7 @@ import { useCurrency } from "@/lib/context/CurrencyContext";
 import { AdRevenueCard } from "./components/AdRevenueCard";
 import HourlyAdsRevenueChart from "./components/HourlyAdsRevenueChart";
 import TopCampaignsCard from "./components/TopCampaignsCard";
+import PlacementBidInsightsSection from "./components/PlacementBidInsightsSection";
 import { AD_TYPE_META, AD_TYPE_ORDER } from "@/lib/constants/adTypes";
 
 // ---------------------------------------------------------------------------
@@ -126,22 +127,22 @@ export default function AdsRevenueDashboardPage() {
   const metricsData = useMemo(() => {
     if (!data?.today_performance) {
       return [
-        { title: "Impressions",  value: "Loading...", icon: Eye,               bgColor: "bg-white", color: "bg-gold-400"  },
-        { title: "Clicks",       value: "Loading...", icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
-        { title: "Orders",       value: "Loading...", icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
-        { title: "Ad Cost",      value: "Loading...", icon: Wallet,            bgColor: "bg-white", color: "bg-ocean-300" },
         { title: "Ad Revenue",   value: "Loading...", icon: DollarSign,        bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Orders",       value: "Loading...", icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Clicks",       value: "Loading...", icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Impressions",  value: "Loading...", icon: Eye,               bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Ad Cost",      value: "Loading...", icon: Wallet,            bgColor: "bg-white", color: "bg-ocean-300" },
       ];
     }
 
-    const { impressions, clicks, orders, cost, revenue } = data.today_performance;
+    const { revenue, orders, clicks, impressions, cost } = data.today_performance;
 
     return [
-      { title: "Impressions", value: impressions.toLocaleString(),                                  icon: Eye,               bgColor: "bg-white", color: "bg-gold-400"  },
-      { title: "Clicks",      value: clicks.toLocaleString(),                                       icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
-      { title: "Orders",      value: orders.toString(),                                             icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
-      { title: "Ad Cost",     value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(cost)}`,      icon: Wallet,            bgColor: "bg-white", color: "bg-ocean-300" },
       { title: "Ad Revenue",  value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`, icon: DollarSign,        bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Orders",      value: orders.toString(),                                             icon: ShoppingCart,      bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Clicks",      value: clicks.toLocaleString(),                                       icon: MousePointerClick, bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Impressions", value: impressions.toLocaleString(),                                  icon: Eye,               bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Ad Cost",     value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(cost)}`,      icon: Wallet,            bgColor: "bg-white", color: "bg-ocean-300" },
     ];
   }, [data, formatCurrencyNoDecimal, getCurrencySymbol]);
 
@@ -303,6 +304,11 @@ export default function AdsRevenueDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Placement & Bid Insights                                            */}
+        {/* ------------------------------------------------------------------ */}
+        <PlacementBidInsightsSection />
 
       </div>
     </div>
