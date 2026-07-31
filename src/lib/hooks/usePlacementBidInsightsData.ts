@@ -9,12 +9,15 @@ import { auth } from '@/lib/firebase';
 // underlying service and the original analysis script.
 export type PlacementAdType = 'sp' | 'sb';
 
+export type BaselineMode = 'BAU' | 'ART';
+
 export interface Table1Row {
   ad_type: PlacementAdType;
   campaign_id: string;
   campaign_name: string | null;
   today_impressions: number;
   dow_avg_impressions_elapsed_hours: number;
+  adjusted_dow_avg_impressions_elapsed_hours: number;
   impression_threshold_0_7x: number;
   placement: string;
   current_bid_adjustment_pct: number | null;
@@ -43,6 +46,7 @@ export interface Table3Row {
   campaign_name: string | null;
   today_cpc: number;
   dow_avg_cpc: number;
+  adjusted_dow_avg_cpc: number;
   cpc_threshold_1_3x: number;
   today_ctr_pct: number;
   dow_avg_ctr_pct: number;
@@ -66,6 +70,8 @@ export interface PlacementBidInsightsMetadata {
   account_dow_avg_ctr_pct: number;
   impressions_underpace_ratio: number;
   cpc_overspend_ratio: number;
+  baseline_mode: BaselineMode;
+  baseline_markup_multiplier: number;
   dow_lookback_days: number;
   ad_types_included: PlacementAdType[];
   timezone: string;
@@ -118,30 +124,50 @@ async function getAuthToken(): Promise<string | null> {
 export interface UsePlacementBidInsightsDataOptions {
   enabled?: boolean;
   timezone?: string;
+  impressionsUnderpaceRatio?: number;
+  baselineMode?: BaselineMode;
+  baselineMarkupMultiplier?: number; 
 }
 
-async function fetchPlacementBidInsightsData(timezone?: string): Promise<PlacementBidInsightsData> {
-  const token = await getAuthToken();
+interface FetchParams {
+  timezone?: string;
+  impressionsUnderpaceRatio?: number;
+  baselineMode?: BaselineMode;
+  baselineMarkupMultiplier?: number;
+}
 
+
+async function fetchPlacementBidInsightsData(params: FetchParams): Promise<PlacementBidInsightsData> {
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
 
-  const qs = timezone ? `?timezone=${encodeURIComponent(timezone)}` : '';
+  const body: Record<string, unknown> = {
+    timezone: params.timezone ?? 'Asia/Kolkata',
+  };
+  if (params.impressionsUnderpaceRatio !== undefined) {
+    body.impressions_underpace_ratio = params.impressionsUnderpaceRatio;
+  }
+  if (params.baselineMode) {
+    body.baseline_mode = params.baselineMode;
+  }
+  if (params.baselineMode === 'ART' && params.baselineMarkupMultiplier !== undefined) {
+    body.baseline_markup_multiplier = params.baselineMarkupMultiplier;
+  }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/optivise-x/placement-bid-insights/${qs}`, {
-    method: 'GET',
+  const response = await fetch(`${API_BASE_URL}/api/v1/optivise-x/placement-bid-insights/`, {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || errorData.detail || 'Failed to fetch placement/bid insights',
-    );
+    throw new Error(errorData.error || errorData.detail || 'Failed to fetch placement/bid insights');
   }
 
   const data = await response.json();
@@ -151,6 +177,7 @@ async function fetchPlacementBidInsightsData(timezone?: string): Promise<Placeme
       table1: data.table1_low_impressions?.length,
       table2: data.table2_low_ctr_placements?.length,
       table3: data.table3_high_cpc_low_ctr?.length,
+      baseline_mode: data.metadata?.baseline_mode,
     });
   }
 
@@ -164,12 +191,35 @@ async function fetchPlacementBidInsightsData(timezone?: string): Promise<Placeme
 export function usePlacementBidInsightsData(
   options: UsePlacementBidInsightsDataOptions = {},
 ): UseQueryResult<PlacementBidInsightsData, Error> {
-  const { enabled = true, timezone } = options;
+  const {
+    enabled = true,
+    timezone,
+    impressionsUnderpaceRatio,
+    baselineMode = 'BAU',
+    baselineMarkupMultiplier,
+  } = options;
+
+  // In BAU mode the markup value is irrelevant to the request — excluding
+  // it from the queryKey stops an unrelated markup-input edit from
+  // triggering a refetch while ART isn't even selected.
+  const effectiveMarkup = baselineMode === 'ART' ? baselineMarkupMultiplier : undefined;
 
   return useQuery<PlacementBidInsightsData, Error>({
-    queryKey: ['placementBidInsightsData', timezone ?? 'default'],
-    queryFn: () => fetchPlacementBidInsightsData(timezone),
-    enabled,
+    queryKey: [
+      'placementBidInsightsData',
+      timezone ?? 'default',
+      impressionsUnderpaceRatio ?? 'default',
+      baselineMode,
+      effectiveMarkup ?? 'none',
+    ],
+    queryFn: () =>
+      fetchPlacementBidInsightsData({
+        timezone,
+        impressionsUnderpaceRatio,
+        baselineMode,
+        baselineMarkupMultiplier: effectiveMarkup,
+      }),
+    enabled: enabled && (baselineMode !== 'ART' || effectiveMarkup !== undefined),
     staleTime: 5 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,

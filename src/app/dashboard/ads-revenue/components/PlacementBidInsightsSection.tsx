@@ -67,7 +67,8 @@ const TABLE1_COLUMNS: CampaignColumnDefinition[] = [
   { field: "campaign_name", headerName: "Campaign", type: "text", span: true, sortable: true, filterable: true, width: 220, minWidth: 140 },
   { field: "today_impressions", headerName: "Today Impr.", type: "number", span: true, sortable: true, width: 110 },
   { field: "dow_avg_impressions_elapsed_hours", headerName: "DOW Avg Impr. (elapsed)", type: "number", span: true, sortable: true, width: 160 },
-  { field: "impression_threshold_0_7x", headerName: "0.7x Threshold", type: "number", span: true, sortable: true, width: 120 },
+  { field: "adjusted_dow_avg_impressions_elapsed_hours", headerName: "Adjusted DOW Avg Impr.", type: "number", span: true, sortable: true, width: 170 },
+  { field: "impression_threshold_0_7x", headerName: "Underpace Threshold", type: "number", span: true, sortable: true, width: 130 },
   { field: "placement", headerName: "Placement", type: "text", sortable: true, filterable: true, width: 160, minWidth: 120 },
   { field: "today_placement_impressions", headerName: "Placement Impr.", type: "number", sortable: true, width: 120 },
   { field: "today_placement_clicks", headerName: "Placement Clicks", type: "number", sortable: true, width: 120 },
@@ -95,6 +96,8 @@ const TABLE3_COLUMNS: CampaignColumnDefinition[] = [
   { field: "campaign_name", headerName: "Campaign", type: "text", sortable: true, filterable: true, width: 240, minWidth: 140 },
   { field: "today_cpc", headerName: "Today CPC", type: "number", sortable: true, width: 110 },
   { field: "dow_avg_cpc", headerName: "DOW Avg CPC", type: "number", sortable: true, width: 120 },
+  { field: "adjusted_dow_avg_cpc", headerName: "Adjusted DOW Avg CPC", type: "number", sortable: true, width: 150 },
+  { field: "cpc_threshold_1_3x", headerName: "Overspend Threshold", type: "number", sortable: true, width: 140 },
   { field: "today_ctr_pct", headerName: "Today CTR", type: "number", sortable: true, width: 110 },
   { field: "dow_avg_ctr_pct", headerName: "DOW Avg CTR", type: "number", sortable: true, width: 130 },
   { field: "proposed_bid_change_pct", headerName: "Proposed Bid Change %", type: "number", editable: true, bulkSet: true, sortable: false, width: 170, minWidth: 140 },
@@ -399,10 +402,45 @@ function StagedBidDecreasePanel({ stagedRows, retryableRows, onApplyOne, onApply
 // ---------------------------------------------------------------------------
 
 export default function PlacementBidInsightsSection() {
-  const { data, isLoading, isFetching, error, refetch } = usePlacementBidInsightsData();
-
   const [activeTab, setActiveTab] = useState<TabKey>("table1");
   const [isBulkBusy, setIsBulkBusy] = useState(false);
+
+  // Draft inputs — bound to the input boxes, free to change on every
+  // keystroke/toggle without affecting anything fetched yet.
+  const [underpaceRatio, setUnderpaceRatio] = useState(0.7);
+  const [baselineMode, setBaselineMode] = useState<"BAU" | "ART">("BAU");
+  const [markupMultiplier, setMarkupMultiplier] = useState<number>(1.4);
+
+  const isArtInputInvalid = baselineMode === "ART" && (!markupMultiplier || markupMultiplier < 1);
+
+  // Applied params — this, not the draft state above, is what the query
+  // actually uses. It only changes when the user clicks "Run Analysis"
+  // (see handleRunAnalysis), so editing the inputs never triggers a fetch
+  // on its own. Initialized to the defaults so the page still loads with
+  // data on mount.
+  const [appliedParams, setAppliedParams] = useState({
+    impressionsUnderpaceRatio: 0.7,
+    baselineMode: "BAU" as "BAU" | "ART",
+    baselineMarkupMultiplier: undefined as number | undefined,
+  });
+
+  const handleRunAnalysis = useCallback(() => {
+    if (isArtInputInvalid) return;
+    setAppliedParams({
+      impressionsUnderpaceRatio: underpaceRatio,
+      baselineMode,
+      baselineMarkupMultiplier: baselineMode === "ART" ? markupMultiplier : undefined,
+    });
+  }, [isArtInputInvalid, underpaceRatio, baselineMode, markupMultiplier]);
+
+  // enabled stays true throughout — the query fetches on mount (using the
+  // initial appliedParams) and again whenever appliedParams changes, which
+  // only happens on a Run Analysis click.
+  const { data, isLoading, isFetching, error } = usePlacementBidInsightsData({
+    impressionsUnderpaceRatio: appliedParams.impressionsUnderpaceRatio,
+    baselineMode: appliedParams.baselineMode,
+    baselineMarkupMultiplier: appliedParams.baselineMarkupMultiplier,
+  });
 
   const setRowStatus = usePlacementBidActionsStore((s) => s.setRowStatus);
   const rowActions = usePlacementBidActionsStore((s) => s.rowActions);
@@ -614,7 +652,7 @@ export default function PlacementBidInsightsSection() {
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 mb-4">
         <div>
           <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight">
             Placement & Bid Insights
@@ -626,19 +664,87 @@ export default function PlacementBidInsightsSection() {
             )}
           </p>
         </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 self-start sm:self-auto ${
-            isFetching
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
-          }`}
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-          {isFetching ? "Analyzing..." : "Run Analysis"}
-        </button>
+
+        {/* Threshold controls + Run Analysis, grouped together */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="underpace-ratio" className="text-xs font-medium text-gray-600">
+              Underpace ratio
+            </label>
+            <input
+              id="underpace-ratio"
+              type="number"
+              min={0.05}
+              max={5}
+              step={0.05}
+              value={underpaceRatio}
+              onChange={(e) => setUnderpaceRatio(Number(e.target.value))}
+              className="w-24 px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-600">Baseline mode</span>
+            <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setBaselineMode("BAU")}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  baselineMode === "BAU" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                BAU
+              </button>
+              <button
+                type="button"
+                onClick={() => setBaselineMode("ART")}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-gray-200 ${
+                  baselineMode === "ART" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                ART
+              </button>
+            </div>
+          </div>
+
+          {baselineMode === "ART" && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="baseline-markup" className="text-xs font-medium text-gray-600">
+                Markup (e.g. 1.4x)
+              </label>
+              <input
+                id="baseline-markup"
+                type="number"
+                min={1}
+                max={10}
+                step={0.1}
+                value={markupMultiplier}
+                onChange={(e) => setMarkupMultiplier(Number(e.target.value))}
+                className={`w-24 px-2 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 ${
+                  isArtInputInvalid ? "border-red-300 focus:ring-red-200" : "border-gray-200 focus:ring-blue-200"
+                }`}
+              />
+            </div>
+          )}
+
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isFetching || isArtInputInvalid}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+              isFetching || isArtInputInvalid
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
+            }`}
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Analyzing..." : "Run Analysis"}
+          </button>
+        </div>
       </div>
+
+      {isArtInputInvalid && (
+        <p className="text-xs text-red-600 mb-3">Enter a markup of 1.0 or higher, then click Run Analysis.</p>
+      )}
 
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
