@@ -47,12 +47,24 @@ import {
 //
 // STAGING COLUMN NOTE: `proposed_bid_adjustment_pct` (tables 1 & 2) and
 // `proposed_bid_change_pct` (table 3) do NOT come from the API — they're
-// added client-side as editable staging fields, defaulted from
-// current_bid_adjustment_pct where available (null for table 3, which has
-// no existing-value baseline for a bid decrease). A row is "staged" once
-// its proposed value differs from that default — the panel below each
-// table lists staged rows and is how changes actually get pushed via
-// apply-placement-bid / apply-bid-decrease.
+// added client-side as editable staging fields.
+//
+// Tables 1 & 2 default `proposed_bid_adjustment_pct` to
+// suggestedBidAdjustment(current_bid_adjustment_pct) — current + 50,
+// capped at MAX_BID_ADJUSTMENT_PCT — rather than the current value as-is,
+// so the suggestion column shows an actionable bump instead of a no-op.
+// Rows with no current value (bid lookup unavailable) get no suggestion
+// (null) since there's nothing to bump from. This same default is what a
+// "Set All" bulk-set in the table would show before the user overrides it,
+// since it reads from the same underlying row data.
+// Table 3's `proposed_bid_change_pct` defaults to DEFAULT_BID_DECREASE_PCT
+// (5%) — table 3 has no existing bid value to bump from, so this is a flat
+// starting suggestion rather than a computed one.
+//
+// A row is "staged" once its proposed value differs from that default (see
+// is12Staged/is3Staged) — the panel below each table lists staged rows and
+// is how changes actually get pushed via apply-placement-bid /
+// apply-bid-decrease.
 //
 // Table 1 & 2 send `proposed_bid_adjustment_pct` as-is: it's an ABSOLUTE
 // target percentage (e.g. "600 -> 650"), matching what apply-placement-bid
@@ -61,6 +73,18 @@ import {
 // decrease_pct (a positive percentage to cut every keyword/target bid in
 // the campaign by).
 // ---------------------------------------------------------------------------
+
+const BID_ADJUSTMENT_SUGGESTION_STEP = 50;
+const MAX_BID_ADJUSTMENT_PCT = 900;
+const DEFAULT_BID_DECREASE_PCT = 5;
+
+/** Table 1 / Table 2 suggestion default: current + 50, capped at 900. Null
+ * when there's no current value to bump from (e.g. live bid lookup was
+ * unavailable for this campaign/placement). */
+function suggestedBidAdjustment(current: number | null | undefined): number | null {
+  if (current === null || current === undefined) return null;
+  return Math.min(current + BID_ADJUSTMENT_SUGGESTION_STEP, MAX_BID_ADJUSTMENT_PCT);
+}
 
 const TABLE1_COLUMNS: CampaignColumnDefinition[] = [
   { field: "ad_type", headerName: "Ad Type", type: "text", span: true, sortable: true, filterable: true, width: 80, minWidth: 70 },
@@ -100,7 +124,7 @@ const TABLE3_COLUMNS: CampaignColumnDefinition[] = [
   { field: "cpc_threshold_1_3x", headerName: "Overspend Threshold", type: "number", sortable: true, width: 140 },
   { field: "today_ctr_pct", headerName: "Today CTR", type: "number", sortable: true, width: 110 },
   { field: "dow_avg_ctr_pct", headerName: "DOW Avg CTR", type: "number", sortable: true, width: 130 },
-  { field: "proposed_bid_change_pct", headerName: "Proposed Bid Change %", type: "number", editable: true, bulkSet: true, sortable: false, width: 170, minWidth: 140 },
+  { field: "proposed_bid_change_pct", headerName: "Decrease bid by %", type: "number", editable: true, bulkSet: true, sortable: false, width: 170, minWidth: 140 },
 ];
 
 const GROUP_BY_CAMPAIGN = ["ad_type", "campaign_id"];
@@ -452,6 +476,26 @@ export default function PlacementBidInsightsSection() {
   const [table2Data, setTable2Data] = useState<StagedTable2[]>([]);
   const [table3Data, setTable3Data] = useState<StagedTable3[]>([]);
 
+  // Which rows the user has checked via CampaignDataTable's checkbox column,
+  // keyed the same way as the staging panels (table12RowKey / table3RowKey).
+  // "Staged" now means BOTH "has a suggested/edited value" AND "checked" —
+  // otherwise every row would show as staged the moment it loads, since the
+  // default proposed value is a non-trivial suggestion (see
+  // suggestedBidAdjustment / DEFAULT_BID_DECREASE_PCT above).
+  const [selectedTable1Keys, setSelectedTable1Keys] = useState<Set<string>>(new Set());
+  const [selectedTable2Keys, setSelectedTable2Keys] = useState<Set<string>>(new Set());
+  const [selectedTable3Keys, setSelectedTable3Keys] = useState<Set<string>>(new Set());
+
+  const handleTable1SelectionChange = useCallback((selected: CampaignTableData[]) => {
+    setSelectedTable1Keys(new Set(selected.map((row) => table12RowKey(row as StagedTable1))));
+  }, []);
+  const handleTable2SelectionChange = useCallback((selected: CampaignTableData[]) => {
+    setSelectedTable2Keys(new Set(selected.map((row) => table12RowKey(row as StagedTable2))));
+  }, []);
+  const handleTable3SelectionChange = useCallback((selected: CampaignTableData[]) => {
+    setSelectedTable3Keys(new Set(selected.map((row) => table3RowKey(row as StagedTable3))));
+  }, []);
+
   const handleTable1Change = useCallback((newData: CampaignTableData[]) => {
     setTable1Data(newData as StagedTable1[]);
   }, []);
@@ -467,21 +511,24 @@ export default function PlacementBidInsightsSection() {
     setTable1Data(
       data.table1_low_impressions.map((row: Table1Row) => ({
         ...row,
-        proposed_bid_adjustment_pct: row.current_bid_adjustment_pct ?? null,
+        proposed_bid_adjustment_pct: suggestedBidAdjustment(row.current_bid_adjustment_pct),
       })),
     );
     setTable2Data(
       data.table2_low_ctr_placements.map((row: Table2Row) => ({
         ...row,
-        proposed_bid_adjustment_pct: row.current_bid_adjustment_pct ?? null,
+        proposed_bid_adjustment_pct: suggestedBidAdjustment(row.current_bid_adjustment_pct),
       })),
     );
     setTable3Data(
       data.table3_high_cpc_low_ctr.map((row: Table3Row) => ({
         ...row,
-        proposed_bid_change_pct: null,
+        proposed_bid_change_pct: DEFAULT_BID_DECREASE_PCT,
       })),
     );
+    setSelectedTable1Keys(new Set());
+    setSelectedTable2Keys(new Set());
+    setSelectedTable3Keys(new Set());
   }, [data]);
 
   const tabCounts = useMemo(
@@ -493,9 +540,18 @@ export default function PlacementBidInsightsSection() {
     [table1Data, table2Data, table3Data],
   );
 
-  const staged1 = useMemo(() => table1Data.filter(is12Staged), [table1Data]);
-  const staged2 = useMemo(() => table2Data.filter(is12Staged), [table2Data]);
-  const staged3 = useMemo(() => table3Data.filter(is3Staged), [table3Data]);
+  const staged1 = useMemo(
+    () => table1Data.filter((row) => is12Staged(row) && selectedTable1Keys.has(table12RowKey(row))),
+    [table1Data, selectedTable1Keys],
+  );
+  const staged2 = useMemo(
+    () => table2Data.filter((row) => is12Staged(row) && selectedTable2Keys.has(table12RowKey(row))),
+    [table2Data, selectedTable2Keys],
+  );
+  const staged3 = useMemo(
+    () => table3Data.filter((row) => is3Staged(row) && selectedTable3Keys.has(table3RowKey(row))),
+    [table3Data, selectedTable3Keys],
+  );
   const retryable3 = useMemo(
     () => table3Data.filter((row) => getRowActionState(rowActions, table3RowKey(row)).canRetryFailed),
     [table3Data, rowActions],
@@ -802,6 +858,7 @@ export default function PlacementBidInsightsSection() {
                   columns={TABLE1_COLUMNS}
                   groupByFields={GROUP_BY_CAMPAIGN}
                   onDataChange={handleTable1Change}
+                  onSelectionChange={handleTable1SelectionChange}
                   showCheckboxColumn
                   showDeleteOption={false}
                   rowsPerPage={10}
@@ -826,6 +883,7 @@ export default function PlacementBidInsightsSection() {
                   columns={TABLE2_COLUMNS}
                   groupByFields={GROUP_BY_CAMPAIGN}
                   onDataChange={handleTable2Change}
+                  onSelectionChange={handleTable2SelectionChange}
                   showCheckboxColumn
                   showDeleteOption={false}
                   rowsPerPage={10}
@@ -850,6 +908,7 @@ export default function PlacementBidInsightsSection() {
                   columns={TABLE3_COLUMNS}
                   groupByFields={GROUP_BY_CAMPAIGN}
                   onDataChange={handleTable3Change}
+                  onSelectionChange={handleTable3SelectionChange}
                   showCheckboxColumn
                   showDeleteOption={false}
                   rowsPerPage={10}
