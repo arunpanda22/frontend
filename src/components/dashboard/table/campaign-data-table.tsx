@@ -51,6 +51,13 @@ export interface CampaignColumnDefinition {
   /** For date columns: column-wide default ISO date string */
   defaultDate?: string;
   bulkSet?: boolean
+  /**
+   * Custom title shown in the "Set all" popup for this column (number
+   * columns only, for now). Falls back to "Set budget for all rows" when
+   * omitted, so existing usages of this component that don't pass this
+   * keep their current copy unchanged.
+   */
+  bulkSetLabel?: string
 }
 
 export interface CampaignTableData {
@@ -1065,6 +1072,9 @@ export function CampaignDataTable({
 
   const [bulkNumberField, setBulkNumberField] = useState<string | null>(null)
   const [bulkNumberStyle, setBulkNumberStyle] = useState<React.CSSProperties>({})
+  // Falls back to the original hardcoded copy so any existing usage that
+  // doesn't set column.bulkSetLabel renders exactly as it did before.
+  const [bulkNumberLabel, setBulkNumberLabel] = useState<string>('Set budget for all rows')
   const [bulkDropdownField,  setBulkDropdownField]  = useState<string | null>(null)
   const [bulkDropdownStyle,  setBulkDropdownStyle]  = useState<React.CSSProperties>({})
   const [bulkDropdownOptions, setBulkDropdownOptions] = useState<DropdownOption[]>([])
@@ -1207,6 +1217,7 @@ export function CampaignDataTable({
                                 left: Math.max(0, r?.left ?? 0),
                                 zIndex: 9999,
                               })
+                              setBulkNumberLabel(col.bulkSetLabel ?? 'Set budget for all rows')
                               setBulkNumberField(col.field)
                             }
                           : undefined
@@ -1555,7 +1566,7 @@ export function CampaignDataTable({
       )}
       {bulkNumberField && (
         <BulkNumberPopup
-          label="Set budget for all rows"
+          label={bulkNumberLabel}
           style={bulkNumberStyle}
           onApply={applyBulkNumber}
           onCancel={() => setBulkNumberField(null)}

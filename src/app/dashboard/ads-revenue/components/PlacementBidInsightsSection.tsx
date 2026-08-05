@@ -78,12 +78,63 @@ const BID_ADJUSTMENT_SUGGESTION_STEP = 50;
 const MAX_BID_ADJUSTMENT_PCT = 900;
 const DEFAULT_BID_DECREASE_PCT = 5;
 
-/** Table 1 / Table 2 suggestion default: current + 50, capped at 900. Null
- * when there's no current value to bump from (e.g. live bid lookup was
- * unavailable for this campaign/placement). */
-function suggestedBidAdjustment(current: number | null | undefined): number | null {
+/** Treats a missing-but-present current bid (0 or negative) as a 0 base to
+ * increment from. Returns null only when there's genuinely no current value
+ * (bid lookup unavailable) — callers decide what to do with that case. */
+function baseBidValue(current: number | null | undefined): number | null {
   if (current === null || current === undefined) return null;
-  return Math.min(current + BID_ADJUSTMENT_SUGGESTION_STEP, MAX_BID_ADJUSTMENT_PCT);
+  return current <= 0 ? 0 : current;
+}
+
+/** Table 1 / Table 2 suggestion default: current + 50, capped at 900,
+ * treating a current of 0 or negative as a 0 base. Null when there's no
+ * current value to bump from at all (e.g. live bid lookup was unavailable
+ * for this campaign/placement). */
+function suggestedBidAdjustment(current: number | null | undefined): number | null {
+  const base = baseBidValue(current);
+  if (base === null) return null;
+  return Math.min(base + BID_ADJUSTMENT_SUGGESTION_STEP, MAX_BID_ADJUSTMENT_PCT);
+}
+
+/**
+ * Reinterprets CampaignDataTable's "Set all" bulk action for
+ * proposed_bid_adjustment_pct: the component itself just writes the same
+ * raw value to every row (see BulkNumberPopup / applyBulkNumber in
+ * campaign-data-table.tsx — not something we modify). We detect that here
+ * by comparing to the previous state and treat the typed value as an
+ * INCREASE applied per-row on top of that row's own current bid (0 or
+ * negative treated as a 0 base), capped at MAX_BID_ADJUSTMENT_PCT, instead
+ * of letting every row end up at the same absolute number.
+ *
+ * A single inline cell edit only ever changes exactly one row for this
+ * field (it isn't a spanned/grouped column), so more than one row changing
+ * in the same onDataChange call is the reliable signature of the bulk-set
+ * popup having fired — that's the detection this relies on. Row count
+ * changing (e.g. a delete) is passed through untouched.
+ */
+function applyBulkBidIncrement<
+  T extends { current_bid_adjustment_pct: number | null; proposed_bid_adjustment_pct: number | null },
+>(prevRows: T[], newRows: T[]): T[] {
+  if (newRows.length !== prevRows.length) return newRows;
+
+  const changedIndices: number[] = [];
+  for (let i = 0; i < newRows.length; i++) {
+    if (newRows[i].proposed_bid_adjustment_pct !== prevRows[i].proposed_bid_adjustment_pct) {
+      changedIndices.push(i);
+    }
+  }
+
+  // 0 or 1 rows changed -> a normal single-cell edit (or no-op); pass through as-is.
+  if (changedIndices.length <= 1) return newRows;
+
+  const incrementBy = Number(newRows[changedIndices[0]].proposed_bid_adjustment_pct);
+  if (!Number.isFinite(incrementBy)) return newRows;
+
+  return newRows.map((row) => {
+    const base = baseBidValue(row.current_bid_adjustment_pct);
+    if (base === null) return row; // no current bid data — nothing to increment from
+    return { ...row, proposed_bid_adjustment_pct: Math.min(base + incrementBy, MAX_BID_ADJUSTMENT_PCT) };
+  });
 }
 
 const TABLE1_COLUMNS: CampaignColumnDefinition[] = [
@@ -100,7 +151,7 @@ const TABLE1_COLUMNS: CampaignColumnDefinition[] = [
   { field: "dow_placement_ctr_pct", headerName: "DOW Placement CTR", type: "number", sortable: true, width: 150 },
   { field: "account_dow_avg_ctr_pct", headerName: "Account Avg CTR", type: "number", span: true, sortable: true, width: 140 },
   { field: "current_bid_adjustment_pct", headerName: "Current Bid Adj", type: "number", sortable: true, width: 130 },
-  { field: "proposed_bid_adjustment_pct", headerName: "Proposed Bid Adj %", type: "number", editable: true, bulkSet: true, sortable: false, width: 150, minWidth: 130 },
+  { field: "proposed_bid_adjustment_pct", headerName: "Proposed Bid Adj %", type: "number", editable: true, bulkSet: true, bulkSetLabel: "Increase bid % for all rows", sortable: false, width: 150, minWidth: 130 },
 ];
 
 const TABLE2_COLUMNS: CampaignColumnDefinition[] = [
@@ -112,7 +163,7 @@ const TABLE2_COLUMNS: CampaignColumnDefinition[] = [
   { field: "today_placement_ctr_pct", headerName: "Placement CTR", type: "number", sortable: true, width: 130 },
   { field: "dow_avg_placement_ctr_pct", headerName: "DOW Placement CTR", type: "number", sortable: true, width: 150 },
   { field: "current_bid_adjustment_pct", headerName: "Current Bid Adj", type: "number", sortable: true, width: 130 },
-  { field: "proposed_bid_adjustment_pct", headerName: "Proposed Bid Adj %", type: "number", editable: true, bulkSet: true, sortable: false, width: 150, minWidth: 130 },
+  { field: "proposed_bid_adjustment_pct", headerName: "Proposed Bid Adj %", type: "number", editable: true, bulkSet: true, bulkSetLabel: "Increase bid % for all rows", sortable: false, width: 150, minWidth: 130 },
 ];
 
 const TABLE3_COLUMNS: CampaignColumnDefinition[] = [
@@ -124,7 +175,7 @@ const TABLE3_COLUMNS: CampaignColumnDefinition[] = [
   { field: "cpc_threshold_1_3x", headerName: "Overspend Threshold", type: "number", sortable: true, width: 140 },
   { field: "today_ctr_pct", headerName: "Today CTR", type: "number", sortable: true, width: 110 },
   { field: "dow_avg_ctr_pct", headerName: "DOW Avg CTR", type: "number", sortable: true, width: 130 },
-  { field: "proposed_bid_change_pct", headerName: "Decrease bid by %", type: "number", editable: true, bulkSet: true, sortable: false, width: 170, minWidth: 140 },
+  { field: "proposed_bid_change_pct", headerName: "Decrease bid by %", type: "number", editable: true, bulkSet: true, bulkSetLabel: "Set decrease % for all rows", sortable: false, width: 170, minWidth: 140 },
 ];
 
 const GROUP_BY_CAMPAIGN = ["ad_type", "campaign_id"];
@@ -497,10 +548,10 @@ export default function PlacementBidInsightsSection() {
   }, []);
 
   const handleTable1Change = useCallback((newData: CampaignTableData[]) => {
-    setTable1Data(newData as StagedTable1[]);
+    setTable1Data((prev) => applyBulkBidIncrement(prev, newData as StagedTable1[]));
   }, []);
   const handleTable2Change = useCallback((newData: CampaignTableData[]) => {
-    setTable2Data(newData as StagedTable2[]);
+    setTable2Data((prev) => applyBulkBidIncrement(prev, newData as StagedTable2[]));
   }, []);
   const handleTable3Change = useCallback((newData: CampaignTableData[]) => {
     setTable3Data(newData as StagedTable3[]);
