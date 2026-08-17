@@ -82,6 +82,13 @@ const DASHBOARD_CORE_ROUTES: RouteConfig[] = [
     permission: 'view_sqp_performance',
     requiresSellerAccount: true,
   },
+  {
+    name: 'Tag Management',
+    href: '/dashboard/tag-management',
+    description: 'Tag campaigns and asins',
+    permission: 'view_campaign_performance',
+    requiresSellerAccount: true,
+  },
 ]
 
 // ── AdOptimus Suite ────────────────────────────────────────────────────────────
