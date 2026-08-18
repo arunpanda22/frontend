@@ -34,7 +34,7 @@ export default function FlipkartPage() {
             Connect your Flipkart Advertising account to start managing campaigns from here.
           </p>
 
-          <FlipkartConnector onRefresh={async () => { await refetchProfile() }} />
+          <FlipkartConnector />
         </div>
       </div>
     </div>

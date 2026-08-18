@@ -1,11 +1,9 @@
 import { useMutation, useQuery, UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api/config'
 
-type ConnectFlipkartResponse = {
-  success: boolean
-  connected: boolean
-  created: boolean
-  scopes: string
+type FlipkartAuthInitResponse = {
+  authorization_url: string
+  state: string
 }
 
 type FlipkartStatusResponse = {
@@ -13,17 +11,6 @@ type FlipkartStatusResponse = {
   scopes?: string
   token_expires_at?: string
   refresh_token_expires_at?: string
-}
-
-export const useFlipkartAuthConfig = (): UseQueryResult<{ client_id: string; redirect_uri: string }, Error> => {
-  return useQuery({
-    queryKey: ['flipkart-auth-config'],
-    queryFn: async () => {
-      const response = await apiClient.get('/api/v1/fk/auth/config')
-      return response.data
-    },
-    staleTime: Infinity, // this never changes at runtime
-  })
 }
 
 export const useFlipkartAdvertisingStatus = (): UseQueryResult<FlipkartStatusResponse, Error> => {
@@ -36,10 +23,10 @@ export const useFlipkartAdvertisingStatus = (): UseQueryResult<FlipkartStatusRes
   })
 }
 
-export const useConnectFlipkartAdvertising = (): UseMutationResult<ConnectFlipkartResponse, Error, { code: string }> => {
+export const useInitFlipkartAdvertising = (): UseMutationResult<FlipkartAuthInitResponse, Error, void> => {
   return useMutation({
-    mutationFn: async ({ code }) => {
-      const response = await apiClient.post('/api/v1/fk/advertising/connect', { code })
+    mutationFn: async () => {
+      const response = await apiClient.get('/api/v1/fk/auth/init')
       return response.data
     },
   })
