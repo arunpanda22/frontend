@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Pencil, X, Upload, Loader2, Tag as TagIcon } from 'lucide-react'
+import { Plus, Pencil, X, Upload, Loader2, Tag as TagIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   EntityType,
   TagType,
@@ -23,24 +23,40 @@ const ENTITY_TABS: { label: string; value: EntityType }[] = [
   { label: 'Targets', value: 'TARGET' },
 ]
 
+const PAGE_SIZE = 50
+
 export default function TagManagementPage() {
   const searchParams = useSearchParams()
   const initialEntity = (searchParams.get('entity') as EntityType) || 'ASIN'
 
   const [activeEntity, setActiveEntity] = useState<EntityType>(initialEntity)
+  const [page, setPage] = useState(1)
   const [showAddTagType, setShowAddTagType] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
   const { data: tagTypes = [], isLoading: tagTypesLoading } = useTagTypesQuery(activeEntity)
-  const { data: entityTags = [], isLoading: tagsLoading } = useEntityTagsQuery(activeEntity)
+  const { data: entityTagsPage, isLoading: tagsLoading, isFetching: tagsFetching } = useEntityTagsQuery(
+    activeEntity,
+    page,
+    PAGE_SIZE,
+  )
+
+  const entityTags = entityTagsPage?.results ?? []
+  const totalCount = entityTagsPage?.count ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   const renameTagType = useRenameTagTypeMutation(activeEntity)
   const deleteTagType = useDeleteTagTypeMutation(activeEntity)
   const applyTag = useApplyTagMutation(activeEntity)
 
   const loading = tagTypesLoading || tagsLoading
+
+  function handleTabChange(entityType: EntityType) {
+    setActiveEntity(entityType)
+    setPage(1)
+  }
 
   async function handleCellSave(entityKey: string, tagTypeName: string, value: string) {
     await applyTag.mutateAsync({ entity_key: entityKey, tags: { [tagTypeName]: value } })
@@ -52,6 +68,8 @@ export default function TagManagementPage() {
     }
     setRenamingId(null)
   }
+
+  const columnCount = tagTypes.length + 2 + (activeEntity === 'TARGET' ? 1 : 0)
 
   return (
     <main className="min-h-screen bg-[#f8fafc] px-8 py-10 font-montserrat">
@@ -76,7 +94,7 @@ export default function TagManagementPage() {
           {ENTITY_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveEntity(tab.value)}
+              onClick={() => handleTabChange(tab.value)}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${
                 activeEntity === tab.value
                   ? 'bg-[#1a2b3c] text-white'
@@ -94,88 +112,131 @@ export default function TagManagementPage() {
               <Loader2 className="size-4 animate-spin" /> Loading...
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-5 py-3 font-medium">Entity</th>
-                    {tagTypes.map((tagType) => (
-                      <th key={tagType.id} className="px-4 py-3 font-medium">
-                        {renamingId === tagType.id ? (
-                          <input
-                            autoFocus
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={() => handleRenameCommit(tagType)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleRenameCommit(tagType)}
-                            className="w-28 rounded border border-slate-300 px-1.5 py-0.5 text-xs normal-case"
-                          />
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5">
-                            {tagType.name}
-                            {!tagType.is_system && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setRenamingId(tagType.id)
-                                    setRenameValue(tagType.name)
-                                  }}
-                                  aria-label={`Rename ${tagType.name}`}
-                                >
-                                  <Pencil className="size-3 text-slate-400 hover:text-slate-700" />
-                                </button>
-                                <button
-                                  onClick={() => deleteTagType.mutate(tagType.id)}
-                                  aria-label={`Remove ${tagType.name}`}
-                                >
-                                  <X className="size-3 text-slate-400 hover:text-rose-600" />
-                                </button>
-                              </>
-                            )}
-                          </span>
-                        )}
-                      </th>
-                    ))}
-                    <th className="px-4 py-3">
-                      <button
-                        onClick={() => setShowAddTagType(true)}
-                        aria-label="Add tag type"
-                        className="flex size-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        <Plus className="size-4" />
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entityTags.length === 0 ? (
-                    <tr>
-                      <td colSpan={tagTypes.length + 2} className="px-5 py-16 text-center text-sm text-slate-400">
-                        <div className="flex flex-col items-center gap-2">
-                          <TagIcon className="size-5 text-slate-300" />
-                          No {activeEntity.toLowerCase()}s tagged yet — use Bulk Upload or apply a tag to get started.
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    entityTags.map((row) => (
-                      <tr key={row.entity_key} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                        <td className="px-5 py-3 font-medium text-slate-800">{row.entity_key}</td>
-                        {tagTypes.map((tagType) => (
-                          <td key={tagType.id} className="px-4 py-3">
-                            <EditableTagCell
-                              value={row.tags[tagType.slug]}
-                              onSave={(value) => handleCellSave(row.entity_key, tagType.name, value)}
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                      <th className="px-5 py-3 font-medium">Entity</th>
+                      {activeEntity === 'TARGET' && (
+                        <th className="px-4 py-3 font-medium">Campaign ID</th>
+                      )}
+                      {tagTypes.map((tagType) => (
+                        <th key={tagType.id} className="px-4 py-3 font-medium">
+                          {renamingId === tagType.id ? (
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onBlur={() => handleRenameCommit(tagType)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleRenameCommit(tagType)}
+                              className="w-28 rounded border border-slate-300 px-1.5 py-0.5 text-xs normal-case"
                             />
-                          </td>
-                        ))}
-                        <td />
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              {tagType.name}
+                              {!tagType.is_system && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setRenamingId(tagType.id)
+                                      setRenameValue(tagType.name)
+                                    }}
+                                    aria-label={`Rename ${tagType.name}`}
+                                  >
+                                    <Pencil className="size-3 text-slate-400 hover:text-slate-700" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteTagType.mutate(tagType.id)}
+                                    aria-label={`Remove ${tagType.name}`}
+                                  >
+                                    <X className="size-3 text-slate-400 hover:text-rose-600" />
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          )}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3">
+                        <button
+                          onClick={() => setShowAddTagType(true)}
+                          aria-label="Add tag type"
+                          className="flex size-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entityTags.length === 0 ? (
+                      <tr>
+                        <td colSpan={columnCount} className="px-5 py-16 text-center text-sm text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <TagIcon className="size-5 text-slate-300" />
+                            No {activeEntity.toLowerCase()}s tagged yet — use Bulk Upload or apply a tag to get started.
+                          </div>
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      entityTags.map((row) => (
+                        <tr key={row.entity_key} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                          <td className="px-5 py-3">
+                            <div className="font-medium text-slate-800">{row.display_name || row.entity_key}</div>
+                            {row.display_name && (
+                              <div className="text-xs text-slate-400">{row.entity_key}</div>
+                            )}
+                          </td>
+                          {activeEntity === 'TARGET' && (
+                            <td className="px-4 py-3 text-slate-500">{row.campaign_id || '—'}</td>
+                          )}
+                          {tagTypes.map((tagType) => (
+                            <td key={tagType.id} className="px-4 py-3">
+                              <EditableTagCell
+                                value={row.tags[tagType.slug]}
+                                onSave={(value) => handleCellSave(row.entity_key, tagType.name, value)}
+                              />
+                            </td>
+                          ))}
+                          <td />
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {totalCount > 0 && (
+                <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-sm text-slate-500">
+                  <span>
+                    Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+                    {tagsFetching && <Loader2 className="ml-2 inline size-3 animate-spin align-middle" />}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      aria-label="Previous page"
+                      className="flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    <span className="px-2 text-xs">
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      aria-label="Next page"
+                      className="flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

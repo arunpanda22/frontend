@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { EntityType, useCreateTagTypeMutation } from '@/lib/hooks/queries/use-entity-tags'
+import { EntityType, useCreateTagTypeMutation, isReservedTagTypeName } from '@/lib/hooks/queries/use-entity-tags'
 
 export function AddTagTypeModal({ entityType, onClose }: { entityType: EntityType; onClose: () => void }) {
   const [name, setName] = useState('')
@@ -10,8 +10,10 @@ export function AddTagTypeModal({ entityType, onClose }: { entityType: EntityTyp
 
   const createTagType = useCreateTagTypeMutation(entityType)
 
+  const reserved = isReservedTagTypeName(name)
+
   async function handleCreate() {
-    if (!name.trim()) return
+    if (!name.trim() || reserved) return
     await createTagType.mutateAsync({ name: name.trim(), allow_multiple: allowMultiple })
     onClose()
   }
@@ -31,9 +33,16 @@ export function AddTagTypeModal({ entityType, onClose }: { entityType: EntityTyp
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Segment"
-          className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#1a2b3c]"
+          className={`mb-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#1a2b3c] ${
+            reserved ? 'border-rose-400' : 'border-slate-300'
+          }`}
         />
-        <label className="mb-4 flex items-center gap-2 text-sm text-slate-600">
+        {reserved && (
+          <p className="mb-3 text-xs text-rose-600">
+            &quot;campaign_id&quot; is reserved — it&apos;s populated automatically for targets, not used as a tag.
+          </p>
+        )}
+        <label className={`mb-4 flex items-center gap-2 text-sm text-slate-600 ${reserved ? 'mt-3' : ''}`}>
           <input type="checkbox" checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} />
           Allow multiple values per entity
         </label>
@@ -43,7 +52,7 @@ export function AddTagTypeModal({ entityType, onClose }: { entityType: EntityTyp
           </button>
           <button
             onClick={handleCreate}
-            disabled={!name.trim() || createTagType.isPending}
+            disabled={!name.trim() || reserved || createTagType.isPending}
             className="rounded-lg bg-[#1a2b3c] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {createTagType.isPending ? 'Creating...' : 'Create'}

@@ -1,7 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api/config'
 
 export type EntityType = 'ASIN' | 'TARGET' | 'CAMPAIGN'
+export const RESERVED_TAG_TYPE_NAMES = ['campaign_id'] as const
+
+function normalizeForReservedCheck(name: string) {
+  return name.trim().toLowerCase().replace(/[\s._-]+/g, '_')
+}
+
+export function isReservedTagTypeName(name: string) {
+  const normalized = normalizeForReservedCheck(name)
+  return RESERVED_TAG_TYPE_NAMES.some((reserved) => normalizeForReservedCheck(reserved) === normalized)
+}
 
 export interface TagType {
   id: string
@@ -19,7 +29,15 @@ export interface EntityTagRow {
   entity_type: EntityType
   entity_key: string
   campaign_id: string | null
+  display_name: string | null
   tags: Record<string, string | string[]>
+}
+
+export interface PaginatedEntityTags {
+  count: number
+  next: string | null
+  previous: string | null
+  results: EntityTagRow[]
 }
 
 export interface BulkUploadResult {
@@ -40,16 +58,16 @@ export function useTagTypesQuery(entityType: EntityType) {
   })
 }
 
-export function useEntityTagsQuery(entityType: EntityType, entityKeys?: string[]) {
+export function useEntityTagsQuery(entityType: EntityType, page: number, pageSize = 50) {
   return useQuery({
-    queryKey: ['entity-tags', entityType, entityKeys],
+    queryKey: ['entity-tags', entityType, page, pageSize],
     queryFn: async () => {
-      const { data } = await apiClient.get<EntityTagRow[]>('/api/v1/tagging/entity-tags/', {
-        params: { entity_type: entityType, entity_keys: entityKeys?.join(',') },
+      const { data } = await apiClient.get<PaginatedEntityTags>('/api/v1/tagging/entity-tags/', {
+        params: { entity_type: entityType, page, page_size: pageSize },
       })
       return data
     },
-    enabled: !entityKeys || entityKeys.length > 0,
+    placeholderData: keepPreviousData, // keeps current rows on screen while the next page loads, instead of flashing to a spinner
   })
 }
 
@@ -91,7 +109,12 @@ export function useDeleteTagTypeMutation(entityType: EntityType) {
 export function useApplyTagMutation(entityType: EntityType) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: { entity_key: string; tags: Record<string, string>; campaign_id?: string }) => {
+    mutationFn: async (payload: {
+      entity_key: string
+      tags: Record<string, string>
+      campaign_id?: string
+      display_name?: string
+    }) => {
       const { data } = await apiClient.post<EntityTagRow>('/api/v1/tagging/apply/', {
         entity_type: entityType,
         ...payload,
