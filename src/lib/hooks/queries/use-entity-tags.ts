@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { apiClient } from '@/lib/api/config'
 
 export type EntityType = 'ASIN' | 'TARGET' | 'CAMPAIGN'
-export const RESERVED_TAG_TYPE_NAMES = ['campaign_id'] as const
+export const RESERVED_TAG_TYPE_NAMES = ['campaign_id', 'display_name'] as const
 
 function normalizeForReservedCheck(name: string) {
   return name.trim().toLowerCase().replace(/[\s._-]+/g, '_')
@@ -67,7 +67,7 @@ export function useEntityTagsQuery(entityType: EntityType, page: number, pageSiz
       })
       return data
     },
-    placeholderData: keepPreviousData, // keeps current rows on screen while the next page loads, instead of flashing to a spinner
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -134,6 +134,8 @@ export function useBulkUploadTagsMutation(entityType: EntityType) {
       form.append('file', file)
       const { data } = await apiClient.post<BulkUploadResult>('/api/v1/tagging/bulk-upload/', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120_000,
+        'axios-retry': { retries: 0 }, // never retry — a bulk upload isn't safe to silently resend
       })
       return data
     },
