@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Pencil, X, Upload, Loader2, Tag as TagIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Lock, Plus, Pencil, X, Upload, Loader2, Tag as TagIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   EntityType,
   TagType,
@@ -11,7 +11,7 @@ import {
   useEntityTagsQuery,
   useRenameTagTypeMutation,
   useDeleteTagTypeMutation,
-  useApplyTagMutation,
+  useAssignTagMutation,
 } from '@/lib/hooks/queries/use-entity-tags'
 import { BulkUploadModal } from './components/BulkUploadModal'
 import { AddTagTypeModal } from './components/AddTagTypeModal'
@@ -49,7 +49,7 @@ export default function TagManagementPage() {
 
   const renameTagType = useRenameTagTypeMutation(activeEntity)
   const deleteTagType = useDeleteTagTypeMutation(activeEntity)
-  const applyTag = useApplyTagMutation(activeEntity)
+  const assignTag = useAssignTagMutation(activeEntity)
 
   const loading = tagTypesLoading || tagsLoading
 
@@ -58,8 +58,8 @@ export default function TagManagementPage() {
     setPage(1)
   }
 
-  async function handleCellSave(entityKey: string, tagTypeName: string, value: string) {
-    await applyTag.mutateAsync({ entity_key: entityKey, tags: { [tagTypeName]: value } })
+  async function handleCellSave(entityKey: string, tagType: TagType, values: string[]) {
+    await assignTag.mutateAsync({ entity_key: entityKey, tag_type: tagType.id, values })
   }
 
   async function handleRenameCommit(tagType: TagType) {
@@ -69,7 +69,10 @@ export default function TagManagementPage() {
     setRenamingId(null)
   }
 
-  const columnCount = tagTypes.length + 2 + (activeEntity === 'TARGET' ? 1 : 0)
+  // No Campaign ID column anymore — TaggableEntity (tagging_v2) doesn't
+  // carry a campaign_id field the way the old EntityTags did. Entity name
+  // column + tag-type columns + trailing add-column button.
+  const columnCount = tagTypes.length + 2
 
   return (
     <main className="min-h-screen bg-[#f8fafc] px-8 py-10 font-montserrat">
@@ -96,9 +99,7 @@ export default function TagManagementPage() {
               key={tab.value}
               onClick={() => handleTabChange(tab.value)}
               className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                activeEntity === tab.value
-                  ? 'bg-[#1a2b3c] text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
+                activeEntity === tab.value ? 'bg-[#1a2b3c] text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               {tab.label}
@@ -118,9 +119,6 @@ export default function TagManagementPage() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                       <th className="px-5 py-3 font-medium">Entity</th>
-                      {activeEntity === 'TARGET' && (
-                        <th className="px-4 py-3 font-medium">Campaign ID</th>
-                      )}
                       {tagTypes.map((tagType) => (
                         <th key={tagType.id} className="px-4 py-3 font-medium">
                           {renamingId === tagType.id ? (
@@ -135,25 +133,24 @@ export default function TagManagementPage() {
                           ) : (
                             <span className="inline-flex items-center gap-1.5">
                               {tagType.name}
-                              {!tagType.is_system && (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      setRenamingId(tagType.id)
-                                      setRenameValue(tagType.name)
-                                    }}
-                                    aria-label={`Rename ${tagType.name}`}
-                                  >
-                                    <Pencil className="size-3 text-slate-400 hover:text-slate-700" />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteTagType.mutate(tagType.id)}
-                                    aria-label={`Remove ${tagType.name}`}
-                                  >
-                                    <X className="size-3 text-slate-400 hover:text-rose-600" />
-                                  </button>
-                                </>
+                              {tagType.restrict_to_existing_values && (
+                                <Lock className="size-3 text-slate-400" aria-label="Restricted to predefined values" />
                               )}
+                              <button
+                                onClick={() => {
+                                  setRenamingId(tagType.id)
+                                  setRenameValue(tagType.name)
+                                }}
+                                aria-label={`Rename ${tagType.name}`}
+                              >
+                                <Pencil className="size-3 text-slate-400 hover:text-slate-700" />
+                              </button>
+                              <button
+                                onClick={() => deleteTagType.mutate(tagType.id)}
+                                aria-label={`Remove ${tagType.name}`}
+                              >
+                                <X className="size-3 text-slate-400 hover:text-rose-600" />
+                              </button>
                             </span>
                           )}
                         </th>
@@ -175,7 +172,8 @@ export default function TagManagementPage() {
                         <td colSpan={columnCount} className="px-5 py-16 text-center text-sm text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <TagIcon className="size-5 text-slate-300" />
-                            No {activeEntity.toLowerCase()}s tagged yet — use Bulk Upload or apply a tag to get started.
+                            No {activeEntity.toLowerCase()}s tagged yet — use Bulk Upload or apply a tag to get
+                            started.
                           </div>
                         </td>
                       </tr>
@@ -184,18 +182,14 @@ export default function TagManagementPage() {
                         <tr key={row.entity_key} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
                           <td className="px-5 py-3">
                             <div className="font-medium text-slate-800">{row.display_name || row.entity_key}</div>
-                            {row.display_name && (
-                              <div className="text-xs text-slate-400">{row.entity_key}</div>
-                            )}
+                            {row.display_name && <div className="text-xs text-slate-400">{row.entity_key}</div>}
                           </td>
-                          {activeEntity === 'TARGET' && (
-                            <td className="px-4 py-3 text-slate-500">{row.campaign_id || '—'}</td>
-                          )}
                           {tagTypes.map((tagType) => (
                             <td key={tagType.id} className="px-4 py-3">
                               <EditableTagCell
-                                value={row.tags[tagType.slug]}
-                                onSave={(value) => handleCellSave(row.entity_key, tagType.name, value)}
+                                tagType={tagType}
+                                values={row.tags[tagType.id] ?? []}
+                                onSave={(values) => handleCellSave(row.entity_key, tagType, values)}
                               />
                             </td>
                           ))}
@@ -241,12 +235,8 @@ export default function TagManagementPage() {
         </section>
       </div>
 
-      {showAddTagType && (
-        <AddTagTypeModal entityType={activeEntity} onClose={() => setShowAddTagType(false)} />
-      )}
-      {showBulkUpload && (
-        <BulkUploadModal entityType={activeEntity} onClose={() => setShowBulkUpload(false)} />
-      )}
+      {showAddTagType && <AddTagTypeModal entityType={activeEntity} onClose={() => setShowAddTagType(false)} />}
+      {showBulkUpload && <BulkUploadModal entityType={activeEntity} onClose={() => setShowBulkUpload(false)} />}
     </main>
   )
 }
