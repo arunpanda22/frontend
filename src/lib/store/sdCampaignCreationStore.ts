@@ -227,6 +227,10 @@ export function parseSDRetargetLine(
  * Columns: Advertised ASIN | Target ASIN | Targeting Bid | Budget (opt) | Intent (opt)
  * Budget defaults to max(minBudget, bid * 15) if missing.
  * subtype drives the campaign name suffix: 'product' → CP, 'category' → CAT
+ *
+ * The target ASIN is always folded into campaign_name (before the intent suffix).
+ * Without it, bulk-pasted rows that share the same advertised ASIN but target
+ * different ASINs would all resolve to the identical campaign name.
  */
 export function parseSDContextualLine(
   line:      string,
@@ -249,10 +253,11 @@ export function parseSDContextualLine(
     ? parsedBudget
     : Math.max(minBudget, bid * 15)
 
-  const intent       = intentRaw?.trim() ?? ''
-  const intentSuffix = intent ? ` - ${intent}` : ''
-  const tag          = subtype === 'category' ? 'CAT' : 'CP'
-  const campaign_name = `${asin.toUpperCase().trim()} - SD - ${tag}${intentSuffix}`
+  const intent        = intentRaw?.trim() ?? ''
+  const intentSuffix  = intent ? ` - ${intent}` : ''
+  const tag           = subtype === 'category' ? 'CAT' : 'CP'
+  const targetSuffix  = ` - ${targetAsin.toUpperCase().trim()}`
+  const campaign_name = `${asin.toUpperCase().trim()} - SD - ${tag}${targetSuffix}${intentSuffix}`
 
   return {
     invalidAsin: false,

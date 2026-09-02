@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ClipboardPaste, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import {
   useSDContextualProductStore,
@@ -20,17 +20,21 @@ import { CampaignDataTable } from '@/components/dashboard/table/campaign-data-ta
 import type { CampaignColumnDefinition, CampaignTableData } from '@/components/dashboard/table/campaign-data-table'
 
 // ── Columns ───────────────────────────────────────────────────────────────────
+// Built as a function of currencySymbol so bid/budget headers reflect the
+// user's connected marketplace currency instead of a hardcoded symbol.
 
-const COLUMNS: CampaignColumnDefinition[] = [
-  { field: 'campaign_name', headerName: 'Campaign Name',     type: 'text',   span: true, editable: true,  sortable: true,  width: 280, minWidth: 180, maxWidth: 460 },
-  { field: 'asin',          headerName: 'Advertised ASIN',   type: 'text',   span: true, editable: true,  sortable: true,  filterable: true, width: 150, minWidth: 120 },
-  { field: 'target_asin',   headerName: 'Target ASIN',       type: 'text',   span: true, editable: true,  sortable: true,  filterable: true, width: 150, minWidth: 120 },
-  { field: 'bid',           headerName: 'Targeting Bid (£)', type: 'number', span: true, editable: true,  width: 150, minWidth: 100 },
-  { field: 'budget',        headerName: 'Budget (£)',         type: 'number', span: true, editable: true,  width: 110, minWidth: 80  },
-  { field: 'intent',        headerName: 'Intent',             type: 'text',   span: true, editable: true,  width: 160, minWidth: 120 },
-  { field: 'start_date',    headerName: 'Start Date',         type: 'date',   span: true, editable: true,  width: 150 },
-  { field: '_statusLabel',  headerName: 'Status',             type: 'text',   span: true, editable: false, width: 120, minWidth: 100 },
-]
+function getColumns(currencySymbol: string): CampaignColumnDefinition[] {
+  return [
+    { field: 'campaign_name', headerName: 'Campaign Name',     type: 'text',   span: true, editable: true,  sortable: true,  width: 280, minWidth: 180, maxWidth: 460 },
+    { field: 'asin',          headerName: 'Advertised ASIN',   type: 'text',   span: true, editable: true,  sortable: true,  filterable: true, width: 150, minWidth: 120 },
+    { field: 'target_asin',   headerName: 'Target ASIN',       type: 'text',   span: true, editable: true,  sortable: true,  filterable: true, width: 150, minWidth: 120 },
+    { field: 'bid',           headerName: `Targeting Bid (${currencySymbol})`, type: 'number', span: true, editable: true,  width: 150, minWidth: 100 },
+    { field: 'budget',        headerName: `Budget (${currencySymbol})`,         type: 'number', span: true, editable: true,  width: 110, minWidth: 80  },
+    { field: 'intent',        headerName: 'Intent',             type: 'text',   span: true, editable: true,  width: 160, minWidth: 120 },
+    { field: 'start_date',    headerName: 'Start Date',         type: 'date',   span: true, editable: true,  width: 150 },
+    { field: '_statusLabel',  headerName: 'Status',             type: 'text',   span: true, editable: false, width: 120, minWidth: 100 },
+  ]
+}
 
 function toStatusLabel(status: string, error?: string) {
   switch (status) {
@@ -42,11 +46,14 @@ function toStatusLabel(status: string, error?: string) {
 }
 
 // ── Name builder ──────────────────────────────────────────────────────────────
+// Includes target ASIN so rows sharing an advertised ASIN (common in bulk
+// paste) still resolve to distinct campaign names.
 
-function buildCampaignName(asin: string, subtype: ContextualType, intent: string) {
+function buildCampaignName(asin: string, targetAsin: string, subtype: ContextualType, intent: string) {
   const tag          = subtype === 'category' ? 'CAT' : 'CP'
   const intentSuffix = intent.trim() ? ` - ${intent.trim()}` : ''
-  return `${asin.toUpperCase().trim()} - SD - ${tag}${intentSuffix}`
+  const targetSuffix = targetAsin.trim() ? ` - ${targetAsin.toUpperCase().trim()}` : ''
+  return `${asin.toUpperCase().trim()} - SD - ${tag}${targetSuffix}${intentSuffix}`
 }
 
 // ── Paste area ────────────────────────────────────────────────────────────────
@@ -112,6 +119,7 @@ function ParseInfo({ info }: { info: { added: number; skipped: number; invalidAs
 
 interface BulkTableProps {
   contextualType: ContextualType
+  columns:        CampaignColumnDefinition[]
   rows:           (SDContextualProductBulkRow | SDContextualCategoryBulkRow)[]
   onTableChange:  (updated: CampaignTableData[]) => void
   onClear:        () => void
@@ -126,7 +134,7 @@ interface BulkTableProps {
 }
 
 function BulkTable({
-  rows, onTableChange, onClear, onSubmit,
+  columns, rows, onTableChange, onClear, onSubmit,
   isSubmitting, pendingCount, failedCount, successCount,
   summary, onRetry, onDismiss,
 }: BulkTableProps) {
@@ -161,7 +169,7 @@ function BulkTable({
         </button>
       </div>
 
-      <CampaignDataTable data={tableData} columns={COLUMNS} groupByFields={['_id']}
+      <CampaignDataTable data={tableData} columns={columns} groupByFields={['_id']}
         onDataChange={onTableChange} showCheckboxColumn showDeleteOption rowsPerPage={20} />
 
       {summary && <SDBulkSummaryBanner summary={summary} onRetry={onRetry} onDismiss={onDismiss} />}
@@ -181,9 +189,11 @@ function BulkTable({
 
 function SDContextualProductBulk() {
   const store           = useSDContextualProductStore()
-  const { minBid, minBudget } = useCampaignDefaults()
+  const { minBid, minBudget, currencySymbol } = useCampaignDefaults()
   const { rows, submitAll, retryFailed, clearSummary, isSubmitting, summary, pendingCount, failedCount, successCount } =
     useSDContextualProductBulkSubmit()
+
+  const columns = useMemo(() => getColumns(currencySymbol), [currencySymbol])
 
   const [parseInfo, setParseInfo] = useState<{ added: number; skipped: number; invalidAsins: number } | null>(null)
 
@@ -204,17 +214,20 @@ function SDContextualProductBulk() {
 
   function handleTableChange(updated: CampaignTableData[]) {
     store.setRows(updated.map((row) => {
-      const asin       = String(row.asin        ?? '').toUpperCase().trim()
-      const intent     = String(row.intent      ?? '')
+      const asin        = String(row.asin        ?? '').toUpperCase().trim()
+      const targetAsin  = String(row.target_asin  ?? '').toUpperCase().trim()
+      const intent      = String(row.intent      ?? '')
       const existingRow = rows.find((r) => r._id === row._id)
-      const prevAuto   = existingRow ? buildCampaignName(existingRow.asin, 'product', existingRow.intent) : ''
-      const isAutoName = !existingRow || existingRow.campaign_name === prevAuto
+      const prevAuto    = existingRow
+        ? buildCampaignName(existingRow.asin, existingRow.target_asin, 'product', existingRow.intent)
+        : ''
+      const isAutoName  = !existingRow || existingRow.campaign_name === prevAuto
       return {
         _id:           String(row._id),
-        campaign_name: isAutoName ? buildCampaignName(asin, 'product', intent) : String(row.campaign_name ?? ''),
+        campaign_name: isAutoName ? buildCampaignName(asin, targetAsin, 'product', intent) : String(row.campaign_name ?? ''),
         intent,
         asin,
-        target_asin:   String(row.target_asin ?? '').toUpperCase().trim(),
+        target_asin:   targetAsin,
         default_bid:   0,
         bid:           Number(row.bid)    || 0,
         budget:        Number(row.budget) || 0,
@@ -239,7 +252,7 @@ function SDContextualProductBulk() {
       </div>
       {rows.length > 0 && (
         <BulkTable
-          contextualType="product" rows={rows}
+          contextualType="product" columns={columns} rows={rows}
           onTableChange={handleTableChange} onClear={() => { store.clearRows(); clearSummary() }}
           onSubmit={submitAll} isSubmitting={isSubmitting}
           pendingCount={pendingCount} failedCount={failedCount} successCount={successCount}
@@ -254,9 +267,11 @@ function SDContextualProductBulk() {
 
 function SDContextualCategoryBulk() {
   const store           = useSDContextualCategoryStore()
-  const { minBid, minBudget } = useCampaignDefaults()
+  const { minBid, minBudget, currencySymbol } = useCampaignDefaults()
   const { rows, submitAll, retryFailed, clearSummary, isSubmitting, summary, pendingCount, failedCount, successCount } =
     useSDContextualCategoryBulkSubmit()
+
+  const columns = useMemo(() => getColumns(currencySymbol), [currencySymbol])
 
   const [parseInfo, setParseInfo] = useState<{ added: number; skipped: number; invalidAsins: number } | null>(null)
 
@@ -277,17 +292,20 @@ function SDContextualCategoryBulk() {
 
   function handleTableChange(updated: CampaignTableData[]) {
     store.setRows(updated.map((row) => {
-      const asin        = String(row.asin   ?? '').toUpperCase().trim()
-      const intent      = String(row.intent ?? '')
+      const asin        = String(row.asin        ?? '').toUpperCase().trim()
+      const targetAsin  = String(row.target_asin  ?? '').toUpperCase().trim()
+      const intent      = String(row.intent      ?? '')
       const existingRow = rows.find((r) => r._id === row._id)
-      const prevAuto    = existingRow ? buildCampaignName(existingRow.asin, 'category', existingRow.intent) : ''
+      const prevAuto    = existingRow
+        ? buildCampaignName(existingRow.asin, existingRow.target_asin, 'category', existingRow.intent)
+        : ''
       const isAutoName  = !existingRow || existingRow.campaign_name === prevAuto
       return {
         _id:           String(row._id),
-        campaign_name: isAutoName ? buildCampaignName(asin, 'category', intent) : String(row.campaign_name ?? ''),
+        campaign_name: isAutoName ? buildCampaignName(asin, targetAsin, 'category', intent) : String(row.campaign_name ?? ''),
         intent,
         asin,
-        target_asin:   String(row.target_asin ?? '').toUpperCase().trim(),
+        target_asin:   targetAsin,
         default_bid:   0,
         bid:           Number(row.bid)    || 0,
         budget:        Number(row.budget) || 0,
@@ -312,7 +330,7 @@ function SDContextualCategoryBulk() {
       </div>
       {rows.length > 0 && (
         <BulkTable
-          contextualType="category" rows={rows}
+          contextualType="category" columns={columns} rows={rows}
           onTableChange={handleTableChange} onClear={() => { store.clearRows(); clearSummary() }}
           onSubmit={submitAll} isSubmitting={isSubmitting}
           pendingCount={pendingCount} failedCount={failedCount} successCount={successCount}

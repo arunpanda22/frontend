@@ -18,10 +18,21 @@ interface Form {
 
 type Errors = Partial<Record<keyof Form | 'asins' | 'asin_list', string>>
 
-function buildName(asins: string[], intent: string) {
-  const filled = asins.filter((a) => a.trim())
-  if (!filled.length) return ''
-  return `${filled.slice(0, 2).join(', ')} - SD - CP${intent.trim() ? ` - ${intent.trim()}` : ''}`
+// Mirrors the bulk paste naming convention (asin - SD - CP - targetAsin - intent),
+// extended to handle multiple advertised/target ASINs so single-form campaigns
+// stay distinguishable the same way bulk rows are.
+function buildName(asins: string[], targetAsins: string[], intent: string) {
+  const filledAsins   = asins.filter((a) => a.trim())
+  const filledTargets = targetAsins.filter((a) => a.trim())
+  if (!filledAsins.length) return ''
+
+  const asinLabel     = filledAsins.slice(0, 2).join(', ')
+  const intentSuffix  = intent.trim() ? ` - ${intent.trim()}` : ''
+
+  if (!filledTargets.length) return `${asinLabel} - SD - CP${intentSuffix}`
+
+  const targetLabel = filledTargets.slice(0, 2).join(', ')
+  return `${asinLabel} - SD - CP - ${targetLabel}${intentSuffix}`
 }
 
 export function SDContextualProductForm() {
@@ -32,12 +43,26 @@ export function SDContextualProductForm() {
   const [asins,    setAsins]    = useState<string[]>([''])
   const [asinList, setAsinList] = useState<string[]>([''])
   const [errors,   setErrors]   = useState<Errors>({})
+  const [nameEdited, setNameEdited] = useState(false)
 
-  const campaignName = buildName(asins, form.intent)
+  const generatedName       = buildName(asins, asinList, form.intent)
+  const campaignNameDisplay = nameEdited ? form.campaign_name : generatedName
 
   function setField<K extends keyof Form>(k: K, v: Form[K]) {
     setForm((f) => ({ ...f, [k]: v }))
     setErrors((e) => ({ ...e, [k]: undefined }))
+  }
+
+  function handleCampaignNameChange(v: string) {
+    setNameEdited(true)
+    setField('campaign_name', v)
+  }
+
+  function handleCampaignNameBlur(v: string) {
+    if (!v.trim()) {
+      setNameEdited(false)
+      setField('campaign_name', '')
+    }
   }
 
   function validate() {
@@ -55,7 +80,7 @@ export function SDContextualProductForm() {
     e.preventDefault()
     if (!validate()) return
     await createSDContextualProduct({
-      campaign_name: campaignName || undefined,
+      campaign_name: campaignNameDisplay || undefined,
       ad_group_name: form.ad_group_name.trim() || undefined,
       asins:         asins.filter((a) => a.trim()),
       asin_list:     asinList.filter((a) => a.trim()),
@@ -67,12 +92,34 @@ export function SDContextualProductForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {campaignName && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1">Campaign Name Preview</p>
-          <p className="text-sm font-mono font-medium text-indigo-700">{campaignName}</p>
-        </div>
-      )}
+
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-1.5">
+          Campaign Name
+        </p>
+        <input
+          type="text"
+          value={campaignNameDisplay}
+          onChange={(e) => handleCampaignNameChange(e.target.value)}
+          onBlur={(e) => handleCampaignNameBlur(e.target.value)}
+          placeholder="Fill in ASINs to auto-generate…"
+          className="w-full bg-transparent font-mono text-sm font-medium text-indigo-700 placeholder-indigo-300
+                     border-0 border-b border-indigo-200 focus:border-indigo-400 focus:outline-none
+                     pb-0.5 transition-colors"
+        />
+        {nameEdited && (
+          <button
+            type="button"
+            onClick={() => {
+              setNameEdited(false)
+              setField('campaign_name', '')
+            }}
+            className="mt-1.5 text-[10px] text-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            ↺ Reset to auto-generated
+          </button>
+        )}
+      </div>
 
       <SectionCard title="Advertised Products" description="ASINs to advertise — resolved to SKUs by the backend">
         <AsinListInput asins={asins} onChange={(v) => { setAsins(v); setErrors((e) => ({ ...e, asins: undefined })) }} error={errors.asins} />
