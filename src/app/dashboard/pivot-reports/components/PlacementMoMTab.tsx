@@ -81,7 +81,7 @@ export function PlacementMoMTab({
           <PivotTreeTable
             tree={data.sb_tree}
             rootLabel="Placement"
-            defaultExpandedDepth={1}
+            defaultExpandedDepth={0}
             enableTopLevelFilter
             enableExport
             exportFilename="placement-mom-sb"

@@ -162,17 +162,41 @@ export interface TargetBreakdownResponse {
   previous_period: { start_date: string; end_date: string }
 }
 
+// tagFilters: {tag_type_id: [tag_id, ...]} — serialized to the backend's
+// "filters=<tag_type_id>:<id>|<id>,<tag_type_id>:<id>" format (AND across
+// TagTypes, OR within one TagType's selected ids).
+// adTypes: selected subset of SP/SB/SD — omitted entirely when all three
+// (or none) are selected, since the backend already defaults to all
+// three when the param is absent.
+function serializeTagFilters(tagFilters: Record<string, string[]>): string {
+  return Object.entries(tagFilters)
+    .filter(([, ids]) => ids.length > 0)
+    .map(([tagTypeId, ids]) => `${tagTypeId}:${ids.join('|')}`)
+    .join(',')
+}
+
 export function useTargetBreakdownQuery(
   startDate: string,
   endDate: string,
   groupByTagTypeId: string | null,
+  tagFilters: Record<string, string[]>,
+  adTypes: string[],
   enabled = true,
 ) {
+  const filtersParam = serializeTagFilters(tagFilters)
+  const adTypesParam = adTypes.length > 0 && adTypes.length < 3 ? adTypes.join(',') : ''
+
   return useQuery({
-    queryKey: ['pivot-reports', 'target-breakdown', startDate, endDate, groupByTagTypeId],
+    queryKey: ['pivot-reports', 'target-breakdown', startDate, endDate, groupByTagTypeId, filtersParam, adTypesParam],
     queryFn: async () => {
       const { data } = await apiClient.get<TargetBreakdownResponse>('/api/v1/pivot-reports/target-breakdown/', {
-        params: { start_date: startDate, end_date: endDate, group_by: groupByTagTypeId },
+        params: {
+          start_date: startDate,
+          end_date: endDate,
+          group_by: groupByTagTypeId,
+          ...(filtersParam ? { filters: filtersParam } : {}),
+          ...(adTypesParam ? { ad_types: adTypesParam } : {}),
+        },
       })
       return data
     },

@@ -45,7 +45,7 @@ export function TargetingLevelMomTab({
       <PivotTreeTable
         tree={data.tree}
         rootLabel="Targeting Type"
-        defaultExpandedDepth={1}
+        defaultExpandedDepth={0}
         enableTopLevelFilter
         enableExport
         exportFilename="targeting-level-mom"

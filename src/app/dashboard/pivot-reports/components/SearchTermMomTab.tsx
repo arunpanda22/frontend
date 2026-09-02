@@ -45,7 +45,7 @@ export function SearchTermMomTab({
       <PivotTreeTable
         tree={data.tree}
         rootLabel="Tag"
-        defaultExpandedDepth={1}
+        defaultExpandedDepth={0}
         enableTopLevelFilter
         enableExport
         exportFilename="search-term-mom"

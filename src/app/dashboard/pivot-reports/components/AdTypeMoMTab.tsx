@@ -64,7 +64,7 @@ export function AdTypeMoMTab({
         <PivotTreeTable
           tree={visibleTree}
           rootLabel="Ad Type"
-          defaultExpandedDepth={1}
+          defaultExpandedDepth={0}
           enableTopLevelFilter
           enableExport
           exportFilename="ad-type-mom"

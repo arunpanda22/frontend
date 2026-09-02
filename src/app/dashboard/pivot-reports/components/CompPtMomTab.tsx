@@ -52,7 +52,7 @@ export function CompPtMomTab({
       <PivotTreeTable
         tree={data.tree}
         rootLabel="Brand"
-        defaultExpandedDepth={1}
+        defaultExpandedDepth={0}
         enableTopLevelFilter
         enableExport
         exportFilename="comp-pt-mom"

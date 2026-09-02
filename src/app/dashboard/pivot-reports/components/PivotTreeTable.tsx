@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Download } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Download, GripVertical } from "lucide-react";
 import { List, type RowComponentProps } from "react-window";
 import { useCurrency } from "@/lib/context/CurrencyContext";
 import type { PivotMetrics, PivotTreeNode } from "@/lib/hooks/queries/use-pivot-reports";
@@ -27,6 +27,8 @@ const ROW_HEIGHT = 56;
 const LIST_HEIGHT = 560;
 const METRIC_COL_WIDTH = 140;
 const MIN_NAME_COL_WIDTH = 220;
+const MAX_NAME_COL_WIDTH = 800;
+const NAME_CELL_FONT = "500 14px Inter, ui-sans-serif, system-ui, sans-serif"; // matches font-medium text-sm
 
 function percentChange(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
@@ -98,6 +100,31 @@ function flattenVisible(tree: PivotTreeNode[], expanded: Set<string>): FlatRow[]
   return rows;
 }
 
+// Measures the actual pixel width the longest visible name would need,
+// including its indent (depth * 24px) and the toggle-icon gutter (~48px),
+// so the column can size itself to fit whatever's currently expanded
+// instead of just filling leftover container space.
+let measureCanvas: HTMLCanvasElement | null = null;
+function measureTextWidth(text: string, font: string): number {
+  if (!measureCanvas) measureCanvas = document.createElement("canvas");
+  const ctx = measureCanvas.getContext("2d");
+  if (!ctx) return text.length * 8; // crude fallback if canvas is unavailable
+  ctx.font = font;
+  return ctx.measureText(text).width;
+}
+
+function longestVisibleNameWidth(flatRows: FlatRow[]): number {
+  let max = 0;
+  for (const row of flatRows) {
+    const indent = 20 + row.depth * 24;
+    const iconGutter = 32; // toggle button / spacer width
+    const textWidth = measureTextWidth(row.node.name, NAME_CELL_FONT);
+    const rowPadding = 32; // left+right cell padding (px-5 ~= 20px each side, rounded)
+    max = Math.max(max, indent + iconGutter + textWidth + rowPadding);
+  }
+  return max;
+}
+
 interface TreeRowProps {
   flatRows: FlatRow[];
   expanded: Set<string>;
@@ -130,7 +157,10 @@ function TreeRow({ index, style, flatRows, expanded, toggle, columns, template, 
         ) : (
           <span className="mr-2 size-6 shrink-0" />
         )}
-        <span className={`truncate font-medium ${depth === 0 ? "text-slate-900" : "text-slate-700"}`}>
+        <span
+          title={node.name}
+          className={`truncate font-medium ${depth === 0 ? "text-slate-900" : "text-slate-700"}`}
+        >
           {node.name}
         </span>
       </div>
@@ -167,11 +197,6 @@ export function PivotTreeTable({
   const { formatCurrencyNoDecimal, formatNumber, formatPercentage } = useCurrency();
   const [selectedTopLevel, setSelectedTopLevel] = useState<string | null>(null);
 
-  // Measure the actual available container width so the name column can
-  // stretch to fill it — computed once here and handed to both the
-  // header and every row as the SAME number, rather than each measuring
-  // independently (which is what caused the earlier header/row drift
-  // when this used CSS `fr` units instead).
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -185,6 +210,11 @@ export function PivotTreeTable({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Manual drag override — once set, takes priority over both the
+  // container-fill width AND the content-measured width below.
+  const [manualNameColWidth, setManualNameColWidth] = useState<number | null>(null);
+  const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   const visibleTree = useMemo(() => {
     if (!selectedTopLevel) return tree;
@@ -223,15 +253,51 @@ export function PivotTreeTable({
     }
   }
 
-  // Name column fills whatever space is left after the fixed-width
-  // metric columns, but never shrinks below a readable minimum — once
-  // it hits that minimum, the table becomes wider than the container
-  // and the existing overflow-x-auto wrapper takes over with a
-  // horizontal scrollbar, same as before.
   const metricsWidth = columns.length * METRIC_COL_WIDTH;
-  const nameColWidth = Math.max(MIN_NAME_COL_WIDTH, containerWidth - metricsWidth);
+  const containerFillWidth = Math.max(MIN_NAME_COL_WIDTH, containerWidth - metricsWidth);
+
+  // Re-measured whenever the set of visible rows changes (i.e. every
+  // expand/collapse), so newly-revealed long child names immediately
+  // widen the column instead of being truncated until someone notices
+  // and drags manually.
+  const contentWidth = useMemo(() => {
+    const measured = longestVisibleNameWidth(flatRows);
+    return Math.min(MAX_NAME_COL_WIDTH, Math.max(MIN_NAME_COL_WIDTH, measured));
+  }, [flatRows]);
+
+  const autoNameColWidth = Math.max(containerFillWidth, contentWidth);
+  const autoNameColWidthRef = useRef(autoNameColWidth);
+  autoNameColWidthRef.current = autoNameColWidth;
+
+  const nameColWidth = manualNameColWidth ?? autoNameColWidth;
   const totalWidth = nameColWidth + metricsWidth;
   const template = `${nameColWidth}px repeat(${columns.length}, ${METRIC_COL_WIDTH}px)`;
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startWidth = manualNameColWidth ?? autoNameColWidthRef.current;
+      resizeStateRef.current = { startX: e.clientX, startWidth };
+
+      function onMouseMove(moveEvent: MouseEvent) {
+        if (!resizeStateRef.current) return;
+        const delta = moveEvent.clientX - resizeStateRef.current.startX;
+        const next = Math.min(
+          MAX_NAME_COL_WIDTH,
+          Math.max(MIN_NAME_COL_WIDTH, resizeStateRef.current.startWidth + delta)
+        );
+        setManualNameColWidth(next);
+      }
+      function onMouseUp() {
+        resizeStateRef.current = null;
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      }
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    },
+    [manualNameColWidth]
+  );
 
   const rowProps = useMemo<TreeRowProps>(
     () => ({ flatRows, expanded, toggle, columns, template, formatValue }),
@@ -296,9 +362,18 @@ export function PivotTreeTable({
           <div style={{ width: totalWidth }}>
             <div
               style={{ gridTemplateColumns: template }}
-              className="grid border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"
+              className="relative grid border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"
             >
-              <div className="px-5 py-3 font-medium">{rootLabel}</div>
+              <div className="relative px-5 py-3 font-medium">
+                {rootLabel}
+                <div
+                  onMouseDown={handleResizeStart}
+                  className="group absolute right-0 top-0 flex h-full w-3 -translate-x-1/2 cursor-col-resize items-center justify-center"
+                  style={{ height: LIST_HEIGHT + 48 }}
+                >
+                  <GripVertical className="size-3 text-transparent group-hover:text-slate-400" />
+                </div>
+              </div>
               {columns.map((column) => (
                 <div key={column.key} className="px-4 py-3 text-right font-medium">
                   {column.label}

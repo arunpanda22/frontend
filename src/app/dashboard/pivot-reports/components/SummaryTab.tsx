@@ -52,7 +52,7 @@ export function SummaryTab({
       <PivotTreeTable
         tree={data.tree}
         rootLabel="Month"
-        defaultExpandedDepth={1}
+        defaultExpandedDepth={0}
         enableExport
         exportFilename="summary"
       />
