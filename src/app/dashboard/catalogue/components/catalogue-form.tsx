@@ -1,0 +1,266 @@
+"use client"
+
+import { Input } from "./ui/input"
+import { Button } from "./ui/button"
+import { Label } from "./ui/label"
+import { Textarea } from "./ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Badge } from "./ui/badge"
+import { X, Loader2 } from "lucide-react"
+
+export interface CatalogueFormState {
+  asin: string
+  competitorAsins: string
+  brand: string
+  description: string
+  tone: string
+  cerebroFile: File | null
+}
+
+interface CatalogueFormProps {
+  formState: CatalogueFormState
+  onFormStateChange: (state: CatalogueFormState) => void
+  onSubmit: (data: FormData) => void
+  onKeywordFilter: (data: FormData) => void
+  isGenerating?: boolean
+  isFiltering?: boolean
+}
+
+export function CatalogueForm({ 
+  formState, 
+  onFormStateChange, 
+  onSubmit, 
+  onKeywordFilter,
+  isGenerating = false,
+  isFiltering = false
+}: CatalogueFormProps) {
+  const update = (patch: Partial<CatalogueFormState>) =>
+    onFormStateChange({ ...formState, ...patch })
+
+  const competitorAsinList = formState.competitorAsins
+    .split(',')
+    .map(asin => asin.trim().toUpperCase())
+    .filter(asin => asin.length > 0)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const data = new FormData()
+    data.append("asin", formState.asin)
+    data.append("competitor_asins", formState.competitorAsins)
+    data.append("brand", formState.brand)
+    data.append("description", formState.description)
+    data.append("tone", formState.tone)
+    if (formState.cerebroFile) {
+      data.append("cerebro_file", formState.cerebroFile)
+    }
+    onSubmit(data)
+  }
+
+  const handleKeywordFilter = () => {
+    const data = new FormData()
+    data.append("asin", formState.asin)
+    data.append("competitor_asins", formState.competitorAsins)
+    if (formState.cerebroFile) {
+      data.append("cerebro_file", formState.cerebroFile)
+    }
+    onKeywordFilter(data)
+  }
+
+  const removeCompetitorAsin = (asinToRemove: string) => {
+    const updatedAsins = competitorAsinList
+      .filter(asin => asin !== asinToRemove)
+      .join(',')
+    update({ competitorAsins: updatedAsins })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="asin">ASIN</Label>
+        <Input
+          id="asin"
+          value={formState.asin}
+          onChange={(e) => update({ asin: e.target.value.toUpperCase() })}
+          placeholder="B0DK3444KF"
+          className="bg-white border-slate-300 text-black"
+          maxLength={10}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="competitor-asins">
+          Competitor ASINs
+          <span className="text-xs text-slate-500 ml-2">(comma-separated, max 5)</span>
+        </Label>
+        <Input
+          id="competitor-asins"
+          value={formState.competitorAsins}
+          onChange={(e) => update({ competitorAsins: e.target.value })}
+          placeholder="B087Y26XM8, B09XYZ1234, B07ABC5678"
+          className="bg-white border-slate-300 text-black"
+        />
+        
+        {competitorAsinList.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {competitorAsinList.map((asin, index) => (
+              <Badge
+                key={index}
+                variant={asin.length === 10 && asin.startsWith('B') ? "default" : "destructive"}
+                className="text-xs px-2 py-1"
+              >
+                {asin}
+                <button
+                  type="button"
+                  onClick={() => removeCompetitorAsin(asin)}
+                  className="ml-1 hover:bg-white/20 rounded-full"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            <span className="text-xs text-slate-500 self-center">
+              {competitorAsinList.length} ASIN{competitorAsinList.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="brand">Brand</Label>
+        <Input
+          id="brand"
+          value={formState.brand}
+          onChange={(e) => update({ brand: e.target.value })}
+          placeholder="Enter brand name"
+          className="bg-white border-slate-300 text-black"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formState.description}
+          onChange={(e) => update({ description: e.target.value })}
+          placeholder="Enter product description"
+          className="bg-white border-slate-300 text-black resize-none"
+          rows={4}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tone">Tone</Label>
+        <Select
+          value={formState.tone}
+          onValueChange={(value) => update({ tone: value })}
+        >
+          <SelectTrigger className="bg-white border-slate-300 text-black">
+            <SelectValue placeholder="Select tone" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem  value="Benefit focused driven by features and Emotive, Problem–Solution (Pain-First) Tone">
+              Benefit Focused & Emotive (Problem–Solution)
+            </SelectItem>
+            <SelectItem value="Outcome-Driven / Benefit-Led Tone">
+              Outcome-Driven / Benefit-Led
+            </SelectItem>
+            <SelectItem value="Authority / Expertise Tone">
+              Authority / Expertise
+            </SelectItem>
+            <SelectItem value="Trust-Building / Reassurance Tone">
+              Trust-Building / Reassurance
+            </SelectItem>
+            <SelectItem value="Social Proof / Popularity Tone">
+              Social Proof / Popularity
+            </SelectItem>
+            <SelectItem value="Simplicity / Ease-of-Use Tone">
+              Simplicity / Ease-of-Use
+            </SelectItem>
+            <SelectItem value="Premium / Minimalist Tone">
+              Premium / Minimalist
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* <div className="space-y-2">
+        <Label htmlFor="cerebro">Cerebro File</Label>
+        {formState.cerebroFile ? (
+          <div className="bg-slate-50 border border-slate-300 rounded-md p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <svg className="w-5 h-5 text-cyan-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{formState.cerebroFile.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {(formState.cerebroFile.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => update({ cerebroFile: null })}
+                className="text-slate-500 hover:text-red-600 hover:bg-red-50 ml-2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            <Input
+              id="cerebro"
+              type="file"
+              onChange={(e) => update({ cerebroFile: e.target.files?.[0] || null })}
+              className="bg-white border-slate-300 text-black"
+              accept=".csv,.xlsx,.xls"
+            />
+          </div>
+        )}
+      </div> */}
+
+      <div className="flex pt-4 justify-center px-12 space-x-2 ">
+        <Button 
+          type="submit" 
+          className=" bg-cyan-600 hover:bg-cyan-700 text-white"
+          disabled={!formState.asin || !formState.competitorAsins  || isGenerating}
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating Catalog...
+            </>
+          ) : (
+            'Generate Catalog'
+          )}
+        </Button>
+        <Button
+          type="button"
+          onClick={handleKeywordFilter}
+          variant="outline"
+          className=" bg-white border-slate-300 text-black hover:bg-slate-50"
+          disabled={!formState.asin || isFiltering}
+        >
+          {isFiltering ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Refining Keywords...
+            </>
+          ) : (
+            'Refine Keywords'
+          )}
+        </Button>
+      </div>
+    </form>
+  )
+}

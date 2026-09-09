@@ -228,12 +228,11 @@ export interface ASINImagesResponse {
   };
 }
 
-
-export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
+export type DateRangePreset = '7d' | '30d' | '90d' | 'this week' | 'last week' | 'this month' | 'last month' | 'custom';
 
 export interface DateRange {
-  startDate: string; // ISO date string (YYYY-MM-DD)
-  endDate: string;   // ISO date string (YYYY-MM-DD)
+  startDate: string;
+  endDate: string;
   preset: DateRangePreset;
 }
 
@@ -264,8 +263,12 @@ export interface CurrencyContextType {
   isLoading: boolean;
   error: string | null;
   formatCurrency: (value: number, marketplaceId?: string) => string;
+  getCurrencySymbol: (marketplaceId?: string) => string; 
+  formatCurrencyNoDecimal: (value: number, marketplaceId?: string) => string;
   formatNumber: (value: number) => string;
+  formatNumberWithDecimals: (value: number) => string;
   formatPercentage: (value: number) => string;
+  formatPercentageNoDecimal: (value: number) => number;
   formatChange: (change: number, suffix?: string) => string;
   primaryCurrency: CurrencyInfo | null;
   refetchCurrencies: () => Promise<void>;

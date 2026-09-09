@@ -9,90 +9,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { userProfile, isAdmin, loading, error } = useAuth()
 
-  // Debug logging for production issues
-  if (process.env.NODE_ENV === 'production') {
-    console.log('🔐 Admin Layout Debug:', {
-      pathname,
-      userProfile: userProfile ? {
-        id: userProfile.id,
-        email: userProfile.email,
-        hasRbacContext: !!userProfile.rbac_context,
-        rbacRole: userProfile.rbac_context?.role_name,
-        legacyAdmin: userProfile.isAdmin,
-        legacyAgencyAdmin: userProfile.isAgencyAdmin
-      } : null,
-      loading,
-      error: error?.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  // Check if user has admin permissions based on RBAC role
+  // Check if user has admin access (admin or super_admin roles)
   const allowAccess = useMemo(() => {
-    // DISABLED: Development mode bypass for testing
-    // if (process.env.NODE_ENV === 'development') {
-    //   console.log('🔐 Admin access check (DEV MODE - allowing all):', {
-    //     userProfile,
-    //     role: userProfile?.rbac_context?.role_name,
-    //     isAdmin: isAdmin(),
-    //     user: userProfile ? 'Logged in' : 'Not logged in'
-    //   });
-    //   return true; // Allow all access in development
-    // }
+    if (loading) return true // Allow while loading
+    if (!userProfile) return false
     
-    console.log('🔐 Admin access check (TESTING MODE):', {
-      userProfile,
-      role: userProfile?.rbac_context?.role_name,
-      isAdmin: isAdmin(),
-      user: userProfile ? 'Logged in' : 'Not logged in',
-      environment: process.env.NODE_ENV
-    });
+    // Check RBAC role
+    const hasAdminRole = isAdmin()
     
-    // If still loading, don't deny access yet
-    if (loading) {
-      console.log('🔐 Admin access check (LOADING):', {
-        userProfile,
-        loading,
-        role: userProfile?.rbac_context?.role_name
-      });
-      return true; // Allow access while loading
-    }
-    
-    if (!userProfile) {
-      console.log('🔐 Admin access check (NO PROFILE):', {
-        userProfile,
-        loading,
-        role: 'No profile'
-      });
-      return false;
-    }
-    
-    // Check if user has admin or superadmin role
-    const hasAdminAccess = isAdmin();
-    
-    // Additional fallback: check if user has legacy admin flags
-    const hasLegacyAdminAccess = userProfile.isAdmin || userProfile.isAgencyAdmin;
-    
-    console.log('🔐 Admin access check (PRODUCTION):', {
-      userProfile,
-      role: userProfile.rbac_context?.role_name,
-      hasAdminAccess,
-      hasLegacyAdminAccess,
-      isAdmin: hasAdminAccess,
-      rbacContext: userProfile.rbac_context,
-      legacyFlags: {
-        isAdmin: userProfile.isAdmin,
-        isAgencyAdmin: userProfile.isAgencyAdmin
-      }
-    });
-    
-    // Allow access if either RBAC or legacy flags indicate admin access
-    return hasAdminAccess || hasLegacyAdminAccess;
+    return hasAdminRole 
   }, [userProfile, isAdmin, loading])
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-3 py-12">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <span className="ml-3 text-lg text-gray-600">Loading admin panel...</span>
@@ -103,72 +33,182 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   if (!allowAccess) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-12">
-        <h1 className="text-2xl font-semibold text-gray-900">Access Denied</h1>
-        <p className="text-gray-600 mt-2">You do not have permission to view this area.</p>
-        {userProfile && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-md">
-            <p className="text-sm text-gray-700">
-              <strong>Debug Info:</strong> User ID: {userProfile.id}, Email: {userProfile.email}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>RBAC Context:</strong> {JSON.stringify(userProfile.rbac_context, null, 2)}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Legacy Flags:</strong> isAdmin: {String(userProfile.isAdmin)}, isAgencyAdmin: {String(userProfile.isAgencyAdmin)}
-            </p>
-            <p className="text-sm text-gray-700">
-              <strong>Auth Error:</strong> {error?.message || 'None'}
-            </p>
-          </div>
-        )}
-        {!userProfile && (
-          <div className="mt-4 p-4 bg-red-100 rounded-md">
-            <p className="text-sm text-red-700">
-              <strong>No User Profile:</strong> The user profile could not be loaded. This might be due to:
-            </p>
-            <ul className="text-sm text-red-600 mt-2 list-disc list-inside">
-              <li>Authentication token issues</li>
-              <li>Backend API errors (400 Bad Request)</li>
-              <li>Network connectivity problems</li>
-              <li>Firebase authentication issues</li>
+      <div className="max-w-7xl mx-auto px-3 py-12">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h1 className="text-2xl font-semibold text-red-900 mb-2">Access Denied</h1>
+          <p className="text-red-700 mb-4">You don't have permission to access the admin panel.</p>
+          
+          <div className="bg-white border border-red-200 rounded p-4 text-sm">
+            <p className="font-medium text-gray-900 mb-2">Required Access:</p>
+            <ul className="list-disc list-inside text-gray-700 space-y-1">
+              <li>Super Admin role (full system access)</li>
+              <li>Admin role (manage users and agencies)</li>
             </ul>
-            <p className="text-sm text-red-600 mt-2">
-              <strong>Error:</strong> {error?.message || 'Unknown error'}
-            </p>
+            
+            {userProfile && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="font-medium text-gray-900 mb-2">Your Current Role:</p>
+                <p className="text-gray-700">
+                  {userProfile.rbac_context?.role_name || 'No role assigned'}
+                </p>
+              </div>
+            )}
           </div>
-        )}
+          
+          <div className="mt-4">
+            <Link 
+              href="/dashboard/command-center"
+              className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
 
-  const nav = [
-    { href: '/admin/reports', label: 'Reports' },
-    { href: '/admin/users', label: 'Users' },
-    { href: '/admin/staff-emails', label: 'Staff Emails' },
+  const navigationItems = [
+    { 
+      href: '/admin/users', 
+      label: 'Users',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      )
+    },
+    { 
+      href: '/admin/reports', 
+      label: 'Reports',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      )
+    },
+    { 
+      href: '/admin/roles', 
+      label: 'Roles',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      )
+    },
+    { 
+      href: '/admin/permissions', 
+      label: 'Permissions',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      )
+    },
+    { 
+      href: '/admin/agencies', 
+      label: 'Agencies',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4m-4 6h.01M9 16h.01M9 12h.01" />
+        </svg>
+      )
+    },
+    { 
+      href: '/admin/staff-emails', 
+      label: 'Staff Emails',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      )
+    },
   ]
 
+  const currentRole = userProfile?.rbac_context?.role_name || 'Unknown'
+  const currentAgency = userProfile?.rbac_context?.agency_name
+
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <aside className="md:col-span-1">
-          <div className="bg-white border border-gray-200 rounded-md p-2">
-            <nav className="flex md:block gap-2">
-              {nav.map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`block px-3 py-2 rounded-md text-sm ${pathname?.startsWith(item.href) ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+    <div className="min-h-screen bg-gray-50">
+      {/* Admin Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-[1600px] mx-auto px-3 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">Admin Panel</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                  currentRole === 'super_admin' ? 'bg-red-100 text-red-800' : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {currentRole}
+                </span>
+                {currentAgency && (
+                  <>
+                    <span className="text-gray-300">•</span>
+                    <span className="text-xs text-gray-600">{currentAgency}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <Link
+              href="/"
+              className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to App
+            </Link>
           </div>
-        </aside>
-        <main className="md:col-span-4 min-h-[60vh]">{children}</main>
+        </div>
+      </div>
+
+      <div className="max-w-[1600px] mx-auto px-3 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Sidebar Navigation - Reduced from span-5 to span-2 */}
+          <aside className="lg:col-span-2">
+            <div className="bg-white border border-gray-200 rounded-lg p-2">
+              <nav className="space-y-1">
+                {navigationItems.map(item => {
+                  const isActive = pathname?.startsWith(item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive 
+                          ? 'bg-blue-600 text-white' 
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className={isActive ? 'text-white' : 'text-gray-500'}>
+                        {item.icon}
+                      </span>
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </nav>
+            </div>
+
+            {/* Quick Info */}
+            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-xs font-semibold text-blue-900 mb-2">RBAC System</h3>
+              <div className="text-xs text-blue-800 space-y-1">
+                <p>• 5 fixed roles</p>
+                <p>• Simple hierarchy</p>
+                <p>• Permission overrides</p>
+                <p>• Agency-based access</p>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content - Increased from span-4 to span-10 */}
+          <main className="lg:col-span-10 min-h-[70vh]">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   )
 }
-

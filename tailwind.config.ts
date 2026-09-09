@@ -20,6 +20,10 @@ const config = {
   		}
   	},
   	extend: {
+		fontFamily: {
+			sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+			montserrat: ["var(--font-montserrat)", "sans-serif"],
+		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -58,6 +62,94 @@ const config = {
                 DEFAULT: '#ff9900',
                 dark: '#e88b00'
             },
+            'deep-space': {
+                50: '#E7F5FE',
+                100: '#CFECFC',
+                200: '#9ED8FA',
+                300: '#6EC5F7',
+                400: '#3DB1F5',
+                500: '#0D9EF2',  // Main brand color
+                600: '#0A7EC2',  
+                700: '#085F91',
+                800: '#053F61',
+                900: '#032030',
+                950: '#021622',
+            },
+			'powder-blue': {
+				50: '#EEF2F6',
+				100: '#DEE6ED',
+				200: '#BCCCDC',
+				300: '#9BB2CA',
+				400: '#7999B9',
+				500: '#587FA7',  // Main powder blue color
+				600: '#466686',
+				700: '#354C64',
+				800: '#233343',
+				900: '#121921',
+				950: '#0C1217',
+			},
+			'jungle-teal': {
+				50:  '#F0F4F3',  
+				100: '#E2E9E6', 
+				200: '#C4D4CD',  
+				300: '#A7BEB4', 
+				400: '#8AA89B',  
+				500: '#6C9382',  
+				600: '#577568',  
+				700: '#41584E',  
+				800: '#2B3B34',  
+				900: '#161D1A',  
+				950: '#0F1512',
+			},
+			ocean: {
+				50:  "#EBF1FC",
+				100: "#D7E3F9",
+				200: "#ADC8F3",
+				300: "#7EAEED",
+				400: "#4F94DE",
+				500: "#407AB8",
+				600: "#316095",
+				700: "#234871",
+				800: "#163250",
+				900: "#0A1C30",
+			},
+			gold: {
+				50:  "#FFF9E5",
+				100: "#FFF2CC",
+				200: "#FFE699",
+				300: "#FFD966",
+				400: "#FFBF00",
+				500: "#CC9900",
+				600: "#997300",
+				700: "#664D00",
+				800: "#332600",
+				900: "#241B00",
+			},
+			rose: {
+				50:  "#FEEC EF",
+				100: "#FDDAE0",
+				200: "#FBB3C1",
+				300: "#FA89A2",
+				400: "#F95482",
+				500: "#E41F66",
+				600: "#B71750",
+				700: "#8C0F3B",
+				800: "#630828",
+				900: "#3D0316",
+			},
+			jungle: {
+				50:  "#B9FFE6",
+				100: "#27FFCC",
+				200: "#00E0B2",
+				300: "#00C29A",
+				400: "#00A482",
+				500: "#00876B",
+				600: "#006B55",
+				700: "#005140",
+				800: "#00382B",
+				900: "#002118",
+			},
+		
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -92,12 +184,14 @@ const config = {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
-  		}
+  		},
+		boxShadow: {
+			'icon': '0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1)',
+		},
+		
   	}
   },
   plugins: [animatePlugin, require("tailwindcss-animate")],
 } satisfies Config
-
-
 
 export default config

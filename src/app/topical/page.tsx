@@ -1,7 +1,7 @@
 "use client"
 
 import { TopicalForm } from '@/components/topical/TopicalForm';
-import ProtectedRoute from '@/components/auth/protected-route';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 export default function TopicalPage() {
   return (

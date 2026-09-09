@@ -16,19 +16,13 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const pathname = usePathname()
-  const { user, userProfile, hasAnyPermission } = useAuth()
+  const { user, isSuperAdmin, isAdmin, hasRoleOrHigher } = useAuth()
   const [isDashboardOpen, setIsDashboardOpen] = useState(true)
   const [isToolsOpen, setIsToolsOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
   // Define tools for mobile sidebar
   const toolCategories = [
-    {
-      name: "Content Generation",
-      tools: [
-        { name: 'Listing Generator', href: '/lister', description: 'Generate optimized product listings' },
-      ]
-    },
     {
       name: "Catalog",
       tools: [
@@ -55,32 +49,21 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
   // Seller Dashboard links
   const dashboardTools = [
-    { name: 'Main Dashboard', href: '/newdashboard', description: 'Overview dashboard' },
-    { name: 'ASIN Performance', href: '/newdashboard/asinperformance', description: 'Analyze ASIN performance metrics' },
-    { name: 'Campaign Performance', href: '/newdashboard/campain/campainperformance', description: 'Track and analyze campaign data' },
-    { name: 'Inventory', href: '/newdashboard/inventory', description: 'Monitor inventory levels and trends' },
-    { name: 'Search Query Performance', href: '/newdashboard/searchqueryperformance', description: 'Analyze search query performance data' },
+    { name: 'Command Center', href: '/dashboard/command-center', description: 'Overview dashboard' },
+    { name: 'Live Orders & Revenue Tracker', href: '/dashboard/orders_realtime', description: 'Realtime orders dashboard' },
+    { name: 'ASIN Intelligence', href: '/dashboard/asin-inteligence', description: 'Analyze ASIN performance metrics' },
+    { name: 'Campaign Analytics', href: '/dashboard/campaign-analytics', description: 'Track and analyze campaign data' },
+    { name: 'InventoryPulse', href: '/dashboard/inventorypulse', description: 'Monitor inventory levels and trends' },
+    { name: 'Market Funnel Insights', href: '/dashboard/market-funnel-insights', description: 'Analyze search query performance data' },
   ]
 
-  // Admin visibility
-  const adminPermissions = [
-    'view_users',
-    'manage_users',
-    'view_rbac_admin',
-    'rbac.view_user',
-    'rbac.view_role',
-    'rbac.view_permission',
-    'rbac.view_agency'
-  ]
-  
+  // Admin visibility - Only show to admin role or higher (admin, super_admin)
+  // In dev mode, also show to everyone for testing
   const showAdmin = !!user && (
     process.env.NODE_ENV === 'development' ||
-    !!userProfile?.isAdmin ||
-    !!userProfile?.isAgencyAdmin ||
-    hasAnyPermission(adminPermissions) ||
-    userProfile?.permissions?.some(p => p.includes('admin')) ||
-    userProfile?.permissions?.some(p => p.includes('super')) ||
-    true
+    isSuperAdmin() ||
+    isAdmin() ||
+    hasRoleOrHigher('admin')
   )
 
   // Close sidebar when clicking outside
@@ -234,7 +217,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                     )}
                   </div>
 
-                  {/* Admin Section */}
+                  {/* Admin Section - Only visible to admin role or higher */}
                   {showAdmin && (
                     <div className="pt-2">
                       <Link

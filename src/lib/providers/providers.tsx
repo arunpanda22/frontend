@@ -1,3 +1,5 @@
+"use client"
+
 import { QueryProvider } from './query-provider'
 import { AuthProvider } from '@/lib/context/AuthContext'
 import { ErrorBoundary } from '@/components/error-boundary'

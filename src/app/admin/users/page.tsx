@@ -2,62 +2,105 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { AdminUser } from '@/lib/api/services/admin-dashboard.service'
-import { useAdminUsers, useAdminQueryRefresh } from '@/lib/hooks/queries/use-admin'
+import { useAdminUsers, useAdminQueryRefresh, adminQueryKeys } from '@/lib/hooks/queries/use-admin'
+import { adminDashboardService } from '@/lib/api/services/admin-dashboard.service'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
   const [page, setPage] = useState(1)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showRefreshSuccess, setShowRefreshSuccess] = useState(false)
-  const usersQuery = useAdminUsers({ search, page })
+  
+  const queryClient = useQueryClient()
+  const queryKey = useMemo(
+    () => [...adminQueryKeys.users, { search, page, role_name: roleFilter || undefined }],
+    [search, page, roleFilter]
+  )
+  
+  const usersQuery = useAdminUsers({ 
+    search, 
+    page,
+    role_name: roleFilter || undefined
+  })
   const { refreshUsers } = useAdminQueryRefresh()
 
   const data = useMemo(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('👥 Users query data:', usersQuery.data);
-    }
     return usersQuery.data || { count: 0, results: [] };
   }, [usersQuery.data])
   
   const users = useMemo(() => {
-    const results = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
-    if (process.env.NODE_ENV === 'development') {
-      console.log('👥 Processed users:', results);
-    }
-    return results;
+    return Array.isArray(data.results) ? data.results : [];
   }, [data])
-  
-  const loading = usersQuery.isLoading
-  const error = usersQuery.isError ? 'Failed to load users. Check console for details.' : null
 
-  const totalPages = Math.max(1, Math.ceil(data.count / 20)) 
-  const canPrev = page > 1
-  const canNext = page < totalPages
+  const totalPages = Math.max(1, Math.ceil(data.count / 20))
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
     setShowRefreshSuccess(false)
     try {
       await refreshUsers()
-      setIsRefreshing(false)
       setShowRefreshSuccess(true)
-      // Hide success message after 2 seconds
       setTimeout(() => setShowRefreshSuccess(false), 2000)
     } catch (error) {
-      console.error('Failed to refresh users:', error)
+      console.error('Failed to refresh:', error)
+    } finally {
       setIsRefreshing(false)
     }
   }
 
+  const handleToggleReports = async (userId: number, currentEnabled: boolean) => {
+    const previousData = queryClient.getQueryData(queryKey)
+    
+    // Optimistically update UI
+    queryClient.setQueryData(queryKey, (old: any) => {
+      if (!old) return old
+      return {
+        ...old,
+        results: old.results.map((user: any) =>
+          user.id === userId
+            ? { ...user, reports_enabled: !currentEnabled }
+            : user
+        )
+      }
+    })
+
+    try {
+      await adminDashboardService.toggleReportsForUser(userId, !currentEnabled)
+      toast.success(`Reports ${!currentEnabled ? 'enabled' : 'disabled'}`)
+    } catch (error: any) {
+      // Revert on failure
+      queryClient.setQueryData(queryKey, previousData)
+      toast.error('Failed to toggle reports', {
+        description: error?.response?.data?.error || 'An unexpected error occurred'
+      })
+    }
+  }
+
+  const getRoleBadgeColor = (roleCode: string) => {
+    const colors: Record<string, string> = {
+      super_admin: 'bg-red-100 text-red-800 border-red-200',
+      admin: 'bg-purple-100 text-purple-800 border-purple-200',
+      agency: 'bg-blue-100 text-blue-800 border-blue-200',
+      seller: 'bg-green-100 text-green-800 border-green-200',
+      user: 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+    return colors[roleCode] || 'bg-gray-100 text-gray-600 border-gray-200'
+  }
+
   return (
     <div className="space-y-4">
+      {/* Header - unchanged */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Users</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">User Management</h1>
+          <p className="text-sm text-gray-600 mt-1">Manage user roles and permissions</p>
+        </div>
         <div className="flex items-center gap-3">
-          {/* Success notification */}
           {showRefreshSuccess && (
-            <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-100 text-green-800 rounded-md transition-all duration-300 ease-in-out">
+            <div className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-100 text-green-800 rounded-md">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -67,13 +110,13 @@ export default function AdminUsersPage() {
           
           <button
             onClick={handleRefresh}
-            disabled={loading || isRefreshing}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            disabled={usersQuery.isLoading || isRefreshing}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
           >
-            {(loading || isRefreshing) ? (
+            {(usersQuery.isLoading || isRefreshing) ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                {loading ? 'Loading...' : 'Refreshing...'}
+                Loading...
               </>
             ) : (
               <>
@@ -86,108 +129,244 @@ export default function AdminUsersPage() {
           </button>
         </div>
       </div>
+
+      {/* Filters - unchanged */}
       <div className="bg-white border border-gray-200 rounded-md p-4">
-        <div className="flex items-center gap-3">
-          <input
-            className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 md:max-w-80"
-            placeholder="Search users by email or name"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="text-xs text-gray-500 hover:text-gray-700 px-2"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <input
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div>
+            <select
+              value={roleFilter}
+              onChange={e => setRoleFilter(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             >
-              Clear
-            </button>
-          )}
+              <option value="">All Roles</option>
+              <option value="super_admin">Super Admin</option>
+              <option value="admin">Admin</option>
+              <option value="agency">Agency</option>
+              <option value="seller">Seller</option>
+              <option value="user">User</option>
+            </select>
+          </div>
         </div>
+        {(search || roleFilter) && (
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={() => {
+                setSearch('')
+                setRoleFilter('')
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Users Table */}
       <div className="bg-white border border-gray-200 rounded-md">
         <div className="overflow-x-auto">
-        <table className="min-w-full table-fixed divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-56">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-72">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-72">Roles</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-28">Action</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {loading ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  Loading users...
-                </div>
-              </td></tr>
-            ) : usersQuery.error ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-red-600">
-                <div className="space-y-2">
-                  <div>Failed to load users</div>
-                  {(usersQuery.error as any)?.response?.status === 403 && (
-                    <div className="text-xs text-gray-600">
-                      You don't have permission to view users. Contact your administrator.
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Current Role
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Reports
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {usersQuery.isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      Loading users...
                     </div>
-                  )}
-                  {process.env.NODE_ENV === 'development' && (
-                    <div className="text-xs font-mono text-gray-500">
-                      Error: {usersQuery.error?.message}
-                    </div>
-                  )}
-                </div>
-              </td></tr>
-            ) : users.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
-                {data.count === 0 ? 'No users found' : 'No users match your search'}
-              </td></tr>
-            ) : (
-              users.map(u => (
-                <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm truncate">
-                    {u.display_name || ''} 
-                    {u.is_superuser && <span className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Super Admin</span>}
-                  </td>
-                  <td className="px-4 py-3 text-sm truncate">{u.email}</td>
-                  <td className="px-4 py-3 text-sm truncate">
-                    {u.roles.map((r: any, index: number) => (
-                      <span key={`${u.id}-${r.id || r.role_id}-${r.agency_id}-${index}`} className="inline-block mr-2 mb-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                        {r.role_name} @ {r.agency_name}
-                        {r.is_primary && ' (Primary)'}
-                      </span>
-                    ))}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right">
-                    <Link href={`/admin/users/${u.id}`} className="text-indigo-600 hover:underline">Manage</Link>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : usersQuery.isError ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center">
+                    <div className="text-sm text-red-600">Failed to load users</div>
+                    {(usersQuery.error as any)?.response?.status === 403 && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        You don't have permission to view users
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No users found
+                  </td>
+                </tr>
+              ) : (
+                users.map((user: any) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-gray-600">
+                            {(user.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.display_name || `${user.first_name} ${user.last_name}`.trim() || user.username}
+                          </div>
+                          {user.is_superuser && (
+                            <span className="inline-block px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded mt-1">
+                              Superuser
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {user.email}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.current_role ? (
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${getRoleBadgeColor(user.current_role.role_code)}`}>
+                            {user.current_role.role_name}
+                          </span>
+                          {(user.current_role.agency_name || user.current_role.parent_seller_email) && (
+                            <span className="text-xs text-gray-500">
+                              {user.current_role.agency_name && `@ ${user.current_role.agency_name}`}
+                              {user.current_role.parent_seller_email && `under ${user.current_role.parent_seller_email}`}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200">
+                          No role
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => handleToggleReports(user.id, user.reports_enabled)}
+                        className={`
+                          relative inline-flex items-center h-5 w-9 rounded-full transition-colors duration-200 ease-in-out
+                          focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+                          ${user.reports_enabled ? 'bg-green-600' : 'bg-gray-300'}
+                          cursor-pointer hover:opacity-80
+                        `}
+                        title={user.reports_enabled ? 'Disable reports' : 'Enable reports'}
+                      >
+                        <span
+                          className={`
+                            inline-block w-4 h-4 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out
+                            ${user.reports_enabled ? 'translate-x-4' : 'translate-x-0.5'}
+                          `}
+                        />
+                      </button>
+                    </div>
+                  </td>
+                    <td className="px-4 py-3 text-right text-sm">
+                      <Link 
+                        href={`/admin/users/${user.id}`} 
+                        className="text-indigo-600 hover:text-indigo-900 font-medium"
+                      >
+                        Manage
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
         
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-          <div className="text-xs text-gray-500">Page {page} of {totalPages} • Total {data.count} users</div>
+        {/* Pagination - unchanged */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">
+              Page {page} of {totalPages}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="text-xs text-gray-500">
+              {data.count} total users
+            </span>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(prev => Math.max(1, prev - 1))}
-              disabled={!canPrev}
-              className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
-            >Prev</button>
+              disabled={page === 1}
+              className="px-3 py-1.5 text-sm rounded border border-gray-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
             <button
               onClick={() => setPage(prev => prev + 1)}
-              disabled={!canNext}
-              className="px-3 py-1.5 text-sm rounded border border-gray-300 disabled:opacity-50"
-            >Next</button>
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 text-sm rounded border border-gray-300 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Role Legend - unchanged */}
+      <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Role Hierarchy</h3>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+          <div className="flex items-start gap-2">
+            <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 border border-red-200 font-medium">
+              Super Admin
+            </span>
+            <span className="text-gray-600">Full system access</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 font-medium">
+              Admin
+            </span>
+            <span className="text-gray-600">Manages agencies & users</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 font-medium">
+              Agency
+            </span>
+            <span className="text-gray-600">Manages sellers as clients</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="px-2 py-0.5 rounded bg-green-100 text-green-800 border border-green-200 font-medium">
+              Seller
+            </span>
+            <span className="text-gray-600">Amazon account holder</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-800 border border-gray-200 font-medium">
+              User
+            </span>
+            <span className="text-gray-600">Basic access + custom perms</span>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

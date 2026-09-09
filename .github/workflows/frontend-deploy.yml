@@ -1,16 +1,16 @@
-name: Build and Deploy
+name: Build and Deploy Test Server
 
 on:
   push:
-    branches: [ main ]
+    branches: [ test ]
     paths:
       - '**'
       - '.github/workflows/frontend-deploy.yml'
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_FRONTEND_WEBAPP_NAME_PROD }}
-  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE_PROD }}
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_FRONTEND_WEBAPP_NAME_TEST_SERVER }}
+  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE_TEST_SERVER }}
 
 jobs:
   build-and-deploy:

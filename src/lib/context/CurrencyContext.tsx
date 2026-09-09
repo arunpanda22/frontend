@@ -25,89 +25,107 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({
     refetch
   } = useMarketplaceCurrencies({ defaultMarketplace });
 
-  // Convert React Query error to string
   const error = queryError?.message || null;
 
-  // Get primary currency (first marketplace or specified default)
   const primaryCurrency: CurrencyInfo | null = useMemo(() => {
     if (Object.keys(currencies).length === 0) return null;
-    
     const targetMarketplace = defaultMarketplace || Object.keys(currencies)[0];
     return currencies[targetMarketplace]?.currency_info || null;
   }, [currencies, defaultMarketplace]);
 
-  // Refetch function that works with React Query
   const refetchCurrencies = useCallback(async (): Promise<void> => {
     try {
       await refetch();
     } catch (err) {
       console.error('Currency refetch error:', err);
-      // Error is already handled by React Query
     }
   }, [refetch]);
 
-  // Invalidate and refetch currencies (useful for manual refresh)
   const invalidateAndRefetch = useCallback(async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: ['marketplace-currencies'] });
   }, [queryClient]);
 
-  // Format currency with proper symbol and position
+  /** 💲 Formatter with decimals - returns plain number */
   const formatCurrency = useCallback((value: number, marketplaceId?: string): string => {
-    if (isNaN(value) || value === null || value === undefined) return '0';
+    if (isNaN(value) || value === null || value === undefined) return '0.00';
     
-    const targetMarketplace = marketplaceId || defaultMarketplace || Object.keys(currencies)[0];
-    const currencyInfo = currencies[targetMarketplace]?.currency_info || primaryCurrency;
-    
-    if (!currencyInfo) {
-      // Fallback formatting
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    }
-
-    const formattedNumber = new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(Math.abs(value));
+      useGrouping: true,
+    }).format(value);
+  }, []);
 
-    const sign = value < 0 ? '-' : '';
-    const { symbol, position } = currencyInfo;
+  const getCurrencySymbol = useCallback((marketplaceId?: string): string => {
+    const targetMarketplace =
+      marketplaceId || defaultMarketplace || Object.keys(currencies)[0];
 
-    if (position === 'after') {
-      return `${sign}${formattedNumber}${symbol}`;
-    } else {
-      return `${sign}${symbol}${formattedNumber}`;
-    }
+    const currencyInfo =
+      currencies[targetMarketplace]?.currency_info || primaryCurrency;
+
+    return currencyInfo?.symbol ?? '$';
   }, [currencies, primaryCurrency, defaultMarketplace]);
 
-  // Other formatting utilities (unchanged but centralized)
+  /** 💲 Currency without decimals - returns plain number */
+  const formatCurrencyNoDecimal = useCallback((value: number, marketplaceId?: string): string => {
+    if (isNaN(value) || value === null || value === undefined) return '0';
+    
+    return new Intl.NumberFormat('en-US', {
+      useGrouping: true,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  }, []);
+
+  /** 123,456 — plain number */
   const formatNumber = useCallback((value: number): string => {
     if (isNaN(value) || value === null || value === undefined) return '0';
-    return new Intl.NumberFormat('en-US').format(Math.round(value));
+    return new Intl.NumberFormat('en-US', {
+      useGrouping: true,
+      maximumFractionDigits: 0,
+    }).format(value);
   }, []);
 
+  /** 123,456.78 — plain number with 2 decimals */
+  const formatNumberWithDecimals = useCallback((value: number): string => {
+    if (isNaN(value) || value === null || value === undefined) return '0.00';
+    return new Intl.NumberFormat('en-US', {
+      useGrouping: true,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }, []);
+
+  /** 45.67 - returns number without % symbol */
   const formatPercentage = useCallback((value: number): string => {
-    if (isNaN(value) || value === null || value === undefined) return '0%';
-    return `${value.toFixed(1)}%`;
+    if (isNaN(value) || value === null || value === undefined) return '0';
+    return value.toFixed(2);
   }, []);
 
-  const formatChange = useCallback((change: number, suffix: string = "%"): string => {
-    if (isNaN(change) || change === null || change === undefined) return '0%';
+  const formatPercentageNoDecimal = useCallback((value: number): number => {
+    if (isNaN(value) || value === null || value === undefined) return 0;
+    return Math.round(value);
+  }, []);
+
+  /** +5.3 / -2.1 - returns signed number without % symbol */
+  const formatChange = useCallback((change: number, suffix: string = ""): string => {
+    if (isNaN(change) || change === null || change === undefined) return '0';
     const absChange = Math.abs(change);
     const sign = change >= 0 ? "+" : "-";
     return `${sign}${absChange.toFixed(1)}${suffix}`;
   }, []);
 
   const contextValue: CurrencyContextType = {
-    currencies: currencies,
+    currencies,
     isLoading,
     error,
     formatCurrency,
+    getCurrencySymbol,
+    formatCurrencyNoDecimal,
     formatNumber,
+    formatNumberWithDecimals,
     formatPercentage,
+    formatPercentageNoDecimal,
     formatChange,
     primaryCurrency,
     refetchCurrencies,

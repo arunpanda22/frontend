@@ -1,6 +1,6 @@
 'use client'
 
-import { useUserProfile, type ConnectedSellerAccount, type UserProfile } from '@/lib/hooks/queries/use-user-profile'
+import { useUserProfile, type ConnectedSellerAccount, type ConnectedVendorAccount, type UserProfile } from '@/lib/hooks/queries/use-user-profile'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
@@ -31,6 +31,7 @@ export function SellerAccounts({ userProfile: userProfileProp, onRefresh }: Sell
   }
   
   const connectedSellerAccounts = userProfile?.connected_seller_accounts || []
+  const connectedVendorAccounts = userProfile?.connected_vendor_accounts || []
   
   if (shouldFetchInternally && isLoading) {
     return (
@@ -51,7 +52,7 @@ export function SellerAccounts({ userProfile: userProfileProp, onRefresh }: Sell
   if (shouldFetchInternally && error) {
     return (
       <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-red-800 mt-4">
-        <p>Error loading seller accounts: {error.message}</p>
+        <p>Error loading accounts: {error.message}</p>
         <Button 
           variant="outline" 
           size="sm" 
@@ -66,14 +67,14 @@ export function SellerAccounts({ userProfile: userProfileProp, onRefresh }: Sell
     )
   }
   
-  if (connectedSellerAccounts.length === 0) {
+  if (connectedSellerAccounts.length === 0 && connectedVendorAccounts.length === 0) {
     return null
   }
   
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-700">Connected Seller Accounts</h4>
+        <h4 className="text-sm font-medium text-gray-700">Connected Accounts</h4>
         <Button 
           variant="ghost" 
           size="sm" 
@@ -86,30 +87,65 @@ export function SellerAccounts({ userProfile: userProfileProp, onRefresh }: Sell
         </Button>
       </div>
       
-      <div className="grid gap-4">
-        {connectedSellerAccounts.map((account: ConnectedSellerAccount, index: number) => (
-          <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">{account.marketplace_id}</span>
-                  <Badge 
-                    variant={account.is_active ? 'success' : 'outline'}
-                    className="text-xs"
-                  >
-                    {account.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                <div className="mt-1 text-sm text-gray-500">
-                  <span>Region: {account.region}</span>
-                  <span className="mx-2">•</span>
-                  <span>Connected: {new Date(account.created_at).toLocaleDateString()}</span>
+      {connectedSellerAccounts.length > 0 && (
+        <div className="space-y-3">
+          <h5 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Seller Accounts</h5>
+          <div className="grid gap-4">
+            {connectedSellerAccounts.map((account: ConnectedSellerAccount, index: number) => (
+              <div key={`seller-${index}`} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{account.seller_id}</span>
+                      <Badge 
+                        variant={account.is_active ? 'success' : 'outline'}
+                        className="text-xs"
+                      >
+                        {account.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-sm text-gray-500">
+                      <span>Region: {account.region}</span>
+                      <span className="mx-2">•</span>
+                      <span>Connected: {new Date(account.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+      
+      {connectedVendorAccounts.length > 0 && (
+        <div className="space-y-3">
+          <h5 className="text-xs font-medium text-gray-600 uppercase tracking-wide">Vendor Accounts</h5>
+          <div className="grid gap-4">
+            {connectedVendorAccounts.map((account: ConnectedVendorAccount, index: number) => (
+              <div key={`vendor-${index}`} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{account.vendor_code}</span>
+                      <Badge 
+                        variant={account.is_active ? 'success' : 'outline'}
+                        className="text-xs"
+                      >
+                        {account.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-sm text-gray-500">
+                      <span>Region: {account.region}</span>
+                      <span className="mx-2">•</span>
+                      <span>Connected: {new Date(account.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

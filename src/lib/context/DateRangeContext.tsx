@@ -1,8 +1,8 @@
 // contexts/DateRangeContext.tsx
 "use client";
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { DateRange, DateRangeContextType, DateRangePreset } from '../api/types';
-import { getDateRangeFromPreset } from '../utils/dateUtils'; 
+import { getDateRangeFromPreset, getDefaultPreset, isPresetValid } from '../utils/dateUtils'; 
 
 const DateRangeContext = createContext<DateRangeContextType | undefined>(undefined);
 
@@ -13,21 +13,31 @@ interface DateRangeProviderProps {
 
 export const DateRangeProvider: React.FC<DateRangeProviderProps> = ({ 
   children, 
-  defaultPreset = '30d' 
+  defaultPreset 
 }) => {
   const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const initialRange = getDateRangeFromPreset(defaultPreset);
+    // Use provided preset only if it's valid, otherwise get a valid default
+    const preset = defaultPreset && isPresetValid(defaultPreset) 
+      ? defaultPreset 
+      : getDefaultPreset();
+    
+    const initialRange = getDateRangeFromPreset(preset);
     return {
       ...initialRange,
-      preset: defaultPreset
+      preset
     };
   });
 
   const updatePreset = (preset: DateRangePreset) => {
     if (preset === 'custom') {
-      // Don't update dates for custom preset, just change the preset
       setDateRange(prev => ({ ...prev, preset }));
     } else {
+      // Validate preset before applying
+      if (!isPresetValid(preset)) {
+        console.warn(`Preset "${preset}" is not valid for current date range`);
+        return;
+      }
+      
       const newRange = getDateRangeFromPreset(preset);
       setDateRange({
         ...newRange,
@@ -51,10 +61,10 @@ export const DateRangeProvider: React.FC<DateRangeProviderProps> = ({
     updateCustomDates
   };
 
-    return (
-        <DateRangeContext.Provider value={contextValue}>
-        {children}
-        </DateRangeContext.Provider>
+  return (
+    <DateRangeContext.Provider value={contextValue}>
+      {children}
+    </DateRangeContext.Provider>
   );
 };
 

@@ -5,8 +5,8 @@ import { useAuth } from '@/lib/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { useConnectAmazonAdvertising } from '@/lib/hooks/queries/use-amazon-advertising'
 import { AdvertisingAccounts } from './AdvertisingAccounts'
-import { RegionDialog } from './RegionDialog'
-import { AlertTriangle, ArrowRight, ShoppingCart } from 'lucide-react'
+import { AccountRegionDialog } from './AccountRegionDialog'
+import { AlertTriangle, ArrowRight, ShoppingCart, UserCog } from 'lucide-react'
 import { Icons } from '../icons'
 import { SellerAccounts } from './SellerAccounts'
 import type { UserProfile } from '@/lib/hooks/queries/use-user-profile'
@@ -17,27 +17,28 @@ interface AmazonConnectorProps {
 }
 
 export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps) {
-  const { user } = useAuth()
+  const { user, isImpersonating } = useAuth()
   const [connectError, setConnectError] = useState<string | null>(null)
-  const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false)
-  
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
+
+  const impersonating = isImpersonating()
+
   const { 
     mutate: connectAmazonAdvertising, 
     isPending: isConnectingAdvertising 
   } = useConnectAmazonAdvertising()
 
   const handleConnectAmazonAdvertising = () => {
-    if (!user) return
+    if (!user || impersonating) return
     setConnectError(null)
     
     connectAmazonAdvertising(
       { 
         userId: user.uid,
-        scopes: 'advertising::campaign_management'  // Single scope to match curl example
+        scopes: 'advertising::campaign_management'
       },
       {
         onSuccess: (data) => {
-          // Redirect user to Amazon's consent screen
           window.location.href = data.authorization_url
         },
         onError: (error) => {
@@ -48,12 +49,20 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
     )
   }
 
-  const handleConnectAmazonSeller = () => {
-    setIsRegionDialogOpen(true)
+  const handleConnectSellerOrVendor = () => {
+    if (impersonating) return
+    setIsAccountDialogOpen(true)
   }
 
   return (
     <div className="space-y-8">
+      {impersonating && (
+        <div className="p-3 rounded-md bg-amber-50 border border-amber-100 text-amber-900 text-sm flex items-center gap-2">
+          <UserCog className="h-4 w-4 flex-shrink-0" />
+          <span>You&apos;re viewing this account as an impersonated user. Connecting new Amazon accounts is disabled.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Amazon Advertising Connection */}
         <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100">
@@ -67,8 +76,9 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
               
               <Button 
                 onClick={handleConnectAmazonAdvertising}
-                disabled={isConnectingAdvertising}
-                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white"
+                disabled={isConnectingAdvertising || impersonating}
+                title={impersonating ? 'Disabled while impersonating a seller' : undefined}
+                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isConnectingAdvertising ? (
                   <>
@@ -97,21 +107,23 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
           </div>
         </div>
         
-        {/* Amazon Seller Connection */}
+        {/* Amazon Seller & Vendor Connection */}
         <div className="p-6 rounded-xl bg-white shadow-sm border border-gray-100">
           <div className="flex items-start gap-4">
             <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-orange-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-medium text-gray-800 mb-2">Amazon Seller</h3>
-              <p className="text-gray-600 mb-4">Connect your Amazon Seller account to manage inventory, sales, and customer data.</p>
+              <h3 className="text-lg font-medium text-gray-800 mb-2">Amazon Seller & Vendor</h3>
+              <p className="text-gray-600 mb-4">Connect your Amazon Seller or Vendor account to manage inventory, sales, and business data.</p>
               
               <Button 
-                onClick={handleConnectAmazonSeller}
-                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white"
+                onClick={handleConnectSellerOrVendor}
+                disabled={impersonating}
+                title={impersonating ? 'Disabled while impersonating a seller' : undefined}
+                className="w-full sm:w-auto flex items-center gap-2 bg-amazon hover:bg-amazon/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Connect Amazon Seller
+                Connect Account
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               
@@ -123,10 +135,10 @@ export function AmazonConnector({ userProfile, onRefresh }: AmazonConnectorProps
         </div>
       </div>
 
-      <RegionDialog 
-        isOpen={isRegionDialogOpen}
-        onOpenChange={setIsRegionDialogOpen}
+      <AccountRegionDialog 
+        isOpen={isAccountDialogOpen}
+        onOpenChange={setIsAccountDialogOpen}
       />
     </div>
   )
-} 
+}

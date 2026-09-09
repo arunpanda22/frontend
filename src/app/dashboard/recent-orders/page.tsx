@@ -1,0 +1,263 @@
+"use client";
+
+import React, { useMemo, useState, useEffect } from "react";
+import {
+  DollarSign,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  XCircle,
+} from "lucide-react";
+import { MetricsCard } from "@/components/dashboard/ui";
+import { useCombinedOrdersData } from "@/lib/hooks/useCombinedOrdersData";
+import HourlyOrdersChart from "./components/HourlyOrdersChart";
+import TopProductsCard from "./components/TopProductsCard";
+import { useCurrency } from "@/lib/context/CurrencyContext";
+import { useUserProfile } from "@/lib/hooks/queries/use-user-profile";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Given an IANA timezone string (e.g. "America/Los_Angeles") returns a short
+ * label like "PST" or "PDT" that is appropriate for the current moment.
+ */
+function getTimezoneAbbr(ianaTimezone: string): string {
+  try {
+    const now = new Date();
+    // Intl.DateTimeFormat with timeZoneName: "short" gives us "PST", "EST", etc.
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimezone,
+      timeZoneName: "short",
+    }).formatToParts(now);
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? ianaTimezone;
+  } catch {
+    return ianaTimezone;
+  }
+}
+
+/**
+ * Formats a Date object in the given IANA timezone as "9:15 PM PST".
+ */
+function formatMarketClock(date: Date, ianaTimezone: string): string {
+  try {
+    const timeStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: ianaTimezone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+
+    const abbr = getTimezoneAbbr(ianaTimezone);
+    return `${timeStr} ${abbr}`;
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
+/**
+ * Formats a YYYY-MM-DD string as "Feb 25" without any timezone shift.
+ */
+function formatDateShortFromISO(dateStr: string): string {
+  try {
+    const [, month, day] = dateStr.split("-").map(Number);
+    const monthNames = [
+      "Jan","Feb","Mar","Apr","May","Jun",
+      "Jul","Aug","Sep","Oct","Nov","Dec",
+    ];
+    return `${day} ${monthNames[month - 1]}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Live market clock hook
+// ---------------------------------------------------------------------------
+function useMarketClock(ianaTimezone: string | undefined) {
+  const [clockStr, setClockStr] = useState<string>("");
+
+  useEffect(() => {
+    if (!ianaTimezone) return;
+
+    const tick = () => setClockStr(formatMarketClock(new Date(), ianaTimezone));
+    tick();
+    const id = setInterval(tick, 60_000); // update every minute
+    return () => clearInterval(id);
+  }, [ianaTimezone]);
+
+  return clockStr;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export default function CombinedDashboardPage() {
+  const {
+    formatCurrency,
+    formatCurrencyNoDecimal,
+    getCurrencySymbol,
+  } = useCurrency();
+
+  const { data, isLoading, error, refetch, isRefetching } =
+    useCombinedOrdersData();
+
+  const { data: userProfile } = useUserProfile();
+  const hasVendorAccounts =
+    (userProfile?.connected_vendor_accounts?.length ?? 0) > 0;
+
+  // Marketplace timezone from API metadata (e.g. "America/Los_Angeles")
+  const marketTimezone = data?.metadata?.timezone;
+  const marketDate = data?.metadata?.date; // "2026-02-25"
+  const tzAbbr = marketTimezone ? getTimezoneAbbr(marketTimezone) : "";
+  const marketClockStr = useMarketClock(marketTimezone);
+
+  // Human-readable label for the market date, e.g. "Feb 25"
+  const marketDateLabel = marketDate
+    ? `${formatDateShortFromISO(marketDate)} (${tzAbbr})`
+    : "";
+
+  const metricsData = useMemo(() => {
+    if (!data?.daily_metrics?.combined) {
+      return [
+        { title: "Revenue",   value: "Loading...", icon: DollarSign,   bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "Orders",    value: "Loading...", icon: ShoppingCart,  bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Units",     value: "Loading...", icon: Package,       bgColor: "bg-white", color: "bg-ocean-300" },
+        { title: "ASP",       value: "Loading...", icon: TrendingUp,    bgColor: "bg-white", color: "bg-gold-400"  },
+        { title: "Cancelled", value: "Loading...", icon: XCircle,       bgColor: "bg-white", color: "bg-red-400"   },
+      ];
+    }
+
+    const { revenue, orders, units, asp, cancelled } =
+      data.daily_metrics.combined;
+
+    return [
+      { title: "Revenue",   value: `${getCurrencySymbol()}${formatCurrencyNoDecimal(revenue)}`, icon: DollarSign,  bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "Orders",    value: orders.toString(),                                            icon: ShoppingCart, bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Units",     value: units.toString(),                                             icon: Package,      bgColor: "bg-white", color: "bg-ocean-300" },
+      { title: "ASP",       value: `${getCurrencySymbol()}${formatCurrency(asp)}`,              icon: TrendingUp,   bgColor: "bg-white", color: "bg-gold-400"  },
+      { title: "Cancelled", value: cancelled.toString(),                                         icon: XCircle,      bgColor: "bg-white", color: "bg-red-400"   },
+    ];
+  }, [data, formatCurrency, formatCurrencyNoDecimal, getCurrencySymbol]);
+
+  return (
+    <div className="min-h-screen bg-[#f7fafc] p-12 font-montserrat">
+      <div className="w-full">
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Header                                                              */}
+        {/* ------------------------------------------------------------------ */}
+        <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 overflow-visible">
+          {/* Left – title + last updated */}
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-gray-900">Daily Orders</h1>
+            {data?.metadata?.last_refreshed_at && (
+              <p className="text-xs text-gray-500">
+                Last updated:{" "}
+                {new Date(data.metadata.last_refreshed_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+
+
+          {/* Right – refresh button */}
+          <div className="flex items-center">
+            <button
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                isRefetching
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-blue-500 text-white hover:bg-blue-600 active:scale-95"
+              }`}
+            >
+              <svg
+                className={`w-4 h-4 ${isRefetching ? "animate-spin" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              {isRefetching ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Error banner                                                        */}
+        {/* ------------------------------------------------------------------ */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 text-sm font-medium">
+              Error:{" "}
+              {error instanceof Error
+                ? error.message
+                : "Failed to load dashboard data"}
+            </p>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Metrics cards                                                       */}
+        {/* ------------------------------------------------------------------ */}
+        <div>
+          <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
+            Today's Performance
+            {marketDateLabel && (
+              <span className="ml-2 text-base font-normal text-gray-400">
+                · {marketDateLabel}
+              </span>
+            )}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 py-6 gap-4 md:gap-6">
+            {metricsData.map((metric) => (
+              <MetricsCard
+                key={metric.title}
+                title={metric.title}
+                value={metric.value}
+                icon={metric.icon}
+                bgColor={metric.bgColor}
+                color={metric.color}
+                className="animate-fadeIn"
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Analytics                                                           */}
+        {/* ------------------------------------------------------------------ */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-[#1a2b3c] tracking-tight px-2">
+            Analytics
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 py-6 gap-6">
+            <div className="lg:col-span-2">
+              <HourlyOrdersChart
+                hourlyData={data?.hourly_orders || null}
+                hourlyTotals={data?.hourly_totals || null}
+                metadata={data?.metadata || null}
+                isLoading={isLoading}
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <TopProductsCard
+                topProducts={data?.top_products || null}
+                isLoading={isLoading}
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

@@ -3,33 +3,61 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { apiClient, clearAuthTokenCache } from '@/lib/api/config'
+import { 
+  apiClient, 
+  clearAuthTokenCache, 
+  setJWTTokens, 
+  clearJWTTokens,
+  isImpersonating as checkImpersonating,
+} from '@/lib/api/config'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { ConnectedVendorAccount } from '../hooks/queries/use-user-profile'
 
-// Agency and managed user interfaces
-export interface Agency {
-  id: string
-  name: string
-}
-
-export interface ManagedUser {
-  uid: string
-  email: string
-  displayName: string | null
-  role: string
-  permissions: string[]
-}
-
-// RBAC context from backend API
+// Your existing interfaces (keep them as is)
 export interface RBACContext {
   role_id: number
-  role_name: 'superadmin' | 'admin' | 'agency' | 'user'
-  agency_id: number
-  agency_name: string
+  role_name: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user'
+  role_display: string
+  hierarchy_level: number
+  agency_id?: number
+  agency_name?: string
+  agency_slug?: string
+  managed_agencies?: Array<{
+    id: number
+    name: string
+    slug: string
+  }>
+  managed_agency_ids?: number[]
+  parent_seller_id?: number
+  parent_seller_email?: string
 }
 
-// User profile with RBAC data
+export interface ConnectedAdvertisingProfile {
+  profile_id: string
+  account_name: string
+  account_type: string
+  account_subtype: string
+  country_code: string
+  currency_code: string
+  timezone: string
+  marketplace_id: string
+  region: string
+  valid_payment_method: boolean
+  is_active: boolean
+  created_at: string
+  last_synced_at: string
+}
+
+export interface ConnectedSellerAccount {
+  seller_id: string
+  marketplace_id: string
+  region: string
+  is_active: boolean
+  created_at: string
+  last_refreshed_at: string
+}
+
 export interface UserProfile {
   id: number
   email: string
@@ -39,25 +67,41 @@ export interface UserProfile {
   last_name: string
   created_at: string
   updated_at: string
-  rbac_context: RBACContext
-  // Legacy fields for compatibility - will be deprecated
-  uid?: string
-  displayName?: string | null
-  agencies?: Agency[]
-  currentAgency?: Agency | null
-  managedUsers?: ManagedUser[]
-  currentManagedUser?: ManagedUser | null
-  permissions?: string[]
-  isAdmin?: boolean
-  isAgencyAdmin?: boolean
-  // Impersonation fields
+  current_role_name: string | null
+  current_role_display: string | null
+  current_agency: {
+    id: number
+    name: string
+    slug: string
+  } | null
+  rbac_context: RBACContext | null
+  connected_advertising_profiles: ConnectedAdvertisingProfile[]
+  connected_seller_accounts: ConnectedSellerAccount[]
+  connected_vendor_accounts: ConnectedVendorAccount[]
   isImpersonating?: boolean
   originalUser?: {
     id: number
     email: string
     role: string
-    agency: string
+    agency?: string
   }
+}
+
+export interface AvailableSeller {
+  id: number
+  email: string
+  username: string
+  first_name: string
+  last_name: string
+  role?: {
+    name: string
+    display: string
+  }
+  agency?: {
+    id: number
+    name: string
+  }
+  is_current?: boolean
 }
 
 interface AuthContextType {
@@ -66,25 +110,26 @@ interface AuthContextType {
   loading: boolean
   error: Error | null
   signOut: () => Promise<void>
-  switchAgency: (agencyId: string) => Promise<void>
-  switchManagedUser: (userId: string) => Promise<void>
+  startSellerImpersonation: (sellerId: number) => Promise<void>
   endImpersonation: () => Promise<void>
-  // New impersonation functions
-  startImpersonation: (userId: number) => Promise<void>
-  getAvailableUsersForImpersonation: () => Promise<any[]>
-  hasPermission: (permission: string) => boolean
-  hasAnyPermission: (permissions: string[]) => boolean
-  hasAllPermissions: (permissions: string[]) => boolean
-  isImpersonating: () => boolean
-  // New role-based functions
-  getUserRole: () => 'superadmin' | 'admin' | 'agency' | 'user' | null
-  isRole: (role: 'superadmin' | 'admin' | 'agency' | 'user') => boolean
-  hasRoleOrHigher: (role: 'superadmin' | 'admin' | 'agency' | 'user') => boolean
+  getAvailableSellers: () => Promise<AvailableSeller[]>
+  switchToSeller: (sellerId: number) => Promise<void>
+  getUserRole: () => 'super_admin' | 'admin' | 'agency' | 'seller' | 'user' | null
+  isRole: (role: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user') => boolean
+  hasRoleOrHigher: (role: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user') => boolean
+  isSuperAdmin: () => boolean
   isAdmin: () => boolean
   isAgencyAdmin: () => boolean
-  isSuperAdmin: () => boolean
-  // Cache management
+  isSeller: () => boolean
+  isUser: () => boolean
+  isImpersonating: () => boolean
+  canImpersonateSellers: () => boolean
   invalidateProfileCache: () => void
+  invalidatePermissionsCache: () => void
+  getAgency: () => { id: number, name: string, slug: string } | null
+  getManagedAgencies: () => Array<{ id: number, name: string, slug: string }>
+  getParentSeller: () => { id: number, email: string } | null
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -93,25 +138,26 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   signOut: async () => {},
-  switchAgency: async () => {},
-  switchManagedUser: async () => {},
+  startSellerImpersonation: async () => {},
   endImpersonation: async () => {},
-  // New impersonation function defaults
-  startImpersonation: async () => {},
-  getAvailableUsersForImpersonation: async () => [],
-  hasPermission: () => false,
-  hasAnyPermission: () => false,
-  hasAllPermissions: () => false,
-  isImpersonating: () => false,
-  // New role-based function defaults
+  getAvailableSellers: async () => [],
+  switchToSeller: async () => {},
   getUserRole: () => null,
   isRole: () => false,
   hasRoleOrHigher: () => false,
+  isSuperAdmin: () => false,
   isAdmin: () => false,
   isAgencyAdmin: () => false,
-  isSuperAdmin: () => false,
-  // Cache management
-  invalidateProfileCache: () => {}
+  isSeller: () => false,
+  isUser: () => false,
+  isImpersonating: () => false,
+  canImpersonateSellers: () => false,
+  invalidateProfileCache: () => {},
+  invalidatePermissionsCache: () => {},
+  getAgency: () => null,
+  getManagedAgencies: () => [],
+  getParentSeller: () => null,
+  refreshProfile: async () => {},
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -119,438 +165,359 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [authInitialized, setAuthInitialized] = useState(false)
   const router = useRouter()
   const queryClient = useQueryClient()
+
+  // 🔧 FIX: Clear ALL query cache when switching users
+  const clearAllCaches = () => {
+    console.log('🧹 Clearing all query caches...')
+    queryClient.clear() // This removes ALL cached queries
+    queryClient.invalidateQueries() // Extra safety - invalidate any remaining queries
+  }
+
+  // Fetch user profile from backend
+  const fetchUserProfile = async (): Promise<void> => {
+    try {
+      console.log('🔄 Fetching user profile from backend...')
+      
+      const response = await apiClient.get('/api/v1/auth/profile/')
+      
+      if (response.data) {
+        const userData = response.data
+        
+        // Check impersonation status
+        const impersonationActive = checkImpersonating()
+        let originalUser = undefined
+        
+        if (impersonationActive && typeof window !== 'undefined') {
+          const originalUserStr = localStorage.getItem('original_user_data')
+          if (originalUserStr) {
+            try {
+              originalUser = JSON.parse(originalUserStr)
+            } catch (e) {
+              console.warn('Failed to parse original user data')
+            }
+          }
+        }
+        
+        const profile: UserProfile = {
+          id: userData.id || 0,
+          email: userData.email || '',
+          firebase_uid: userData.firebase_uid || '',
+          username: userData.username || '',
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          created_at: userData.created_at || '',
+          updated_at: userData.updated_at || '',
+          current_role_name: userData.current_role_name || null,
+          current_role_display: userData.current_role_display || null,
+          current_agency: userData.current_agency || null,
+          rbac_context: userData.rbac_context || null,
+          connected_advertising_profiles: userData.connected_advertising_profiles || [],
+          connected_seller_accounts: userData.connected_seller_accounts || [],
+          connected_vendor_accounts: userData.connected_vendor_accounts || [],
+          isImpersonating: impersonationActive,
+          originalUser: originalUser
+        }
+        
+        console.log('✅ UserProfile loaded:', {
+          id: profile.id,
+          email: profile.email,
+          role: profile.current_role_name,
+          isImpersonating: profile.isImpersonating
+        })
+        
+        setUserProfile(profile)
+        setError(null)
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching user profile:', error)
+      
+      if (error?.response?.status === 401) {
+        console.warn('🔐 Unauthorized, clearing auth state')
+        await signOut()
+      } else {
+        setError(error)
+      }
+      
+      throw error
+    }
+  }
 
   // Sign out function
   const signOut = async () => {
     try {
+      clearJWTTokens()
+      
       if (auth) {
-        await firebaseSignOut(auth);
-        // Clear any cached auth state in API client
-        clearAuthTokenCache();
-        // Proactively clear local auth state
-        setUser(null);
-        setUserProfile(null);
-        // Redirect to login immediately
-        try {
-          router.replace('/login');
-        } catch {
-          // Fallback if router not available
-          if (typeof window !== 'undefined') window.location.href = '/login';
-        }
+        await firebaseSignOut(auth)
+        clearAuthTokenCache()
+        
+        setUser(null)
+        setUserProfile(null)
+        
+        clearAllCaches() // Clear everything on sign out
+        
+        router.replace('/login')
       }
     } catch (error) {
-      console.error('Sign out error:', error);
-      throw error;
+      console.error('Sign out error:', error)
+      throw error
     }
-  };
+  }
 
-  // Switch agency function
-  const switchAgency = async (agencyId: string) => {
+  // 🔧 FIX: Updated switchToSeller with proper cache clearing
+  const switchToSeller = async (sellerId: number) => {
     try {
-      if (!user) throw new Error('No authenticated user');
+      if (!user) throw new Error('No authenticated user')
       
-      // Token will be added automatically by axios interceptor
-      const response = await apiClient.post('/api/v1/auth/switch-agency/', { 
-        agency_id: agencyId
-      });
+      console.log(`🔄 Switching to seller: ${sellerId}`)
       
-      if (response.data && response.data.user) {
-        setUserProfile(prevProfile => {
-          if (!prevProfile) return null;
-          
-          // Find the selected agency
-          const selectedAgency = prevProfile.agencies?.find(a => a.id === agencyId) || null;
-          
-          // Get managed users for this agency if the user is an agency admin
-          const managedUsers = response.data.user.managed_users || [];
-          const currentManagedUser = null; // Reset selected managed user when switching agencies
-          
-          return {
-            ...prevProfile,
-            currentAgency: selectedAgency,
-            managedUsers: managedUsers,
-            currentManagedUser: currentManagedUser,
-            permissions: response.data.user.permissions || [],
-            isAgencyAdmin: response.data.user.is_agency_admin || false
-          };
-        });
-      }
-    } catch (error) {
-      console.error('Agency switch error:', error);
-      throw error;
-    }
-  };
-  
-  // Switch to user function - for agency users to impersonate/act as users under their agency
-  const switchManagedUser = async (userId: string) => {
-    try {
-      // End impersonation if userId is empty
-      if (!userId) {
-        return await endImpersonation();
-      }
-
-      if (!user) throw new Error('No authenticated user');
-      if (!userProfile?.isAgencyAdmin) throw new Error('User is not an agency admin');
-      
-      // Call the correct API endpoint based on documentation
-      const response = await apiClient.post('/api/v1/auth/switch-to-user/', { 
-        user_id: parseInt(userId)  // Backend expects a numeric ID
-      });
+      const response = await apiClient.post('/api/v1/auth/switch-seller/', { 
+        user_id: sellerId
+      })
       
       if (response.data) {
-        // Store tokens and impersonation state according to the documentation
-        if (response.data.access) {
-          localStorage.setItem('accessToken', response.data.access);
-        }
-        if (response.data.refresh) {
-          localStorage.setItem('refreshToken', response.data.refresh);
+        // Store JWT tokens for impersonation
+        if (response.data.access && response.data.refresh) {
+          setJWTTokens(response.data.access, response.data.refresh)
         }
         
-        // Store a flag indicating impersonation mode
-        localStorage.setItem('impersonationActive', 'true');
-        
-        // Store original user info for UI display
-        localStorage.setItem('originalUser', JSON.stringify({
-          role: response.data.role,
-          agency: response.data.agency
-        }));
+        // Store original user info if not already stored (first impersonation)
+        if (typeof window !== 'undefined') {
+          const existingOriginalUser = localStorage.getItem('original_user_data')
+          if (!existingOriginalUser) {
+            const originalUserInfo = {
+              id: userProfile?.id || 0,
+              email: userProfile?.email || '',
+              role: userProfile?.rbac_context?.role_name || 'unknown',
+              agency: userProfile?.rbac_context?.agency_name
+            }
+            localStorage.setItem('original_user_data', JSON.stringify(originalUserInfo))
+          }
+        }
 
-        // Update user profile with the switched user data
-        setUserProfile(prevProfile => {
-          if (!prevProfile) return null;
-          
-          // Create a managed user object from the response
-          const switchedUser: ManagedUser = {
-            uid: response.data.user.id.toString(),
-            email: response.data.user.email,
-            displayName: `${response.data.user.first_name} ${response.data.user.last_name}`,
-            role: response.data.role || 'user',
-            permissions: response.data.permissions || []
-          };
-          
-          return {
-            ...prevProfile,
-            currentManagedUser: switchedUser,
-            permissions: response.data.permissions || [],
-          };
-        });
+        // 🔧 FIX: Clear ALL caches before fetching new profile
+        clearAllCaches()
+        
+        // 🔧 FIX: Also clear Firebase token cache
+        clearAuthTokenCache()
+        
+        // Fetch new profile
+        await fetchUserProfile()
+        
+        console.log('✅ Switched to seller successfully')
       }
     } catch (error) {
-      console.error('User switching error:', error);
-      throw error;
+      console.error('❌ Seller switch failed:', error)
+      throw error
     }
-  };
+  }
+
+  const startSellerImpersonation = async (sellerId: number) => {
+    return switchToSeller(sellerId)
+  }
   
-  // End impersonation function - for returning to the original agency user
+  // 🔧 FIX: Updated endImpersonation with proper cache clearing
   const endImpersonation = async () => {
     try {
-      if (!user) throw new Error('No authenticated user');
+      if (!user) throw new Error('No authenticated user')
       
-      // Call the correct API endpoint to end impersonation
-      const response = await apiClient.post('/api/v1/auth/end-impersonation/');
+      if (!checkImpersonating()) {
+        throw new Error('Not currently impersonating')
+      }
+      
+      console.log('🔄 Ending seller impersonation')
+      
+      const response = await apiClient.post('/api/v1/auth/end-impersonation/')
       
       if (response.data) {
-        // Update tokens
-        if (response.data.access) {
-          localStorage.setItem('accessToken', response.data.access);
-        }
-        if (response.data.refresh) {
-          localStorage.setItem('refreshToken', response.data.refresh);
-        }
+        // Clear JWT tokens and impersonation state
+        clearJWTTokens()
+        clearAuthTokenCache()
         
-        // Clear impersonation flags
-        localStorage.removeItem('impersonationActive');
-        localStorage.removeItem('originalUser');
+        // 🔧 FIX: Clear ALL caches before fetching original user profile
+        clearAllCaches()
         
-        // Update user profile to return to the original user
-        setUserProfile(prevProfile => {
-          if (!prevProfile) return null;
-          
-          return {
-            ...prevProfile,
-            currentManagedUser: null,
-            permissions: response.data.permissions || prevProfile.permissions,
-          };
-        });
+        // Fetch profile with Firebase auth again
+        await fetchUserProfile()
+        
+        console.log('✅ Returned to original user')
       }
     } catch (error) {
-      console.error('End impersonation error:', error);
-      throw error;
+      console.error('❌ End impersonation failed:', error)
+      
+      // Fallback: clear everything and reload
+      clearJWTTokens()
+      clearAuthTokenCache()
+      
+      if (typeof window !== 'undefined') {
+        window.location.reload()
+      }
+      
+      throw error
     }
-  };
-  
-  // Check if user is currently impersonating someone
-  const isImpersonating = (): boolean => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('impersonationActive') === 'true';
-  };
+  }
 
-  // Role hierarchy: superadmin > admin > agency > user
+  const getAvailableSellers = async (): Promise<AvailableSeller[]> => {
+    try {
+      const response = await apiClient.get('/api/v1/auth/switch-seller/')
+      return response.data.users || []
+    } catch (error) {
+      console.error('❌ Failed to get available sellers:', error)
+      return []
+    }
+  }
+
+  // Role hierarchy
   const roleHierarchy = {
-    'superadmin': 4,
-    'admin': 3,
-    'agency': 2,
+    'super_admin': 5,
+    'admin': 4,
+    'agency': 3,
+    'seller': 2,
     'user': 1
-  };
+  }
 
-  // Get current user role
-  const getUserRole = (): 'superadmin' | 'admin' | 'agency' | 'user' | null => {
-    return userProfile?.rbac_context?.role_name || null;
-  };
+  const getUserRole = (): 'super_admin' | 'admin' | 'agency' | 'seller' | 'user' | null => {
+    return userProfile?.rbac_context?.role_name || null
+  }
 
-  // Check if user has specific role
-  const isRole = (role: 'superadmin' | 'admin' | 'agency' | 'user'): boolean => {
-    const currentRole = getUserRole();
-    return currentRole === role;
-  };
+  const isRole = (role: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user'): boolean => {
+    const currentRole = getUserRole()
+    return currentRole === role
+  }
 
-  // Check if user has role or higher (based on hierarchy)
-  const hasRoleOrHigher = (role: 'superadmin' | 'admin' | 'agency' | 'user'): boolean => {
-    const currentRole = getUserRole();
-    if (!currentRole) return false;
+  const hasRoleOrHigher = (role: 'super_admin' | 'admin' | 'agency' | 'seller' | 'user'): boolean => {
+    const currentRole = getUserRole()
+    if (!currentRole) return false
+    return roleHierarchy[currentRole] >= roleHierarchy[role]
+  }
+
+  const isSuperAdmin = (): boolean => isRole('super_admin')
+  const isAdmin = (): boolean => hasRoleOrHigher('admin')
+  const isAgencyAdmin = (): boolean => hasRoleOrHigher('agency')
+  const isSeller = (): boolean => isRole('seller')
+  const isUser = (): boolean => isRole('user')
+
+  const getAgency = () => {
+    const context = userProfile?.rbac_context
     
-    return roleHierarchy[currentRole] >= roleHierarchy[role];
-  };
-
-  // Check if user is admin (admin or superadmin)
-  const isAdmin = (): boolean => {
-    return hasRoleOrHigher('admin');
-  };
-
-  // Check if user is agency admin (agency role or higher)
-  const isAgencyAdmin = (): boolean => {
-    return hasRoleOrHigher('agency');
-  };
-
-  // Check if user is superadmin
-  const isSuperAdmin = (): boolean => {
-    return isRole('superadmin');
-  };
-
-  // Invalidate profile cache when needed (e.g., after role changes)
-  // This can be called manually when user roles/permissions are updated
-  // Example usage: invalidateProfileCache() after admin changes user roles
-  const invalidateProfileCache = () => {
-    queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-  };
-  
-  // Permission check helpers
-  const hasPermission = (permission: string): boolean => {
-    if (!userProfile) return false;
-    
-    // Global admin always has all permissions
-    if (userProfile.isAdmin) return true;
-    
-    // If acting as another user, check that user's permissions
-    if (userProfile.currentManagedUser) {
-      return userProfile.currentManagedUser.permissions.includes(permission);
-    }
-    
-    // Otherwise check the user's own permissions
-    return userProfile.permissions?.includes(permission) || false;
-  };
-  
-  const hasAnyPermission = (permissions: string[]): boolean => {
-    if (!userProfile) return false;
-    
-    // Global admin always has all permissions
-    if (userProfile.isAdmin) return true;
-    
-    // If acting as another user, check that user's permissions
-    if (userProfile.currentManagedUser) {
-      return permissions.some(p => userProfile.currentManagedUser!.permissions.includes(p));
-    }
-    
-    // Otherwise check the user's own permissions
-    return permissions.some(p => userProfile.permissions?.includes(p) || false);
-  };
-  
-  const hasAllPermissions = (permissions: string[]): boolean => {
-    if (!userProfile) return false;
-    
-    // Global admin always has all permissions
-    if (userProfile.isAdmin) return true;
-    
-    // If acting as another user, check that user's permissions
-    if (userProfile.currentManagedUser) {
-      return permissions.every(p => userProfile.currentManagedUser!.permissions.includes(p));
-    }
-    
-    // Otherwise check the user's own permissions
-    return permissions.every(p => userProfile.permissions?.includes(p) || false);
-  };
-
-  useEffect(() => {
-    // Only run this effect on the client side
-    if (typeof window === 'undefined') return;
-    
-    // Prevent double initialization in React Strict Mode
-    if (authInitialized) return;
-
-    let timeoutId: NodeJS.Timeout;
-    let unsubscribe: () => void;
-    let lastVerifyCall: number = 0;
-    const VERIFY_DEBOUNCE_MS = 5000; // Prevent multiple verify calls within 5 seconds
-
-    const initializeAuth = async () => {
-      try {
-        if (!auth) {
-          throw new Error('Firebase auth not initialized');
-        }
-
-        // Set up timeout
-        timeoutId = setTimeout(() => {
-          if (loading && !authInitialized) {
-            setLoading(false)
-            setError(new Error('Auth initialization timed out'))
-          }
-        }, 7000) // Reduced to 5 seconds
-
-        // Set up auth state listener
-        unsubscribe = onAuthStateChanged(
-          auth,
-          async (firebaseUser) => {
-            setUser(firebaseUser)
-            
-            // If user is logged in, fetch their profile with RBAC data
-            if (firebaseUser) {
-              const now = Date.now();
-              
-              // Debounce verify-token calls to prevent multiple rapid calls
-              if (now - lastVerifyCall < VERIFY_DEBOUNCE_MS) {
-                console.log('🚫 Skipping verify-token call (debounced)');
-                return;
-              }
-              lastVerifyCall = now;
-
-              try {
-                // Add a small delay to ensure Firebase token is properly set
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                const token = await firebaseUser.getIdToken(false); // Use cached token if available
-                
-                // Add additional validation
-                if (!token || token.length < 100) {
-                  throw new Error('Invalid token received from Firebase');
-                }
-                
-                console.log('🔄 Calling verify-token with fresh Firebase auth');
-                
-                // Fetch user profile with permissions from backend
-                const response = await apiClient.post(
-                  '/api/v1/auth/verify-token/',
-                  { token },
-                  { 
-                    headers: { Authorization: `Bearer ${token}` },
-                    timeout: 10000 // 10 second timeout
-                  }
-                );
-                
-                if (response.data && response.data.user) {
-                  const userData = response.data.user;
-                  const userContext = response.data.user_context; // Get the separate user_context
-                  
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('🔄 Backend user data received:', userData);
-                    console.log('🔄 Backend user context received:', userContext);
-                  }
-                  
-                  // Transform backend response to our UserProfile format
-                  const userProfile: UserProfile = {
-                    id: userData.id || 0,
-                    email: userData.email || firebaseUser.email || '',
-                    firebase_uid: firebaseUser.uid,
-                    username: userData.username || '',
-                    first_name: userData.first_name || '',
-                    last_name: userData.last_name || '',
-                    created_at: userData.created_at || '',
-                    updated_at: userData.updated_at || '',
-                    rbac_context: userContext || userData.rbac_context || {
-                      role_id: 0,
-                      role_name: 'user' as const,
-                      agency_id: 0,
-                      agency_name: ''
-                    },
-                    // Legacy fields for compatibility
-                    uid: firebaseUser.uid,
-                    displayName: firebaseUser.displayName,
-                    agencies: userData.agencies || [],
-                    currentAgency: userData.current_agency || null,
-                    managedUsers: userData.managed_users || [],
-                    currentManagedUser: userData.current_managed_user || null,
-                    permissions: userData.permissions || [],
-                    // Set legacy admin flags based on RBAC context
-                    isAdmin: userContext?.role_name === 'admin' || userContext?.role_name === 'superadmin' || userData.is_admin || false,
-                    isAgencyAdmin: userContext?.role_name === 'agency' || userContext?.role_name === 'admin' || userContext?.role_name === 'superadmin' || userData.is_agency_admin || false
-                  };
-                  
-                  // Debug logging for both development and production
-                  console.log('✅ UserProfile created:', {
-                    id: userProfile.id,
-                    email: userProfile.email,
-                    role: userProfile.rbac_context?.role_name,
-                    isAdmin: userProfile.isAdmin,
-                    isAgencyAdmin: userProfile.isAgencyAdmin,
-                    rbacContext: userProfile.rbac_context
-                  });
-                  
-                  setUserProfile(userProfile);
-                }
-              } catch (profileError: any) {
-                console.error('Error fetching user profile:', profileError);
-                
-                // Handle specific error cases
-                if (profileError?.response?.status === 400) {
-                  console.warn('🔄 Verify token failed (400), will retry on next request');
-                } else if (profileError?.response?.status === 401) {
-                  console.warn('🔐 Token expired, clearing auth state');
-                  await signOut(); // Sign out on 401 errors
-                  return;
-                } else {
-                  console.error('❌ Unexpected profile error:', profileError?.message);
-                }
-                
-                // Don't set global error state here, as we still have a valid Firebase user
-                // The user can still interact with the app, just without backend profile data
-              }
-            } else {
-              setUserProfile(null);
-            }
-            
-            setLoading(false)
-            setError(null)
-            setAuthInitialized(true)
-            clearTimeout(timeoutId)
-          },
-          (error) => {
-            console.error('Auth error:', error)
-            setError(error)
-            setLoading(false)
-            setAuthInitialized(true)
-            clearTimeout(timeoutId)
-          }
-        )
-      } catch (error) {
-        console.error('Auth setup error:', error)
-        setError(error instanceof Error ? error : new Error('Auth setup failed'))
-        setLoading(false)
-        setAuthInitialized(true)
-        clearTimeout(timeoutId)
+    if (context?.role_name === 'agency' && context?.agency_id && context?.agency_name && context?.agency_slug) {
+      return {
+        id: context.agency_id,
+        name: context.agency_name,
+        slug: context.agency_slug
       }
     }
+    
+    if (userProfile?.current_agency) {
+      return userProfile.current_agency
+    }
+    
+    return null
+  }
 
-    initializeAuth()
+  const getManagedAgencies = () => {
+    const context = userProfile?.rbac_context
+    
+    if (context?.role_name === 'admin' && context?.managed_agencies) {
+      return context.managed_agencies
+    }
+    
+    return []
+  }
+
+  const getParentSeller = () => {
+    const context = userProfile?.rbac_context
+    if (context?.role_name === 'user' && context?.parent_seller_id && context?.parent_seller_email) {
+      return {
+        id: context.parent_seller_id,
+        email: context.parent_seller_email
+      }
+    }
+    return null
+  }
+
+  const isImpersonating = (): boolean => {
+    return checkImpersonating() || !!userProfile?.isImpersonating
+  }
+
+  // 🔧 FIX: Allow impersonation checks even during impersonation
+  const canImpersonateSellers = (): boolean => {
+    // If impersonating, check the ORIGINAL user's role
+    if (isImpersonating() && typeof window !== 'undefined') {
+      const originalUserStr = localStorage.getItem('original_user_data')
+      if (originalUserStr) {
+        try {
+          const originalUser = JSON.parse(originalUserStr)
+          const originalRole = originalUser.role
+          return originalRole === 'super_admin' || originalRole === 'admin' || originalRole === 'agency'
+        } catch (e) {
+          console.warn('Failed to parse original user role')
+        }
+      }
+    }
+    
+    // Normal check for current role
+    const role = getUserRole()
+    return role === 'super_admin' || role === 'admin' || role === 'agency'
+  }
+
+  const invalidateProfileCache = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+  }
+  
+  const invalidatePermissionsCache = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-permissions'] })
+    console.log('🔄 Permissions cache invalidated')
+  }
+
+  const refreshProfile = async () => {
+    await fetchUserProfile()
+  }
+
+  // Initialize auth
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (!auth) {
+      console.error('Firebase auth not initialized')
+      setError(new Error('Firebase auth not initialized'))
+      setLoading(false)
+      return
+    }
+
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        console.log('🔥 Firebase auth state changed:', firebaseUser ? 'Logged in' : 'Logged out')
+        
+        setUser(firebaseUser)
+        
+        if (firebaseUser) {
+          try {
+            await fetchUserProfile()
+          } catch (error) {
+            console.error('Failed to fetch profile:', error)
+          }
+        } else {
+          setUserProfile(null)
+        }
+        
+        setLoading(false)
+      },
+      (error) => {
+        console.error('Auth error:', error)
+        setError(error)
+        setLoading(false)
+      }
+    )
 
     return () => {
-      if (unsubscribe) unsubscribe()
-      if (timeoutId) clearTimeout(timeoutId)
+      unsubscribe()
     }
   }, [])
 
-  // Show error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800">
@@ -568,15 +535,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-yellow-400"></div>
-      </div>
-    )
-  }
-
   return (
     <AuthContext.Provider 
       value={{ 
@@ -585,69 +543,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading, 
         error, 
         signOut, 
-        switchAgency,
-        switchManagedUser,
+        startSellerImpersonation,
         endImpersonation,
-        // New impersonation functions
-        startImpersonation: async (userId: number) => {
-          try {
-            const { impersonationService } = await import('@/lib/api/services/impersonation.service');
-            const response = await impersonationService.startImpersonation(userId);
-            
-            // Store the new tokens
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('accessToken', response.access);
-              localStorage.setItem('refreshToken', response.refresh);
-            }
-            
-            // Update user profile with impersonation data
-            setUserProfile(prev => prev ? {
-              ...prev,
-              id: response.user.id,
-              email: response.user.email,
-              username: response.user.username,
-              first_name: response.user.first_name,
-              last_name: response.user.last_name,
-              isImpersonating: true,
-              originalUser: prev.originalUser || {
-                id: prev.id,
-                email: prev.email,
-                role: prev.rbac_context?.role_name || 'unknown',
-                agency: prev.rbac_context?.agency_name || 'unknown'
-              }
-            } : null);
-            
-            // Invalidate profile cache to refresh data
-            invalidateProfileCache();
-            
-            console.log('✅ Impersonation started:', response.message);
-          } catch (error) {
-            console.error('❌ Impersonation failed:', error);
-            throw error;
-          }
-        },
-        getAvailableUsersForImpersonation: async () => {
-          try {
-            const { impersonationService } = await import('@/lib/api/services/impersonation.service');
-            return await impersonationService.getAvailableUsers();
-          } catch (error) {
-            console.error('❌ Failed to get available users:', error);
-            return [];
-          }
-        },
-        hasPermission,
-        hasAnyPermission,
-        hasAllPermissions,
-        isImpersonating,
-        // New role-based functions
+        getAvailableSellers,
+        switchToSeller,
         getUserRole,
         isRole,
         hasRoleOrHigher,
+        isSuperAdmin,
         isAdmin,
         isAgencyAdmin,
-        isSuperAdmin,
-        // Cache management
-        invalidateProfileCache
+        isSeller,
+        isUser,
+        isImpersonating,
+        canImpersonateSellers,
+        invalidateProfileCache,
+        invalidatePermissionsCache,
+        getAgency,
+        getManagedAgencies,
+        getParentSeller,
+        refreshProfile,
       }}
     >
       {children}
@@ -655,4 +570,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-export const useAuth = () => useContext(AuthContext) 
+export const useAuth = () => useContext(AuthContext)

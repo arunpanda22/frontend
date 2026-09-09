@@ -45,7 +45,7 @@ export default function SignUp() {
       await updateProfile(user, {
         displayName: formData.username
       })
-      router.push('/newdashboard')
+      router.push('/profile')
     } catch (error) {
       if (error instanceof FirebaseError) {
         setError(getErrorMessage(error))
@@ -69,7 +69,7 @@ export default function SignUp() {
       setIsLoading(true)
       setError('')
       await authService.signInWithGoogle()
-      router.push('/newdashboard')
+      router.push('/profile')
     } catch (error) {
       if (error instanceof FirebaseError) {
         setError(getErrorMessage(error))
