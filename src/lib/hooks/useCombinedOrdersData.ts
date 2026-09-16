@@ -84,8 +84,8 @@ export interface CombinedOrdersData {
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 const getApiUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
   }
   return isDevelopment ? 'http://localhost:8000' : 'https://api.pacepivot.com';
 };
