@@ -16,6 +16,7 @@ import { OptimizationTableDrawer } from "../components/OptimizationTableDrawer";
 import { ConfirmationDialog } from "../components/ConfirmationDialog";
 import { PushResultSummary } from "../components/PushResultSummary";
 import { FailedItemsModal } from "../components/FailedItemsModal";
+import { PushProgressModal } from "../components/PushProgressModal";
 import type { AdsOptimizerResponse, OptimizationCategory } from "../lib/types";
 import { usePushOptimizations } from "@/lib/hooks/usePushOptimizations";
 
@@ -74,7 +75,9 @@ export default function AdsOptimizerResultsPage() {
     onConfirm: (dryrun: boolean) => void; variant?: "danger" | "warning" | "info";
   }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
 
-  const { pushCategory, pushAll } = usePushOptimizations();
+  // `progress` is non-null only while a batched push is running; it drives
+  // <PushProgressModal />. Pushes are sent in batches (see usePushOptimizations).
+  const { pushCategory, pushAll, progress } = usePushOptimizations();
 
   // Expose toast helper for the drawer (avoids importing react-hot-toast there)
   useEffect(() => {
@@ -129,8 +132,9 @@ export default function AdsOptimizerResultsPage() {
         throw new Error(result.error || "Push failed");
       }
     } catch (err: any) {
-      toast.error("Failed to push optimizations. Please try again.", {
-        id: toastId, duration: 4000,
+      // Show the real reason (e.g. "2 of 5 batches failed: ...") instead of a generic message.
+      toast.error(`Failed: ${err.message || "Unknown error"}`, {
+        id: toastId, duration: 6000,
       });
     } finally {
       setPushingCategory(null);
@@ -162,7 +166,7 @@ export default function AdsOptimizerResultsPage() {
           } else throw new Error(result.error || "Push failed");
         } catch (err: any) {
           toast.error(`Failed: ${err.message || "Unknown error"}`, {
-            id: toastId, duration: 4000,
+            id: toastId, duration: 6000,
           });
         } finally {
           setPushingCategory(null);
@@ -195,7 +199,7 @@ export default function AdsOptimizerResultsPage() {
           } else throw new Error(result.error || "Push failed");
         } catch (err: any) {
           toast.error(`Failed: ${err.message || "Unknown error"}`, {
-            id: toastId, duration: 4000,
+            id: toastId, duration: 6000,
           });
         } finally {
           setPushingCategory(null);
@@ -333,6 +337,9 @@ export default function AdsOptimizerResultsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <Toaster />
+
+      {/* Blocking progress overlay while batches are being sent */}
+      <PushProgressModal progress={progress} />
 
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
