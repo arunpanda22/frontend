@@ -126,7 +126,7 @@ const config = {
 				900: "#241B00",
 			},
 			rose: {
-				50:  "#FEEC EF",
+				50:  "#FEECEF",
 				100: "#FDDAE0",
 				200: "#FBB3C1",
 				300: "#FA89A2",
@@ -191,7 +191,7 @@ const config = {
 		
   	}
   },
-  plugins: [animatePlugin, require("tailwindcss-animate")],
+  plugins: [animatePlugin],
 } satisfies Config
 
 export default config
