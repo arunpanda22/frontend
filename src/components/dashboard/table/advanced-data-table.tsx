@@ -1142,7 +1142,7 @@ export function AdvancedDataTable({
                         <td
                           className={cn(
                             "sticky left-0 z-20 p-0 border-r border-slate-200",
-                            isSelected ? "bg-blue-50" : rowIndex % 2 === 1 && !isEmpty ? "bg-slate-50/40" : "bg-white",
+                            isSelected ? "bg-blue-50" : rowIndex % 2 === 1 && !isEmpty ? "bg-slate-50" : "bg-white",
                           )}
                           style={{ width: checkboxColumnWidth, minWidth: checkboxColumnWidth }}
                         >
