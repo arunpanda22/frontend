@@ -18,59 +18,64 @@ import type {
 import { useCampaignDefaults } from '@/lib/hooks/sbCampaignHooks'
 
 // ── Column definitions ────────────────────────────────────────────────────────
+// Built as a function of currencySymbol — was previously a static array with
+// hardcoded "£" in the Bid/Budget headers, so non-GBP accounts saw the wrong
+// currency.
 
 const MATCH_OPTIONS = [
   { value: 'EXACT',    label: 'Exact'    },
   { value: 'EXPANDED', label: 'Expanded' },
 ]
 
-const COLUMNS: CampaignColumnDefinition[] = [
-  {
-    field: 'campaign_name', headerName: 'Campaign Name',
-    type: 'text', span: true, editable: true, sortable: true,
-    width: 280, minWidth: 180, maxWidth: 460,
-  },
-  {
-    field: 'asin', headerName: 'ASIN',
-    type: 'text', span: true, editable: true, sortable: true, filterable: true,
-    width: 140, minWidth: 120,
-  },
-  {
-    field: 'video_asset_id', headerName: 'Video Asset ID',
-    type: 'text', span: true, editable: true,
-    width: 200, minWidth: 140,
-  },
-  {
-    field: 'target_asin', headerName: 'Target ASIN',
-    type: 'text', span: false, editable: true, sortable: true, filterable: true,
-    width: 160, minWidth: 120,
-  },
-  {
-    field: 'match_type', headerName: 'Match Type',
-    type: 'dropdown', span: false, editable: true,
-    width: 120, minWidth: 100, options: MATCH_OPTIONS,
-  },
-  {
-    field: 'bid', headerName: 'Bid (£)',
-    type: 'number', span: false, editable: true,
-    width: 90, minWidth: 70,
-  },
-  {
-    field: 'budget', headerName: 'Budget (£)',
-    type: 'number', span: true, editable: true,
-    width: 110, minWidth: 80,
-  },
-  { field: 'intent', headerName: 'Intent', type: 'text', span: true, editable: true, width: 160, minWidth: 120 },
-  {
-    field: 'start_date', headerName: 'Start Date',
-    type: 'date', span: true, editable: true, width: 150,
-  },
-  {
-    field: '_statusLabel', headerName: 'Status',
-    type: 'text', span: true, editable: false,
-    width: 120, minWidth: 100,
-  },
-]
+function buildColumns(currencySymbol: string): CampaignColumnDefinition[] {
+  return [
+    {
+      field: 'campaign_name', headerName: 'Campaign Name',
+      type: 'text', span: true, editable: true, sortable: true,
+      width: 280, minWidth: 180, maxWidth: 460,
+    },
+    {
+      field: 'asin', headerName: 'ASIN',
+      type: 'text', span: true, editable: true, sortable: true, filterable: true,
+      width: 140, minWidth: 120,
+    },
+    {
+      field: 'video_asset_id', headerName: 'Video Asset ID',
+      type: 'text', span: true, editable: true,
+      width: 200, minWidth: 140,
+    },
+    {
+      field: 'target_asin', headerName: 'Target ASIN',
+      type: 'text', span: false, editable: true, sortable: true, filterable: true,
+      width: 160, minWidth: 120,
+    },
+    {
+      field: 'match_type', headerName: 'Match Type',
+      type: 'dropdown', span: false, editable: true,
+      width: 120, minWidth: 100, options: MATCH_OPTIONS,
+    },
+    {
+      field: 'bid', headerName: `Bid (${currencySymbol})`,
+      type: 'number', span: false, editable: true,
+      width: 90, minWidth: 70,
+    },
+    {
+      field: 'budget', headerName: `Budget (${currencySymbol})`,
+      type: 'number', span: true, editable: true,
+      width: 110, minWidth: 80,
+    },
+    { field: 'intent', headerName: 'Intent', type: 'text', span: true, editable: true, width: 160, minWidth: 120 },
+    {
+      field: 'start_date', headerName: 'Start Date',
+      type: 'date', span: true, editable: true, width: 150,
+    },
+    {
+      field: '_statusLabel', headerName: 'Status',
+      type: 'text', span: true, editable: false,
+      width: 120, minWidth: 100,
+    },
+  ]
+}
 
 interface SharedDefaults {
   budget:          number | string
@@ -116,6 +121,22 @@ function renameSBVPTRows(
       campaign_name: buildSBVPTCampaignName(r.asin, r.target_asin, r.match_type, r.intent, effectiveMode),
     }
   })
+}
+
+// Computes what a single row's "auto" name would be given its own current
+// fields and how many rows currently share its asin+video group — mirrors
+// renameSBVPTRows's effective-mode logic for one row, so handleTableChange
+// can tell whether an edited row's existing name is still auto-generated
+// (and therefore safe to recompute) or was manually typed by the user.
+function computeAutoName(
+  row: SBVProductBulkRow,
+  allRows: SBVProductBulkRow[],
+  mode: SBBulkGroupingMode,
+): string {
+  const key = `${row.asin}__${row.video_asset_id}`
+  const count = allRows.filter((r) => `${r.asin}__${r.video_asset_id}` === key).length
+  const effectiveMode = count > 1 ? mode : 'individual'
+  return buildSBVPTCampaignName(row.asin, row.target_asin, row.match_type, row.intent, effectiveMode)
 }
 
 function SharedSettingsPanel({ defaults, onChange, currencySymbol, minBudget }: {
@@ -190,9 +211,10 @@ function toStatusLabel(status: string, error?: string): string {
 }
 
 function parseLine(
-  line:     string,
-  defaults: SharedDefaults,
-  minBid:   number,
+  line:      string,
+  defaults:  SharedDefaults,
+  minBid:    number,
+  minBudget: number,
 ): { row: SBVProductBulkRow | null; invalidAsin: boolean } {
   const cols = line.split('\t').map((c) => c.trim())
   // ASIN | Target ASIN | Bid | Match Type | Video Asset ID | Intent
@@ -207,7 +229,15 @@ function parseLine(
 
   const matchType = VALID_MATCH[matchRaw?.trim().toUpperCase()] ?? 'EXACT'
   const intent    = rawIntent?.trim() || defaults.intent || ''
-  const budget    = Number(defaults.budget) || Math.max(10, bid * 10)
+
+  // Budget is computed per-row from the bid, same as every other bulk
+  // section (SD contextual, SBV keyword) — previously this fell back to
+  // `Number(defaults.budget)` first, which is always truthy since the
+  // shared default starts at minBudget, so every row silently got the
+  // exact same flat budget regardless of its own bid. The hardcoded
+  // `Math.max(10, bid * 10)` fallback also didn't match the 15x multiplier
+  // / real minBudget used elsewhere.
+  const budget = Math.max(minBudget, bid * 15)
 
   return {
     invalidAsin: false,
@@ -349,6 +379,8 @@ export function SBVProductBulkSection() {
     setSharedDefaults((prev) => ({ ...prev, ...patch }))
   }
 
+  const COLUMNS = useMemo(() => buildColumns(currencySymbol), [currencySymbol])
+
   const [groupingMode, setGroupingMode] = useState<SBBulkGroupingMode>('individual')
   const [parseInfo, setParseInfo]       = useState<{ added: number; skipped: number; invalidAsins: number } | null>(null)
 
@@ -389,7 +421,7 @@ export function SBVProductBulkSection() {
     let added = 0, skipped = 0, invalidAsins = 0
     const newRows: SBVProductBulkRow[] = []
     for (const line of lines) {
-      const { row, invalidAsin } = parseLine(line, sharedDefaults, minBid)
+      const { row, invalidAsin } = parseLine(line, sharedDefaults, minBid, minBudget)
       if (!row) { if (invalidAsin) invalidAsins++; skipped++; continue }
       newRows.push(row)
       added++
@@ -400,25 +432,46 @@ export function SBVProductBulkSection() {
     setTimeout(() => setParseInfo(null), 4000)
   }
 
+  // Same reconciliation pattern as the SBV keyword section: merge the
+  // table's edits into row shape first, then recompute campaign_name from
+  // the *new* field values only when the row's previous name still matched
+  // what auto-generation would have produced from its *previous* values —
+  // i.e. the user hasn't manually overridden it. Previously this copied
+  // row.campaign_name straight through, so editing intent/target ASIN/match
+  // type in the table never touched the name.
   function handleTableChange(updated: CampaignTableData[]) {
-    store.setRows<SBVProductBulkRow>(
-      'sbv_product',
-      updated.map((row) => ({
+    const merged: SBVProductBulkRow[] = updated.map((row) => {
+      const prev = rows.find((r) => r._id === row._id)
+      return {
         _id:             String(row._id),
-        campaign_name:   String(row.campaign_name  ?? ''),
+        campaign_name:   String(row.campaign_name  ?? ''), // reconciled below
         asin:            String(row.asin           ?? ''),
         video_asset_id:  String(row.video_asset_id ?? ''),
-        brand_entity_id: rows.find((r) => r._id === row._id)?.brand_entity_id ?? sharedDefaults.brand_entity_id,  // ← add
+        brand_entity_id: prev?.brand_entity_id ?? sharedDefaults.brand_entity_id,
         target_asin:     String(row.target_asin    ?? ''),
         match_type:      VALID_MATCH[String(row.match_type ?? '').toUpperCase()] ?? 'EXACT',
         bid:             Number(row.bid)    || 0,
         budget:          Number(row.budget) || 0,
         start_date:      String(row.start_date ?? ''),
         intent:          String(row.intent ?? ''),
-        _status:         rows.find((r) => r._id === row._id)?._status ?? 'idle',
-        _error:          rows.find((r) => r._id === row._id)?._error,
-      }))
-    )
+        _status:         prev?._status ?? 'idle',
+        _error:          prev?._error,
+      }
+    })
+
+    const withNames = merged.map((row) => {
+      const prev = rows.find((r) => r._id === row._id)
+      const prevAutoName = prev ? computeAutoName(prev, rows, groupingMode) : ''
+      const isAutoName = !prev || prev.campaign_name === prevAutoName
+      return {
+        ...row,
+        campaign_name: isAutoName
+          ? computeAutoName(row, merged, groupingMode)
+          : row.campaign_name,
+      }
+    })
+
+    store.setRows<SBVProductBulkRow>('sbv_product', withNames)
   }
 
   const hasRows     = rows.length > 0
