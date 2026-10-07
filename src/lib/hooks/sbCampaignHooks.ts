@@ -275,7 +275,13 @@ export function useSBVKeywordBulkSubmit() {
       const ids   = groupRows.map((r) => r._id)
       store.patchRows('sbv_keyword', ids, 'loading')
       const result = await createSBVSingleKW({
-        campaign_name:   buildSBVKWGroupedCampaignName(first.asin, first.intent), // ✅ override here
+        // Use the name already computed/displayed in the table (including
+        // any manual edit) instead of re-deriving a differently-formatted
+        // one here — previously this used a separate helper that produced
+        // "... - Multi - intent" while the UI showed "... - MK - MatchType
+        // - intent", so the created campaign's name never matched what the
+        // user saw.
+        campaign_name:   first.campaign_name || undefined,
         start_date:      first.start_date,
         budget:          first.budget,
         asin:            first.asin,

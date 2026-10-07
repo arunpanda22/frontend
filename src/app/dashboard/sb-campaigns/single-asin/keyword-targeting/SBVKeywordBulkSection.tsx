@@ -206,6 +206,29 @@ function renameSBVKWRows(
   });
 }
 
+// Computes what a single row's "auto" name would be given its own fields
+// and how many rows currently share its asin+video group — mirrors the
+// effective-mode logic in renameSBVKWRows, but for one row at a time so it
+// can be used to detect whether an existing name is still auto-generated.
+function computeAutoName(
+  row: SBVKeywordBulkRow,
+  allRows: SBVKeywordBulkRow[],
+  mode: SBBulkGroupingMode,
+): string {
+  const key = `${row.asin}__${row.video_asset_id}`;
+  const count = allRows.filter(
+    (r) => `${r.asin}__${r.video_asset_id}` === key,
+  ).length;
+  const effectiveMode = count > 1 ? mode : "individual";
+  return buildSBVKWCampaignName(
+    row.asin,
+    row.keyword,
+    row.match_type,
+    row.intent,
+    effectiveMode,
+  );
+}
+
 function parseLine(
   line: string,
   defaults: SharedDefaults,
@@ -560,37 +583,54 @@ export function SBVKeywordBulkSection() {
     setTimeout(() => setParseInfo(null), 4000);
   }
 
+  // Edits from the table (including an in-place intent/keyword/match-type
+  // change) are merged into the row shape first, then the name is
+  // recomputed from the *new* field values whenever the row's existing
+  // name still matches what auto-generation would have produced from its
+  // *previous* values — i.e. the user hasn't manually overridden it. This
+  // mirrors the isAutoName pattern used in the SD contextual bulk section,
+  // adapted to this store's asin+video grouping key.
   function handleTableChange(updated: CampaignTableData[]) {
-    store.setRows<SBVKeywordBulkRow>(
-      'sbv_keyword',
-      updated.map((row) => {
-        const prev       = rows.find((r) => r._id === row._id)
-        const newBid     = Number(row.bid) || 0
-        const bidChanged = prev && newBid !== prev.bid
+    const merged: SBVKeywordBulkRow[] = updated.map((row) => {
+      const prev       = rows.find((r) => r._id === row._id)
+      const newBid     = Number(row.bid) || 0
+      const bidChanged = prev && newBid !== prev.bid
 
-        const newBudget = bidChanged
-          ? Math.max(minBudget, newBid * 15)
-          : Number(row.budget) || 0
+      const newBudget = bidChanged
+        ? Math.max(minBudget, newBid * 15)
+        : Number(row.budget) || 0
 
-        return {
-          _id:             String(row._id),
-          campaign_name:   String(row.campaign_name ?? ''),
-          asin:            String(row.asin ?? ''),
-          video_asset_id:  String(row.video_asset_id ?? ''),
-          brand_entity_id:
-            rows.find((r) => r._id === row._id)?.brand_entity_id ??
-            sharedDefaults.brand_entity_id,
-          keyword:    String(row.keyword ?? ''),
-          match_type: String(row.match_type ?? 'exact').toLowerCase(),
-          bid:        newBid,
-          budget:     newBudget,
-          start_date: String(row.start_date ?? ''),
-          intent:     String(row.intent ?? ''),
-          _status:    rows.find((r) => r._id === row._id)?._status ?? 'idle',
-          _error:     rows.find((r) => r._id === row._id)?._error,
-        }
-      }),
-    )
+      return {
+        _id:             String(row._id),
+        campaign_name:   String(row.campaign_name ?? ''), // reconciled below
+        asin:            String(row.asin ?? ''),
+        video_asset_id:  String(row.video_asset_id ?? ''),
+        brand_entity_id:
+          prev?.brand_entity_id ?? sharedDefaults.brand_entity_id,
+        keyword:    String(row.keyword ?? ''),
+        match_type: String(row.match_type ?? 'exact').toLowerCase(),
+        bid:        newBid,
+        budget:     newBudget,
+        start_date: String(row.start_date ?? ''),
+        intent:     String(row.intent ?? ''),
+        _status:    prev?._status ?? 'idle',
+        _error:     prev?._error,
+      }
+    });
+
+    const withNames = merged.map((row) => {
+      const prev = rows.find((r) => r._id === row._id);
+      const prevAutoName = prev ? computeAutoName(prev, rows, groupingMode) : '';
+      const isAutoName = !prev || prev.campaign_name === prevAutoName;
+      return {
+        ...row,
+        campaign_name: isAutoName
+          ? computeAutoName(row, merged, groupingMode)
+          : row.campaign_name,
+      };
+    });
+
+    store.setRows<SBVKeywordBulkRow>('sbv_keyword', withNames);
   }
 
   const hasRows = rows.length > 0;
