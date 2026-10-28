@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * Sidebar: left navigation, marketplace-aware.
+ *
+ * MARKETPLACE BEHAVIOR (added for the Flipkart dashboard)
+ *   - useMarketplace() derives 'amazon' | 'flipkart' from the URL (/flipkart/** = Flipkart).
+ *   - Amazon mode: renders exactly what it rendered before (OptivizeX, AdOptimus,
+ *     Campaign Creation, Tools), driven by routes.config.ts and permissions.
+ *   - Flipkart mode: renders the sections from flipkart-nav.config.ts instead. Amazon
+ *     sections and the Amazon Tools menu are hidden because they are Amazon-specific.
+ *   - Admin and User Config appear in both modes.
+ *   Do not add marketplace branches inside individual pages; see useMarketplace.ts.
+ */
+
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 import { usePathname } from "next/navigation";
@@ -7,6 +20,7 @@ import { ChevronDownIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { RiArrowRightDoubleLine, RiArrowLeftDoubleLine } from "react-icons/ri";
 import { useAuth } from "@/lib/context/AuthContext";
 import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useMarketplace } from "@/lib/hooks/useMarketplace";
 import { useSidebar } from "@/components/layout/layout-wrapper";
 import {
   ROUTES,
@@ -14,17 +28,24 @@ import {
   DASHBOARD_CATEGORIES,
   RouteConfig,
 } from "@/config/routes.config";
+import { FLIPKART_NAV_SECTIONS } from "@/config/flipkart-nav.config";
+
+/** Minimal shape NavSection needs; both Amazon RouteConfig and Flipkart items satisfy it. */
+type NavItem = Pick<RouteConfig, "name" | "href">;
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, userProfile, isImpersonating } = useAuth();
   const { canAccess, isLoadingPermissions } = usePermissions();
   const { isCollapsed, setIsCollapsed } = useSidebar();
+  const { marketplace } = useMarketplace();
 
   const [isDashboardOpen,        setIsDashboardOpen]        = useState(true);
   const [isAdOptimusOpen,        setIsAdOptimusOpen]        = useState(true);
   const [isCampaignCreationOpen, setIsCampaignCreationOpen] = useState(true);
   const [isToolsOpen,            setIsToolsOpen]            = useState(false);
+  // Open/closed state of each Flipkart section, keyed by section label (open by default).
+  const [closedFlipkartSections, setClosedFlipkartSections] = useState<Record<string, boolean>>({});
 
   const impersonationActive = isImpersonating();
 
@@ -109,7 +130,7 @@ export function Sidebar() {
     label:    string
     isOpen:   boolean
     onToggle: () => void
-    routes:   RouteConfig[]
+    routes:   NavItem[]
   }) {
     if (routes.length === 0) return null
     return (
@@ -196,69 +217,91 @@ export function Sidebar() {
           <div className="flex-1 overflow-y-auto scrollbar-custom">
             <nav className="p-2 space-y-1">
 
-              {/* OptivizeX — Core Analytics */}
-              <NavSection
-                label="OptivizeX"
-                isOpen={isDashboardOpen}
-                onToggle={() => setIsDashboardOpen((v) => !v)}
-                routes={accessibleDashboard}
-              />
+              {marketplace === "amazon" ? (
+                <>
+                  {/* OptivizeX — Core Analytics */}
+                  <NavSection
+                    label="OptivizeX"
+                    isOpen={isDashboardOpen}
+                    onToggle={() => setIsDashboardOpen((v) => !v)}
+                    routes={accessibleDashboard}
+                  />
 
-              {/* AdOptimus */}
-              <NavSection
-                label="AdOptimus"
-                isOpen={isAdOptimusOpen}
-                onToggle={() => setIsAdOptimusOpen((v) => !v)}
-                routes={accessibleAdOptimus}
-              />
+                  {/* AdOptimus */}
+                  <NavSection
+                    label="AdOptimus"
+                    isOpen={isAdOptimusOpen}
+                    onToggle={() => setIsAdOptimusOpen((v) => !v)}
+                    routes={accessibleAdOptimus}
+                  />
 
-              {/* Campaign Creation — SP / SB / SD */}
-              <NavSection
-                label="Campaign Creation"
-                isOpen={isCampaignCreationOpen}
-                onToggle={() => setIsCampaignCreationOpen((v) => !v)}
-                routes={accessibleCampaignCreation}
-              />
+                  {/* Campaign Creation — SP / SB / SD */}
+                  <NavSection
+                    label="Campaign Creation"
+                    isOpen={isCampaignCreationOpen}
+                    onToggle={() => setIsCampaignCreationOpen((v) => !v)}
+                    routes={accessibleCampaignCreation}
+                  />
 
-              {/* Tools */}
-              {accessibleToolCategories.length > 0 && (
-                <div className="pt-2">
-                  <button
-                    onClick={() => setIsToolsOpen((v) => !v)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white rounded-md transition-colors"
-                  >
-                    <span>Tools</span>
-                    {isToolsOpen
-                      ? <ChevronDownIcon  className="h-4 w-4" />
-                      : <ChevronRightIcon className="h-4 w-4" />}
-                  </button>
-                  {isToolsOpen && (
-                    <div className="ml-4 mt-1 space-y-2">
-                      {accessibleToolCategories.map((category) => (
-                        <div key={category.name}>
-                          <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            {category.name}
-                          </div>
-                          <div className="space-y-1">
-                            {category.tools.map((tool) => (
-                              <Link
-                                key={tool.href}
-                                href={tool.href}
-                                className={`block px-3 py-2 text-sm rounded-md transition-colors ${
-                                  pathname === tool.href
-                                    ? "bg-gray-800 text-white border-l-2 border-yellow-400"
-                                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                                }`}
-                              >
-                                <div className="font-medium">{tool.name}</div>
-                              </Link>
-                            ))}
-                          </div>
+                  {/* Tools (Amazon only) */}
+                  {accessibleToolCategories.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        onClick={() => setIsToolsOpen((v) => !v)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white rounded-md transition-colors"
+                      >
+                        <span>Tools</span>
+                        {isToolsOpen
+                          ? <ChevronDownIcon  className="h-4 w-4" />
+                          : <ChevronRightIcon className="h-4 w-4" />}
+                      </button>
+                      {isToolsOpen && (
+                        <div className="ml-4 mt-1 space-y-2">
+                          {accessibleToolCategories.map((category) => (
+                            <div key={category.name}>
+                              <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                {category.name}
+                              </div>
+                              <div className="space-y-1">
+                                {category.tools.map((tool) => (
+                                  <Link
+                                    key={tool.href}
+                                    href={tool.href}
+                                    className={`block px-3 py-2 text-sm rounded-md transition-colors ${
+                                      pathname === tool.href
+                                        ? "bg-gray-800 text-white border-l-2 border-yellow-400"
+                                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                    }`}
+                                  >
+                                    <div className="font-medium">{tool.name}</div>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
-                </div>
+                </>
+              ) : (
+                <>
+                  {/* Flipkart sections, driven by flipkart-nav.config.ts */}
+                  {FLIPKART_NAV_SECTIONS.map((section) => (
+                    <NavSection
+                      key={section.label}
+                      label={section.label}
+                      isOpen={!closedFlipkartSections[section.label]}
+                      onToggle={() =>
+                        setClosedFlipkartSections((prev) => ({
+                          ...prev,
+                          [section.label]: !prev[section.label],
+                        }))
+                      }
+                      routes={section.items}
+                    />
+                  ))}
+                </>
               )}
 
               {/* Admin */}

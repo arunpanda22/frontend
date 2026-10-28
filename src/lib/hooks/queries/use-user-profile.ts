@@ -39,6 +39,24 @@ export interface ConnectedVendorAccount {
   last_refreshed_at:string
 }
 
+/**
+ * One Flipkart Ad Account (AA) the user can view. Mirrors the backend FlipkartAdAccount model
+ * (flipkart_auth app).
+ *
+ * `id` is the FlipkartAdAccount UUID. It is the scoping key (`ads_tenant`) that every Flipkart
+ * dashboard API call must send; `aa_id` is Flipkart's own identifier and is for display only.
+ * Several ad accounts can share one Base Account (`ba_id`).
+ */
+export interface ConnectedFlipkartAdAccount {
+  id:                     string        // FlipkartAdAccount UUID (ads_tenant)
+  aa_id:                  string        // Flipkart Ad Account id, e.g. 'SC3YEW'
+  name:                   string        // friendly name for the switcher, e.g. 'pureit'
+  is_active:              boolean
+  advertising_account_id: number        // FlipkartAdvertisingAccount (Base Account) row id
+  ba_id:                  string | null // Flipkart Base Account id
+  last_synced_at:         string | null
+}
+
 export interface RBACContext {
   role_id:          number
   role_name:        'super_admin' | 'admin' | 'agency' | 'seller' | 'user'
@@ -69,6 +87,11 @@ export interface UserProfile {
   connected_advertising_profiles: ConnectedAdvertisingProfile[]
   connected_seller_accounts:      ConnectedSellerAccount[]
   connected_vendor_accounts:      ConnectedVendorAccount[]
+  /**
+   * Flipkart ad accounts for this user. Optional until the backend profile endpoint returns it
+   * (treated as an empty list when missing, so Amazon-only users are unaffected).
+   */
+  connected_flipkart_ad_accounts?: ConnectedFlipkartAdAccount[]
 }
 
 // ── useUserProfile ─────────────────────────────────────────────────────────────
@@ -264,4 +287,23 @@ export const useHasSellerAccount = () => {
     isLoading,
     sellerAccounts:   userProfile?.connected_seller_accounts ?? [],
   }
+}
+
+// ── Flipkart helpers ──────────────────────────────────────────────────────────
+
+/**
+ * The user's ACTIVE Flipkart ad accounts (the list the Flipkart ad-account switcher shows).
+ * Empty when the user has none, or while the backend does not yet return the field.
+ * Inactive ad accounts are excluded because report pulls skip them too.
+ */
+export const useFlipkartAdAccounts = () => {
+  const { data: userProfile, isLoading } = useUserProfile()
+  const adAccounts = (userProfile?.connected_flipkart_ad_accounts ?? []).filter((a) => a.is_active)
+  return { adAccounts, isLoading }
+}
+
+/** True when the user has at least one active Flipkart ad account (gates the Flipkart UI). */
+export const useHasFlipkartAccount = () => {
+  const { adAccounts, isLoading } = useFlipkartAdAccounts()
+  return { hasFlipkartAccount: adAccounts.length > 0, isLoading }
 }
