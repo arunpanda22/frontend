@@ -1,0 +1,32 @@
+
+name: Nightly Private Repository Mirror
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+      timezone: 'Asia/Kolkata'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone private source repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_REPO: ${{ github.repository }}
+        run: |
+          git clone --mirror \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${SOURCE_REPO}.git" \
+            source.git
+
+      - name: Mirror to private backup repository
+        env:
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          git -C source.git push --mirror \
+            "https://x-access-token:${MIRROR_TOKEN}@github.com/arunpanda22/frontend.git"
