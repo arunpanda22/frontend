@@ -36,11 +36,11 @@ export const FLIPKART_NAV_SECTIONS: FlipkartNavSection[] = [
     label: 'Flipkart Ads',
     items: [
       { name: 'Command Center', href: FLIPKART_HOME_HREF },
+      { name: 'Search Terms', href: `${FLIPKART_BASE_PATH}/search-terms` },      // SearchTermsReport
+      { name: 'Keyword Analytics',  href: `${FLIPKART_BASE_PATH}/keywords` },         // KeywordTargetingReport
       // Added as each page is built (one fact table per page):
       //   { name: 'Campaign Analytics', href: `${FLIPKART_BASE_PATH}/campaigns` },        // CampaignReport
-      //   { name: 'Keyword Analytics',  href: `${FLIPKART_BASE_PATH}/keywords` },         // KeywordTargetingReport
       //   { name: 'Placement Analytics', href: `${FLIPKART_BASE_PATH}/placements` },      // PlacementsReport
-      //   { name: 'Search Terms',       href: `${FLIPKART_BASE_PATH}/search-terms` },      // SearchTermsReport
     ],
   },
 ]

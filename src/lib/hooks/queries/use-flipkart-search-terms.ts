@@ -18,6 +18,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   flipkartSearchTermsService,
+  type FlipkartCampaignOptionsParams,
   type FlipkartSearchTermDetailParams,
   type FlipkartSearchTermsParams,
   type FlipkartSearchTermsTableParams,
@@ -26,6 +27,8 @@ import {
 
 export const flipkartSearchTermsQueryKeys = {
   all: ['flipkart-search-terms'] as const,
+  campaignOptions: (options: FlipkartCampaignOptionsParams) =>
+    ['flipkart-search-terms', 'campaign-options', options] as const,
   summary: (options: FlipkartSearchTermsParams) =>
     ['flipkart-search-terms', 'summary', options] as const,
   table: (options: FlipkartSearchTermsTableParams) =>
@@ -42,6 +45,17 @@ const GC_TIME = 30 * 60 * 1000 // 30 minutes
 /** Shared `enabled` rule: both dates are required by the backend. */
 function hasDates(options: { start_date: string; end_date: string }, enabled: boolean) {
   return enabled && !!options.start_date && !!options.end_date
+}
+
+// Campaign filter list (from the CampaignName dimension: no dates, changes rarely, so it is cached longer)
+export function useFlipkartCampaignOptions(options: FlipkartCampaignOptionsParams = {}, enabled = true) {
+  return useQuery({
+    queryKey: flipkartSearchTermsQueryKeys.campaignOptions(options),
+    queryFn: () => flipkartSearchTermsService.getCampaignOptions(options),
+    enabled,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  })
 }
 
 // Summary cards + classification chart

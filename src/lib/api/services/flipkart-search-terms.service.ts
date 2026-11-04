@@ -7,7 +7,8 @@
  *
  * BACKEND CONTRACT (read before changing anything here)
  *   - Every endpoint takes `start_date` and `end_date` (YYYY-MM-DD, inclusive, required) and an optional
- *     `ads_tenant` (FlipkartAdAccount UUID; omitted = the user's oldest active ad account).
+ *     `ads_tenant` (FlipkartAdAccount UUID; omitted = the user's oldest active ad account). The one
+ *     exception is campaign-options, which takes ONLY `ads_tenant`.
  *   - Metric keys are capitalised exactly as the backend sends them (Impressions, Clicks, Spend, Units,
  *     Revenue, CTR, CPC, CVR, ROAS, ACOS, ASP, CPM). CTR, CVR and ACOS are 0-100; ROAS is a multiplier;
  *     money is rupees. A zero denominator gives 0, never null.
@@ -244,10 +245,40 @@ export interface FlipkartSearchTermDetailResponse {
 }
 
 // ---------------------------------------------------------------------------
+// GET /campaign-options/  (campaign filter list)
+// ---------------------------------------------------------------------------
+
+/** Query params of the campaign-options endpoint. NO dates: the list comes from the CampaignName dimension. */
+export interface FlipkartCampaignOptionsParams {
+  /** FlipkartAdAccount UUID. Omit to use the user's oldest active ad account. */
+  ads_tenant?: string;
+}
+
+export interface FlipkartCampaignOption {
+  campaign_id: string;
+  /** Falls back to campaign_id when the campaign has no name. */
+  campaign_name: string;
+  /** Flipkart status (LIVE, PAUSED, ...) or "UNKNOWN". */
+  status: string;
+  /** e.g. "BRAND_PLA", or "UNKNOWN". */
+  campaign_type: string;
+}
+
+export interface FlipkartCampaignOptionsResponse {
+  /** Every campaign of the ad account, sorted by name. */
+  campaigns: FlipkartCampaignOption[];
+}
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 export const flipkartSearchTermsService = {
+  async getCampaignOptions(params: FlipkartCampaignOptionsParams) {
+    const res = await apiClient.get<unknown>(`${FLIPKART_DASHBOARD_BASE}/campaign-options/`, { params });
+    return unwrapResponse<FlipkartCampaignOptionsResponse>(res.data, ["campaigns"], "campaign-options");
+  },
+
   async getSummary(params: FlipkartSearchTermsParams) {
     const res = await apiClient.get<unknown>(`${FLIPKART_DASHBOARD_BASE}/search-terms/summary/`, { params });
     return unwrapResponse<FlipkartSearchTermsSummaryResponse>(
