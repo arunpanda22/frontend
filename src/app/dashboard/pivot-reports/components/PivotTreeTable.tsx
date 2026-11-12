@@ -36,6 +36,15 @@ const NAME_CELL_FONT = "500 14px Inter, ui-sans-serif, system-ui, sans-serif"; /
 
 type FormatFn = (value: number, format: MetricColumn["format"]) => string;
 
+/**
+ * Ratio metrics (acos, cvr, spend_share, sales_share, ...) arrive from the backend as FRACTIONS
+ * (0.4523 = 45.23%). Display them as percentages. Formatted locally instead of via useCurrency's
+ * formatPercentage, which does not scale by 100.
+ */
+function formatRatioAsPercent(value: number): string {
+  return `${(value * 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
 function percentChange(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
   return (current - previous) / previous;
@@ -251,7 +260,7 @@ export function PivotTreeTable({
   enableExport?: boolean;
   exportFilename?: string;
 }) {
-  const { formatCurrencyNoDecimal, formatNumber, formatPercentage } = useCurrency();
+  const { formatCurrencyNoDecimal, formatNumber } = useCurrency();
   const [selectedTopLevel, setSelectedTopLevel] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -294,7 +303,7 @@ export function PivotTreeTable({
 
   function formatValue(value: number, format: MetricColumn["format"]) {
     if (format === "currency") return formatCurrencyNoDecimal(value);
-    if (format === "percentage") return formatPercentage(value);
+    if (format === "percentage") return formatRatioAsPercent(value);
     return formatNumber(value);
   }
 
