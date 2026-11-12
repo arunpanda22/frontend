@@ -1,10 +1,18 @@
 // components/SearchTermMomTab.tsx
 "use client";
-import React from "react";
-import { Loader2 } from "lucide-react";
+import React, { useMemo } from "react";
 import { useSearchTermMomQuery } from "@/lib/hooks/queries/use-pivot-reports";
-import { PivotTreeTable } from "./PivotTreeTable";
+import { usePivotReportControls } from "../hooks/use-pivot-report-controls";
+import { PivotReportCard, PivotReportShell, slotTagTypeName } from "./PivotReportShell";
 
+/**
+ * Search Term: tag > customer search term (SP + SB search-term reports). The tag type is locked
+ * to "target-type" by the backend preset. Search terms are rolled up by text across keyword ids.
+ *
+ * NOTE shown to the user: product-targeting rows (match type TARGETING_EXPRESSION) are excluded
+ * by the backend because Amazon puts an ASIN in the search-term column for them, so totals here
+ * are intentionally NOT total spend and will not match other tabs.
+ */
 export function SearchTermMomTab({
   startDate,
   endDate,
@@ -14,42 +22,27 @@ export function SearchTermMomTab({
   endDate: string;
   enabled: boolean;
 }) {
-  const { data, isLoading, isError, error } = useSearchTermMomQuery(startDate, endDate, enabled);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-16 text-sm text-slate-500 shadow-sm">
-        <Loader2 className="size-4 animate-spin" /> Loading...
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 shadow-sm">
-        Couldn&apos;t load Search Term data{error instanceof Error ? `: ${error.message}` : "."}
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const periodLabel = `${data.current_period.start_date} to ${data.current_period.end_date} vs. previous period (${data.previous_period.start_date} to ${data.previous_period.end_date})`;
+  const pageRange = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
+  const controls = usePivotReportControls("search-term-mom", pageRange);
+  const result = useSearchTermMomQuery(controls.query, enabled && controls.canRun);
 
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-1 border-b border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-800">Search Term — Month over Month</h2>
-        <p className="text-xs text-slate-500">{periodLabel}</p>
-      </div>
-      <PivotTreeTable
-        tree={data.tree}
-        rootLabel="Tag"
-        defaultExpandedDepth={0}
-        enableTopLevelFilter
-        enableExport
-        exportFilename="search-term-mom"
-      />
-    </section>
+    <PivotReportShell controls={controls} result={result}>
+      {(data, ui) => (
+        <div className="flex flex-col gap-3">
+          <p className="px-1 text-xs text-slate-500">
+            Keyword-targeting search terms only — product targeting (ASIN) rows are excluded, so totals
+            differ from the other tabs.
+          </p>
+          <PivotReportCard
+            {...ui}
+            title="Search Term — Month over Month"
+            data={data}
+            rootLabel={slotTagTypeName(controls, "Tag")}
+            exportFilename="search-term-mom"
+          />
+        </div>
+      )}
+    </PivotReportShell>
   );
 }

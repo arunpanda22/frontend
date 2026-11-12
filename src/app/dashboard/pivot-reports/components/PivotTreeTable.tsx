@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, ChevronRight, Download, GripVertical } from "lucide-react";
 import { List, type RowComponentProps } from "react-window";
 import { useCurrency } from "@/lib/context/CurrencyContext";
-import type { PivotMetrics, PivotTreeNode } from "@/lib/hooks/queries/use-pivot-reports";
+import type { PivotMetrics, PivotTotals, PivotTreeNode } from "@/lib/hooks/queries/use-pivot-reports";
 import { downloadPivotTreeCsv, downloadPivotTreeXlsx, type ExportColumn } from "@/lib/utils/export-pivot-tree";
 
 interface MetricColumn {
@@ -11,11 +11,15 @@ interface MetricColumn {
   label: string;
   format: "currency" | "number" | "percentage";
   higherIsBetter: boolean;
+  /** Share columns: a delta is informative but neither good nor bad (grey instead of green/red). */
+  neutral?: boolean;
 }
 
 const DEFAULT_COLUMNS: MetricColumn[] = [
   { key: "spend", label: "Spend", format: "currency", higherIsBetter: false },
+  { key: "spend_share", label: "Spend %", format: "percentage", higherIsBetter: true, neutral: true },
   { key: "sales", label: "Sales", format: "currency", higherIsBetter: true },
+  { key: "sales_share", label: "Sales %", format: "percentage", higherIsBetter: true, neutral: true },
   { key: "orders", label: "Orders", format: "number", higherIsBetter: true },
   { key: "acos", label: "ACOS", format: "percentage", higherIsBetter: false },
   { key: "cvr", label: "CVR", format: "percentage", higherIsBetter: true },
@@ -30,12 +34,24 @@ const MIN_NAME_COL_WIDTH = 220;
 const MAX_NAME_COL_WIDTH = 800;
 const NAME_CELL_FONT = "500 14px Inter, ui-sans-serif, system-ui, sans-serif"; // matches font-medium text-sm
 
+type FormatFn = (value: number, format: MetricColumn["format"]) => string;
+
 function percentChange(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
   return (current - previous) / previous;
 }
 
-function DeltaBadge({ current, previous, higherIsBetter }: { current: number; previous: number; higherIsBetter: boolean }) {
+function DeltaBadge({
+  current,
+  previous,
+  higherIsBetter,
+  neutral,
+}: {
+  current: number;
+  previous: number;
+  higherIsBetter: boolean;
+  neutral?: boolean;
+}) {
   const change = percentChange(current, previous);
   if (change === null) return <span className="text-xs text-slate-400">new</span>;
   if (change === 0) return <span className="text-xs text-slate-400">—</span>;
@@ -43,9 +59,10 @@ function DeltaBadge({ current, previous, higherIsBetter }: { current: number; pr
   const isIncrease = change > 0;
   const isGood = isIncrease === higherIsBetter;
   const sign = isIncrease ? "+" : "";
+  const color = neutral ? "text-slate-500" : isGood ? "text-emerald-600" : "text-rose-600";
 
   return (
-    <span className={`text-xs font-medium ${isGood ? "text-emerald-600" : "text-rose-600"}`}>
+    <span className={`text-xs font-medium ${color}`}>
       {sign}
       {(change * 100).toFixed(1)}%
     </span>
@@ -61,7 +78,7 @@ function MetricCell({
   column: MetricColumn;
   current: number;
   previous?: number;
-  formatValue: (value: number, format: MetricColumn["format"]) => string;
+  formatValue: FormatFn;
 }) {
   return (
     <div className="flex-1 px-4 py-2 text-right">
@@ -70,7 +87,12 @@ function MetricCell({
       </div>
       {previous !== undefined && (
         <div className="mt-0.5">
-          <DeltaBadge current={current} previous={previous} higherIsBetter={column.higherIsBetter} />
+          <DeltaBadge
+            current={current}
+            previous={previous}
+            higherIsBetter={column.higherIsBetter}
+            neutral={column.neutral}
+          />
         </div>
       )}
     </div>
@@ -100,10 +122,8 @@ function flattenVisible(tree: PivotTreeNode[], expanded: Set<string>): FlatRow[]
   return rows;
 }
 
-// Measures the actual pixel width the longest visible name would need,
-// including its indent (depth * 24px) and the toggle-icon gutter (~48px),
-// so the column can size itself to fit whatever's currently expanded
-// instead of just filling leftover container space.
+// Measures the pixel width the longest visible name needs (indent + toggle gutter +
+// text + padding) so the name column fits whatever is currently expanded.
 let measureCanvas: HTMLCanvasElement | null = null;
 function measureTextWidth(text: string, font: string): number {
   if (!measureCanvas) measureCanvas = document.createElement("canvas");
@@ -117,9 +137,9 @@ function longestVisibleNameWidth(flatRows: FlatRow[]): number {
   let max = 0;
   for (const row of flatRows) {
     const indent = 20 + row.depth * 24;
-    const iconGutter = 32; // toggle button / spacer width
+    const iconGutter = 32;
     const textWidth = measureTextWidth(row.node.name, NAME_CELL_FONT);
-    const rowPadding = 32; // left+right cell padding (px-5 ~= 20px each side, rounded)
+    const rowPadding = 32;
     max = Math.max(max, indent + iconGutter + textWidth + rowPadding);
   }
   return max;
@@ -131,7 +151,7 @@ interface TreeRowProps {
   toggle: (path: string) => void;
   columns: MetricColumn[];
   template: string;
-  formatValue: (value: number, format: MetricColumn["format"]) => string;
+  formatValue: FormatFn;
 }
 
 function TreeRow({ index, style, flatRows, expanded, toggle, columns, template, formatValue }: RowComponentProps<TreeRowProps>) {
@@ -168,8 +188,39 @@ function TreeRow({ index, style, flatRows, expanded, toggle, columns, template, 
         <MetricCell
           key={column.key}
           column={column}
-          current={current[column.key]}
-          previous={previous?.[column.key]}
+          current={current[column.key] ?? 0}
+          previous={previous ? (previous[column.key] ?? 0) : undefined}
+          formatValue={formatValue}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Pinned "Grand Total" row (Excel's grand total). Computed server-side from fact rows. */
+function TotalsRow({
+  totals,
+  columns,
+  template,
+  formatValue,
+}: {
+  totals: PivotTotals;
+  columns: MetricColumn[];
+  template: string;
+  formatValue: FormatFn;
+}) {
+  return (
+    <div
+      style={{ gridTemplateColumns: template, height: ROW_HEIGHT }}
+      className="grid items-center border-b border-slate-200 bg-slate-50"
+    >
+      <div className="px-5 py-2 text-sm font-semibold text-slate-900">Grand Total</div>
+      {columns.map((column) => (
+        <MetricCell
+          key={column.key}
+          column={column}
+          current={totals.current[column.key] ?? 0}
+          previous={totals.previous ? (totals.previous[column.key] ?? 0) : undefined}
           formatValue={formatValue}
         />
       ))}
@@ -179,6 +230,8 @@ function TreeRow({ index, style, flatRows, expanded, toggle, columns, template, 
 
 export function PivotTreeTable({
   tree,
+  totals,
+  dimmed = false,
   columns = DEFAULT_COLUMNS,
   defaultExpandedDepth = 0,
   rootLabel = "Name",
@@ -187,6 +240,10 @@ export function PivotTreeTable({
   exportFilename = "pivot-report",
 }: {
   tree: PivotTreeNode[];
+  /** When provided, a pinned Grand Total row is shown under the header. */
+  totals?: PivotTotals;
+  /** Pass isPlaceholderData from the query: fades the table while a refetch is in flight. */
+  dimmed?: boolean;
   columns?: MetricColumn[];
   defaultExpandedDepth?: number;
   rootLabel?: string;
@@ -211,8 +268,7 @@ export function PivotTreeTable({
     return () => observer.disconnect();
   }, []);
 
-  // Manual drag override — once set, takes priority over both the
-  // container-fill width AND the content-measured width below.
+  // Manual drag override — once set, takes priority over container-fill and content-measured widths.
   const [manualNameColWidth, setManualNameColWidth] = useState<number | null>(null);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
@@ -256,10 +312,7 @@ export function PivotTreeTable({
   const metricsWidth = columns.length * METRIC_COL_WIDTH;
   const containerFillWidth = Math.max(MIN_NAME_COL_WIDTH, containerWidth - metricsWidth);
 
-  // Re-measured whenever the set of visible rows changes (i.e. every
-  // expand/collapse), so newly-revealed long child names immediately
-  // widen the column instead of being truncated until someone notices
-  // and drags manually.
+  // Re-measured on every expand/collapse so newly revealed long names widen the column.
   const contentWidth = useMemo(() => {
     const measured = longestVisibleNameWidth(flatRows);
     return Math.min(MAX_NAME_COL_WIDTH, Math.max(MIN_NAME_COL_WIDTH, measured));
@@ -284,7 +337,7 @@ export function PivotTreeTable({
         const delta = moveEvent.clientX - resizeStateRef.current.startX;
         const next = Math.min(
           MAX_NAME_COL_WIDTH,
-          Math.max(MIN_NAME_COL_WIDTH, resizeStateRef.current.startWidth + delta)
+          Math.max(MIN_NAME_COL_WIDTH, resizeStateRef.current.startWidth + delta),
         );
         setManualNameColWidth(next);
       }
@@ -296,13 +349,13 @@ export function PivotTreeTable({
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },
-    [manualNameColWidth]
+    [manualNameColWidth],
   );
 
   const rowProps = useMemo<TreeRowProps>(
     () => ({ flatRows, expanded, toggle, columns, template, formatValue }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flatRows, expanded, columns, template]
+    [flatRows, expanded, columns, template],
   );
 
   if (tree.length === 0) {
@@ -314,7 +367,7 @@ export function PivotTreeTable({
   }
 
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className={dimmed ? "opacity-60 transition-opacity" : "transition-opacity"}>
       {(enableTopLevelFilter || enableExport) && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3">
           {enableTopLevelFilter ? (
@@ -369,7 +422,7 @@ export function PivotTreeTable({
                 <div
                   onMouseDown={handleResizeStart}
                   className="group absolute right-0 top-0 flex h-full w-3 -translate-x-1/2 cursor-col-resize items-center justify-center"
-                  style={{ height: LIST_HEIGHT + 48 }}
+                  style={{ height: LIST_HEIGHT + 48 + (totals ? ROW_HEIGHT : 0) }}
                 >
                   <GripVertical className="size-3 text-transparent group-hover:text-slate-400" />
                 </div>
@@ -380,6 +433,7 @@ export function PivotTreeTable({
                 </div>
               ))}
             </div>
+            {totals && <TotalsRow totals={totals} columns={columns} template={template} formatValue={formatValue} />}
             <List
               rowComponent={TreeRow}
               rowCount={flatRows.length}

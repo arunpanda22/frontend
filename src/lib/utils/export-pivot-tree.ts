@@ -1,54 +1,81 @@
 // lib/utils/export-pivot-tree.ts
 import * as XLSX from "xlsx";
-import type { PivotMetrics, PivotTreeNode } from "@/lib/hooks/queries/use-pivot-reports";
+import type { PivotMetrics, PivotTotals, PivotTreeNode } from "@/lib/hooks/queries/use-pivot-reports";
 
 export interface ExportColumn {
   key: keyof PivotMetrics;
   label: string;
 }
 
-// ---- CSV export: unchanged padded "Level N" column format ----
-// (Grouping/outlining is an Excel-only concept — CSV has no equivalent,
-// so this keeps its own flattening logic separate from the xlsx path.)
+const GRAND_TOTAL_LABEL = "Grand Total";
+
+/**
+ * Comparison is "on" iff nodes carry metrics.previous (the backend omits it entirely when
+ * comparison is off). Previous columns are exported only in that case.
+ */
+function hasComparison(tree: PivotTreeNode[], totals?: PivotTotals): boolean {
+  return totals?.previous !== undefined || tree.some((n) => n.metrics.previous !== undefined);
+}
+
+function metricCells(
+  columns: ExportColumn[],
+  current: PivotMetrics,
+  previous: PivotMetrics | undefined,
+  includePrevious: boolean
+): (string | number)[] {
+  return columns.flatMap((c) => {
+    const cur = current[c.key] ?? "";
+    return includePrevious ? [cur, previous?.[c.key] ?? ""] : [cur];
+  });
+}
+
+function metricHeaders(columns: ExportColumn[], includePrevious: boolean): string[] {
+  return columns.flatMap((c) =>
+    includePrevious ? [`${c.label} (Current)`, `${c.label} (Previous)`] : [c.label]
+  );
+}
+
+// ---- CSV export: padded "Level N" columns (grouping/outlining is Excel-only) ----
 
 function flattenTreePadded(
   tree: PivotTreeNode[],
   columns: ExportColumn[],
-  rootLabel: string
+  rootLabel: string,
+  totals?: PivotTotals
 ): { headers: string[]; rows: (string | number)[][] } {
+  const includePrevious = hasComparison(tree, totals);
   let maxDepth = 0;
-  const rows: (string | number)[][] = [];
+  const entries: { path: string[]; metrics: (string | number)[] }[] = [];
+
+  if (totals) {
+    entries.push({
+      path: [GRAND_TOTAL_LABEL],
+      metrics: metricCells(columns, totals.current, totals.previous, includePrevious),
+    });
+  }
 
   function visit(node: PivotTreeNode, depth: number, ancestorPath: string[]) {
     maxDepth = Math.max(maxDepth, depth);
     const path = [...ancestorPath];
     path[depth] = node.name;
-
-    const metricValues = columns.flatMap((col) => [
-      node.metrics.current[col.key],
-      node.metrics.previous?.[col.key] ?? "",
-    ]);
-    rows.push([...path, ...metricValues] as (string | number)[]);
-
+    entries.push({
+      path,
+      metrics: metricCells(columns, node.metrics.current, node.metrics.previous, includePrevious),
+    });
     node.children?.forEach((child) => visit(child, depth + 1, path));
   }
-
   tree.forEach((node) => visit(node, 0, []));
 
-  const paddedRows = rows.map((row) => {
-    const pathLen = row.length - columns.length * 2;
-    const path = row.slice(0, pathLen);
-    const metrics = row.slice(pathLen);
-    while (path.length <= maxDepth) path.push("");
-    return [...path, ...metrics];
+  const rows = entries.map(({ path, metrics }) => {
+    const padded = [...path];
+    while (padded.length <= maxDepth) padded.push("");
+    return [...padded, ...metrics];
   });
 
   const levelHeaders = Array.from({ length: maxDepth + 1 }, (_, i) =>
     i === 0 ? rootLabel : `Level ${i + 1}`
   );
-  const metricHeaders = columns.flatMap((col) => [`${col.label} (Current)`, `${col.label} (Previous)`]);
-
-  return { headers: [...levelHeaders, ...metricHeaders], rows: paddedRows };
+  return { headers: [...levelHeaders, ...metricHeaders(columns, includePrevious)], rows };
 }
 
 function csvEscape(value: string | number): string {
@@ -60,18 +87,17 @@ export function downloadPivotTreeCsv(
   tree: PivotTreeNode[],
   columns: ExportColumn[],
   rootLabel: string,
-  filename: string
+  filename: string,
+  totals?: PivotTotals
 ) {
-  const { headers, rows } = flattenTreePadded(tree, columns, rootLabel);
+  const { headers, rows } = flattenTreePadded(tree, columns, rootLabel, totals);
   const lines = [headers, ...rows].map((row) => row.map(csvEscape).join(","));
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
   triggerDownload(blob, `${filename}.csv`);
 }
 
-// ---- XLSX export: one row per node, indented, with real Excel outline
-// grouping so the sheet opens with only top-level rows visible and the
-// +/- gutter controls let the user expand exactly like the app's tree,
-// matching the original uploaded workbook's collapsed-pivot behavior. ----
+// ---- XLSX export: one row per node, indented, with real Excel outline grouping so the
+// sheet opens with only top-level rows visible (matches the app's collapsed tree). ----
 
 interface FlatXlsxRow {
   depth: number;
@@ -94,44 +120,40 @@ export function downloadPivotTreeXlsx(
   tree: PivotTreeNode[],
   columns: ExportColumn[],
   rootLabel: string,
-  filename: string
+  filename: string,
+  totals?: PivotTotals
 ) {
   const flatRows = flattenTreeForXlsx(tree);
+  const includePrevious = hasComparison(tree, totals);
 
-  const headers = [rootLabel, ...columns.flatMap((c) => [`${c.label} (Current)`, `${c.label} (Previous)`])];
-  const aoa: (string | number)[][] = [headers];
+  const aoa: (string | number)[][] = [[rootLabel, ...metricHeaders(columns, includePrevious)]];
+
+  // Grand Total sits directly under the header (same position as the UI), ungrouped and visible.
+  if (totals) {
+    aoa.push([GRAND_TOTAL_LABEL, ...metricCells(columns, totals.current, totals.previous, includePrevious)]);
+  }
+  const dataStart = aoa.length; // first node row index in the sheet
 
   flatRows.forEach((row) => {
-    // Leading spaces approximate the tree's visual indentation, since
-    // Excel's outline gutter controls (+/-) don't indent cell content —
-    // without this, an expanded child row reads flush-left, identical
-    // to its parent.
+    // Leading spaces approximate tree indentation: Excel's outline +/- gutter does not
+    // indent cell content, so without this a child row reads flush-left like its parent.
     const name = "  ".repeat(row.depth) + row.name;
-    const metricValues = columns.flatMap((c) => [row.current[c.key], row.previous?.[c.key] ?? ""]);
-    aoa.push([name, ...metricValues]);
+    aoa.push([name, ...metricCells(columns, row.current, row.previous, includePrevious)]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{ wch: 44 }];
 
-  // Row 0 is the header (no outline level). Data rows start at index 1.
-  // Excel Web Query/Wire limit is 7 outline levels — this app's trees
-  // never go that deep (max observed: 3, tag -> target -> campaign), so
-  // no clamping is applied, but a much deeper future tree would need one.
-  ws["!rows"] = [{}];
+  // Header (and Grand Total) rows get no outline level. Excel's outline limit is 7 levels;
+  // this app's trees never exceed 3 (tag > target > campaign), so no clamping.
+  ws["!rows"] = Array.from({ length: dataStart }, () => ({}));
   flatRows.forEach((row, i) => {
-    const rowIndex = i + 1;
-    // depth 0 (top-level tag/date/etc.) gets no outlineLevel at all —
-    // confirmed via testing that SheetJS omits the attribute for
-    // level: 0, which is exactly the "ungrouped root row" Excel expects.
-    // Everything below depth 0 starts collapsed (hidden) by default,
-    // matching the original workbook's collapsed-pivot appearance.
-    ws["!rows"]![rowIndex] = { level: row.depth, hidden: row.depth > 0 };
+    // depth 0 gets level 0 (SheetJS omits the attribute: an ungrouped root row);
+    // everything deeper starts collapsed/hidden like a collapsed pivot.
+    ws["!rows"]![dataStart + i] = { level: row.depth, hidden: row.depth > 0 };
   });
 
-  // { above: true } makes the PARENT row the visible "summary" that sits
-  // above its (collapsible) children — matches this tree's layout, where
-  // the tag/date row comes before its target/campaign children, not
-  // after them as a trailing total.
+  // { above: true }: the PARENT row is the visible summary sitting above its children.
   ws["!outline"] = { above: true };
 
   const wb = XLSX.utils.book_new();

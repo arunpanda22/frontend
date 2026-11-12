@@ -1,7 +1,7 @@
 // PivotFilterBar.tsx
 "use client";
 import React, { useState } from "react";
-import { Check, ChevronDown, Filter, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, Filter, Plus, RotateCcw, Search, X } from "lucide-react";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 
 export interface PivotFilterOption {
@@ -13,171 +13,267 @@ export interface PivotFilterDef {
   key: string;
   label: string;
   options: PivotFilterOption[];
-  /** "multi" (default): optional, toggle any number on/off — narrows what's shown.
-   *  "single": exactly one selectable at a time — usually drives the query itself, not just display. */
+  /** "multi" (default): optional, any number selectable. "single": exactly one at a time. */
   mode?: "multi" | "single";
-  /** Only meaningful with mode "single". Blocks deselecting down to zero and is skipped by "Clear all". */
+  /** Only meaningful with mode "single". Can't be deselected and is skipped by "Clear all". */
   required?: boolean;
-  /** Options are still loading (e.g. an API-backed filter like tag types). */
+  /** Options are still loading (API-backed filters). */
   loading?: boolean;
+  /** Shows a small × on the filter button; clicking it calls onRemoveFilter(key). */
+  removable?: boolean;
 }
+
+export interface PivotFilterAddControl {
+  label: string;
+  options: PivotFilterOption[];
+  /** Return the key of the filter that was just added to auto-open its options panel. */
+  onAdd: (value: string) => string | void;
+}
+
+const ADD_PANEL_KEY = "__add__";
+const SEARCH_THRESHOLD = 12;
 
 export function PivotFilterBar({
   filters,
   selected,
   onToggle,
   onClear,
+  addControl,
+  onRemoveFilter,
 }: {
   filters: PivotFilterDef[];
   selected: Record<string, string[]>;
   onToggle: (key: string, value: string) => void;
   onClear: () => void;
+  addControl?: PivotFilterAddControl;
+  onRemoveFilter?: (key: string) => void;
 }) {
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
-  // "Clear all" only counts/clears non-required filters — a required
-  // single-select always has to leave the report with something to query.
-  const clearableCount = Object.entries(selected)
-    .filter(([key]) => !filters.find((f) => f.key === key)?.required)
-    .reduce((sum, [, values]) => sum + values.length, 0);
+  function openPanel(key: string | null) {
+    setActiveKey(key);
+    setSearch("");
+  }
 
-  if (filters.length === 0) return null;
+  if (filters.length === 0 && !addControl) return null;
 
-  return (
-    <section className="mb-5 rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="Filters">
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-[#1a2b3c] text-white">
-            <Filter className="size-4" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-slate-800">Filters</h2>
-            <p className="text-xs text-slate-500">Narrow down what&apos;s shown below</p>
+  const clearableCount = filters.reduce(
+    (sum, f) => (f.required ? sum : sum + (selected[f.key]?.length ?? 0)),
+    0
+  );
+
+  const pills = filters
+    .filter((f) => !f.required)
+    .flatMap((f) =>
+      (selected[f.key] ?? []).map((value) => ({
+        filter: f,
+        value,
+        label: f.options.find((o) => o.value === value)?.label ?? (f.loading ? "…" : "Unknown"),
+      }))
+    );
+
+  function renderPanel() {
+    if (!activeKey) return null;
+
+    if (activeKey === ADD_PANEL_KEY) {
+      if (!addControl) return null;
+      return (
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="mb-2 text-xs text-slate-500">Filter by another dimension</p>
+          <div className="flex flex-wrap gap-2">
+            {addControl.options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  const newKey = addControl.onAdd(option.value);
+                  openPanel(typeof newKey === "string" ? newKey : null);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-[#1a2b3c]/40"
+              >
+                <Plus className="size-3.5 text-slate-400" />
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {filters.map((filter) => {
-            const filterSelected = selected[filter.key] ?? [];
-            const selectedLabel =
-              filter.mode === "single" && filterSelected.length > 0
-                ? filter.options.find((o) => o.value === filterSelected[0])?.label
-                : undefined;
+      );
+    }
 
-            return (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() => setActiveFilter(activeFilter === filter.key ? null : filter.key)}
-                disabled={filter.loading}
-                className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                  activeFilter === filter.key
-                    ? "border-[#1a2b3c] bg-[#1a2b3c] text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <SlidersHorizontal className="size-3.5" />
-                {filter.label}
-                {filter.loading ? (
-                  <span className="text-xs opacity-70">loading…</span>
-                ) : selectedLabel ? (
-                  <span className="max-w-[10rem] truncate text-xs opacity-90">{selectedLabel}</span>
-                ) : (
-                  filterSelected.length > 0 && (
-                    <span className="rounded-full bg-white/20 px-1.5 text-xs">{filterSelected.length}</span>
-                  )
-                )}
-                <ChevronDown className="size-3.5" />
-              </button>
-            );
-          })}
-          {clearableCount > 0 && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="inline-flex h-9 items-center gap-1.5 px-2 text-sm text-slate-500 hover:text-slate-800"
-            >
-              <RotateCcw className="size-3.5" /> Clear all
-            </button>
+    const filter = filters.find((f) => f.key === activeKey);
+    if (!filter) return null;
+
+    if (filter.loading) {
+      return (
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-400">Loading options…</div>
+      );
+    }
+    if (filter.options.length === 0) {
+      return (
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-400">
+          No options available.
+        </div>
+      );
+    }
+
+    const isSingle = filter.mode === "single";
+    const filterSelected = selected[filter.key] ?? [];
+    const query = search.trim().toLowerCase();
+    const visibleOptions = query
+      ? filter.options.filter((o) => o.label.toLowerCase().includes(query))
+      : filter.options;
+
+    return (
+      <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
+        {filter.options.length > SEARCH_THRESHOLD && (
+          <div className="relative mb-3 max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${filter.label.toLowerCase()}…`}
+              className="h-8 w-full rounded-md border border-slate-200 bg-white pl-8 pr-2 text-sm focus:border-[#1a2b3c] focus:outline-none"
+            />
+          </div>
+        )}
+        <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">
+          {visibleOptions.length === 0 ? (
+            <span className="text-sm text-slate-400">No matches.</span>
+          ) : (
+            visibleOptions.map((option) => {
+              const checked = filterSelected.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onToggle(filter.key, option.value)}
+                  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
+                    checked
+                      ? "border-[#1a2b3c] bg-[#1a2b3c]/10 text-[#1a2b3c]"
+                      : "border-slate-200 bg-white hover:border-[#1a2b3c]/40"
+                  }`}
+                >
+                  <span
+                    className={`flex size-4 items-center justify-center border ${
+                      isSingle ? "rounded-full" : "rounded"
+                    } ${checked ? "border-[#1a2b3c] bg-[#1a2b3c] text-white" : "border-slate-300"}`}
+                  >
+                    {checked &&
+                      (isSingle ? <span className="size-1.5 rounded-full bg-white" /> : <Check className="size-3" />)}
+                  </span>
+                  {option.label}
+                </button>
+              );
+            })
           )}
         </div>
       </div>
+    );
+  }
 
-      {activeFilter &&
-        (() => {
-          const filter = filters.find((f) => f.key === activeFilter)!;
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="Filters">
+      <div className="flex flex-wrap items-center gap-2 p-3">
+        <div className="mr-1 flex size-9 items-center justify-center rounded-lg bg-[#1a2b3c] text-white">
+          <Filter className="size-4" />
+        </div>
+
+        {filters.map((filter) => {
+          const isActive = activeKey === filter.key;
           const filterSelected = selected[filter.key] ?? [];
-          const isSingle = filter.mode === "single";
-
-          if (filter.loading) {
-            return (
-              <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-400">
-                Loading options…
-              </div>
-            );
-          }
-
-          if (filter.options.length === 0) {
-            return (
-              <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-400">
-                No options available.
-              </div>
-            );
-          }
+          const singleLabel =
+            filter.mode === "single" && filterSelected.length > 0
+              ? filter.options.find((o) => o.value === filterSelected[0])?.label
+              : undefined;
 
           return (
-            <div className="border-t border-slate-200 bg-slate-50 px-4 py-4">
-              <div className="flex flex-wrap gap-2">
-                {filter.options.map((option) => {
-                  const checked = filterSelected.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => onToggle(filter.key, option.value)}
-                      className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
-                        checked
-                          ? "border-[#1a2b3c] bg-[#1a2b3c]/10 text-[#1a2b3c]"
-                          : "border-slate-200 bg-white hover:border-[#1a2b3c]/40"
-                      }`}
-                    >
-                      <span
-                        className={`flex size-4 items-center justify-center border ${
-                          isSingle ? "rounded-full" : "rounded"
-                        } ${checked ? "border-[#1a2b3c] bg-[#1a2b3c] text-white" : "border-slate-300"}`}
-                      >
-                        {checked && (isSingle ? <span className="size-1.5 rounded-full bg-white" /> : <Check className="size-3" />)}
-                      </span>
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
+            <div
+              key={filter.key}
+              className={`inline-flex h-9 items-stretch overflow-hidden rounded-lg border text-sm font-medium transition ${
+                isActive ? "border-[#1a2b3c] bg-[#1a2b3c] text-white" : "border-slate-200 bg-white text-slate-600"
+              }`}
+            >
+              <button
+                type="button"
+                aria-expanded={isActive}
+                onClick={() => openPanel(isActive ? null : filter.key)}
+                className={`inline-flex items-center gap-2 px-3 ${isActive ? "" : "hover:bg-slate-50"}`}
+              >
+                <span>{filter.label}</span>
+                {filter.loading ? (
+                  <span className="text-xs opacity-70">loading…</span>
+                ) : singleLabel ? (
+                  <span className="max-w-[10rem] truncate text-xs opacity-90">{singleLabel}</span>
+                ) : filterSelected.length > 0 ? (
+                  <span
+                    className={`rounded-full px-1.5 text-xs ${
+                      isActive ? "bg-white/20" : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {filterSelected.length}
+                  </span>
+                ) : null}
+                <ChevronDown className="size-3.5" />
+              </button>
+              {filter.removable && (
+                <button
+                  type="button"
+                  aria-label={`Remove ${filter.label} filter`}
+                  onClick={() => {
+                    if (isActive) openPanel(null);
+                    onRemoveFilter?.(filter.key);
+                  }}
+                  className={`flex items-center border-l px-2 ${
+                    isActive
+                      ? "border-white/20 hover:bg-white/10"
+                      : "border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                  }`}
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
           );
-        })()}
+        })}
 
-      {Object.values(selected).some((v) => v.length > 0) && (
+        {addControl && addControl.options.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={activeKey === ADD_PANEL_KEY}
+            onClick={() => openPanel(activeKey === ADD_PANEL_KEY ? null : ADD_PANEL_KEY)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 text-sm font-medium text-slate-500 hover:border-slate-400 hover:text-slate-700"
+          >
+            <Plus className="size-3.5" /> {addControl.label}
+          </button>
+        )}
+
+        {clearableCount > 0 && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="ml-auto inline-flex h-9 items-center gap-1.5 px-2 text-sm text-slate-500 hover:text-slate-800"
+          >
+            <RotateCcw className="size-3.5" /> Clear all
+          </button>
+        )}
+      </div>
+
+      {renderPanel()}
+
+      {pills.length > 0 && (
         <div className="flex flex-wrap gap-2 border-t border-slate-200 px-4 py-3">
-          {Object.entries(selected).flatMap(([key, values]) => {
-            const def = filters.find((f) => f.key === key);
-            const removable = !(def?.mode === "single" && def?.required);
-            return values.map((value) => {
-              const label = def?.options.find((o) => o.value === value)?.label ?? value;
-              return (
-                <span
-                  key={`${key}-${value}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
-                >
-                  {label}
-                  {removable && (
-                    <button type="button" aria-label={`Remove ${label} filter`} onClick={() => onToggle(key, value)}>
-                      <X className="size-3" />
-                    </button>
-                  )}
-                </span>
-              );
-            });
-          })}
+          {pills.map(({ filter, value, label }) => (
+            <span
+              key={`${filter.key}-${value}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700"
+            >
+              <span className="text-slate-500">{filter.label}:</span> {label}
+              <button type="button" aria-label={`Remove ${label} from ${filter.label}`} onClick={() => onToggle(filter.key, value)}>
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
         </div>
       )}
     </section>
@@ -185,9 +281,11 @@ export function PivotFilterBar({
 }
 
 export function usePivotFilters(filters: PivotFilterDef[], persistKey?: string) {
-  const persisted = usePersistedState<Record<string, string[]>>(persistKey ?? "__unused__", {});
-  const plain = useState<Record<string, string[]>>({});
-  const [selected, setSelected] = persistKey ? persisted : plain;
+  // Both state hooks are always called (rules of hooks); persistKey only
+  // decides which one is used. Pass a literal string, not a changing value.
+  const persisted = usePersistedState<Record<string, string[]>>(persistKey ?? "pivot-filters:unpersisted", {});
+  const local = useState<Record<string, string[]>>({});
+  const [selected, setSelected] = persistKey ? persisted : local;
 
   function onToggle(key: string, value: string) {
     const def = filters.find((f) => f.key === key);
@@ -195,7 +293,6 @@ export function usePivotFilters(filters: PivotFilterDef[], persistKey?: string) 
       const existing = current[key] ?? [];
       if (def?.mode === "single") {
         if (existing[0] === value) {
-          // Clicking the already-selected value: no-op if required, else clear.
           return def.required ? current : { ...current, [key]: [] };
         }
         return { ...current, [key]: [value] };
@@ -205,12 +302,23 @@ export function usePivotFilters(filters: PivotFilterDef[], persistKey?: string) 
     });
   }
 
+  /** Clears every non-required filter's selection. Required filters keep theirs. */
   function onClear() {
     setSelected((current) => {
       const next: Record<string, string[]> = {};
-      for (const [key, values] of Object.entries(current)) {
-        if (filters.find((f) => f.key === key)?.required) next[key] = values;
+      for (const f of filters) {
+        if (f.required && current[f.key]) next[f.key] = current[f.key];
       }
+      return next;
+    });
+  }
+
+  /** Drops one filter's selection entirely (used when a dimension is removed). */
+  function onClearKey(key: string) {
+    setSelected((current) => {
+      if (!(key in current)) return current;
+      const next = { ...current };
+      delete next[key];
       return next;
     });
   }
@@ -220,5 +328,5 @@ export function usePivotFilters(filters: PivotFilterDef[], persistKey?: string) 
     return !values || values.length === 0 || values.includes(value);
   }
 
-  return { selected, onToggle, onClear, isSelected };
+  return { selected, onToggle, onClear, onClearKey, isSelected };
 }
