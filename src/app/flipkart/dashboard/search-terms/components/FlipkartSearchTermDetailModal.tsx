@@ -143,7 +143,7 @@ export default function FlipkartSearchTermDetailModal({
       );
     }
 
-    const daysWithData = data.timeline.filter((day) => day.Impressions > 0 || day.Spend > 0).length;
+    const monthsWithData = data.timeline.filter((bucket) => bucket.Impressions > 0 || bucket.Spend > 0).length;
 
     return (
       <div className="flex flex-col gap-6">
@@ -151,7 +151,7 @@ export default function FlipkartSearchTermDetailModal({
 
         {/* Daily trend */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-800 mb-2">Daily trend</h4>
+          <h4 className="text-sm font-semibold text-gray-800 mb-2">Monthly trend</h4>
           <div className="rounded-lg border border-gray-100 p-3">
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={data.timeline} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
@@ -197,7 +197,7 @@ export default function FlipkartSearchTermDetailModal({
             </ResponsiveContainer>
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
-            Data on {daysWithData} of {data.timeline.length} days in this range. Days without data show as zero.
+            Data for {monthsWithData} of {data.timeline.length} months in this range. Months without data show as zero.
           </p>
         </div>
 

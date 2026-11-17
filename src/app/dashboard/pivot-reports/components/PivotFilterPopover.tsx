@@ -18,6 +18,16 @@
  *
  * Open state is controlled by the parent so a chip click can open the popover on its dimension.
  * Hand-rolled popover (outside click + Escape) to avoid assuming shadcn import paths.
+ *
+ * LAYOUT (viewport-aware — do not revert to a fixed-height, absolutely positioned panel):
+ *   The panel is `position: fixed`, placed from the trigger's bounding rect by computePosition():
+ *     - opens DOWN when there is room, flips UP when there is clearly more room above;
+ *     - max-height = the space available on that side (clamped to MIN/MAX_HEIGHT), so it never
+ *       extends past the window; only the dimension list and the value list scroll;
+ *     - the footer (untagged toggle, Clear all, Apply) is `shrink-0`, so it is ALWAYS visible;
+ *     - left/width are clamped inside the viewport;
+ *     - recomputed on window resize and on scroll of any ancestor (capture phase), so it follows
+ *       the trigger. `fixed` also keeps it from being clipped by an ancestor's overflow.
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Filter, Plus, Search } from "lucide-react";
@@ -26,6 +36,42 @@ import { PIVOT_BLANK_TOKEN } from "@/lib/hooks/queries/use-pivot-reports";
 import type { FilterSelection, PivotFilterDimension } from "../hooks/use-pivot-report-controls";
 
 const SEARCH_THRESHOLD = 10;
+
+// Panel geometry (px)
+const PANEL_MAX_WIDTH = 576; // 36rem
+const EDGE = 12; // minimum distance from the viewport edge
+const GAP = 8; // distance from the trigger button
+const MIN_OPEN_DOWN = 300; // below this much room, consider flipping upward
+const MAX_HEIGHT = 460;
+const MIN_HEIGHT = 200;
+
+interface PanelPosition {
+  /** Exactly one of top / bottom is set (open down / open up). */
+  top?: number;
+  bottom?: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+}
+
+/** Where to put the panel so it fits the viewport, from the trigger's current rect. */
+function computePosition(trigger: HTMLElement): PanelPosition {
+  const rect = trigger.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const width = Math.min(PANEL_MAX_WIDTH, vw - EDGE * 2);
+  const left = Math.min(Math.max(rect.left, EDGE), vw - width - EDGE);
+
+  const below = vh - rect.bottom - GAP - EDGE;
+  const above = rect.top - GAP - EDGE;
+  const openUp = below < MIN_OPEN_DOWN && above > below;
+  const maxHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, openUp ? above : below));
+
+  return openUp
+    ? { bottom: vh - rect.top + GAP, left, width, maxHeight }
+    : { top: rect.bottom + GAP, left, width, maxHeight };
+}
 
 export function PivotFilterPopover({
   dimensions,
@@ -49,11 +95,12 @@ export function PivotFilterPopover({
   onOpenChange: (open: boolean) => void;
   onApply: (next: { selected: FilterSelection; includeUntagged: boolean }) => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null); // wraps ONLY the trigger's box + (fixed) panel
   const [draft, setDraft] = useState<FilterSelection>({});
   const [draftUntagged, setDraftUntagged] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [position, setPosition] = useState<PanelPosition | null>(null);
 
   // Re-seed the draft from committed state each time the popover opens.
   useEffect(() => {
@@ -63,6 +110,24 @@ export function PivotFilterPopover({
     setActiveKey(focusKey ?? dimensions[0]?.key ?? null);
     setSearch("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Keep the panel inside the viewport: compute on open, then follow resize / scroll.
+  useEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    const update = () => {
+      if (rootRef.current) setPosition(computePosition(rootRef.current));
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true); // capture: also fires for scrolling ancestors
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -145,18 +210,26 @@ export function PivotFilterPopover({
         )}
       </button>
 
-      {open && (
+      {open && position && (
         <div
           role="dialog"
           aria-label="Filters"
-          className="absolute left-0 top-full z-30 mt-2 w-[min(36rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          style={{
+            position: "fixed",
+            top: position.top,
+            bottom: position.bottom,
+            left: position.left,
+            width: position.width,
+            maxHeight: position.maxHeight,
+          }}
+          className="z-30 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
         >
           {dimensions.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-slate-400">No filters available for this report.</div>
           ) : (
-            <div className="grid grid-cols-[11rem_1fr]">
+            <div className="flex min-h-0 flex-1">
               {/* Dimensions */}
-              <nav className="max-h-80 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
+              <nav className="w-44 shrink-0 overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-2">
                 {dimensions.map((dim) => {
                   const count = draft[dim.key]?.length ?? 0;
                   const isActive = dim.key === activeKey;
@@ -179,8 +252,8 @@ export function PivotFilterPopover({
               </nav>
 
               {/* Values */}
-              <div className="flex max-h-80 min-w-0 flex-col p-3">
-                <div className="mb-2 flex items-center justify-between">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col p-3">
+                <div className="mb-2 flex shrink-0 items-center justify-between">
                   <p className="truncate text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {activeDim?.label ?? "Select a filter"}
                   </p>
@@ -192,7 +265,7 @@ export function PivotFilterPopover({
                 </div>
 
                 {options.length > SEARCH_THRESHOLD && (
-                  <div className="relative mb-2">
+                  <div className="relative mb-2 shrink-0">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
                     <input
                       value={search}
@@ -229,8 +302,8 @@ export function PivotFilterPopover({
             </div>
           )}
 
-          {/* Footer */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-4 py-3">
+          {/* Footer: always visible (shrink-0) */}
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-slate-100 bg-white px-4 py-3">
             {showUntaggedToggle && (
               <label className="inline-flex items-center gap-2 text-sm text-slate-600">
                 <input

@@ -7,8 +7,7 @@
  *
  * BACKEND CONTRACT (read before changing anything here)
  *   - Every endpoint takes `start_date` and `end_date` (YYYY-MM-DD, inclusive, required) and an optional
- *     `ads_tenant` (FlipkartAdAccount UUID; omitted = the user's oldest active ad account). The one
- *     exception is campaign-options, which takes ONLY `ads_tenant`.
+ *     `ads_tenant` (FlipkartAdAccount UUID; omitted = the user's oldest active ad account).
  *   - Metric keys are capitalised exactly as the backend sends them (Impressions, Clicks, Spend, Units,
  *     Revenue, CTR, CPC, CVR, ROAS, ACOS, ASP, CPM). CTR, CVR and ACOS are 0-100; ROAS is a multiplier;
  *     money is rupees. A zero denominator gives 0, never null.
@@ -92,6 +91,29 @@ export interface FlipkartSearchTermRow extends FlipkartMetrics {
 }
 
 // ---------------------------------------------------------------------------
+// GET /campaign-options/  (campaign filter list)
+// ---------------------------------------------------------------------------
+
+/** Params of the campaign-options endpoint: no dates, the list comes from the CampaignName dimension. */
+export interface FlipkartCampaignOptionsParams {
+  /** FlipkartAdAccount UUID. Omit to use the user's oldest active ad account. */
+  ads_tenant?: string;
+}
+
+export interface FlipkartCampaignOption {
+  campaign_id: string;
+  /** Falls back to the campaign id when there is no name. */
+  campaign_name: string;
+  /** LIVE, PAUSED, ... or "UNKNOWN". */
+  status: string;
+  campaign_type: string;
+}
+
+export interface FlipkartCampaignOptionsResponse {
+  campaigns: FlipkartCampaignOption[];
+}
+
+// ---------------------------------------------------------------------------
 // Request params
 // ---------------------------------------------------------------------------
 
@@ -141,6 +163,12 @@ export interface FlipkartDataDays {
   days_with_data: number;
   /** Calendar days in the period. */
   days_in_range: number;
+  /** Distinct stored periods (calendar months) inside the window. */
+  periods_with_data: number;
+  /** Calendar months whose 1st day lies in the window: what SHOULD be stored for a month-aligned range. */
+  months_in_range: number;
+  /** Stored month-to-date periods (end before the end of their month), oldest first. */
+  partial_periods: { start_date: string; end_date: string }[];
   /** ISO dates of the first / last day that has data, or null when there is none. */
   first_date: string | null;
   last_date: string | null;
@@ -172,6 +200,9 @@ export interface FlipkartSearchTermsSummaryResponse {
     search_term_spend: number;
     /** search_term_spend / campaign_report_spend * 100; 0 when the campaign report has no spend. */
     spend_coverage_pct: number;
+    /** Days the search-term periods cover (the campaign spend is summed over this window); null when no data. */
+    window_start: string | null;
+    window_end: string | null;
   };
   data_days: {
     current_period: FlipkartDataDays;
@@ -245,36 +276,11 @@ export interface FlipkartSearchTermDetailResponse {
 }
 
 // ---------------------------------------------------------------------------
-// GET /campaign-options/  (campaign filter list)
-// ---------------------------------------------------------------------------
-
-/** Query params of the campaign-options endpoint. NO dates: the list comes from the CampaignName dimension. */
-export interface FlipkartCampaignOptionsParams {
-  /** FlipkartAdAccount UUID. Omit to use the user's oldest active ad account. */
-  ads_tenant?: string;
-}
-
-export interface FlipkartCampaignOption {
-  campaign_id: string;
-  /** Falls back to campaign_id when the campaign has no name. */
-  campaign_name: string;
-  /** Flipkart status (LIVE, PAUSED, ...) or "UNKNOWN". */
-  status: string;
-  /** e.g. "BRAND_PLA", or "UNKNOWN". */
-  campaign_type: string;
-}
-
-export interface FlipkartCampaignOptionsResponse {
-  /** Every campaign of the ad account, sorted by name. */
-  campaigns: FlipkartCampaignOption[];
-}
-
-// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 export const flipkartSearchTermsService = {
-  async getCampaignOptions(params: FlipkartCampaignOptionsParams) {
+  async getCampaignOptions(params: FlipkartCampaignOptionsParams = {}) {
     const res = await apiClient.get<unknown>(`${FLIPKART_DASHBOARD_BASE}/campaign-options/`, { params });
     return unwrapResponse<FlipkartCampaignOptionsResponse>(res.data, ["campaigns"], "campaign-options");
   },

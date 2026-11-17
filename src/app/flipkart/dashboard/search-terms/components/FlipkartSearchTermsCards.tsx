@@ -25,7 +25,6 @@
  */
 import React from "react";
 import { MetricsCard, type MetricsCardProps } from "@/components/dashboard/ui";
-import { useDateRange } from "@/lib/context/DateRangeContext";
 import { useFlipkartSearchTermsSummary } from "@/lib/hooks/queries/use-flipkart-search-terms";
 import type { FlipkartMetricKey } from "@/lib/api/services/flipkart-dashboard.service";
 import {
@@ -72,17 +71,24 @@ const CARDS: CardDefinition[] = [
 ];
 
 interface FlipkartSearchTermsCardsProps {
+  /** First day of the first selected month, YYYY-MM-DD (from the month range picker). */
+  startDate: string;
+  /** Last day of the last selected month, YYYY-MM-DD. */
+  endDate: string;
   /** FlipkartAdAccount UUID. Omit to use the user's oldest active ad account. */
   adsTenant?: string;
   campaignId: string | null;
   minClicks: number;
 }
 
-export default function FlipkartSearchTermsCards({ adsTenant, campaignId, minClicks }: FlipkartSearchTermsCardsProps) {
-  const { dateRange } = useDateRange();
+export default function FlipkartSearchTermsCards({
+  startDate,
+  endDate,
+  adsTenant,
+  campaignId,
+  minClicks,
+}: FlipkartSearchTermsCardsProps) {
   const format = useFlipkartFormatters();
-  const startDate = dateRange.startDate || "";
-  const endDate = dateRange.endDate || "";
 
   const { data, isError, error } = useFlipkartSearchTermsSummary(
     buildSearchTermsParams({ startDate, endDate, adsTenant, campaignId, minClicks }),
@@ -117,6 +123,10 @@ export default function FlipkartSearchTermsCards({ adsTenant, campaignId, minCli
       }));
     }
 
+    // No stored data in the previous window: the backend reports +100% against an empty period, so the
+    // change badges are hidden (same rule as the Keywords page).
+    const hasPreviousData = data.data_days.previous_period.periods_with_data > 0;
+
     return CARDS.map((card) => {
       if (card.key === "WastedSpend") {
         return {
@@ -140,8 +150,8 @@ export default function FlipkartSearchTermsCards({ adsTenant, campaignId, minCli
         title: card.title,
         value: formatValue(card.format, current),
         icon: card.icon,
-        change: isNew ? "New" : format.change(change),
-        changeType: toChangeType(isNew || isBetter),
+        change: !hasPreviousData ? undefined : isNew ? "New" : format.change(change),
+        changeType: !hasPreviousData ? undefined : toChangeType(isNew || isBetter),
         bgColor: "bg-white",
         color: card.color,
       };

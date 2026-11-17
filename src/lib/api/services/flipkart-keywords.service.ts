@@ -75,11 +75,22 @@ export interface KeywordBaseParams {
 // keywords/summary/
 // ---------------------------------------------------------------------------------------------------------
 
+/** A stored month-to-date period (it ends before the end of its calendar month). */
+export interface KeywordPartialPeriod {
+  start_date: string;
+  end_date: string;
+}
+
 export interface KeywordDataDays {
-  /** Days covered by the stored monthly periods inside the window (capped at days_in_range). */
+  /** Days covered by the stored monthly periods inside the window (capped at days_in_range). Prefer the month fields. */
   days_with_data: number;
   days_in_range: number;
+  /** Stored months inside the window. */
   periods_with_data: number;
+  /** Months that should be there for a month-aligned window ("data for periods_with_data of months_in_range"). */
+  months_in_range: number;
+  /** Stored month-to-date periods; their totals are incomplete. */
+  partial_periods: KeywordPartialPeriod[];
   first_date: string | null;
   last_date: string | null;
 }

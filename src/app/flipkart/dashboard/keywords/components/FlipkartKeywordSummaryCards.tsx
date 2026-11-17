@@ -13,10 +13,12 @@
  * For cost-type metrics (Spend, CPC, ACOS) a rise is bad, so `lowerIsBetter` flips the colour. The arrow always shows
  * the direction of the number.
  *
- * NO PREVIOUS DATA
- * When the previous window has no stored data (days_with_data = 0) the API reports +100% for everything, which would
- * be misleading, so the badges are hidden and a note says why. When the previous window is covered much less than the
- * current one, an amber note warns that the changes are not like-for-like.
+ * COVERAGE NOTICES (month based)
+ * Keyword data is stored per calendar month, so the notices talk about MONTHS, not days. They come from
+ * buildCoverageNotices() (../../utils/dataCoverageNotices.ts, shared with the Search Terms page), which reads the API's
+ * data_days: missing months ("data for 5 of 6 selected months"), a month-to-date month ("Oct 2026 is month-to-date,
+ * data up to 29 Oct"), no previous data, and an incomplete previous period. When the previous window has no stored data
+ * the change badges are hidden, because the API reports +100% against an empty period.
  */
 import React from "react";
 import {
@@ -33,6 +35,7 @@ import {
 } from "lucide-react";
 import { useKeywordSummary } from "@/lib/hooks/queries/use-flipkart-keywords";
 import type { KeywordMetrics } from "@/lib/api/services/flipkart-keywords.service";
+import { buildCoverageNotices } from "../utils/dataCoverageNotices";
 import { formatChange, formatCount, formatMoney, formatPercent, formatRoas } from "../utils/keywordFormat";
 
 interface FlipkartKeywordSummaryCardsProps {
@@ -62,6 +65,11 @@ const CARDS: CardConfig[] = [
   { key: "ROAS", label: "ROAS", icon: PercentIcon, format: formatRoas },
   { key: "ACOS", label: "ACOS", icon: PercentIcon, format: formatPercent, lowerIsBetter: true },
 ];
+
+const NOTICE_CLASS = {
+  warning: "text-amber-700 bg-amber-50 border-amber-200",
+  info: "text-gray-500 bg-gray-50 border-gray-200",
+} as const;
 
 function ChangeBadge({ change, lowerIsBetter }: { change: number; lowerIsBetter?: boolean }) {
   const isGood = lowerIsBetter ? change <= 0 : change >= 0;
@@ -108,12 +116,12 @@ export default function FlipkartKeywordSummaryCards({
   }
 
   const current = data.current_period;
-  const currentDays = data.data_days.current_period;
-  const previousDays = data.data_days.previous_period;
-
-  const hasCurrentData = currentDays.periods_with_data > 0;
-  const hasPreviousData = previousDays.days_with_data > 0;
-  const previousCoverageLow = hasPreviousData && previousDays.days_with_data < currentDays.days_with_data * 0.8;
+  const { hasCurrentData, hasPreviousData, notices } = buildCoverageNotices(
+    data.data_days.current_period,
+    data.data_days.previous_period,
+    data.period,
+    "keyword",
+  );
 
   return (
     <div className="space-y-3">
@@ -137,23 +145,11 @@ export default function FlipkartKeywordSummaryCards({
         })}
       </div>
 
-      {!hasCurrentData && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          No keyword data is stored for the selected months yet.
+      {notices.map((notice) => (
+        <p key={notice.message} className={`text-xs border rounded-lg px-3 py-2 ${NOTICE_CLASS[notice.tone]}`}>
+          {notice.message}
         </p>
-      )}
-      {hasCurrentData && !hasPreviousData && (
-        <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-          There is no keyword data for the previous period ({data.period.previous_start} to {data.period.previous_end}),
-          so the changes are not shown.
-        </p>
-      )}
-      {previousCoverageLow && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          The previous period has data for {previousDays.days_with_data} days against {currentDays.days_with_data} in the
-          selected period, so the changes are not like-for-like.
-        </p>
-      )}
+      ))}
     </div>
   );
 }

@@ -16,15 +16,16 @@ interface MetricColumn {
 }
 
 const DEFAULT_COLUMNS: MetricColumn[] = [
+  { key: "impressions", label: "Impressions", format: "number", higherIsBetter: true },
+  { key: "clicks", label: "Clicks", format: "number", higherIsBetter: true },
+  { key: "ctr", label: "CTR %", format: "percentage", higherIsBetter: true },
   { key: "spend", label: "Spend", format: "currency", higherIsBetter: false },
   { key: "spend_share", label: "Spend %", format: "percentage", higherIsBetter: true, neutral: true },
   { key: "sales", label: "Sales", format: "currency", higherIsBetter: true },
   { key: "sales_share", label: "Sales %", format: "percentage", higherIsBetter: true, neutral: true },
   { key: "orders", label: "Orders", format: "number", higherIsBetter: true },
-  { key: "acos", label: "ACOS", format: "percentage", higherIsBetter: false },
   { key: "cvr", label: "CVR", format: "percentage", higherIsBetter: true },
-  { key: "impressions", label: "Impressions", format: "number", higherIsBetter: true },
-  { key: "clicks", label: "Clicks", format: "number", higherIsBetter: true },
+  { key: "acos", label: "ACOS", format: "percentage", higherIsBetter: false },
 ];
 
 const ROW_HEIGHT = 56;
@@ -145,11 +146,14 @@ function measureTextWidth(text: string, font: string): number {
 function longestVisibleNameWidth(flatRows: FlatRow[]): number {
   let max = 0;
   for (const row of flatRows) {
+    const product = row.node.product;
+    const label = product?.title || row.node.name;
+    const thumb = product?.image_url ? THUMB_GUTTER : 0;
     const indent = 20 + row.depth * 24;
     const iconGutter = 32;
-    const textWidth = measureTextWidth(row.node.name, NAME_CELL_FONT);
+    const textWidth = measureTextWidth(label, NAME_CELL_FONT);
     const rowPadding = 32;
-    max = Math.max(max, indent + iconGutter + textWidth + rowPadding);
+    max = Math.max(max, indent + iconGutter + thumb + textWidth + rowPadding);
   }
   return max;
 }
@@ -186,12 +190,7 @@ function TreeRow({ index, style, flatRows, expanded, toggle, columns, template, 
         ) : (
           <span className="mr-2 size-6 shrink-0" />
         )}
-        <span
-          title={node.name}
-          className={`truncate font-medium ${depth === 0 ? "text-slate-900" : "text-slate-700"}`}
-        >
-          {node.name}
-        </span>
+        <NodeLabel node={node} depth={depth} />
       </div>
       {columns.map((column) => (
         <MetricCell
@@ -234,6 +233,88 @@ function TotalsRow({
         />
       ))}
     </div>
+  );
+}
+
+const THUMB_GUTTER = 52; // 40px thumbnail + 12px margin; used when measuring the name column
+
+/** Small product image. Renders nothing if the URL fails to load (no broken-image icon). */
+function ProductThumb({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="mr-3 size-10 shrink-0 rounded-md border border-slate-200 bg-slate-50 object-contain"
+    />
+  );
+}
+
+// Single storefront for now. If you ever add marketplaces, make this per-tenant instead.
+const AMAZON_DOMAIN = "amazon.in";
+const ASIN_TARGET_RE = /^\s*asin(-expanded)?\s*=\s*"([A-Za-z0-9]{10})"\s*$/i;
+const amazonProductUrl = (asin: string) => `https://www.${AMAZON_DOMAIN}/dp/${asin.toUpperCase()}`;
+
+/**
+ * Name cell content.
+ *  - Enriched ASIN target: [thumbnail] title + small line with the ASIN as a link.
+ *  - ASIN target not in the catalog yet: the raw `asin="..."` text, as a link.
+ *  - Everything else (keywords, brands, campaigns, search terms): plain name, exactly as before.
+ * Links open the Amazon product page in a new tab.
+ */
+function NodeLabel({ node, depth }: { node: PivotTreeNode; depth: number }) {
+  const color = depth === 0 ? "text-slate-900" : "text-slate-700";
+  const product = node.product;
+  const asinMatch = node.level === "entity" ? ASIN_TARGET_RE.exec(node.name) : null;
+
+  if (!product || (!product.title && !product.image_url)) {
+    if (asinMatch) {
+      return (
+        <a
+          href={amazonProductUrl(asinMatch[2])}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open ${asinMatch[2].toUpperCase()} on Amazon`}
+          className="truncate font-medium text-sky-600 hover:underline"
+        >
+          {node.name}
+        </a>
+      );
+    }
+    return (
+      <span title={node.name} className={`truncate font-medium ${color}`}>
+        {node.name}
+      </span>
+    );
+  }
+
+  const label = product.title || node.name;
+  return (
+    <>
+      {product.image_url && <ProductThumb src={product.image_url} alt={label} />}
+      <div className="min-w-0 leading-tight">
+        <div title={label} className={`truncate font-medium ${color}`}>
+          {label}
+        </div>
+        <div className="truncate font-mono text-[11px] text-slate-400">
+          {product.expanded ? "Similar to " : ""}
+          <a
+            href={amazonProductUrl(product.asin)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Open ${product.asin} on Amazon`}
+            className="text-sky-600 hover:underline"
+          >
+            {product.asin}
+          </a>
+        </div>
+      </div>
+    </>
   );
 }
 

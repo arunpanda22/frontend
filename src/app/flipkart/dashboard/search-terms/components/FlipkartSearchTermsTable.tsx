@@ -27,7 +27,6 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Search } from "lucide-react";
-import { useDateRange } from "@/lib/context/DateRangeContext";
 import { useFlipkartSearchTermsTable } from "@/lib/hooks/queries/use-flipkart-search-terms";
 import {
   SEARCH_TERM_CLASSIFICATIONS,
@@ -42,6 +41,10 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const SEARCH_DEBOUNCE_MS = 400;
 
 interface FlipkartSearchTermsTableProps {
+  /** First day of the first selected month, YYYY-MM-DD (from the month range picker). */
+  startDate: string;
+  /** Last day of the last selected month, YYYY-MM-DD. */
+  endDate: string;
   adsTenant?: string;
   campaignId: string | null;
   minClicks: number;
@@ -86,6 +89,8 @@ function SortIcon({ active, order }: { active: boolean; order: SortOrder }) {
 }
 
 export default function FlipkartSearchTermsTable({
+  startDate,
+  endDate,
   adsTenant,
   campaignId,
   minClicks,
@@ -93,10 +98,7 @@ export default function FlipkartSearchTermsTable({
   onClassificationChange,
   onSelectTerm,
 }: FlipkartSearchTermsTableProps) {
-  const { dateRange } = useDateRange();
   const format = useFlipkartFormatters();
-  const startDate = dateRange.startDate || "";
-  const endDate = dateRange.endDate || "";
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");

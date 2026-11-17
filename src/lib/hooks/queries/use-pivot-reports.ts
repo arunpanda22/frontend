@@ -267,6 +267,14 @@ export interface PivotMetrics {
   sales_share?: number
 }
 
+export interface PivotProduct {
+  asin: string
+  title: string | null
+  image_url: string | null
+  /** true for asin-expanded="..." targets (Amazon targets products SIMILAR to this ASIN). */
+  expanded: boolean
+}
+
 /** `month` / `date` appear only in the Summary preset. */
 export type PivotNodeLevel = 'tag' | 'campaign' | 'entity' | 'month' | 'date'
 
@@ -281,6 +289,7 @@ export interface PivotTreeNode {
   tag_type_id?: string
   name: string
   metrics: PivotNodeMetrics
+  product?: PivotProduct
   children?: PivotTreeNode[]
 }
 

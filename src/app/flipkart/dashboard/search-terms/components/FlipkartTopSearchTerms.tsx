@@ -14,7 +14,6 @@
  * terms that already earned keyword-attributed traffic (already_targeted).
  */
 import React from "react";
-import { useDateRange } from "@/lib/context/DateRangeContext";
 import { useFlipkartSearchTermsTop } from "@/lib/hooks/queries/use-flipkart-search-terms";
 import type { FlipkartSearchTermRow } from "@/lib/api/services/flipkart-search-terms.service";
 import { useFlipkartFormatters } from "./flipkart-search-terms-utils";
@@ -111,6 +110,10 @@ function RankedPanel({
 }
 
 interface FlipkartTopSearchTermsProps {
+  /** First day of the first selected month, YYYY-MM-DD (from the month range picker). */
+  startDate: string;
+  /** Last day of the last selected month, YYYY-MM-DD. */
+  endDate: string;
   adsTenant?: string;
   campaignId: string | null;
   minClicks: number;
@@ -119,15 +122,14 @@ interface FlipkartTopSearchTermsProps {
 }
 
 export default function FlipkartTopSearchTerms({
+  startDate,
+  endDate,
   adsTenant,
   campaignId,
   minClicks,
   onSelectTerm,
 }: FlipkartTopSearchTermsProps) {
-  const { dateRange } = useDateRange();
   const format = useFlipkartFormatters();
-  const startDate = dateRange.startDate || "";
-  const endDate = dateRange.endDate || "";
 
   const { data, isLoading, isError } = useFlipkartSearchTermsTop(
     {

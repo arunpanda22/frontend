@@ -21,7 +21,6 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
-import { useDateRange } from "@/lib/context/DateRangeContext";
 import { useFlipkartSearchTermsSummary } from "@/lib/hooks/queries/use-flipkart-search-terms";
 import type { SearchTermClassification } from "@/lib/api/services/flipkart-search-terms.service";
 import {
@@ -36,6 +35,10 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false })
 const CARD_CLASS = "w-full rounded-2xl bg-white shadow-lg flex flex-col transition-all duration-300 animate-fadein";
 
 interface FlipkartSearchTermClassificationChartProps {
+  /** First day of the first selected month, YYYY-MM-DD (from the month range picker). */
+  startDate: string;
+  /** Last day of the last selected month, YYYY-MM-DD. */
+  endDate: string;
   adsTenant?: string;
   campaignId: string | null;
   minClicks: number;
@@ -45,16 +48,15 @@ interface FlipkartSearchTermClassificationChartProps {
 }
 
 export default function FlipkartSearchTermClassificationChart({
+  startDate,
+  endDate,
   adsTenant,
   campaignId,
   minClicks,
   selected,
   onSelect,
 }: FlipkartSearchTermClassificationChartProps) {
-  const { dateRange } = useDateRange();
   const format = useFlipkartFormatters();
-  const startDate = dateRange.startDate || "";
-  const endDate = dateRange.endDate || "";
 
   const { data, isLoading, isError } = useFlipkartSearchTermsSummary(
     buildSearchTermsParams({ startDate, endDate, adsTenant, campaignId, minClicks }),

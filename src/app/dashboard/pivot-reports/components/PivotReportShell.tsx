@@ -38,15 +38,15 @@ import { fromIsoDate } from "./PivotDateRangeModal";
 import { PivotTreeTable } from "./PivotTreeTable";
 
 const EXPORT_COLUMNS: ExportColumn[] = [
-  { key: "spend", label: "Spend" },
-  { key: "spend_share", label: "Spend %" },
-  { key: "sales", label: "Sales" },
-  { key: "sales_share", label: "Sales %" },
-  { key: "orders", label: "Orders" },
-  { key: "acos", label: "ACOS" },
-  { key: "cvr", label: "CVR" },
   { key: "impressions", label: "Impressions" },
   { key: "clicks", label: "Clicks" },
+  { key: "sales", label: "Sales" },
+  { key: "spend", label: "Spend" },
+  { key: "orders", label: "Orders" },
+  { key: "spend_share", label: "Spend %" },
+  { key: "sales_share", label: "Sales %" },
+  { key: "acos", label: "ACOS" },
+  { key: "cvr", label: "CVR" },
 ];
 
 const fmtDate = (iso: string) =>

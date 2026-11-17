@@ -22,8 +22,12 @@
  * converts it with monthRangeToDates(): the 1st of the first month to the last day of the last month. The components
  * receive plain startDate / endDate props, so they do not depend on DateRangeProvider.
  *
- * DEFAULT: the last 6 months. That leaves another 6 months of history for the previous-period comparison of the summary
- * cards (the previous window is the same number of whole months before the selection; the pull keeps 12 months).
+ * COMPLETE MONTHS ONLY
+ * The picker offers complete months only (see INCLUDE_CURRENT_MONTH in utils/keywordDates.ts): the current month is
+ * month-to-date, so early in a month it holds a few days and every comparison looks like a collapse. The default range is
+ * the last DEFAULT_MONTHS complete months, ending last month. That also leaves history for the previous-period comparison
+ * of the summary cards (the previous window is the same number of whole months before the selection; the pull keeps about
+ * 12 months).
  *
  * REQUIREMENTS (provided by the app, not by this file)
  *   - The React Query provider above this page. The page needs no CurrencyProvider: money is formatted in rupees by
@@ -41,12 +45,19 @@ import FlipkartKeywordTrends from "./components/FlipkartKeywordTrends";
 import FlipkartKeywordFunnel from "./components/FlipkartKeywordFunnel";
 import FlipkartKeywordCampaignList from "./components/FlipkartKeywordCampaignList";
 import { useKeywordSummary } from "@/lib/hooks/queries/use-flipkart-keywords";
-import { formatMonthRange, lastMonthsRange, monthRangeToDates, type MonthRange } from "./utils/keywordDates";
+import {
+  INCLUDE_CURRENT_MONTH,
+  formatMonthRange,
+  lastMonthsRange,
+  monthRangeToDates,
+  type MonthRange,
+} from "./utils/keywordDates";
 import { formatCount } from "./utils/keywordFormat";
 
 /** See "AD ACCOUNT" in the file header. */
 const ADS_TENANT: string | undefined = undefined;
 
+/** Months selected when the page opens (complete months, ending last month). */
 const DEFAULT_MONTHS = 6;
 
 export default function FlipkartKeywordsPage() {
@@ -70,6 +81,7 @@ export default function FlipkartKeywordsPage() {
             <h1 className="text-xl font-bold text-gray-900">🔑 Keyword Insights</h1>
             <p className="text-xs text-gray-400 mt-0.5">
               {formatMonthRange(monthRange)}
+              {!INCLUDE_CURRENT_MONTH && <span> · complete months only</span>}
               {summary && (
                 <span>
                   {" "}
